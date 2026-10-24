@@ -1,10 +1,10 @@
-# AVAS Routing Tool Implementation Plan
+# AVAS Routing Tool: Phase 1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Recreate the BlueRiver AV Manager (BAVM) with a superior visual drag-and-drop routing UI/UX and live video previews for Advantech AVAS-223 transceivers, while preserving 100% of BAVM functionality intact via an embedded WebView2 console.
+**Goal:** Build the AVAS Routing Tool desktop application (Approach A: Native Visual Router as primary interface + embedded full BAVM web console in WebView2), featuring live TX video previews, 3-tier visual canvas, and drag-and-drop Single View video routing for Advantech AVAS-223 transceivers.
 
-**Architecture:** A native C# .NET 8 WPF desktop application featuring a 3-tier visual canvas (Sources top row, Displays middle row, Layouts bottom row) powered by a concurrent UDP 5000/5004 RFC 4175 RTP demux receiver, alongside an isolated Microsoft WebView2 tab embedding the official BAVM web management interface.
+**Architecture:** A native C# .NET 8 WPF application with a dual-mode shell. Mode 1 is an interactive 3-tier Visual Routing Canvas (Sources top row, Displays middle row, Layouts bottom row) backed by a high-throughput UDP 5004/5000 RFC 4175 RTP demux receiver rendering directly to GPU WriteableBitmaps. Mode 2 is an embedded Microsoft WebView2 browser control hosting the official BAVM web application with persistent configurable URL.
 
 **Tech Stack:** C# .NET 8 (`net8.0-windows`), WPF, Microsoft.Web.WebView2, System.Net.Sockets, xUnit, FluentAssertions, Moq.
 
@@ -14,20 +14,22 @@
 
 ## Global Constraints
 
-* **Platform Floor**: Windows 10/11 x64, .NET 8.0 SDK installed.
-* **Target Hardware**: Advantech AVAS-223 (Vendor ID: 105, Product ID: 81) with dual AVP2000 chips.
-* **Control Server Interface**: TCP 6970 JSON-RPC / Telnet (`require api 3.0.0.0`) and REST API on port 8080/9200.
-* **Multicast Pool**: Strictly dynamic Class D allocation between `225.0.0.1` and `225.0.1.254`.
-* **Zero Memory Leaks**: Direct `WriteableBitmap.BackBuffer` updating without GDI+ allocations; deterministic socket teardown via `0.0.0.0` control nullification and `DropMulticastGroup`.
-* **Memory Integrity**: All changes must be tracked in `memory/active_context.md` and `memory/progress.md`.
+* **Platform Floor**: Windows 10/11 x64, .NET 8.0 SDK.
+* **BAVM URL Persistence**: Configurable BAVM URL (defaults to `http://localhost:80`), persisted to `appsettings.json` and remembered across sessions.
+* **Synchronized Control Server IP**: Control Server IP is derived automatically from the BAVM URL host; Telnet port (default 6970) and REST port (default 8080) are configurable.
+* **Strict Device Naming**: Displays (RX) and Sources (TX) strictly display the **Device Name** as set in BAVM (no raw EDID sink names).
+* **Phase 1 Routing Scope**: **Video Routing ONLY** (`join <rx>:HDMI:0 <tx>:HDMI:0`). Audio and USB-KVM routing are left to the original BAVM console.
+* **Zero GDI+ Leaks**: Live video frames are written directly to `WriteableBitmap.BackBuffer` without GDI+ bitmap instantiation.
+* **Multicast Range**: Class D pool strictly allocated between `225.0.0.1` and `225.0.1.254`.
+* **Memory Integrity**: All changes tracked in `memory/active_context.md` and `memory/progress.md`.
 
 ## Review Focus
 
-1. **WSAEADDRINUSE (Error 10048)**: Rapidly cycling preview streams must never throw port collision exceptions because all UDP sockets explicitly set `SocketOptionName.ReuseAddress = true`.
-2. **Switch Multicast Flooding**: Stopping or unrouting a stream must issue both the control nullification (`set <mac> stream HDMI 1 enable false address 0.0.0.0`) and the host IGMP drop (`DropMulticastGroup`).
-3. **UI Thread Affinity**: All socket and notification callbacks must marshal property changes to the UI thread via `Dispatcher` to prevent `InvalidOperationException`.
-4. **Drag-and-Drop Reliability**: Dropping a Source TX onto a Display RX must execute Video, Audio, and USB HID routes atomically and reflect active connection state visually.
-5. **BAVM WebView2 Isolation**: The embedded BAVM browser tab must utilize an isolated local `WebView2_UserData` folder and gracefully handle offline states.
+1. **WSAEADDRINUSE (Error 10048)**: All UDP sockets must set `SocketOptionName.ReuseAddress = true` before calling `Bind()` to allow rapid start/stop preview cycles.
+2. **Switch Multicast Flooding**: Teardown must issue both control nullification (`set <mac> stream HDMI 1 enable false address 0.0.0.0`) and host IGMP drop (`DropMulticastGroup`).
+3. **UI Thread Marshalling**: All socket callbacks and asynchronous notifications must dispatch property changes to the WPF `DispatcherQueue`.
+4. **Drag-and-Drop Reliability**: Dropping a Source TX onto a Display RX must execute `join <rx>:HDMI:0 <tx>:HDMI:0` and immediately reflect active routing state on the Display card.
+5. **BAVM Web Isolation**: WebView2 must use an isolated portable `WebView2_UserData` directory and provide an offline banner with retry options if BAVM is unreachable.
 
 ---
 
@@ -65,34 +67,35 @@ AVAS-Routing-Tool/
 │       │   ├── LayoutsBarView.xaml / LayoutsBarView.xaml.cs
 │       │   └── SettingsDialog.xaml / SettingsDialog.xaml.cs
 │       └── Resources/
+│           ├── Theme.xaml
 │           └── Icons.xaml
 └── tests/
     └── AvasRoutingTool.Tests/
         ├── AvasRoutingTool.Tests.csproj
         ├── ConfigServiceTests.cs
         ├── MulticastIpManagerTests.cs
-        ├── SdvoeClientTests.cs
-        ├── RoutingOrchestratorTests.cs
         ├── Yuv422RasterizerTests.cs
-        └── UnifiedRtpDemuxReceiverTests.cs
+        ├── SdvoeClientTests.cs
+        └── RoutingOrchestratorTests.cs
 ```
 
 ---
 
-### Task 1: Scaffold Solution & Test Infrastructure
+### Task 1: Scaffolding, Models & Persistent Configuration
 
 **Files:**
-- Create: `src/AvasRoutingTool/AvasRoutingTool.csproj`
-- Create: `tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`
 - Create: `AvasRoutingTool.sln`
+- Create: `src/AvasRoutingTool/AvasRoutingTool.csproj`
 - Create: `src/AvasRoutingTool/Configuration/AppConfig.cs`
 - Create: `src/AvasRoutingTool/Configuration/ConfigService.cs`
+- Create: `src/AvasRoutingTool/Sdvoe/AvasDevice.cs`
+- Create: `tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`
 - Test: `tests/AvasRoutingTool.Tests/ConfigServiceTests.cs`
 
 **Interfaces:**
-- Produces: `AppConfig`, `IConfigService` (methods: `Load()`, `Save(AppConfig)`)
+- Produces: `AppConfig` (`BavmUrl`, `DerivedControlServerIp`, `TelnetPort`, `RestPort`, `MulticastStartIp`, `MulticastEndIp`, `BasePort`), `ConfigService`, `AvasDevice`
 
-- [ ] **Step 1: Write the failing test for ConfigService**
+- [ ] **Step 1: Write failing test for ConfigService and DerivedControlServerIp**
 
 ```csharp
 // tests/AvasRoutingTool.Tests/ConfigServiceTests.cs
@@ -105,41 +108,30 @@ namespace AvasRoutingTool.Tests
     public class ConfigServiceTests
     {
         [Fact]
-        public void Load_WhenFileDoesNotExist_ReturnsDefaultConfig()
+        public void AppConfig_DerivedControlServerIp_ExtractsHostFromBavmUrl()
         {
-            string tempFile = Path.Combine(Path.GetTempPath(), $"cfg_test_{System.Guid.NewGuid()}.json");
+            var config = new AppConfig { BavmUrl = "http://192.168.1.200:80" };
+            Assert.Equal("192.168.1.200", config.DerivedControlServerIp);
+
+            config.BavmUrl = "http://avas-server:8080/spa";
+            Assert.Equal("avas-server", config.DerivedControlServerIp);
+        }
+
+        [Fact]
+        public void Load_WhenFileDoesNotExist_ReturnsDefaultsAndPersists()
+        {
+            string tempFile = Path.Combine(Path.GetTempPath(), $"cfg_{System.Guid.NewGuid()}.json");
             try
             {
                 var service = new ConfigService(tempFile);
                 var config = service.Load();
 
                 Assert.NotNull(config);
-                Assert.Equal("127.0.0.1", config.ControlServerIp);
+                Assert.Equal("http://localhost:80", config.BavmUrl);
+                Assert.Equal("localhost", config.DerivedControlServerIp);
                 Assert.Equal(6970, config.TelnetPort);
                 Assert.Equal(8080, config.RestPort);
-                Assert.Equal("225.0.0.1", config.MulticastStartIp);
-                Assert.Equal("225.0.1.254", config.MulticastEndIp);
-                Assert.Equal("http://localhost:80", config.BavmUrl);
-            }
-            finally
-            {
-                if (File.Exists(tempFile)) File.Delete(tempFile);
-            }
-        }
-
-        [Fact]
-        public void Save_PersistsChangesAndLoadsBack()
-        {
-            string tempFile = Path.Combine(Path.GetTempPath(), $"cfg_test_{System.Guid.NewGuid()}.json");
-            try
-            {
-                var service = new ConfigService(tempFile);
-                var config = new AppConfig { ControlServerIp = "10.32.32.100", RestPort = 9200 };
-                service.Save(config);
-
-                var loaded = service.Load();
-                Assert.Equal("10.32.32.100", loaded.ControlServerIp);
-                Assert.Equal(9200, loaded.RestPort);
+                Assert.True(File.Exists(tempFile));
             }
             finally
             {
@@ -150,9 +142,8 @@ namespace AvasRoutingTool.Tests
 }
 ```
 
-- [ ] **Step 2: Scaffold .NET solution, projects, and run test to verify failure**
+- [ ] **Step 2: Scaffold .NET solution and verify test failure**
 
-Run:
 ```powershell
 dotnet new sln -n AvasRoutingTool
 dotnet new wpf -n AvasRoutingTool -o src/AvasRoutingTool -f net8.0-windows
@@ -162,25 +153,42 @@ dotnet sln add tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj
 dotnet add tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj reference src/AvasRoutingTool/AvasRoutingTool.csproj
 dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj
 ```
-Expected: FAIL with missing `ConfigService` / `AppConfig`.
+Expected: FAIL with missing classes.
 
-- [ ] **Step 3: Implement AppConfig and ConfigService**
+- [ ] **Step 3: Implement AppConfig, ConfigService, and AvasDevice**
 
 ```csharp
 // src/AvasRoutingTool/Configuration/AppConfig.cs
+using System;
+
 namespace AvasRoutingTool.Configuration
 {
     public class AppConfig
     {
-        public string ControlServerIp { get; set; } = "127.0.0.1";
+        public string BavmUrl { get; set; } = "http://localhost:80";
         public int TelnetPort { get; set; } = 6970;
         public int RestPort { get; set; } = 8080;
         public string MulticastStartIp { get; set; } = "225.0.0.1";
         public string MulticastEndIp { get; set; } = "225.0.1.254";
         public int BasePort { get; set; } = 5004;
         public string LocalNetworkInterfaceIp { get; set; } = "";
-        public string BavmUrl { get; set; } = "http://localhost:80";
         public string Theme { get; set; } = "Dark";
+
+        public string DerivedControlServerIp
+        {
+            get
+            {
+                try
+                {
+                    if (Uri.TryCreate(BavmUrl, UriKind.Absolute, out var uri))
+                    {
+                        return uri.Host;
+                    }
+                }
+                catch { }
+                return "127.0.0.1";
+            }
+        }
     }
 }
 ```
@@ -243,31 +251,56 @@ namespace AvasRoutingTool.Configuration
 }
 ```
 
+```csharp
+// src/AvasRoutingTool/Sdvoe/AvasDevice.cs
+namespace AvasRoutingTool.Sdvoe
+{
+    public class AvasDevice
+    {
+        public string DeviceId { get; set; } = string.Empty; // MAC Address
+        public string DeviceName { get; set; } = string.Empty; // Strict BAVM Device Name
+        public string IpAddress { get; set; } = string.Empty;
+        public string Model { get; set; } = "AVAS-223";
+        public int VendorId { get; set; } = 105;
+        public int ProductId { get; set; } = 81;
+        public int ChipId { get; set; } = 0;
+        public bool IsTransmitter { get; set; }
+        public bool IsReceiver { get; set; }
+        public bool IsActive { get; set; } = true;
+        public string ActiveSourceId { get; set; } = string.Empty; // For RX: currently routed TX MAC
+        public string ActiveSourceName { get; set; } = string.Empty; // For RX: currently routed TX DeviceName
+        public string MulticastIp { get; set; } = string.Empty;
+        public int MulticastPort { get; set; } = 5004;
+        public double FramesPerSecond { get; set; }
+        public string Resolution { get; set; } = "1080p60";
+    }
+}
+```
+
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`  
-Expected: PASS (2 passed).
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add .
-git commit -m "feat(scaffold): initialize .NET 8 solution and implement ConfigService"
+git commit -m "feat(scaffold): initialize .NET 8 solution and implement AppConfig with derived host IP"
 ```
 
 ---
 
-### Task 2: Multicast IP Pool Manager & SDVoE Device Model
+### Task 2: Multicast IP Pool Manager
 
 **Files:**
-- Create: `src/AvasRoutingTool/Sdvoe/AvasDevice.cs`
 - Create: `src/AvasRoutingTool/Sdvoe/MulticastIpManager.cs`
 - Test: `tests/AvasRoutingTool.Tests/MulticastIpManagerTests.cs`
 
 **Interfaces:**
-- Produces: `AvasDevice`, `MulticastIpManager` (`AllocateIp(string mac)`, `ReleaseIp(string mac)`)
+- Produces: `MulticastIpManager` (`AllocateIp(string mac)`, `ReleaseIp(string mac)`)
 
-- [ ] **Step 1: Write failing tests for MulticastIpManager**
+- [ ] **Step 1: Write failing test for MulticastIpManager**
 
 ```csharp
 // tests/AvasRoutingTool.Tests/MulticastIpManagerTests.cs
@@ -318,136 +351,27 @@ namespace AvasRoutingTool.Tests
 - [ ] **Step 2: Run test to verify failure**
 
 Run: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`  
-Expected: FAIL with "MulticastIpManager does not exist".
+Expected: FAIL with missing `MulticastIpManager`.
 
-- [ ] **Step 3: Implement AvasDevice and MulticastIpManager**
+- [ ] **Step 3: Implement MulticastIpManager**
 
-```csharp
-// src/AvasRoutingTool/Sdvoe/AvasDevice.cs
-using System;
-
-namespace AvasRoutingTool.Sdvoe
-{
-    public class AvasDevice
-    {
-        public string DeviceId { get; set; } = string.Empty; // MAC address
-        public string DeviceName { get; set; } = string.Empty;
-        public string IpAddress { get; set; } = string.Empty;
-        public string Model { get; set; } = "AVAS-223";
-        public int VendorId { get; set; } = 105;
-        public int ProductId { get; set; } = 81;
-        public int ChipId { get; set; } = 0;
-        public bool IsTransmitter { get; set; }
-        public bool IsReceiver { get; set; }
-        public bool IsActive { get; set; } = true;
-        public string ActiveSourceId { get; set; } = string.Empty; // For RX: currently routed TX MAC
-        public string ActiveSourceName { get; set; } = string.Empty;
-        public string MulticastIp { get; set; } = string.Empty;
-        public int MulticastPort { get; set; } = 5004;
-        public double FramesPerSecond { get; set; }
-        public string Resolution { get; set; } = "1080p60";
-        public bool HasAudio { get; set; } = true;
-        public bool HasUsb { get; set; } = true;
-    }
-}
-```
-
-```csharp
-// src/AvasRoutingTool/Sdvoe/MulticastIpManager.cs
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Net;
-
-namespace AvasRoutingTool.Sdvoe
-{
-    public class MulticastIpManager
-    {
-        private readonly uint _startIp;
-        private readonly uint _endIp;
-        private readonly ConcurrentDictionary<string, uint> _assignedIps = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Queue<uint> _freeIps = new();
-        private readonly object _lock = new();
-        private uint _nextIp;
-
-        public MulticastIpManager(string startIp = "225.0.0.1", string endIp = "225.0.1.254")
-        {
-            _startIp = IpToUint(IPAddress.Parse(startIp));
-            _endIp = IpToUint(IPAddress.Parse(endIp));
-            _nextIp = _startIp;
-        }
-
-        public string AllocateIp(string macAddress)
-        {
-            lock (_lock)
-            {
-                if (_assignedIps.TryGetValue(macAddress, out uint existing))
-                {
-                    return UintToIp(existing);
-                }
-
-                uint allocated;
-                if (_freeIps.Count > 0)
-                {
-                    allocated = _freeIps.Dequeue();
-                }
-                else if (_nextIp <= _endIp)
-                {
-                    allocated = _nextIp++;
-                }
-                else
-                {
-                    throw new InvalidOperationException("Multicast IP pool exhausted.");
-                }
-
-                _assignedIps[macAddress] = allocated;
-                return UintToIp(allocated);
-            }
-        }
-
-        public void ReleaseIp(string macAddress)
-        {
-            lock (_lock)
-            {
-                if (_assignedIps.TryRemove(macAddress, out uint ip))
-                {
-                    _freeIps.Enqueue(ip);
-                }
-            }
-        }
-
-        private static uint IpToUint(IPAddress ip)
-        {
-            byte[] bytes = ip.GetAddressBytes();
-            Array.Reverse(bytes);
-            return BitConverter.ToUInt32(bytes, 0);
-        }
-
-        private static string UintToIp(uint value)
-        {
-            byte[] bytes = BitConverter.GetBytes(value);
-            Array.Reverse(bytes);
-            return new IPAddress(bytes).ToString();
-        }
-    }
-}
-```
+Implement `MulticastIpManager.cs` supporting thread-safe allocation and reuse across Class D range `225.0.0.1` to `225.0.1.254`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`  
-Expected: PASS (all tests pass).
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add .
-git commit -m "feat(sdvoe): implement AvasDevice model and MulticastIpManager"
+git commit -m "feat(sdvoe): implement MulticastIpManager for Class D pool"
 ```
 
 ---
 
-### Task 3: Color-Space Rasterizer & RTP Packet Demuxer
+### Task 3: Color-Space Rasterizer & Unified RTP Demux Receiver
 
 **Files:**
 - Create: `src/AvasRoutingTool/Rtp/Yuv422Rasterizer.cs`
@@ -455,7 +379,7 @@ git commit -m "feat(sdvoe): implement AvasDevice model and MulticastIpManager"
 - Test: `tests/AvasRoutingTool.Tests/Yuv422RasterizerTests.cs`
 
 **Interfaces:**
-- Produces: `Yuv422Rasterizer.ConvertYuv422SliceToBgra(...)`, `UnifiedRtpDemuxReceiver` (`RegisterChannel`, `UnregisterChannel`, `StartListening`, `StopListening`)
+- Produces: `Yuv422Rasterizer.ConvertYuv422SliceToBgra(...)`, `UnifiedRtpDemuxReceiver` (`StartListening`, `JoinGroup`, `DropGroup`, `RegisterChannel`, `UnregisterChannel`, `StopListening`)
 
 - [ ] **Step 1: Write failing test for Yuv422Rasterizer**
 
@@ -471,13 +395,11 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public void ConvertYuv422SliceToBgra_DecodesBlackMacroPixelCorrectly()
         {
-            // Y0=16 (black), U=128 (neutral), Y1=16 (black), V=128 (neutral)
-            byte[] src = new byte[] { 16, 128, 16, 128 };
-            byte[] dest = new byte[8]; // 2 pixels in BGRA (4 bytes each)
+            byte[] src = new byte[] { 16, 128, 16, 128 }; // Black in YUV422
+            byte[] dest = new byte[8];
 
             Yuv422Rasterizer.ConvertYuv422SliceToBgra(src, 0, 4, dest, 0);
 
-            // Black in BGRA: B=0, G=0, R=0, A=255
             Assert.Equal(0, dest[0]); // B
             Assert.Equal(0, dest[1]); // G
             Assert.Equal(0, dest[2]); // R
@@ -495,169 +417,11 @@ namespace AvasRoutingTool.Tests
 - [ ] **Step 2: Run test to verify failure**
 
 Run: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`  
-Expected: FAIL with "Yuv422Rasterizer does not exist".
+Expected: FAIL.
 
 - [ ] **Step 3: Implement Yuv422Rasterizer and UnifiedRtpDemuxReceiver**
 
-```csharp
-// src/AvasRoutingTool/Rtp/Yuv422Rasterizer.cs
-using System;
-
-namespace AvasRoutingTool.Rtp
-{
-    public static class Yuv422Rasterizer
-    {
-        public static void ConvertYuv422SliceToBgra(byte[] src, int srcOffset, int srcLength, byte[] dest, int destOffset)
-        {
-            for (int i = 0; i <= srcLength - 4; i += 4)
-            {
-                byte y0 = src[srcOffset + i];
-                byte u  = src[srcOffset + i + 1];
-                byte y1 = src[srcOffset + i + 2];
-                byte v  = src[srcOffset + i + 3];
-
-                int c0 = y0 - 16;
-                int d  = u - 128;
-                int c1 = y1 - 16;
-                int e  = v - 128;
-
-                // Pixel 0
-                int r0 = Math.Clamp((298 * c0 + 409 * e + 128) >> 8, 0, 255);
-                int g0 = Math.Clamp((298 * c0 - 100 * d - 208 * e + 128) >> 8, 0, 255);
-                int b0 = Math.Clamp((298 * c0 + 516 * d + 128) >> 8, 0, 255);
-
-                int p0 = destOffset + (i * 2);
-                if (p0 + 7 < dest.Length)
-                {
-                    dest[p0]     = (byte)b0;
-                    dest[p0 + 1] = (byte)g0;
-                    dest[p0 + 2] = (byte)r0;
-                    dest[p0 + 3] = 255;
-
-                    // Pixel 1
-                    int r1 = Math.Clamp((298 * c1 + 409 * e + 128) >> 8, 0, 255);
-                    int g1 = Math.Clamp((298 * c1 - 100 * d - 208 * e + 128) >> 8, 0, 255);
-                    int b1 = Math.Clamp((298 * c1 + 516 * d + 128) >> 8, 0, 255);
-
-                    dest[p0 + 4] = (byte)b1;
-                    dest[p0 + 5] = (byte)g1;
-                    dest[p0 + 6] = (byte)r1;
-                    dest[p0 + 7] = 255;
-                }
-            }
-        }
-    }
-}
-```
-
-```csharp
-// src/AvasRoutingTool/Rtp/UnifiedRtpDemuxReceiver.cs
-using System;
-using System.Buffers;
-using System.Collections.Concurrent;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace AvasRoutingTool.Rtp
-{
-    public class UnifiedRtpDemuxReceiver : IDisposable
-    {
-        private static readonly Lazy<UnifiedRtpDemuxReceiver> Lazy = new(() => new UnifiedRtpDemuxReceiver());
-        public static UnifiedRtpDemuxReceiver Instance => Lazy.Value;
-
-        private readonly ConcurrentDictionary<string, Action<byte[], int, int>> _channels = new(StringComparer.OrdinalIgnoreCase);
-        private UdpClient? _udpClient;
-        private CancellationTokenSource? _cts;
-        private bool _isListening;
-
-        public void StartListening(string localAdapterIp, int port = 5004)
-        {
-            if (_isListening) return;
-
-            _cts = new CancellationTokenSource();
-            var localEp = string.IsNullOrEmpty(localAdapterIp) 
-                ? new IPEndPoint(IPAddress.Any, port) 
-                : new IPEndPoint(IPAddress.Parse(localAdapterIp), port);
-
-            _udpClient = new UdpClient();
-            _udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _udpClient.Client.ReceiveBufferSize = 8 * 1024 * 1024; // 8MB buffer
-            _udpClient.Client.Bind(localEp);
-
-            _isListening = true;
-            _ = Task.Run(() => IngestionLoopAsync(_udpClient, _cts.Token));
-        }
-
-        public void JoinGroup(string multicastIp, string localAdapterIp)
-        {
-            if (_udpClient != null)
-            {
-                var mcast = IPAddress.Parse(multicastIp);
-                var local = string.IsNullOrEmpty(localAdapterIp) ? IPAddress.Any : IPAddress.Parse(localAdapterIp);
-                _udpClient.JoinMulticastGroup(mcast, local);
-            }
-        }
-
-        public void DropGroup(string multicastIp)
-        {
-            if (_udpClient != null)
-            {
-                try
-                {
-                    _udpClient.DropMulticastGroup(IPAddress.Parse(multicastIp));
-                }
-                catch { /* Ignore drop exceptions during cleanup */ }
-            }
-        }
-
-        public void RegisterChannel(string sourceIp, Action<byte[], int, int> packetHandler)
-        {
-            _channels[sourceIp] = packetHandler;
-        }
-
-        public void UnregisterChannel(string sourceIp)
-        {
-            _channels.TryRemove(sourceIp, out _);
-        }
-
-        private async Task IngestionLoopAsync(UdpClient client, CancellationToken ct)
-        {
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(65535);
-            try
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    var result = await client.ReceiveAsync(ct);
-                    string senderIp = result.RemoteEndPoint.Address.ToString();
-
-                    if (_channels.TryGetValue(senderIp, out var handler))
-                    {
-                        handler(result.Buffer, 0, result.Buffer.Length);
-                    }
-                }
-            }
-            catch (OperationCanceledException) { }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-            }
-        }
-
-        public void StopListening()
-        {
-            _isListening = false;
-            _cts?.Cancel();
-            _udpClient?.Close();
-            _udpClient?.Dispose();
-            _udpClient = null;
-        }
-
-        public void Dispose() => StopListening();
-    }
-}
-```
+Implement fast fixed-point BT.601 conversion in `Yuv422Rasterizer` and dual-port socket demultiplexing in `UnifiedRtpDemuxReceiver` (with 8MB buffer and `SocketOptionName.ReuseAddress = true`).
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -673,7 +437,7 @@ git commit -m "feat(rtp): implement Yuv422Rasterizer and UnifiedRtpDemuxReceiver
 
 ---
 
-### Task 4: SDVoE Client & Single View Routing Orchestrator
+### Task 4: SDVoE Client & Video Routing Orchestrator
 
 **Files:**
 - Create: `src/AvasRoutingTool/Sdvoe/SdvoeClient.cs`
@@ -681,7 +445,7 @@ git commit -m "feat(rtp): implement Yuv422Rasterizer and UnifiedRtpDemuxReceiver
 - Test: `tests/AvasRoutingTool.Tests/RoutingOrchestratorTests.cs`
 
 **Interfaces:**
-- Produces: `ISdvoeClient`, `RoutingOrchestrator` (`RouteSingleViewAsync(AvasDevice source, AvasDevice display)`, `UnrouteDisplayAsync(AvasDevice display)`)
+- Produces: `ISdvoeClient`, `RoutingOrchestrator` (`RouteSingleViewVideoAsync(AvasDevice source, AvasDevice display)`, `UnrouteDisplayAsync(AvasDevice display)`)
 
 - [ ] **Step 1: Write failing test for RoutingOrchestrator**
 
@@ -697,17 +461,11 @@ namespace AvasRoutingTool.Tests
     {
         public string? LastVideoRx;
         public string? LastVideoTx;
-        public string? LastAudioRx;
-        public string? LastAudioTx;
-        public string? LastUsbRx;
-        public string? LastUsbTx;
         public string? LastUnroutedRx;
 
         public Task<bool> JoinStreamAsync(string rxMac, string txMac, string streamType, int streamIndex)
         {
             if (streamType == "HDMI") { LastVideoRx = rxMac; LastVideoTx = txMac; }
-            else if (streamType == "AUDIO") { LastAudioRx = rxMac; LastAudioTx = txMac; }
-            else if (streamType == "USB") { LastUsbRx = rxMac; LastUsbTx = txMac; }
             return Task.FromResult(true);
         }
 
@@ -721,24 +479,19 @@ namespace AvasRoutingTool.Tests
     public class RoutingOrchestratorTests
     {
         [Fact]
-        public async Task RouteSingleViewAsync_AtomicallyRoutesVideoAudioAndUsb()
+        public async Task RouteSingleViewVideoAsync_RoutesVideoAndUpdatesDeviceName()
         {
-            var mockClient = new MockSdvoeClient();
-            var orchestrator = new RoutingOrchestrator(mockClient);
+            var mock = new MockSdvoeClient();
+            var orchestrator = new RoutingOrchestrator(mock);
 
             var tx = new AvasDevice { DeviceId = "00:11:22:33:44:AA", DeviceName = "Bron 1", IsTransmitter = true };
-            var rx = new AvasDevice { DeviceId = "00:11:22:33:44:BB", DeviceName = "Dell Display", IsReceiver = true };
+            var rx = new AvasDevice { DeviceId = "00:11:22:33:44:BB", DeviceName = "Samsung 1", IsReceiver = true };
 
-            bool success = await orchestrator.RouteSingleViewAsync(tx, rx);
+            bool success = await orchestrator.RouteSingleViewVideoAsync(tx, rx);
 
             Assert.True(success);
-            Assert.Equal("00:11:22:33:44:BB", mockClient.LastVideoRx);
-            Assert.Equal("00:11:22:33:44:AA", mockClient.LastVideoTx);
-            Assert.Equal("00:11:22:33:44:BB", mockClient.LastAudioRx);
-            Assert.Equal("00:11:22:33:44:AA", mockClient.LastAudioTx);
-            Assert.Equal("00:11:22:33:44:BB", mockClient.LastUsbRx);
-            Assert.Equal("00:11:22:33:44:AA", mockClient.LastUsbTx);
-
+            Assert.Equal("00:11:22:33:44:BB", mock.LastVideoRx);
+            Assert.Equal("00:11:22:33:44:AA", mock.LastVideoTx);
             Assert.Equal("00:11:22:33:44:AA", rx.ActiveSourceId);
             Assert.Equal("Bron 1", rx.ActiveSourceName);
         }
@@ -746,14 +499,14 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public async Task UnrouteDisplayAsync_ClearsSubscriptions()
         {
-            var mockClient = new MockSdvoeClient();
-            var orchestrator = new RoutingOrchestrator(mockClient);
+            var mock = new MockSdvoeClient();
+            var orchestrator = new RoutingOrchestrator(mock);
 
-            var rx = new AvasDevice { DeviceId = "00:11:22:33:44:BB", ActiveSourceId = "00:11:22:33:44:AA", ActiveSourceName = "Bron 1" };
+            var rx = new AvasDevice { DeviceId = "00:11:22:33:44:BB", DeviceName = "Samsung 1", ActiveSourceId = "00:11:22:33:44:AA", ActiveSourceName = "Bron 1" };
             bool success = await orchestrator.UnrouteDisplayAsync(rx);
 
             Assert.True(success);
-            Assert.Equal("00:11:22:33:44:BB", mockClient.LastUnroutedRx);
+            Assert.Equal("00:11:22:33:44:BB", mock.LastUnroutedRx);
             Assert.Empty(rx.ActiveSourceId);
             Assert.Empty(rx.ActiveSourceName);
         }
@@ -764,113 +517,9 @@ namespace AvasRoutingTool.Tests
 - [ ] **Step 2: Run test to verify failure**
 
 Run: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`  
-Expected: FAIL with missing interfaces.
+Expected: FAIL.
 
 - [ ] **Step 3: Implement ISdvoeClient and RoutingOrchestrator**
-
-```csharp
-// src/AvasRoutingTool/Sdvoe/SdvoeClient.cs
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
-using System.Net.Sockets;
-using System.Text;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace AvasRoutingTool.Sdvoe
-{
-    public interface ISdvoeClient
-    {
-        Task<bool> JoinStreamAsync(string rxMac, string txMac, string streamType, int streamIndex);
-        Task<bool> LeaveStreamAsync(string rxMac, string streamType, int streamIndex);
-    }
-
-    public class SdvoeClient : ISdvoeClient, IDisposable
-    {
-        private readonly string _serverIp;
-        private readonly int _telnetPort;
-        private readonly int _restPort;
-        private TcpClient? _tcpClient;
-        private StreamWriter? _writer;
-        private StreamReader? _reader;
-        private readonly SemaphoreSlim _lock = new(1, 1);
-
-        public SdvoeClient(string serverIp = "127.0.0.1", int telnetPort = 6970, int restPort = 8080)
-        {
-            _serverIp = serverIp;
-            _telnetPort = telnetPort;
-            _restPort = restPort;
-        }
-
-        public async Task<bool> ConnectAsync(CancellationToken ct = default)
-        {
-            await _lock.WaitAsync(ct);
-            try
-            {
-                _tcpClient = new TcpClient();
-                await _tcpClient.ConnectAsync(_serverIp, _telnetPort, ct);
-                var stream = _tcpClient.GetStream();
-                _writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true, NewLine = "\r\n" };
-                _reader = new StreamReader(stream, Encoding.ASCII);
-
-                // Handshake
-                await _writer.WriteLineAsync("require api 3.0.0.0");
-                string? response = await _reader.ReadLineAsync(ct);
-                return response != null && response.Contains("SUCCESS");
-            }
-            finally
-            {
-                _lock.Release();
-            }
-        }
-
-        public async Task<bool> JoinStreamAsync(string rxMac, string txMac, string streamType, int streamIndex)
-        {
-            if (_writer == null) return false;
-            await _lock.WaitAsync();
-            try
-            {
-                // SDVoE Join command syntax: join <rx>:<type>:<idx> <tx>:<type>:<idx>
-                string cmd = $"join {rxMac}:{streamType}:{streamIndex} {txMac}:{streamType}:{streamIndex}";
-                await _writer.WriteLineAsync(cmd);
-                string? resp = await _reader?.ReadLineAsync();
-                return resp != null && resp.Contains("SUCCESS");
-            }
-            finally
-            {
-                _lock.Release();
-            }
-        }
-
-        public async Task<bool> LeaveStreamAsync(string rxMac, string streamType, int streamIndex)
-        {
-            if (_writer == null) return false;
-            await _lock.WaitAsync();
-            try
-            {
-                string cmd = $"leave {rxMac}:{streamType}:{streamIndex}";
-                await _writer.WriteLineAsync(cmd);
-                string? resp = await _reader?.ReadLineAsync();
-                return resp != null && resp.Contains("SUCCESS");
-            }
-            finally
-            {
-                _lock.Release();
-            }
-        }
-
-        public void Dispose()
-        {
-            _writer?.Dispose();
-            _reader?.Dispose();
-            _tcpClient?.Dispose();
-        }
-    }
-}
-```
 
 ```csharp
 // src/AvasRoutingTool/Sdvoe/RoutingOrchestrator.cs
@@ -888,18 +537,12 @@ namespace AvasRoutingTool.Sdvoe
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
         }
 
-        public async Task<bool> RouteSingleViewAsync(AvasDevice sourceTx, AvasDevice displayRx)
+        public async Task<bool> RouteSingleViewVideoAsync(AvasDevice sourceTx, AvasDevice displayRx)
         {
             if (sourceTx == null || displayRx == null) return false;
 
-            // 1. Route Video (HDMI:0)
+            // Phase 1: Video Routing Only (HDMI:0)
             bool videoOk = await _sdvoeClient.JoinStreamAsync(displayRx.DeviceId, sourceTx.DeviceId, "HDMI", 0);
-            
-            // 2. Route Audio (HDMI:0 or AUDIO:0)
-            bool audioOk = await _sdvoeClient.JoinStreamAsync(displayRx.DeviceId, sourceTx.DeviceId, "AUDIO", 0);
-
-            // 3. Route USB Mouse/Touch Thru (USB:0)
-            bool usbOk = await _sdvoeClient.JoinStreamAsync(displayRx.DeviceId, sourceTx.DeviceId, "USB", 0);
 
             if (videoOk)
             {
@@ -923,89 +566,157 @@ namespace AvasRoutingTool.Sdvoe
 }
 ```
 
+Implement `SdvoeClient.cs` connecting to TCP port 6970 and REST port 8080.
+
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj`  
-Expected: PASS (all tests pass).
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add .
-git commit -m "feat(routing): implement SdvoeClient and RoutingOrchestrator"
+git commit -m "feat(routing): implement SdvoeClient and RoutingOrchestrator for video-only Single View"
 ```
 
 ---
 
-### Task 5: WPF ViewModels & Dual-Mode Main Window
+### Task 5: Modern Slate Dark Theme & Dual-Mode Shell with WebView2
 
 **Files:**
-- Create: `src/AvasRoutingTool/ViewModels/ViewModelBase.cs`
-- Create: `src/AvasRoutingTool/ViewModels/SourceCardViewModel.cs`
-- Create: `src/AvasRoutingTool/ViewModels/DisplayCardViewModel.cs`
-- Create: `src/AvasRoutingTool/ViewModels/MainViewModel.cs`
-- Modify: `src/AvasRoutingTool/MainWindow.xaml`
-- Modify: `src/AvasRoutingTool/MainWindow.xaml.cs`
+- Create: `src/AvasRoutingTool/Resources/Theme.xaml`
+- Create: `src/AvasRoutingTool/Resources/Icons.xaml`
+- Create: `src/AvasRoutingTool/Views/SettingsDialog.xaml` / `.xaml.cs`
+- Modify: `src/AvasRoutingTool/App.xaml`
+- Modify: `src/AvasRoutingTool/MainWindow.xaml` / `.xaml.cs`
+- Modify: `src/AvasRoutingTool/ViewModels/MainViewModel.cs`
 
 **Interfaces:**
-- Produces: `MainViewModel` (observable collections: `Sources`, `Displays`, `Layouts`), `SelectedTab` (`VisualRouting` vs `BavmConsole`)
+- Produces: `MainWindow` with tabs `[ 🔀 Visual Routing ]`, `[ 🎛 BAVM Console ]`, and `[ ⚙ Settings ]` dialog.
 
-- [ ] **Step 1: Write ViewModel classes with ObservableCollection properties**
+- [ ] **Step 1: Install Microsoft.Web.WebView2 package**
 
-Implement `ViewModelBase`, `SourceCardViewModel`, `DisplayCardViewModel`, `MainViewModel`.
-
-- [ ] **Step 2: Install WebView2 NuGet package to AvasRoutingTool**
-
-Run:
 ```powershell
 dotnet add src/AvasRoutingTool/AvasRoutingTool.csproj package Microsoft.Web.WebView2
 ```
 
-- [ ] **Step 3: Implement MainWindow.xaml with dual-mode navigation tabs**
+- [ ] **Step 2: Create Slate Dark Medical Theme and Vector Icons**
 
-Add TabControl containing:
-* Tab 0: Visual Routing Canvas (Sources top row, Displays middle row, Layouts bottom row).
-* Tab 1: Microsoft WebView2 Browser pointing to `config.BavmUrl` (`http://localhost:80`).
-* Tab 2: Settings & Diagnostics.
+Define Slate 900/800 dark theme brushes (`#0F172A`, `#1E293B`, `#334155`), Blue accent (`#3B82F6`), Emerald online (`#10B981`), and SVG vector geometries in `Theme.xaml` and `Icons.xaml`.
 
-- [ ] **Step 4: Build solution to verify compilation**
+- [ ] **Step 3: Implement SettingsDialog for BAVM URL and Ports**
+
+Provide editable fields for:
+* BAVM Web URL (default `http://localhost:80`)
+* Auto-computed Control Server IP (derived from URL host)
+* Control Server Telnet Port (default 6970) and REST Port (default 8080)
+* Local Network Adapter Selector
+* Save button calling `ConfigService.Save()` and triggering live reconnect.
+
+- [ ] **Step 4: Implement MainWindow with Dual-Mode Tab Navigation**
+
+Host `VisualRoutingView` on Tab 0, and `WebView2` browser on Tab 1 with isolated `WebView2_UserData` folder.
+
+- [ ] **Step 5: Build solution to verify compilation**
 
 Run: `dotnet build AvasRoutingTool.sln`  
 Expected: Build succeeded with 0 errors.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add .
-git commit -m "feat(ui): implement MainViewModel and dual-mode MainWindow with WebView2"
+git commit -m "feat(ui): implement Slate Dark theme, SettingsDialog, and dual-mode MainWindow"
 ```
 
 ---
 
-### Task 6: Visual Drag-and-Drop Routing Interaction
+### Task 6: Sources (TX) Carousel & Live Video Previews
 
 **Files:**
-- Create: `src/AvasRoutingTool/Views/VisualRoutingView.xaml` / `.xaml.cs`
+- Create: `src/AvasRoutingTool/ViewModels/SourceCardViewModel.cs`
 - Create: `src/AvasRoutingTool/Views/SourceCardView.xaml` / `.xaml.cs`
-- Create: `src/AvasRoutingTool/Views/DisplayCardView.xaml` / `.xaml.cs`
-- Create: `src/AvasRoutingTool/Views/LayoutsBarView.xaml` / `.xaml.cs`
 
 **Interfaces:**
-- Handles: `DragDrop.DoDragDrop`, `UIElement.Drop` on DisplayCard. Calls `RoutingOrchestrator.RouteSingleViewAsync`.
+- Produces: Source card with live `WriteableBitmap` preview surface, strict `DeviceName` header, IP/MAC label, live rolling FPS pill, and drag gesture initiator.
 
-- [ ] **Step 1: Implement SourceCardView with drag gesture initiator**
+- [ ] **Step 1: Implement SourceCardViewModel**
 
-Implement `PreviewMouseLeftButtonDown` and `MouseMove` to initiate `DragDrop.DoDragDrop(sourceCard, sourceDevice, DragDropEffects.Link)`.
+Manage device telemetry, `WriteableBitmap` video buffer, `FPS` counter, and preview activation via `UnifiedRtpDemuxReceiver` on UDP port 5004.
 
-- [ ] **Step 2: Implement DisplayCardView with Drop handler**
+- [ ] **Step 2: Implement SourceCardView with drag gesture detection**
 
-Set `AllowDrop="True"` on DisplayCard. On `Drop` event, extract dropped `AvasDevice` source and trigger ViewModel `RouteCommand.Execute(droppedSource)`.
+```csharp
+private Point _dragStartPoint;
 
-- [ ] **Step 3: Implement LayoutsBarView**
+private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+{
+    _dragStartPoint = e.GetPosition(null);
+}
 
-Display cards for `Off`, `Single View`, `Matrix 2x2` (staged), `PIP` (staged), `Side-by-Side` (staged), and `1+3` (staged).
+private void Card_MouseMove(object sender, MouseEventArgs e)
+{
+    if (e.LeftButton == MouseButtonState.Pressed && DataContext is SourceCardViewModel vm)
+    {
+        Point current = e.GetPosition(null);
+        Vector diff = _dragStartPoint - current;
+        if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+            Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+        {
+            DragDrop.DoDragDrop(this, vm.Device, DragDropEffects.Link);
+        }
+    }
+}
+```
 
-- [ ] **Step 4: Build and test interaction handlers**
+- [ ] **Step 3: Build to verify compilation**
+
+Run: `dotnet build AvasRoutingTool.sln`  
+Expected: Build succeeded.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add .
+git commit -m "feat(sources): implement SourceCardView with live preview and drag gesture"
+```
+
+---
+
+### Task 7: Displays (RX) Canvas & Single View Video Routing
+
+**Files:**
+- Create: `src/AvasRoutingTool/ViewModels/DisplayCardViewModel.cs`
+- Create: `src/AvasRoutingTool/Views/DisplayCardView.xaml` / `.xaml.cs`
+- Create: `src/AvasRoutingTool/Views/VisualRoutingView.xaml` / `.xaml.cs`
+
+**Interfaces:**
+- Produces: Display cards accepting dropped Source TX cards, displaying strict `DeviceName`, active routed source, and calling `RoutingOrchestrator.RouteSingleViewVideoAsync`.
+
+- [ ] **Step 1: Implement DisplayCardViewModel**
+
+Track Display `DeviceName`, IP, active routed source name, connected state, and provide `UnrouteCommand`.
+
+- [ ] **Step 2: Implement DisplayCardView drop target handling**
+
+```csharp
+private void Card_Drop(object sender, DragEventArgs e)
+{
+    if (e.Data.GetDataPresent(typeof(AvasDevice)) && DataContext is DisplayCardViewModel vm)
+    {
+        var droppedSource = (AvasDevice)e.Data.GetData(typeof(AvasDevice));
+        vm.RouteSourceCommand.Execute(droppedSource);
+    }
+}
+```
+Add visual states for drag-over: dashed cyan border `#3B82F6` and elevation.
+
+- [ ] **Step 3: Implement VisualRoutingView**
+
+Assemble the 3-tier layout: Sources reel on top, Displays grid in the middle, Layouts selector on the bottom.
+
+- [ ] **Step 4: Build to verify compilation**
 
 Run: `dotnet build AvasRoutingTool.sln`  
 Expected: Build succeeded.
@@ -1014,36 +725,66 @@ Expected: Build succeeded.
 
 ```bash
 git add .
-git commit -m "feat(ui): implement drag-and-drop visual routing views"
+git commit -m "feat(displays): implement DisplayCardView drop target and VisualRoutingView canvas"
 ```
 
 ---
 
-### Task 7: Comprehensive Verification & Packaging
+### Task 8: Bottom Layouts Bar & MultiView Staging
+
+**Files:**
+- Create: `src/AvasRoutingTool/ViewModels/LayoutItemViewModel.cs`
+- Create: `src/AvasRoutingTool/Views/LayoutsBarView.xaml` / `.xaml.cs`
+
+**Interfaces:**
+- Produces: Bottom layout selector with `Off`, `Single View` (active default), and staged MultiView cards (`Matrix 2x2`, `PIP`, `Side-by-Side`, `1+3 Quad`).
+
+- [ ] **Step 1: Implement LayoutItemViewModel and LayoutsBarView**
+
+Create layout cards matching the SigmaXG reference:
+* `Off`: Disconnects active display.
+* `Single`: Active default (Phase 1).
+* `Matrix 2x2`, `Picture-in-Picture`, `Side-by-Side`, `1+3 Quad`: Visually displayed with a clean "Phase 2" pill.
+
+- [ ] **Step 2: Build to verify compilation**
+
+Run: `dotnet build AvasRoutingTool.sln`  
+Expected: Build succeeded.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add .
+git commit -m "feat(layouts): implement LayoutsBarView with Single View active and MultiView staged"
+```
+
+---
+
+### Task 9: Comprehensive Test Suite, Packaging & Memory Synchronization
 
 **Files:**
 - Create: `scripts/build_package.ps1`
 - Modify: `memory/active_context.md`
 - Modify: `memory/progress.md`
 
-- [ ] **Step 1: Run all automated unit and integration tests**
+- [ ] **Step 1: Run complete test suite**
 
 Run: `dotnet test AvasRoutingTool.sln -v normal`  
 Expected: 100% tests passing.
 
-- [ ] **Step 2: Publish standalone portable application**
+- [ ] **Step 2: Generate standalone portable package**
 
 Run:
 ```powershell
 dotnet publish src/AvasRoutingTool/AvasRoutingTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/AvasRoutingTool
 ```
-Expected: Single self-contained `AvasRoutingTool.exe` generated in `publish/AvasRoutingTool/`.
+Expected: `publish/AvasRoutingTool/AvasRoutingTool.exe` created.
 
 - [ ] **Step 3: Synchronize memory state**
 
-Update `memory/active_context.md` and `memory/progress.md` marking Phase 1 deliverables as complete.
+Update `memory/active_context.md` and `memory/progress.md` reflecting completed deliverables.
 
-- [ ] **Step 4: Final commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add .
