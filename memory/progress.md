@@ -13,15 +13,17 @@
 - [x] **M1: Solution Scaffolding & Core Services Migration**
   - [x] .NET 8 WPF Solution & Project structure (`AvasRoutingTool.sln`)
   - [x] Implementation and verification of `ConfigService`, `MulticastIpManager`
-  - [x] Implementation and verification of `SdvoeClient` (TCP 6970 / REST 8080)
+  - [x] Implementation and verification of `SdvoeClient` (TCP 6970 / REST 8090)
+  - [x] Semtech BlueRiver schema discovery (`get all identity` & REST `/api/device/ALL`)
   - [x] Implementation and verification of `UnifiedRtpDemuxReceiver` (UDP 5000/5004) and `Yuv422Rasterizer`
-  - [x] Unit test suite setup and passing (13/13 passed)
+  - [x] Unit test suite passing (16/16 passed)
 
 - [x] **M2: Dual-Mode App Shell & Navigation**
   - [x] Slate Dark Theme & Vector Icons (`Theme.xaml`, `Icons.xaml`)
-  - [x] Segmented tab navigation (`Visual Routing` / `BAVM Console`)
+  - [x] Segmented tab navigation (`Visual Routing` / `BAVM Console` / `Diagnostics & Logs`)
   - [x] Microsoft WebView2 integration with isolated `WebView2_UserData`
   - [x] Settings dialog with persistent BAVM URL, host-derived Control Server IP, and ports
+  - [x] In-app real-time diagnostics log viewer and disk logging (`app.log`)
 
 - [x] **M3: Sources (TX) Row & Live Preview Engine**
   - [x] Source card UI with live `WriteableBitmap` surface
@@ -40,6 +42,7 @@
   - [x] MultiView layout visual presets staged for Phase 2 (`Matrix 2x2`, `PIP`, `Side-by-Side`, `1+3 Quad`)
 
 - [x] **M6: Verification, Packaging & Documentation**
-  - [x] End-to-end automated test suite passing (13/13)
+  - [x] Live physical transceiver verification against active BlueRiver Control Server (4 devices discovered: 2 TX, 2 RX)
+  - [x] End-to-end automated test suite passing (16/16)
   - [x] Standalone portable build generation (`publish/AvasRoutingTool/AvasRoutingTool.exe`)
   - [x] Complete memory synchronization

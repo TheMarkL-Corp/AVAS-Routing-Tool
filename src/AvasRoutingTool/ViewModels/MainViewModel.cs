@@ -1,11 +1,15 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using AvasRoutingTool.Configuration;
+using AvasRoutingTool.Logging;
 using AvasRoutingTool.Rtp;
 using AvasRoutingTool.Sdvoe;
 
@@ -29,6 +33,7 @@ namespace AvasRoutingTool.ViewModels
         public ObservableCollection<SourceCardViewModel> Sources { get; } = new();
         public ObservableCollection<DisplayCardViewModel> Displays { get; } = new();
         public ObservableCollection<LayoutItemViewModel> Layouts { get; } = new();
+        public ObservableCollection<LogEntry> Logs { get; } = new();
 
         public bool IsConnected
         {
@@ -48,11 +53,15 @@ namespace AvasRoutingTool.ViewModels
             set { _bavmUrl = value; OnPropertyChanged(); }
         }
 
+        public string LogFilePath => AppLogger.LogFilePath;
+
         public int OnlineSourcesCount => Sources.Count(s => s.IsActive);
         public int OnlineDisplaysCount => Displays.Count(d => d.IsActive);
 
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+        public ICommand ClearLogsCommand { get; }
+        public ICommand OpenLogFolderCommand { get; }
 
         public Action? RequestOpenSettings { get; set; }
 
@@ -74,8 +83,44 @@ namespace AvasRoutingTool.ViewModels
 
             RefreshCommand = new RelayCommand(async _ => await RefreshDevicesAsync());
             OpenSettingsCommand = new RelayCommand(_ => RequestOpenSettings?.Invoke());
+            ClearLogsCommand = new RelayCommand(_ =>
+            {
+                Logs.Clear();
+                AppLogger.ClearMemoryBuffer();
+            });
+            OpenLogFolderCommand = new RelayCommand(_ =>
+            {
+                try
+                {
+                    string dir = Path.GetDirectoryName(AppLogger.LogFilePath) ?? AppDomain.CurrentDomain.BaseDirectory;
+                    Process.Start(new ProcessStartInfo("explorer.exe", dir) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Error("UI", "Failed to open log folder", ex);
+                }
+            });
 
             _sdvoeClient.DeviceStateChanged += OnDeviceStateChanged;
+
+            // Load existing logs into memory buffer
+            foreach (var log in AppLogger.RecentLogs)
+            {
+                Logs.Add(log);
+            }
+
+            // Hook up live log streaming
+            AppLogger.LogEntryAdded += entry =>
+            {
+                if (Application.Current != null && Application.Current.Dispatcher != null)
+                {
+                    Application.Current.Dispatcher.BeginInvoke(() =>
+                    {
+                        Logs.Add(entry);
+                        if (Logs.Count > 1000) Logs.RemoveAt(0);
+                    });
+                }
+            };
 
             InitializeLayouts();
         }
@@ -85,6 +130,8 @@ namespace AvasRoutingTool.ViewModels
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
             string host = _config.DerivedControlServerIp;
+
+            AppLogger.Info("APP", $"Initializing AVAS Routing Tool with BAVM URL: {BavmUrl}, Control Server: {host}:{_config.TelnetPort} (REST: {_config.RestPort})");
 
             _rtpReceiver.StartListening(new[] { _config.BasePort, 5000 }, _config.LocalNetworkInterfaceIp);
 
@@ -110,6 +157,7 @@ namespace AvasRoutingTool.ViewModels
 
         public async Task RefreshDevicesAsync()
         {
+            AppLogger.Info("DISCOVERY", "Starting transceiver refresh cycle...");
             var devices = await _sdvoeClient.DiscoverDevicesAsync();
 
             // Dynamic Cards: populate TX Sources and RX Displays
@@ -136,6 +184,8 @@ namespace AvasRoutingTool.ViewModels
                 }
             }
 
+            AppLogger.Info("DISCOVERY", $"Transceivers populated: {Sources.Count} Sources (TX), {Displays.Count} Displays (RX).");
+
             OnPropertyChanged(nameof(OnlineSourcesCount));
             OnPropertyChanged(nameof(OnlineDisplaysCount));
         }
@@ -144,11 +194,17 @@ namespace AvasRoutingTool.ViewModels
         {
             if (sourceTx == null || displayRx == null) return false;
 
+            AppLogger.Info("ROUTING", $"Requesting route: '{sourceTx.DeviceName}' ({sourceTx.DeviceId}) -> '{displayRx.DeviceName}' ({displayRx.DeviceId})");
             bool ok = await _orchestrator.RouteSingleViewVideoAsync(sourceTx, displayRx);
             if (ok)
             {
                 var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
                 displayVm?.NotifyRoutingChanged();
+                AppLogger.Info("ROUTING", $"Successfully routed video feed to '{displayRx.DeviceName}'.");
+            }
+            else
+            {
+                AppLogger.Warn("ROUTING", $"Failed to route video feed to '{displayRx.DeviceName}'.");
             }
             return ok;
         }
@@ -157,18 +213,25 @@ namespace AvasRoutingTool.ViewModels
         {
             if (displayRx == null) return false;
 
+            AppLogger.Info("ROUTING", $"Requesting unroute on '{displayRx.DeviceName}' ({displayRx.DeviceId})");
             bool ok = await _orchestrator.UnrouteDisplayAsync(displayRx);
             if (ok)
             {
                 var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
                 displayVm?.NotifyRoutingChanged();
+                AppLogger.Info("ROUTING", $"Successfully unrouted '{displayRx.DeviceName}'.");
+            }
+            else
+            {
+                AppLogger.Warn("ROUTING", $"Failed to unroute '{displayRx.DeviceName}'.");
             }
             return ok;
         }
 
         private void OnDeviceStateChanged(string mac, bool isOnline)
         {
-            // Dynamic Cards: live update status
+            AppLogger.Info("DEVICE-STATUS", $"Device {mac} changed status: {(isOnline ? "ONLINE" : "OFFLINE")}");
+
             var source = Sources.FirstOrDefault(s => s.MacAddress == mac);
             if (source != null)
             {

@@ -57,18 +57,26 @@ namespace AvasRoutingTool
 
         private async void Tab_Checked(object sender, RoutedEventArgs e)
         {
-            if (ViewVisualRouting == null || ViewBavmConsole == null) return;
+            if (ViewVisualRouting == null || ViewBavmConsole == null || ViewLogs == null) return;
 
             if (TabVisualRouting.IsChecked == true)
             {
                 ViewVisualRouting.Visibility = Visibility.Visible;
                 ViewBavmConsole.Visibility = Visibility.Collapsed;
+                ViewLogs.Visibility = Visibility.Collapsed;
             }
             else if (TabBavmConsole.IsChecked == true)
             {
                 ViewVisualRouting.Visibility = Visibility.Collapsed;
                 ViewBavmConsole.Visibility = Visibility.Visible;
+                ViewLogs.Visibility = Visibility.Collapsed;
                 await EnsureBavmWebViewAsync();
+            }
+            else if (TabLogs.IsChecked == true)
+            {
+                ViewVisualRouting.Visibility = Visibility.Collapsed;
+                ViewBavmConsole.Visibility = Visibility.Collapsed;
+                ViewLogs.Visibility = Visibility.Visible;
             }
         }
 

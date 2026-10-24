@@ -52,7 +52,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Navigation Tabs (Visual Routing vs BAVM Console) -->
+                <!-- Navigation Tabs (Visual Routing vs BAVM Console vs Diagnostics & Logs) -->
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
@@ -63,7 +63,7 @@
                                  IsChecked="True"
                                  Checked="Tab_Checked"
                                  Margin="0,0,8,0"
-                                 Padding="16,8"
+                                 Padding="14,8"
                                  FontSize="13"
                                  FontWeight="SemiBold"
                                  Cursor="Hand">
@@ -99,7 +99,44 @@
                                  Content="🎛  BAVM Console"
                                  GroupName="MainTabs"
                                  Checked="Tab_Checked"
-                                 Padding="16,8"
+                                 Margin="0,0,8,0"
+                                 Padding="14,8"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Cursor="Hand">
+                        <RadioButton.Style>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="bd"
+                                                    Background="{StaticResource Brush.Surface.Elevated}"
+                                                    BorderBrush="{StaticResource Brush.Border.Default}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Accent.Primary}" />
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </RadioButton.Style>
+                    </RadioButton>
+
+                    <RadioButton x:Name="TabLogs"
+                                 Content="📋  Diagnostics &amp; Logs"
+                                 GroupName="MainTabs"
+                                 Checked="Tab_Checked"
+                                 Padding="14,8"
                                  FontSize="13"
                                  FontWeight="SemiBold"
                                  Cursor="Hand">
@@ -189,6 +226,83 @@
             <!-- Mode 2: Embedded BAVM Console in WebView2 -->
             <Grid x:Name="ViewBavmConsole" Visibility="Collapsed">
                 <wv2:WebView2 x:Name="BavmWebView" />
+            </Grid>
+
+            <!-- Mode 3: Diagnostics & Live Logs -->
+            <Grid x:Name="ViewLogs" Visibility="Collapsed" Background="{StaticResource Brush.Background.Dark}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Logs Toolbar -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource Brush.Surface.Card}"
+                        BorderBrush="{StaticResource Brush.Border.Default}"
+                        BorderThickness="0,0,0,1"
+                        Padding="16,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Log File:" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Secondary}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding LogFilePath}" Foreground="{StaticResource Brush.Text.Muted}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="650" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button Command="{Binding ClearLogsCommand}" Style="{StaticResource Style.Button.Secondary}" Padding="10,6" Margin="0,0,8,0">
+                                <TextBlock Text="🧹  Clear View" FontSize="11" />
+                            </Button>
+                            <Button Command="{Binding OpenLogFolderCommand}" Style="{StaticResource Style.Button.Secondary}" Padding="10,6">
+                                <TextBlock Text="📂  Open Log Folder" FontSize="11" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Log Entries List -->
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Logs}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Margin="12"
+                         FontFamily="Consolas, Cascadia Code, Courier New"
+                         FontSize="12">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss.fff}'}" Foreground="{StaticResource Brush.Text.Muted}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Level}" FontWeight="Bold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Primary}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Level}" Value="Warn">
+                                                    <Setter Property="Foreground" Value="#F59E0B" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="Error">
+                                                    <Setter Property="Foreground" Value="#EF4444" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Level}" Value="Debug">
+                                                    <Setter Property="Foreground" Value="#64748B" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Grid.Column="2" Text="{Binding Category}" Foreground="{StaticResource Brush.Text.Secondary}" FontWeight="Medium" />
+                                <TextBlock Grid.Column="3" Text="{Binding Message}" Foreground="{StaticResource Brush.Text.Primary}" TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </Grid>
         </Grid>
     </Grid>

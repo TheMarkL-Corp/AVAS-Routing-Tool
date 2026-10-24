@@ -27,7 +27,7 @@ namespace AvasRoutingTool.Tests
 
                 Assert.NotNull(config);
                 Assert.Equal("http://localhost:80", config.BavmUrl);
-                Assert.Equal("localhost", config.DerivedControlServerIp);
+                Assert.Equal("127.0.0.1", config.DerivedControlServerIp);
                 Assert.Equal(6970, config.TelnetPort);
                 Assert.Equal(8080, config.RestPort);
                 Assert.True(File.Exists(tempFile));

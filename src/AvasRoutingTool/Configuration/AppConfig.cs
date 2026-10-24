@@ -21,7 +21,12 @@ namespace AvasRoutingTool.Configuration
                 {
                     if (Uri.TryCreate(BavmUrl, UriKind.Absolute, out var uri))
                     {
-                        return uri.Host;
+                        string host = uri.Host;
+                        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return "127.0.0.1";
+                        }
+                        return host;
                     }
                 }
                 catch { }
