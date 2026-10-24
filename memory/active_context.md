@@ -7,7 +7,8 @@
   2. SDVoE Control Server IP derived automatically from BAVM host IP; Control Server port configurable.
   3. Strict Device Name display (no EDID monitor model names).
   4. Phase 1: Video Routing ONLY (Audio and USB-KVM functions remain in original BAVM).
-  5. Architecture clarification: Comparing Native C# WPF vs Web/Node alternatives.
+  5. Architecture clarification: Approach A (Native Visual Router as primary + embedded BAVM tab in WebView2).
+  6. Dynamic Cards: Cards dynamically reflect discovered devices; online/offline state is tracked directly from Control Server as-is.
 
 ## Recent Changes
 * Established project requirements and architectural specification in `docs/superpowers/specs/2026-10-25-avas-routing-tool-design.md`.

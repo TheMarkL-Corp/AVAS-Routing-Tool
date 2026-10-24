@@ -18,6 +18,7 @@
 * **BAVM URL Persistence**: Configurable BAVM URL (defaults to `http://localhost:80`), persisted to `appsettings.json` and remembered across sessions.
 * **Synchronized Control Server IP**: Control Server IP is derived automatically from the BAVM URL host; Telnet port (default 6970) and REST port (default 8080) are configurable.
 * **Strict Device Naming**: Displays (RX) and Sources (TX) strictly display the **Device Name** as set in BAVM (no raw EDID sink names).
+* **Dynamic Device Cards**: Cards are dynamically bound via `ObservableCollection` to discovered devices; online/offline status is dynamically reflected from Control Server state (`status.active`), disabling drag/drop interactions when offline.
 * **Phase 1 Routing Scope**: **Video Routing ONLY** (`join <rx>:HDMI:0 <tx>:HDMI:0`). Audio and USB-KVM routing are left to the original BAVM console.
 * **Zero GDI+ Leaks**: Live video frames are written directly to `WriteableBitmap.BackBuffer` without GDI+ bitmap instantiation.
 * **Multicast Range**: Class D pool strictly allocated between `225.0.0.1` and `225.0.1.254`.

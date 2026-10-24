@@ -92,25 +92,33 @@ graph TD
 
 ### 3.2 Tier 1: Sources (Encoders / TX) Row
 * **Location**: Top row of the Visual Routing canvas.
-* **Component**: Horizontally scrollable reel of Source cards.
+* **Component**: Horizontally scrollable reel of dynamically populated Source cards (`ObservableCollection`).
+* **Dynamic Device Lifecycle**:
+  * Cards are dynamically created based on discovered devices from the Control Server.
+  * When `status.active == true`: Shows full live video preview, green "Online" dot, and live rolling FPS pill. Card is draggable.
+  * When `status.active == false`: Shows muted card with "Offline" badge, video preview paused/standby placeholder, and drag disabled.
 * **Card Details**:
-  * Header: Friendly Device Name (e.g. `Bron 1`, `Endo Cam 1`) and edit badge.
-  * Center: **Live Video Preview Surface** (16:9 aspect ratio, updating at >= 1 FPS via direct `WriteableBitmap` rendering).
+  * Header: Configured **Device Name** as set in BAVM (e.g. `Bron 1`, `Endo Cam 1`) and online/offline pill.
+  * Center: **Live Video Preview Surface** (16:9 aspect ratio, updating at >= 1 FPS via direct `WriteableBitmap` rendering when online).
   * Sub-text: IP Address (`10.32.32.12`), MAC address, detected resolution (e.g., `1080p60`), and live FPS indicator pill.
-  * Footer: Audio active badge (`🔊`), USB ready badge (`🖱`).
-* **Interaction**: Draggable card initiating a drag-and-drop routing gesture.
+* **Interaction**: Draggable card (when online) initiating a drag-and-drop routing gesture.
 
 ### 3.3 Tier 2: Displays (Decoders / RX) Row
 * **Location**: Middle row of the Visual Routing canvas.
-* **Component**: Grid of Display cards representing physical surgical/diagnostic monitors.
+* **Component**: Dynamically populated grid of Display cards representing physical surgical/diagnostic monitors (`ObservableCollection`).
+* **Dynamic Device Lifecycle**:
+  * Cards dynamically reflect the exact set of decoders reported by the Control Server.
+  * When `status.active == true`: Active drop target with real-time routed source name and streaming status.
+  * When `status.active == false`: Muted card displaying "Offline", drop disabled.
 * **Card Details**:
-  * Header: Configured **Device Name** as set in BAVM (e.g. `Samsung 1`, `Monitor 2`).
+  * Header: Configured **Device Name** as set in BAVM (e.g. `Samsung 1`, `Monitor 2`) and online/offline pill.
   * Center: **Viewport Surface**. In Single View mode, displays:
     * When routed: The friendly device name of the active Source TX, current streaming state (`STREAMING`), and resolution.
-    * When unrouted: Clean empty state (`[ Drop Source Here to Route ]`).
+    * When unrouted (online): Clean empty state (`[ Drop Source Here to Route ]`).
+    * When offline: Standby state (`[ Device Offline ]`).
   * Sub-text: Receiver IP, MAC, Output Resolution, Hot Plug Detect (HPD) status.
   * Disconnect Action: Quick `[ ✕ Unroute ]` button or drop target for `Off` layout.
-* **Interaction**: Drop target accepting Source cards or Layout cards.
+* **Interaction**: Drop target (when online) accepting Source cards or Layout cards.
 
 ### 3.4 Tier 3: Layouts Row
 * **Location**: Bottom row of the Visual Routing canvas.
