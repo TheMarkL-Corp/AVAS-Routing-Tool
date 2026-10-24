@@ -1,0 +1,36 @@
+# Build and Output Folders
+bin/
+obj/
+publish/
+releases/
+out/
+
+# Visual Studio & IDE files
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.ide/
+.vscode/
+.idea/
+
+# Dotnet / Test artifacts
+TestResults/
+*.trx
+*.coverage
+*.opencover.xml
+
+# Runtime & User Data
+WebView2_UserData/
+*.log
+LogRecord/
+*.tmp
+*.temp
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
