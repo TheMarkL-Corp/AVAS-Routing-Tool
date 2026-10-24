@@ -1,0 +1,176 @@
+<Window x:Class="AvasRoutingTool.Views.SettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="System Settings"
+        Height="540" Width="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource Brush.Background.Dark}"
+        Foreground="{StaticResource Brush.Text.Primary}"
+        FontFamily="Segoe UI">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock Text="Configuration &amp; Network"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.Text.Primary}" />
+            <TextBlock Text="Customize server endpoints, ports, and SDVoE multicast parameters."
+                       FontSize="12"
+                       Foreground="{StaticResource Brush.Text.Secondary}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Form Fields -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- BAVM Web URL -->
+                <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="BAVM Web Management URL"
+                               FontSize="12"
+                               FontWeight="Medium"
+                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                    <TextBox x:Name="TxtBavmUrl"
+                             Margin="0,6,0,0"
+                             Padding="10,8"
+                             Background="{StaticResource Brush.Surface.Card}"
+                             Foreground="{StaticResource Brush.Text.Primary}"
+                             BorderBrush="{StaticResource Brush.Border.Default}"
+                             BorderThickness="1"
+                             TextChanged="TxtBavmUrl_TextChanged" />
+                    <TextBlock Text="Default: http://localhost:80 (Saved persistently across sessions)"
+                               FontSize="11"
+                               Foreground="{StaticResource Brush.Text.Muted}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <!-- Derived Control Server IP -->
+                <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="Derived Control Server IP (Synced with BAVM Host)"
+                               FontSize="12"
+                               FontWeight="Medium"
+                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                    <TextBox x:Name="TxtControlServerIp"
+                             Margin="0,6,0,0"
+                             Padding="10,8"
+                             Background="#0D131F"
+                             Foreground="{StaticResource Brush.Text.Secondary}"
+                             BorderBrush="{StaticResource Brush.Border.Default}"
+                             BorderThickness="1"
+                             IsReadOnly="True" />
+                </StackPanel>
+
+                <!-- Ports Grid -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Telnet Control Port"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                        <TextBox x:Name="TxtTelnetPort"
+                                 Margin="0,6,0,0"
+                                 Padding="10,8"
+                                 Background="{StaticResource Brush.Surface.Card}"
+                                 Foreground="{StaticResource Brush.Text.Primary}"
+                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 BorderThickness="1" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="REST API Port"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                        <TextBox x:Name="TxtRestPort"
+                                 Margin="0,6,0,0"
+                                 Padding="10,8"
+                                 Background="{StaticResource Brush.Surface.Card}"
+                                 Foreground="{StaticResource Brush.Text.Primary}"
+                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 BorderThickness="1" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Multicast Range & Scaler Port -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Multicast Pool Start"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                        <TextBox x:Name="TxtMcastStart"
+                                 Margin="0,6,0,0"
+                                 Padding="10,8"
+                                 Background="{StaticResource Brush.Surface.Card}"
+                                 Foreground="{StaticResource Brush.Text.Primary}"
+                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 BorderThickness="1" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Multicast Pool End"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                        <TextBox x:Name="TxtMcastEnd"
+                                 Margin="0,6,0,0"
+                                 Padding="10,8"
+                                 Background="{StaticResource Brush.Surface.Card}"
+                                 Foreground="{StaticResource Brush.Text.Primary}"
+                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 BorderThickness="1" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel>
+                    <TextBlock Text="Stream 1 Scaler Preview Port"
+                               FontSize="12"
+                               FontWeight="Medium"
+                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                    <TextBox x:Name="TxtBasePort"
+                             Margin="0,6,0,0"
+                             Padding="10,8"
+                             Background="{StaticResource Brush.Surface.Card}"
+                             Foreground="{StaticResource Brush.Text.Primary}"
+                             BorderBrush="{StaticResource Brush.Border.Default}"
+                             BorderThickness="1" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions -->
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0">
+            <Button Content="Cancel"
+                    Style="{StaticResource Style.Button.Secondary}"
+                    Width="90"
+                    Margin="0,0,10,0"
+                    Click="BtnCancel_Click" />
+            <Button Content="Save &amp; Apply"
+                    Style="{StaticResource Style.Button.Primary}"
+                    Width="110"
+                    Click="BtnSave_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,156 @@
+<UserControl x:Class="AvasRoutingTool.Views.SourceCardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="300" Height="220"
+             Margin="8"
+             PreviewMouseLeftButtonDown="Card_PreviewMouseLeftButtonDown"
+             MouseMove="Card_MouseMove">
+
+    <Border Background="{StaticResource Brush.Surface.Card}"
+            BorderBrush="{StaticResource Brush.Border.Default}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="12"
+            Cursor="Hand">
+
+        <Border.Style>
+            <Style TargetType="Border">
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Highlight}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Card Header -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Status indicator dot -->
+                <Ellipse Grid.Column="0"
+                         Width="8" Height="8"
+                         Margin="0,0,8,0"
+                         VerticalAlignment="Center">
+                    <Ellipse.Style>
+                        <Style TargetType="Ellipse">
+                            <Setter Property="Fill" Value="{StaticResource Brush.Status.Offline}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                    <Setter Property="Fill" Value="{StaticResource Brush.Status.Online}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Ellipse.Style>
+                </Ellipse>
+
+                <!-- Strict BAVM Device Name -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding DeviceName}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           Foreground="{StaticResource Brush.Text.Primary}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+
+                <!-- FPS Badge -->
+                <Border Grid.Column="2"
+                        Background="#263B82F6"
+                        BorderBrush="#4D3B82F6"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="6,2">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Fps, StringFormat='{}{0:F1}'}"
+                                   FontSize="11"
+                                   FontWeight="Medium"
+                                   Foreground="{StaticResource Brush.Accent.Primary}" />
+                        <TextBlock Text=" FPS"
+                                   FontSize="10"
+                                   Foreground="{StaticResource Brush.Text.Muted}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Live Video Preview Surface -->
+            <Border Grid.Row="1"
+                    Background="#0B0F17"
+                    BorderBrush="{StaticResource Brush.Border.Default}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    ClipToBounds="True">
+                <Grid>
+                    <!-- Actual Video Image -->
+                    <Image Source="{Binding PreviewBitmap}"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="LowQuality" />
+
+                    <!-- Fallback placeholder if not streaming -->
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Opacity="0.4">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStreaming}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Path Data="{StaticResource Icon.Video}"
+                              Fill="{StaticResource Brush.Text.Muted}"
+                              Width="24" Height="24"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center" />
+                        <TextBlock Text="Stream 1 Scaler Standby"
+                                   FontSize="10"
+                                   Foreground="{StaticResource Brush.Text.Muted}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Card Footer -->
+            <Grid Grid.Row="2" Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="{Binding IpAddress}"
+                               FontSize="11"
+                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                    <TextBlock Text="{Binding MacAddress}"
+                               FontSize="10"
+                               Foreground="{StaticResource Brush.Text.Muted}" />
+                </StackPanel>
+
+                <!-- Drag Handle hint -->
+                <Border Grid.Column="1"
+                        Background="{StaticResource Brush.Surface.Elevated}"
+                        CornerRadius="4"
+                        Padding="6,3"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="DRAG TO ROUTE"
+                               FontSize="9"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

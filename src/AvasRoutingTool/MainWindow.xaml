@@ -1,12 +1,195 @@
-﻿<Window x:Class="AvasRoutingTool.MainWindow"
+<Window x:Class="AvasRoutingTool.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:AvasRoutingTool"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        xmlns:views="clr-namespace:AvasRoutingTool.Views"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="AVAS Routing Tool - Advantech AVAS-223 Video Management"
+        Height="860" Width="1280"
+        MinHeight="720" MinWidth="1024"
+        Background="{StaticResource Brush.Background.Dark}"
+        Foreground="{StaticResource Brush.Text.Primary}"
+        FontFamily="Segoe UI"
+        WindowStartupLocation="CenterScreen">
 
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Top Header & Global App Bar -->
+        <Border Grid.Row="0"
+                Background="{StaticResource Brush.Surface.Card}"
+                BorderBrush="{StaticResource Brush.Border.Default}"
+                BorderThickness="0,0,0,1"
+                Padding="20,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Brand Title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#1E3A8A"
+                            CornerRadius="6"
+                            Padding="8,5"
+                            Margin="0,0,12,0">
+                        <TextBlock Text="AVAS-223"
+                                   FontSize="12"
+                                   FontWeight="Bold"
+                                   Foreground="#93C5FD" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="AVAS ROUTING TOOL"
+                                   FontSize="15"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource Brush.Text.Primary}" />
+                        <TextBlock Text="Advantech BlueRiver SDVoE Management"
+                                   FontSize="11"
+                                   Foreground="{StaticResource Brush.Text.Muted}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Navigation Tabs (Visual Routing vs BAVM Console) -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <RadioButton x:Name="TabVisualRouting"
+                                 Content="🔀  Visual Routing"
+                                 GroupName="MainTabs"
+                                 IsChecked="True"
+                                 Checked="Tab_Checked"
+                                 Margin="0,0,8,0"
+                                 Padding="16,8"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Cursor="Hand">
+                        <RadioButton.Style>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="bd"
+                                                    Background="{StaticResource Brush.Surface.Elevated}"
+                                                    BorderBrush="{StaticResource Brush.Border.Default}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Accent.Primary}" />
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </RadioButton.Style>
+                    </RadioButton>
+
+                    <RadioButton x:Name="TabBavmConsole"
+                                 Content="🎛  BAVM Console"
+                                 GroupName="MainTabs"
+                                 Checked="Tab_Checked"
+                                 Padding="16,8"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Cursor="Hand">
+                        <RadioButton.Style>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="bd"
+                                                    Background="{StaticResource Brush.Surface.Elevated}"
+                                                    BorderBrush="{StaticResource Brush.Border.Default}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Accent.Primary}" />
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </RadioButton.Style>
+                    </RadioButton>
+                </StackPanel>
+
+                <!-- Actions & Status Area -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Connection Status Badge -->
+                    <Border Background="{StaticResource Brush.Surface.Elevated}"
+                            BorderBrush="{StaticResource Brush.Border.Default}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,6"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8" Margin="0,0,8,0">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource Brush.Status.Offline}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource Brush.Status.Online}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="{Binding ConnectionStatus}"
+                                       FontSize="11"
+                                       FontWeight="Medium"
+                                       Foreground="{StaticResource Brush.Text.Secondary}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Refresh Button -->
+                    <Button Command="{Binding RefreshCommand}"
+                            Style="{StaticResource Style.Button.Secondary}"
+                            Padding="10,6"
+                            Margin="0,0,8,0"
+                            ToolTip="Refresh discovered transceivers">
+                        <TextBlock Text="🔄  Refresh" FontSize="12" />
+                    </Button>
+
+                    <!-- Settings Button -->
+                    <Button Command="{Binding OpenSettingsCommand}"
+                            Style="{StaticResource Style.Button.Secondary}"
+                            Padding="10,6"
+                            ToolTip="Configure BAVM URL, host IP, and ports">
+                        <TextBlock Text="⚙  Settings" FontSize="12" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <!-- Mode 1: Visual Routing Canvas -->
+            <views:VisualRoutingView x:Name="ViewVisualRouting" Visibility="Visible" />
+
+            <!-- Mode 2: Embedded BAVM Console in WebView2 -->
+            <Grid x:Name="ViewBavmConsole" Visibility="Collapsed">
+                <wv2:WebView2 x:Name="BavmWebView" />
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

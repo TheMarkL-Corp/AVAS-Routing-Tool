@@ -1,23 +1,117 @@
-﻿using System.Text;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using Microsoft.Web.WebView2.Core;
+using AvasRoutingTool.Configuration;
+using AvasRoutingTool.Rtp;
+using AvasRoutingTool.Sdvoe;
+using AvasRoutingTool.ViewModels;
+using AvasRoutingTool.Views;
 
-namespace AvasRoutingTool;
-
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
-public partial class MainWindow : Window
+namespace AvasRoutingTool
 {
-    public MainWindow()
+    public partial class MainWindow : Window
     {
-        InitializeComponent();
+        private readonly IConfigService _configService;
+        private readonly ISdvoeClient _sdvoeClient;
+        private readonly IRtpReceiver _rtpReceiver;
+        private readonly MulticastIpManager _ipManager;
+        private readonly RoutingOrchestrator _orchestrator;
+        private readonly MainViewModel _viewModel;
+        private bool _isWebViewInitialized;
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            _configService = new ConfigService();
+            var config = _configService.Load();
+
+            _sdvoeClient = new SdvoeClient();
+            _rtpReceiver = new UnifiedRtpDemuxReceiver();
+            _ipManager = new MulticastIpManager(config.MulticastStartIp, config.MulticastEndIp);
+            _orchestrator = new RoutingOrchestrator(_sdvoeClient);
+
+            _viewModel = new MainViewModel(_configService, _sdvoeClient, _rtpReceiver, _ipManager, _orchestrator)
+            {
+                RequestOpenSettings = ShowSettings
+            };
+
+            DataContext = _viewModel;
+
+            Loaded += MainWindow_Loaded;
+            Closed += MainWindow_Closed;
+        }
+
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            await _viewModel.InitializeAsync();
+        }
+
+        private void MainWindow_Closed(object? sender, EventArgs e)
+        {
+            _rtpReceiver.Dispose();
+            _sdvoeClient.Dispose();
+        }
+
+        private async void Tab_Checked(object sender, RoutedEventArgs e)
+        {
+            if (ViewVisualRouting == null || ViewBavmConsole == null) return;
+
+            if (TabVisualRouting.IsChecked == true)
+            {
+                ViewVisualRouting.Visibility = Visibility.Visible;
+                ViewBavmConsole.Visibility = Visibility.Collapsed;
+            }
+            else if (TabBavmConsole.IsChecked == true)
+            {
+                ViewVisualRouting.Visibility = Visibility.Collapsed;
+                ViewBavmConsole.Visibility = Visibility.Visible;
+                await EnsureBavmWebViewAsync();
+            }
+        }
+
+        private async Task EnsureBavmWebViewAsync()
+        {
+            try
+            {
+                if (!_isWebViewInitialized)
+                {
+                    string userDataFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WebView2_UserData");
+                    if (!Directory.Exists(userDataFolder))
+                    {
+                        Directory.CreateDirectory(userDataFolder);
+                    }
+
+                    var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+                    await BavmWebView.EnsureCoreWebView2Async(env);
+                    _isWebViewInitialized = true;
+                }
+
+                if (_isWebViewInitialized && BavmWebView.CoreWebView2 != null)
+                {
+                    BavmWebView.CoreWebView2.Navigate(_viewModel.BavmUrl);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unable to initialize BAVM embedded web view: {ex.Message}", "WebView2 Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void ShowSettings()
+        {
+            var dialog = new SettingsDialog(_configService)
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                // Reload configuration and reconnect
+                _ = _viewModel.InitializeAsync();
+            }
+        }
     }
 }
