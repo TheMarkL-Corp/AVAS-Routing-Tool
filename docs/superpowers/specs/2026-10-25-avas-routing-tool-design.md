@@ -21,14 +21,16 @@ The primary objective of **AVAS Routing Tool** is to provide an intuitive, high-
    - All discovered Encoders (TX) render live low-latency preview thumbnails directly on their cards using the hardware-accelerated Stream 1 Scaler RTP pipeline on UDP port 5004 / 5000.
 3. **100% BAVM Functional Preservation**:
    - The entire official BAVM web management console is embedded via an isolated Microsoft WebView2 tab (`[ 🎛 BAVM Console ]`). All advanced administrative capabilities—device configuration, audio/USB matrices, presets, video walls, EDID management, security, and firmware updates—remain completely accessible and unmodified.
-4. **Automated 3-in-1 Single View Routing (Phase 1)**:
-   - Dropping a Source TX onto a Display RX atomically configures:
-     - **Video**: `join <rx>:HDMI:0 <tx>:HDMI:0` (Genlocked or Fast-switched).
-     - **Audio**: `join <rx>:AUDIO:0 <tx>:AUDIO:0` (automatically linked to Viewport 1).
-     - **USB HID**: Bidirectional `ROUTE_IO_USB_HID` / `join <rx>:USB:0 <tx>:USB:0` enabling Mouse Thru and Touch Thru.
-5. **MultiView Staging (Phase 2)**:
+   - BAVM URL is fully user-configurable (defaults to `http://localhost:80`) and persisted.
+   - SDVoE Control Server IP is synchronized to match the BAVM host IP, with configurable Telnet/REST ports.
+4. **Single View Video Routing (Phase 1)**:
+   - Dropping a Source TX onto a Display RX configures **Video Routing only**: `join <rx>:HDMI:0 <tx>:HDMI:0` (Genlocked or Fast-switched).
+   - Audio and USB-KVM routing are intentionally handled by the original BAVM console in Phase 1, keeping the visual router lightweight and ultra-focused.
+5. **Device Naming Standard**:
+   - Displays and Sources strictly display their configured **Device Name** as set in BAVM (no raw EDID sink names).
+6. **MultiView Staging (Phase 2)**:
    - MultiView layout templates (`matrix-2x2`, `pip`, `side-by-side`, `one-plus-three`, `one-plus-three-right`) are visually present in the bottom row ready for Phase 2 window-level assignment.
-6. **Organized, Consistent Project Memory**:
+7. **Organized, Consistent Project Memory**:
    - All architectural decisions, active session context, system patterns, and progress state are rigorously maintained in a dedicated `memory/` sub-directory and versioned alongside the code.
 
 ---
@@ -102,9 +104,9 @@ graph TD
 * **Location**: Middle row of the Visual Routing canvas.
 * **Component**: Grid of Display cards representing physical surgical/diagnostic monitors.
 * **Card Details**:
-  * Header: Monitor Name / EDID sink name (e.g. `Dell 1920x1200`, `Samsung 4K Surgical`).
+  * Header: Configured **Device Name** as set in BAVM (e.g. `Samsung 1`, `Monitor 2`).
   * Center: **Viewport Surface**. In Single View mode, displays:
-    * When routed: The friendly name of the active Source, current streaming state (`STREAMING`), resolution, and audio/USB binding pills.
+    * When routed: The friendly device name of the active Source TX, current streaming state (`STREAMING`), and resolution.
     * When unrouted: Clean empty state (`[ Drop Source Here to Route ]`).
   * Sub-text: Receiver IP, MAC, Output Resolution, Hot Plug Detect (HPD) status.
   * Disconnect Action: Quick `[ ✕ Unroute ]` button or drop target for `Off` layout.
@@ -125,7 +127,7 @@ graph TD
 
 ## 4. Control Plane & Media Plane Implementation
 
-### 4.1 Single View Routing Automation Flow
+### 4.1 Single View Video Routing Flow (Phase 1)
 When a user drags Source $TX_A$ and drops it onto Display $RX_B$:
 
 ```mermaid
@@ -139,21 +141,14 @@ sequenceDiagram
     UI->>Router: OnDrop(Source: TX_A, Display: RX_B)
     Router->>UI: Show optimistic "Routing..." status spinner
     
-    par 1. Route Video Stream
-        Router->>SDVoE: joinStream(RX_B, TX_A, streamIndex: 0, subIndex: 0)
-        SDVoE->>HW: join RX_B:HDMI:0 TX_A:HDMI:0
-    and 2. Route Audio Stream
-        Router->>SDVoE: joinAudio(RX_B, TX_A, streamIndex: 0)
-        SDVoE->>HW: join RX_B:AUDIO:0 TX_A:AUDIO:0
-    and 3. Route USB Mouse/Touch Thru
-        Router->>SDVoE: joinUsb(RX_B, TX_A, streamIndex: 0)
-        SDVoE->>HW: join RX_B:USB:0 TX_A:USB:0 (or ROUTE_IO_USB_HID)
-    end
+    Router->>SDVoE: joinStream(RX_B, TX_A, streamIndex: 0, subIndex: 0)
+    SDVoE->>HW: join RX_B:HDMI:0 TX_A:HDMI:0
 
-    SDVoE-->>Router: Subscriptions Confirmed (OK)
+    SDVoE-->>Router: Video Subscription Confirmed (OK)
     Router->>UI: Update RX_B card: Active Source = TX_A, State = CONNECTED
-    Router->>UI: Refresh Audio (🔊) and USB (🖱) indicator badges
 ```
+
+*(Note: Audio and USB-KVM routing are maintained within the embedded BAVM console during Phase 1).*
 
 ### 4.2 Live Video Preview Acquisition Pipeline
 * **Source Discovery**: Query Control Server (`get:devices`). For every device where `identity.is_transmitter == true`, register in the preview manager.

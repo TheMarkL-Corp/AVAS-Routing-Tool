@@ -1,9 +1,13 @@
 # Active Context
 
 ## Current Status & Focus
-* **Current Phase**: Project Initialization & Implementation Planning (Phase 1: Single View Foundation).
-* **Primary Objective**: Delivering a dual-mode application that inherits 100% of BAVM functionality intact while providing a visual drag-and-drop routing canvas with live TX previews.
-* **Immediate Priority**: Establishing memory foundation, finalizing the implementation plan (`docs/superpowers/plans/2026-10-25-avas-routing-tool-implementation-plan.md`), and scaffolding the solution.
+* **Current Phase**: Project Architecture & Implementation Planning (Phase 1: Single View Video Routing).
+* **Key User Refinements**:
+  1. Configurable BAVM URL (default: `http://localhost:80`, remembered across sessions).
+  2. SDVoE Control Server IP derived automatically from BAVM host IP; Control Server port configurable.
+  3. Strict Device Name display (no EDID monitor model names).
+  4. Phase 1: Video Routing ONLY (Audio and USB-KVM functions remain in original BAVM).
+  5. Architecture clarification: Comparing Native C# WPF vs Web/Node alternatives.
 
 ## Recent Changes
 * Established project requirements and architectural specification in `docs/superpowers/specs/2026-10-25-avas-routing-tool-design.md`.
