@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DA4C6CC8-6C33-4736-AAC9-347E4FB38DFB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvasRoutingTool", "src\AvasRoutingTool\AvasRoutingTool.csproj", "{C32B232D-290E-4D8A-AA4C-06064F1FAAA5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{CECA81E3-D40A-4B57-AE28-A3B339B4BCAD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvasRoutingTool.Tests", "tests\AvasRoutingTool.Tests\AvasRoutingTool.Tests.csproj", "{1180632A-26E0-47A7-9C3D-6A40D0B29335}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C32B232D-290E-4D8A-AA4C-06064F1FAAA5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C32B232D-290E-4D8A-AA4C-06064F1FAAA5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C32B232D-290E-4D8A-AA4C-06064F1FAAA5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C32B232D-290E-4D8A-AA4C-06064F1FAAA5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1180632A-26E0-47A7-9C3D-6A40D0B29335}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1180632A-26E0-47A7-9C3D-6A40D0B29335}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1180632A-26E0-47A7-9C3D-6A40D0B29335}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1180632A-26E0-47A7-9C3D-6A40D0B29335}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C32B232D-290E-4D8A-AA4C-06064F1FAAA5} = {DA4C6CC8-6C33-4736-AAC9-347E4FB38DFB}
+		{1180632A-26E0-47A7-9C3D-6A40D0B29335} = {CECA81E3-D40A-4B57-AE28-A3B339B4BCAD}
+	EndGlobalSection
+EndGlobal
