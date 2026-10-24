@@ -10,3 +10,4 @@ Task 5: complete (Slate Dark theme, SettingsDialog, dual-mode MainWindow with We
 Task 6: complete (SourceCardViewModel and SourceCardView with live preview and drag gesture)
 Task 7: complete (DisplayCardViewModel, DisplayCardView with drop handler, and VisualRoutingView)
 Task 8: complete (LayoutItemViewModel and LayoutsBarView with Single View active and MultiView staged, tests -> 13/13 passed)
+Task 9: complete (Full test suite 13/13 passed, standalone package publish/AvasRoutingTool/AvasRoutingTool.exe generated, memory and ADR 002 synchronized)
