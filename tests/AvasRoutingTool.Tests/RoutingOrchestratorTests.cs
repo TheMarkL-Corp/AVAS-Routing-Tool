@@ -39,7 +39,7 @@ namespace AvasRoutingTool.Tests
         public Task<bool> LeaveStreamAsync(string rxMac, string streamType, int streamIndex)
         {
             LastUnroutedRx = rxMac;
-            Leaves.Add($"{rxMac}:{streamIndex}");
+            lock (Leaves) Leaves.Add($"{rxMac}:{streamIndex}");
             return Task.FromResult(true);
         }
 
@@ -73,10 +73,17 @@ namespace AvasRoutingTool.Tests
 
         public int LastFps { get; private set; }
 
-        private Task<bool> Record(string entry)
+        /// <summary>
+        /// Awaited by every multiview call after it is logged: lets a test hold one call in flight (so concurrent UI
+        /// actions overlap deterministically) and release it later.
+        /// </summary>
+        public System.Func<string, Task>? DuringCall { get; set; }
+
+        private async Task<bool> Record(string entry)
         {
-            MultiViewCalls.Add(entry);
-            return Task.FromResult(FailMultiViewPrefix == null || !entry.StartsWith(FailMultiViewPrefix));
+            lock (MultiViewCalls) MultiViewCalls.Add(entry);
+            if (DuringCall != null) await DuringCall(entry);
+            return FailMultiViewPrefix == null || !entry.StartsWith(FailMultiViewPrefix);
         }
 
         /// <summary>The windows and surfaces of the last layout created.</summary>

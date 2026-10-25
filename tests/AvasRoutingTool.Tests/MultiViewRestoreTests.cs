@@ -128,7 +128,7 @@ namespace AvasRoutingTool.Tests
             var (o, c) = Create();
             var rx = Rx();
 
-            o.Adopt(rx, Live(1920, 1080, (0, "tx1")), Canvas(1920, 1080, 60));
+            o.Adopt(rx, Live(1920, 1080, (0, "tx1")), Canvas(1920, 1080, 60), new[] { 1 });
 
             Assert.True(o.IsMultiView(rx));
             Assert.Equal("tx1", o.GetLive(rx)!.Placements[0].SourceMac);
@@ -143,7 +143,7 @@ namespace AvasRoutingTool.Tests
             var (o, c) = Create();
             var rx = Rx();
             var restored = Live(1920, 1080, (0, "tx1"));
-            o.Adopt(rx, restored, Canvas(1920, 1080, 60));
+            o.Adopt(rx, restored, Canvas(1920, 1080, 60), new[] { 1 });
             var next = o.GetLive(rx)!;
             next.Place(1, "tx2", "TX2");
 
@@ -161,7 +161,7 @@ namespace AvasRoutingTool.Tests
         {
             var (o, c) = Create();
             var rx = Rx();
-            o.Adopt(rx, Live(3840, 2160, (0, "tx1")), Canvas(3840, 2160, 60)); // heavy at 60 fps
+            o.Adopt(rx, Live(3840, 2160, (0, "tx1")), Canvas(3840, 2160, 60), new[] { 1 }); // heavy at 60 fps
 
             await o.TurnOffAsync(rx);
 
@@ -173,7 +173,7 @@ namespace AvasRoutingTool.Tests
         {
             var (o, c) = Create();
             var rx = Rx();
-            o.Adopt(rx, Live(1920, 1080), Canvas(1920, 1080, 60));
+            o.Adopt(rx, Live(1920, 1080), Canvas(1920, 1080, 60), System.Array.Empty<int>());
 
             Assert.True(await o.ReturnToSingleViewAsync(rx));
 
@@ -185,11 +185,45 @@ namespace AvasRoutingTool.Tests
         public void AdoptedLayout_CountsForTheOtherDisplays()
         {
             var (o, _) = Create();
-            o.Adopt(Rx("rx1"), Live(1920, 1080, (0, "tx1")), Canvas(1920, 1080, 60));
+            o.Adopt(Rx("rx1"), Live(1920, 1080, (0, "tx1")), Canvas(1920, 1080, 60), new[] { 1 });
 
             var use = Assert.Single(o.UsesExcept(Rx("rx2")));
 
             Assert.Equal(("RX rx1", "tx1", 960, 540), (use.DisplayName, use.SourceMac, use.Width, use.Height));
+        }
+
+        // ---- subscriptions really joined ---------------------------------------------------------------
+
+        [Fact]
+        public async Task TurnOff_AfterAdoptingALegacyLayoutWithOnlyBlock4Filled_LeavesSubscription4()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            // legacy layouts gave each window its own surface: block 4 reads surface 4
+            o.Adopt(rx, Live(1920, 1080, (3, "tx1")), Canvas(1920, 1080, 60), new[] { 4 });
+
+            Assert.True(await o.TurnOffAsync(rx));
+
+            Assert.Equal(new[] { "rx1:4" }, c.Leaves);
+        }
+
+        [Fact]
+        public async Task TakeAfterAdopt_LeavesTheLegacySubscriptionThatDroppedOut()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            o.Adopt(rx, Live(1920, 1080, (3, "tx1")), Canvas(1920, 1080, 60), new[] { 4 });
+            var next = o.GetLive(rx)!;
+            next.Place(0, "tx2", "TX2");
+
+            await o.TakeAsync(rx, next); // now tx2@1, tx1@2
+
+            Assert.Equal("multiview:rx1:avas_rx1_matrix2x2_1920x1080:tx2@1,tx1@2", c.MultiViewCalls.Last(x => x.StartsWith("multiview:")));
+            Assert.Equal(new[] { "rx1:4" }, c.Leaves);
+            c.Leaves.Clear();
+
+            await o.TurnOffAsync(rx);
+            Assert.Equal(new[] { "rx1:1", "rx1:2" }, c.Leaves);
         }
 
         [Fact]

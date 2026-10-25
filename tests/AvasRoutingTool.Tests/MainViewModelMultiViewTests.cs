@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AvasRoutingTool.Configuration;
 using AvasRoutingTool.Sdvoe;
+using AvasRoutingTool.Sdvoe.MultiView;
 using AvasRoutingTool.ViewModels;
 using Xunit;
 
@@ -12,6 +13,7 @@ namespace AvasRoutingTool.Tests
         private sealed class Rig
         {
             public MockSdvoeClient Client { get; } = new();
+            public MultiViewOrchestrator MultiView { get; }
             public MainViewModel Vm { get; }
             public AvasDevice Rx { get; } = new() { DeviceId = "rx1", DeviceName = "RX1", IsReceiver = true, IsActive = true };
             public DisplayCardViewModel RxVm { get; }
@@ -22,7 +24,8 @@ namespace AvasRoutingTool.Tests
 
             public Rig()
             {
-                Vm = new MainViewModel(new ConfigService(), Client, new MockRtpReceiver(), new MulticastIpManager(), new RoutingOrchestrator(Client));
+                MultiView = new MultiViewOrchestrator(Client);
+                Vm = new MainViewModel(new ConfigService(), Client, new MockRtpReceiver(), new MulticastIpManager(), new RoutingOrchestrator(Client), MultiView);
                 RxVm = new DisplayCardViewModel(Rx, Vm.UnrouteVideoAsync);
                 Tx1Vm = new SourceCardViewModel(Tx1);
                 Tx2Vm = new SourceCardViewModel(Tx2);
@@ -313,6 +316,84 @@ namespace AvasRoutingTool.Tests
 
             Assert.False(ok);
             Assert.False(rig.RxVm.IsMultiView);
+        }
+
+        // ---- drops and Off on one display are handled one at a time ---------------------------------
+
+        /// <summary>
+        /// Holds the first multiview call starting with <paramref name="prefix"/> until <c>release</c> is called;
+        /// <c>entered</c> completes once that call is in flight.
+        /// </summary>
+        private static (Task Entered, System.Action Release) HoldFirstCall(MockSdvoeClient client, string prefix)
+        {
+            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.DuringCall = entry =>
+                entry.StartsWith(prefix) && entered.TrySetResult() ? release.Task : Task.CompletedTask;
+            return (entered.Task, () => release.TrySetResult());
+        }
+
+        [Fact]
+        public async Task TwoQuickDrops_OfDifferentSources_BothEndUpLiveAndOnTheCard()
+        {
+            var rig = new Rig();
+            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
+
+            var first = rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            await entered; // the first take is in flight
+            var second = rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx2);
+            release();
+            var results = await Task.WhenAll(first, second);
+
+            Assert.All(results, Assert.True);
+            var live = rig.MultiView.GetLive(rig.Rx)!;
+            Assert.Equal(new[] { (0, "tx1"), (1, "tx2") }, live.Placements.OrderBy(p => p.Key).Select(p => (p.Key, p.Value.SourceMac)));
+            Assert.Equal("TX1", rig.RxVm.Slots.Single(s => s.Index == 0).SourceName);
+            Assert.Equal("TX2", rig.RxVm.Slots.Single(s => s.Index == 1).SourceName);
+        }
+
+        [Fact]
+        public async Task OffIssuedBeforeADrop_WinsAndTheDropFindsNoLayout()
+        {
+            var rig = new Rig();
+            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            var (entered, release) = HoldFirstCall(rig.Client, "genlock:");
+
+            var off = rig.Vm.UnrouteVideoAsync(rig.Rx);
+            await entered; // Off is in flight
+            var drop = rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx2);
+            release();
+            await Task.WhenAll(off, drop);
+
+            Assert.True(off.Result);
+            Assert.False(drop.Result);
+            Assert.False(rig.MultiView.IsMultiView(rig.Rx)); // the decoder stayed off...
+            Assert.False(rig.RxVm.IsMultiView);              // ...and so does the card
+            Assert.Equal("genlock:rx1", rig.Client.MultiViewCalls.Last());
+        }
+
+        [Fact]
+        public async Task ADropIssuedBeforeOff_IsTakenThenTurnedOff()
+        {
+            var rig = new Rig();
+            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
+
+            var drop = rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx2);
+            await entered; // the drop's take is in flight
+            var off = rig.Vm.UnrouteVideoAsync(rig.Rx);
+            release();
+            await Task.WhenAll(drop, off);
+
+            Assert.True(drop.Result);
+            Assert.True(off.Result);
+            Assert.False(rig.MultiView.IsMultiView(rig.Rx));
+            Assert.False(rig.RxVm.IsMultiView);
+            Assert.Contains("rx1:2", rig.Client.Leaves); // Off left the dropped source's subscription too
+            Assert.Equal("genlock:rx1", rig.Client.MultiViewCalls.Last());
         }
 
         [Fact]

@@ -50,12 +50,18 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             /// <summary>Names of sources whose frame divider was refused (they run at full rate).</summary>
             public IReadOnlySet<string> DividerRefused { get; set; } = new HashSet<string>();
 
+            /// <summary>
+            /// HDMI subscription indexes really joined on the decoder: what the last <c>set:multiview</c> sent, or what
+            /// was read back when the layout was adopted. Off leaves all of them.
+            /// </summary>
+            public IReadOnlySet<int> Joined { get; set; } = new HashSet<int>();
+
             /// <summary>Stream 1 would exceed the bandwidth guideline at full rate, so sources are halved.</summary>
             public bool NeedsHalfRate => MultiViewCanvasPolicy.NeedsFrameDivider(Live.Plan, Canvas.Fps);
         }
 
         /// <summary>What a successful send leaves behind, to be committed to the session.</summary>
-        private sealed record Sent(MultiViewCanvas Canvas, IReadOnlySet<string> DividerRefused);
+        private sealed record Sent(MultiViewCanvas Canvas, IReadOnlySet<string> DividerRefused, IReadOnlySet<int> Joined);
 
         private readonly ISdvoeClient _client;
         private readonly MultiViewCanvas _fallback;
@@ -116,8 +122,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// Registers a layout found already running on a decoder (restored from the hardware). Changes no device.
         /// Dividers already on are not ours and are never switched back.
         /// </summary>
-        public void Adopt(AvasDevice rx, MultiViewDraft live, MultiViewCanvas canvas) =>
-            _sessions[Key(rx)] = new Session(rx.DeviceName, live.Clone(), canvas);
+        /// <param name="joinedSubscriptions">The HDMI subscription indexes read back as routed on the decoder.</param>
+        public void Adopt(AvasDevice rx, MultiViewDraft live, MultiViewCanvas canvas, IEnumerable<int> joinedSubscriptions) =>
+            _sessions[Key(rx)] = new Session(rx.DeviceName, live.Clone(), canvas) { Joined = joinedSubscriptions.ToHashSet() };
 
         /// <summary>Drops what we believe about a decoder (the hardware says otherwise). Changes no device.</summary>
         public void Forget(AvasDevice rx) => _sessions.Remove(Key(rx));
@@ -150,13 +157,14 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
                 if (session == null)
                 {
-                    _sessions[Key(rx)] = new Session(rx.DeviceName, taken, sent.Canvas) { DividerRefused = sent.DividerRefused };
+                    session = new Session(rx.DeviceName, taken, sent.Canvas);
+                    _sessions[Key(rx)] = session;
                 }
                 else
                 {
                     session.Previous = session.Live;
-                    Commit(session, rx, taken, sent);
                 }
+                await CommitAsync(session, rx, taken, sent);
                 return result;
             }
             finally
@@ -180,7 +188,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 if (sent == null) return result;
 
                 session.Previous = null;
-                Commit(session, rx, previous, sent);
+                await CommitAsync(session, rx, previous, sent);
                 return result;
             }
             finally
@@ -224,7 +232,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             }
         }
 
-        /// <summary>Drops every live subscription (one per distinct encoder), then returns the decoder to genlock.</summary>
+        /// <summary>Leaves every subscription joined on the decoder, then returns it to genlock.</summary>
         public async Task<bool> TurnOffAsync(AvasDevice rx)
         {
             await _gate.WaitAsync();
@@ -233,8 +241,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 var session = Find(rx);
                 if (session == null) return true;
 
-                foreach (var source in SurfacePlanner.Plan(session.Live, rx.DeviceId).Sources)
-                    await LeaveAsync(rx, source.Surface);
+                foreach (int index in session.Joined.OrderBy(i => i))
+                    await LeaveAsync(rx, index);
 
                 return await GenlockAndEndAsync(rx);
             }
@@ -306,7 +314,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 return (TakeResult.Reject($"'{rx.DeviceName}' rejected layout '{surfaces.LayoutName}'."), null);
 
             AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' now shows {plan.Id} with {subscriptions.Count} source(s) ({canvas.Description})");
-            return (new TakeResult(TakeOutcome.Applied), new Sent(canvas, refused));
+            return (new TakeResult(TakeOutcome.Applied), new Sent(canvas, refused, subscriptions.Select(s => s.SubscriptionIndex).ToHashSet()));
         }
 
         /// <summary>Switches a source's stream 1 to half rate; false when the device refused.</summary>
@@ -324,18 +332,36 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             return false;
         }
 
-        private static void Commit(Session session, AvasDevice rx, MultiViewDraft live, Sent sent)
+        /// <summary>
+        /// Records what is now on the screen, then leaves (best effort) the subscriptions the new layout no longer
+        /// uses, so no stream stays joined after it dropped out of the layout.
+        /// </summary>
+        private async Task CommitAsync(Session session, AvasDevice rx, MultiViewDraft live, Sent sent)
         {
+            var droppedOut = session.Joined.Except(sent.Joined).OrderBy(i => i).ToList();
+
             session.DisplayName = rx.DeviceName;
             session.Live = live;
             session.Canvas = sent.Canvas;
             session.DividerRefused = sent.DividerRefused;
+            session.Joined = sent.Joined;
+
+            foreach (int index in droppedOut)
+                await LeaveAsync(rx, index);
         }
 
+        /// <summary>Best effort: a leave that is refused or throws is logged, never fatal.</summary>
         private async Task LeaveAsync(AvasDevice rx, int subscriptionIndex)
         {
-            if (!await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", subscriptionIndex))
-                AppLogger.Warn("MULTIVIEW", $"Leave of subscription {subscriptionIndex} on '{rx.DeviceName}' was not accepted.");
+            try
+            {
+                if (!await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", subscriptionIndex))
+                    AppLogger.Warn("MULTIVIEW", $"Leave of subscription {subscriptionIndex} on '{rx.DeviceName}' was not accepted.");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn("MULTIVIEW", $"Leave of subscription {subscriptionIndex} on '{rx.DeviceName}' failed: {ex.Message}");
+            }
         }
 
         private async Task<bool> GenlockAndEndAsync(AvasDevice rx)

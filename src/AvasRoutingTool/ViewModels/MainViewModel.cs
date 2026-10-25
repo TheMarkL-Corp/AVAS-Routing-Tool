@@ -31,6 +31,12 @@ namespace AvasRoutingTool.ViewModels
         /// </summary>
         private readonly System.Collections.Generic.Dictionary<string, MultiViewDraft> _drafts = new();
 
+        /// <summary>
+        /// One at a time per display (by receiver MAC): a drop reads the card's draft, takes it and writes it back, so
+        /// a second drop or an Off must not run in between. Not re-entrant.
+        /// </summary>
+        private readonly System.Collections.Generic.Dictionary<string, System.Threading.SemaphoreSlim> _displayLocks = new();
+
         /// <summary>Subscription indexes of multiview layouts found on decoders that this tool did not create, by receiver MAC.</summary>
         private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<int>> _externalSubscriptions = new();
 
@@ -316,7 +322,7 @@ namespace AvasRoutingTool.ViewModels
             if (restored.IsRecognised)
             {
                 var draft = restored.Draft!;
-                _multiView.Adopt(rx, draft, restored.Canvas);
+                _multiView.Adopt(rx, draft, restored.Canvas, restored.SubscriptionIndexes);
                 _drafts[key] = draft.Clone();
                 display.ApplyLayout(draft.Plan, LayoutTitle(draft.Plan.Id), _multiView.DescribeCanvas(rx));
                 ShowDraft(display, draft);
@@ -386,9 +392,23 @@ namespace AvasRoutingTool.ViewModels
         {
             if (displayRx == null) return false;
 
+            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
+            var gate = DisplayLock(rxKey); // an Off must not interleave with a drop on the same display
+            await gate.WaitAsync();
+            try
+            {
+                return await UnrouteLockedAsync(displayRx, rxKey);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        private async Task<bool> UnrouteLockedAsync(AvasDevice displayRx, string rxKey)
+        {
             AppLogger.Info("ROUTING", $"Requesting unroute on '{displayRx.DeviceName}' ({displayRx.DeviceId})");
             bool wasMultiView = _multiView.IsMultiView(displayRx);
-            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
             bool wasExternal = _externalSubscriptions.TryGetValue(rxKey, out var externalIndexes);
             bool ok = wasExternal
                 ? await _multiView.ExitExternalAsync(displayRx, externalIndexes!)
@@ -500,8 +520,22 @@ namespace AvasRoutingTool.ViewModels
         {
             if (displayRx == null || sourceTx == null) return false;
 
-            var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
             string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
+            var gate = DisplayLock(rxKey); // the next drop must start from the draft this one leaves behind
+            await gate.WaitAsync();
+            try
+            {
+                return await AssignSlotLockedAsync(displayRx, rxKey, slotIndex, sourceTx);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        private async Task<bool> AssignSlotLockedAsync(AvasDevice displayRx, string rxKey, int slotIndex, AvasDevice sourceTx)
+        {
+            var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
             if (displayVm == null || !_drafts.TryGetValue(rxKey, out var shown)) return false;
 
             bool Refuse(string? reason)
@@ -558,6 +592,16 @@ namespace AvasRoutingTool.ViewModels
                 display.AssignSlot(slot.Index, placement == null
                     ? null
                     : FindSource(placement.SourceMac) ?? new SourceCardViewModel(UnknownSource(placement.SourceMac, placement.SourceName)));
+            }
+        }
+
+        private System.Threading.SemaphoreSlim DisplayLock(string rxKey)
+        {
+            lock (_displayLocks)
+            {
+                if (!_displayLocks.TryGetValue(rxKey, out var gate))
+                    _displayLocks[rxKey] = gate = new System.Threading.SemaphoreSlim(1, 1);
+                return gate;
             }
         }
 

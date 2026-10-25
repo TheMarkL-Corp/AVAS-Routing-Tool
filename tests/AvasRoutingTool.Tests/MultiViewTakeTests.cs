@@ -198,7 +198,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("avas_matrix2x2_1920x1080", state.Layout!.Name); // the name before per-display layouts
 
             var restored = MultiViewRestore.Analyze(state)!;
-            o.Adopt(rx, restored.Draft!, restored.Canvas);
+            o.Adopt(rx, restored.Draft!, restored.Canvas, restored.SubscriptionIndexes);
 
             Assert.True(o.IsMultiView(rx));
             Assert.Equal(new[] { "0:74fe488b07bb", "1:0016c0589c1e" }, Blocks(o.GetLive(rx)));

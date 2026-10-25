@@ -458,6 +458,50 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task ATakeThatShrinks_LeavesTheSubscriptionThatDroppedOut_AndOffLeavesTheRest()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"), (1, "tx2")); // tx1@1, tx2@2
+
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"), (1, "tx1")); // tx1@1 only
+
+            Assert.Equal(new[] { "rx1:2" }, c.Leaves);
+            await o.TurnOffAsync(rx);
+            Assert.Equal(new[] { "rx1:2", "rx1:1" }, c.Leaves); // every index that was joined has been left
+        }
+
+        [Fact]
+        public async Task AFailedTake_LeavesNothing_AndOffStillLeavesWhatIsJoined()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"), (1, "tx2"));
+            c.FailMultiViewPrefix = "multiview:";
+
+            var result = await TakeAsync(o, rx, "matrix2x2", (0, "tx3"));
+
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Empty(c.Leaves);
+            c.FailMultiViewPrefix = null;
+            await o.TurnOffAsync(rx);
+            Assert.Equal(new[] { "rx1:1", "rx1:2" }, c.Leaves);
+        }
+
+        [Fact]
+        public async Task Undo_LeavesTheSubscriptionsTheRestoredLayoutDoesNotUse()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"));
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"), (1, "tx2"));
+
+            await o.UndoAsync(rx);
+
+            Assert.Equal(new[] { "rx1:2" }, c.Leaves);
+        }
+
+        [Fact]
         public async Task MacsAreComparedCaseAndSeparatorInsensitively()
         {
             var (o, _) = Create();
