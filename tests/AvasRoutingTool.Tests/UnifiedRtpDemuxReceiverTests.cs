@@ -1,3 +1,5 @@
+using System;
+using System.Buffers.Binary;
 using System.Threading;
 using AvasRoutingTool.Rtp;
 using Xunit;
@@ -12,7 +14,6 @@ namespace AvasRoutingTool.Tests
             using var receiver = new UnifiedRtpDemuxReceiver();
             Assert.False(receiver.IsListening);
 
-            // Use non-privileged ephemeral test ports to avoid collisions
             receiver.StartListening(new[] { 15004, 15000 });
             Assert.True(receiver.IsListening);
 
@@ -36,6 +37,26 @@ namespace AvasRoutingTool.Tests
             receiver.StopListening();
 
             Assert.False(packetReceived);
+        }
+
+        [Fact]
+        public void UnifiedRtpDemuxReceiver_AliasRouting_ResolvesCorrectChannel()
+        {
+            using var receiver = new UnifiedRtpDemuxReceiver();
+            var primaryChannel = receiver.GetOrCreateChannel("10.32.32.12", "225.0.0.1");
+            receiver.RegisterAlias("10.32.32.14", "10.32.32.12");
+
+            bool resolvedDirect = receiver.TryResolveChannel("10.32.32.12", out var ch1);
+            Assert.True(resolvedDirect);
+            Assert.Same(primaryChannel, ch1);
+
+            bool resolvedAlias = receiver.TryResolveChannel("10.32.32.14", out var ch2);
+            Assert.True(resolvedAlias);
+            Assert.Same(primaryChannel, ch2);
+
+            bool resolvedUnknown = receiver.TryResolveChannel("192.168.1.99", out var ch3);
+            Assert.False(resolvedUnknown);
+            Assert.Null(ch3);
         }
     }
 }
