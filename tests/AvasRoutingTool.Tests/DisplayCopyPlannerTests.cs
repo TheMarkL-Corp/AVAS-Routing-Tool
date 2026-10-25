@@ -172,7 +172,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void NarrowerButTallerTarget_IsBlocked_BecauseWidthAndHeightAreComparedSeparately()
+        public void WiderButShorterTarget_IsBlockedOnHeight_NotLetThroughByPixelCount()
         {
             // 2560x1080 has more pixels (2,764,800) than 1920x1200 (2,304,000), yet it is too short.
             var ultrawide = EdidInfo.Parse(TestEdids.Build((2560, 1080, 60, false)))!;
@@ -181,6 +181,28 @@ namespace AvasRoutingTool.Tests
 
             Assert.False(d.Allowed);
             Assert.Equal("PAX355S_SFP A is 2560x1080 - RX1_c059e_SFPA's picture is 1920x1200. Copy needs a display at least that large.", d.Reason);
+        }
+
+        [Fact]
+        public void TallerButNarrowerTarget_IsBlockedOnWidth()
+        {
+            var panel = EdidInfo.Parse(TestEdids.Build((1920, 1200, 60, false)))!;
+
+            var d = DisplayCopyPlanner.Decide(Source, Single(2560, 1080), Target, true, false, panel);
+
+            Assert.False(d.Allowed);
+            Assert.Equal("PAX355S_SFP A is 1920x1200 - RX1_c059e_SFPA's picture is 2560x1080. Copy needs a display at least that large.", d.Reason);
+        }
+
+        [Fact]
+        public void FrameRateNotListed_IsBlocked()
+        {
+            var sixtyOnly = EdidInfo.Parse(TestEdids.Build((1920, 1080, 60, false)))!;
+
+            var d = DisplayCopyPlanner.Decide(Source, Single(1920, 1080, 50), Target, true, false, sixtyOnly);
+
+            Assert.False(d.Allowed);
+            Assert.Equal("PAX355S_SFP A does not list 1920x1080 @ 50 in its EDID", d.Reason);
         }
     }
 }

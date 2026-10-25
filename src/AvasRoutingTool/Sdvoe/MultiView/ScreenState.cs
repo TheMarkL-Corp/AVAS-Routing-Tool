@@ -22,6 +22,10 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     /// <summary>
     /// A display's picture as it is on screen (never a draft being arranged): the output format, and either the
     /// Single View source, the layout this tool made, or an external layout with its subscriptions.
+    /// <para>
+    /// Width/Height/Fps must be the filled-in output format of the display, and Fps already rounded to a whole
+    /// number (59.94 -> 60): the copy rule compares them with <c>EdidInfo.Supports</c> as they are.
+    /// </para>
     /// </summary>
     public sealed record ScreenState(
         ScreenKind Kind,
@@ -44,8 +48,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             return Kind switch
             {
                 ScreenKind.Single => $"Single View ({SourceName}) - {size}",
-                ScreenKind.MultiView => $"{PresetTitle()} ({DraftSources()}) - {size}",
-                ScreenKind.External => $"External layout ({ExternalSources()}) - {size}",
+                ScreenKind.MultiView => $"{PresetTitle()}{Parenthesised(DraftSources())} - {size}",
+                ScreenKind.External => $"External layout{Parenthesised(ExternalSources())} - {size}",
                 _ => "Nothing",
             };
         }
@@ -79,12 +83,26 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             return string.Join(", ", names);
         }
 
-        /// <summary>Distinct source names of the routed subscriptions, in subscription order.</summary>
-        private string ExternalSources() =>
-            string.Join(", ", Subscriptions
-                .Where(s => s.IsRouted)
-                .OrderBy(s => s.Index)
-                .Select(s => s.SourceName)
-                .Distinct());
+        /// <summary>
+        /// Distinct sources (by MAC) the layout's windows show, in window order: a window shows the routed
+        /// subscription whose index is its surface. Without a layout, every routed subscription in index order.
+        /// </summary>
+        private string ExternalSources()
+        {
+            var routed = Subscriptions.Where(s => s.IsRouted).OrderBy(s => s.Index).ToList();
+            IEnumerable<RxSubscription> shown = External == null
+                ? routed
+                : External.Windows
+                    .OrderBy(w => w.WindowIndex)
+                    .Select(w => routed.FirstOrDefault(s => s.Index == w.Surface))
+                    .OfType<RxSubscription>();
+
+            var seen = new HashSet<string>();
+            return string.Join(", ", shown
+                .Where(s => seen.Add(SdvoeClient.NormalizeMac(s.SourceMac)))
+                .Select(s => s.SourceName));
+        }
+
+        private static string Parenthesised(string names) => names.Length == 0 ? string.Empty : $" ({names})";
     }
 }
