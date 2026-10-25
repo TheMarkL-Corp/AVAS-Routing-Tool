@@ -33,8 +33,26 @@ namespace AvasRoutingTool.ViewModels
         private readonly MultiViewOrchestrator _multiView;
         private readonly Func<DateTime> _clock;
 
+        /// <summary>The notice on a draft whose screen was replaced by a copy (spec 15, "After the drop").</summary>
+        public const string StaleDraftNotice = "Screen changed - draft is based on an older picture";
+
         /// <summary>Subscription indexes of multiview layouts found on decoders that this tool did not create, by receiver MAC.</summary>
         private readonly Dictionary<string, IReadOnlyList<int>> _externalSubscriptions = new();
+
+        /// <summary>
+        /// The external layout each display runs as last read (or copied there), with its subscriptions and output
+        /// format, by receiver MAC: what a copy of that display sends. Valid while the MAC is in <see cref="_externalSubscriptions"/>.
+        /// </summary>
+        private readonly Dictionary<string, (RxLayout? Layout, IReadOnlyList<RxSubscription> Subscriptions, MultiViewCanvas Canvas)> _externalScreens = new();
+
+        /// <summary>Display EDIDs read for the current copy arm / drag (by receiver MAC; null = unreadable). Cleared on disarm.</summary>
+        private readonly Dictionary<string, EdidInfo?> _copyEdids = new();
+
+        /// <summary>Targets with a copy (or a copy Undo) in flight: a second tap is ignored, never queued.</summary>
+        private readonly HashSet<string> _copiesInFlight = new();
+
+        private DisplayCardViewModel? _armedDisplay;
+        private int _armSeq;
 
         /// <summary>
         /// Composer drafts with changes that are not on screen, kept when the Composer was closed (by receiver MAC).
@@ -102,6 +120,15 @@ namespace AvasRoutingTool.ViewModels
         /// </summary>
         public SourceCardViewModel? ArmedSource => _armed;
 
+        /// <summary>The display whose "Copy layout" is armed (tap a display to copy onto it), or null. One armed thing at a time.</summary>
+        public DisplayCardViewModel? ArmedDisplay => _armedDisplay;
+
+        /// <summary>The arm banner while a display is armed: "Copying RX1 - Matrix 2x2. Tap a display. Tap Copy layout again to stop."</summary>
+        public string CopyArmBanner =>
+            _armedDisplay == null
+                ? string.Empty
+                : $"Copying {_armedDisplay.DeviceName} - {CurrentScreen(_armedDisplay).Title()}. Tap a display. Tap Copy layout again to stop.";
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand ClearLogsCommand { get; }
@@ -126,6 +153,14 @@ namespace AvasRoutingTool.ViewModels
             _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
             _multiView = multiView ?? new MultiViewOrchestrator(sdvoeClient);
             _clock = clock ?? (() => DateTime.UtcNow);
+            _multiView.Clock = _clock; // one time source: the copy Undo window runs on this view model's clock
+
+            // Every card shown gets the copy commands (cards are added by discovery, or directly by tests).
+            Displays.CollectionChanged += (_, e) =>
+            {
+                if (e.NewItems == null) return;
+                foreach (DisplayCardViewModel d in e.NewItems) d.UseCopyActions(ToggleCopyArmAsync, UndoScreenAsync);
+            };
 
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
@@ -211,6 +246,7 @@ namespace AvasRoutingTool.ViewModels
             // The cards are rebuilt: a Composer open on an old card is closed (its draft is kept by receiver MAC).
             CloseComposer();
             SetArmed(null);
+            DisarmDisplay();
             foreach (var d in _dropChoiceOpenedAt.Keys.ToList()) CloseDropChoice(d);
 
             // Dynamic Cards: populate TX Sources and RX Displays in deterministic order
@@ -324,6 +360,7 @@ namespace AvasRoutingTool.ViewModels
             }
 
             _externalSubscriptions.Remove(key);
+            _externalScreens.Remove(key);
 
             if (!state.IsMultiView)
             {
@@ -369,6 +406,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 _multiView.AdoptExternal(rx, restored.SubscriptionIndexes);
                 _externalSubscriptions[key] = restored.SubscriptionIndexes;
+                _externalScreens[key] = (state.Layout, state.Subscriptions, restored.Canvas); // what a copy of it sends
                 display.SetExternalLayout(restored.LayoutName, restored.Sources.Select(s => s.Name).ToList(), $"OUT {restored.Canvas.Description}");
                 AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs an external multiview layout '{restored.LayoutName}'.");
             }
@@ -563,6 +601,7 @@ namespace AvasRoutingTool.ViewModels
             // (closing a Composer stops placing).
             var toArm = armed ?? (_composer == null ? _armed : null);
             CloseDropChoice(d);
+            DisarmDisplay(); // the Composer replaces the displays row: no copy target is left to tap
 
             if (_composer != null && ReferenceEquals(_composerDisplay, d))
             {
@@ -574,9 +613,11 @@ namespace AvasRoutingTool.ViewModels
 
             string key = Key(d.Device);
             MultiViewDraft? resume;
+            string? staleNotice = null;
             if (_keptDrafts.Remove(key, out var kept))
             {
                 resume = kept;
+                staleNotice = d.DraftNotice;
             }
             else
             {
@@ -588,6 +629,9 @@ namespace AvasRoutingTool.ViewModels
             _composer = composer;
             _composerDisplay = d;
             d.HasDraft = false;
+            d.DraftNotice = null;
+            // A draft kept from before a copy replaced the screen: the Composer says so as it resumes.
+            if (staleNotice != null) composer.OnLiveChangedElsewhere(_multiView.GetLive(d.Device), staleNotice);
             // Not removed on close: a Take still in flight when the Composer closes must still update the card.
             composer.LiveChanged += _ => OnComposerTook(d);
             composer.PropertyChanged += OnComposerPropertyChanged;
@@ -631,6 +675,7 @@ namespace AvasRoutingTool.ViewModels
             else
                 _keptDrafts.Remove(key);
             d.HasDraft = _keptDrafts.ContainsKey(key);
+            d.DraftNotice = d.HasDraft && composer.Banner.Text == StaleDraftNotice ? StaleDraftNotice : null;
 
             composer.Dispose(); // it watches the source cards
             _composer = null;
@@ -683,6 +728,7 @@ namespace AvasRoutingTool.ViewModels
             if (_keptDrafts.TryGetValue(key, out var kept) && !DiffersFromScreen(kept, _multiView.GetLive(d.Device)))
                 _keptDrafts.Remove(key);
             d.HasDraft = _keptDrafts.ContainsKey(key);
+            if (!d.HasDraft) d.DraftNotice = null;
         }
 
         private static bool DiffersFromScreen(MultiViewDraft draft, MultiViewDraft? live) =>
@@ -747,6 +793,7 @@ namespace AvasRoutingTool.ViewModels
                 return;
             }
 
+            DisarmDisplay(); // one armed thing at a time: a source or a display to copy
             SetArmed(ReferenceEquals(_armed, s) ? null : s);
             TouchArm();
         }
@@ -754,12 +801,21 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>
         /// A tap on a display card. With a source armed: a Single View or unrouted card is routed now (Single View
         /// stays immediate) and the source is disarmed; a MultiView card asks first (the drop choice). Nothing armed:
-        /// does nothing (the card's Layout menu opens the Composer).
+        /// does nothing (the card's Layout menu opens the Composer). With a display armed for copying: an allowed card
+        /// is copied onto now and the copy disarms; a blocked card (or the source itself) does nothing, its reason
+        /// stays on the card.
         /// </summary>
         public async Task TapDisplayAsync(DisplayCardViewModel d)
         {
+            if (d == null || _composer != null) return;
+            if (_armedDisplay != null)
+            {
+                await TapCopyTargetAsync(_armedDisplay, d);
+                return;
+            }
+
             var s = _armed;
-            if (d == null || s == null || _composer != null || !d.IsActive) return;
+            if (s == null || !d.IsActive) return;
             TouchArm();
 
             if (d.IsMultiView)
@@ -851,6 +907,12 @@ namespace AvasRoutingTool.ViewModels
                 else if (now - openedAt >= DropChoiceTimeout) CloseDropChoice(d);
             }
 
+            // A copy's Undo toast goes when the target's previous picture is no longer kept (10 s).
+            foreach (var d in Displays.Where(x => x.CanUndoScreen).ToList())
+            {
+                if (_multiView.PreviousScreen(d.Device) == null) d.ClearUndoScreen();
+            }
+
             _composer?.Tick();
         }
 
@@ -865,6 +927,359 @@ namespace AvasRoutingTool.ViewModels
             foreach (var source in Sources) source.IsArmed = ReferenceEquals(source, s);
             if (s != null) s.IsArmed = true;
             if (!ReferenceEquals(previous, s)) OnPropertyChanged(nameof(ArmedSource));
+        }
+
+        // ---- copy a display onto another (spec 15) ----
+
+        /// <summary>
+        /// What the display shows on screen now (never a draft): Nothing when it is offline or unrouted; the live
+        /// multiview this tool drives (its session canvas; subscriptions as the surface planner sends them); the
+        /// external layout last read from (or copied to) it, with its subscriptions and running format; or the Single
+        /// View source at the display's EDID preferred mode (Ruling R13: genlocked Single View has no output format
+        /// of its own in the model; the EDID read for the current copy arm is used, the 1920x1080@60 fallback when
+        /// none was read).
+        /// </summary>
+        public ScreenState CurrentScreen(DisplayCardViewModel d)
+        {
+            ArgumentNullException.ThrowIfNull(d);
+            var none = Array.Empty<RxSubscription>();
+            if (!d.IsActive) return new ScreenState(ScreenKind.Nothing, 0, 0, 0, null, null, null, null, none);
+
+            var rx = d.Device;
+            string key = Key(rx);
+
+            var live = _multiView.GetLive(rx);
+            var canvas = _multiView.GetCanvas(rx);
+            if (live != null && canvas != null)
+                return new ScreenState(ScreenKind.MultiView, canvas.Width, canvas.Height, canvas.Fps, null, null, live, null,
+                    LiveSubscriptions(live, rx));
+
+            if (_externalSubscriptions.ContainsKey(key))
+            {
+                return _externalScreens.TryGetValue(key, out var external)
+                    ? new ScreenState(ScreenKind.External, external.Canvas.Width, external.Canvas.Height, external.Canvas.Fps,
+                        null, null, null, external.Layout, external.Subscriptions)
+                    : new ScreenState(ScreenKind.External, 0, 0, 0, null, null, null, null, none);
+            }
+
+            if (!string.IsNullOrEmpty(rx.ActiveSourceId))
+            {
+                _copyEdids.TryGetValue(key, out var edid);
+                var format = MultiViewCanvasPolicy.Choose(edid);
+                return new ScreenState(ScreenKind.Single, format.Width, format.Height, format.Fps,
+                    rx.ActiveSourceId, rx.ActiveSourceName, null, null, none);
+            }
+
+            return new ScreenState(ScreenKind.Nothing, 0, 0, 0, null, null, null, null, none);
+        }
+
+        /// <summary>
+        /// Arms the display's "Copy layout" (also the start of a copy drag): reads every other online display's EDID
+        /// once, in parallel and read-only (and the source's own for a Single View source, for its output format),
+        /// caches them for this arm, and shows every other card as an allowed or blocked target. Disarms an armed
+        /// source. Does nothing for a display showing nothing, or while the Composer is open.
+        /// </summary>
+        public async Task ArmDisplayAsync(DisplayCardViewModel d)
+        {
+            if (d == null || _composer != null || ReferenceEquals(_armedDisplay, d)) return;
+            if (!d.CanCopyFrom || CurrentScreen(d).Kind == ScreenKind.Nothing)
+            {
+                AppLogger.Info("COPY", $"'{d.DeviceName}' shows nothing to copy; not armed.");
+                return;
+            }
+
+            DisarmDisplay();
+            SetArmed(null);
+            _armedDisplay = d;
+            int token = _armSeq;
+            d.SetCopySource(true);
+            OnPropertyChanged(nameof(ArmedDisplay));
+            OnPropertyChanged(nameof(CopyArmBanner));
+
+            var toRead = Displays.Where(o => o.IsActive && !ReferenceEquals(o, d)).ToList();
+            if (CurrentScreen(d).Kind == ScreenKind.Single) toRead.Add(d);
+            var read = await ReadEdidsAsync(toRead);
+            if (token != _armSeq || !ReferenceEquals(_armedDisplay, d)) return; // disarmed (or re-armed) meanwhile
+
+            foreach (var (key, edid) in read) _copyEdids[key] = edid;
+            RefreshCopyTargets();
+            OnPropertyChanged(nameof(CopyArmBanner));
+            AppLogger.Info("COPY", $"'{d.DeviceName}' armed for copying ({read.Count} display(s) read).");
+        }
+
+        /// <summary>Stops copying: no source, no target state on any card, and the EDIDs read for the arm are dropped.</summary>
+        public void DisarmDisplay()
+        {
+            var was = _armedDisplay;
+            _armedDisplay = null;
+            _armSeq++;
+            _copyEdids.Clear();
+            foreach (var o in Displays)
+            {
+                o.SetCopyTarget(null);
+                o.SetCopySource(false);
+            }
+            was?.SetCopySource(false);
+            if (was == null) return;
+            OnPropertyChanged(nameof(ArmedDisplay));
+            OnPropertyChanged(nameof(CopyArmBanner));
+        }
+
+        /// <summary>
+        /// Whether the armed display may be copied onto <paramref name="target"/> (spec 15 table), from the EDIDs read
+        /// when arming. With nothing armed: blocked.
+        /// </summary>
+        public CopyDecision CopyDecisionFor(DisplayCardViewModel target)
+        {
+            ArgumentNullException.ThrowIfNull(target);
+            var source = _armedDisplay;
+            return source == null
+                ? new CopyDecision(false, string.Empty, null, "Tap Copy layout on a display first")
+                : Decide(source, target);
+        }
+
+        /// <summary>
+        /// Copies what <paramref name="source"/> shows onto <paramref name="target"/> now (a drop, or a tap while armed)
+        /// when the copy rule allows it; a blocked copy sends nothing. Uses the EDIDs of the current arm/drag, else
+        /// reads what it needs once. Ignored (false) while a copy to the same target is in flight. On success the
+        /// target shows a 10 s Undo toast; on failure its card says why and that nothing changed.
+        /// </summary>
+        public async Task<bool> CopyDisplayAsync(DisplayCardViewModel source, DisplayCardViewModel target)
+        {
+            if (source == null || target == null) return false;
+            string key = Key(target.Device);
+            if (!_copiesInFlight.Add(key))
+            {
+                AppLogger.Info("COPY", $"A copy to '{target.DeviceName}' is already in flight; ignored.");
+                return false;
+            }
+
+            try
+            {
+                if (!ReferenceEquals(_armedDisplay, source) || !_copyEdids.ContainsKey(key))
+                {
+                    var toRead = new List<DisplayCardViewModel>();
+                    if (target.IsActive && !ReferenceEquals(source, target)) toRead.Add(target);
+                    if (CurrentScreen(source).Kind == ScreenKind.Single) toRead.Add(source);
+                    foreach (var (k, edid) in await ReadEdidsAsync(toRead)) _copyEdids[k] = edid;
+                }
+                return await ApplyCopyAsync(source, target, Decide(source, target));
+            }
+            finally
+            {
+                _copiesInFlight.Remove(key);
+            }
+        }
+
+        /// <summary>
+        /// The target's toast Undo: puts back what it showed before the copy (Single View source, its own MultiView,
+        /// an external layout, or nothing). False when the 10 s are over or the device refused.
+        /// </summary>
+        public async Task<bool> UndoScreenAsync(DisplayCardViewModel d)
+        {
+            if (d == null) return false;
+            var previous = _multiView.PreviousScreen(d.Device);
+            if (previous == null)
+            {
+                d.ClearUndoScreen();
+                return false;
+            }
+
+            string key = Key(d.Device);
+            if (!_copiesInFlight.Add(key)) return false;
+            try
+            {
+                d.ClearUndoScreen();
+                bool ok = await _multiView.RunExclusiveAsync(d.Device, async () =>
+                {
+                    bool done = await _multiView.RestoreScreenAsync(d.Device, previous);
+                    if (!Displays.Contains(d)) return done;
+                    if (done)
+                        ShowScreenState(d, previous.Kind == ScreenKind.External && previous.External != null
+                            ? MultiViewOrchestrator.ExternalCopyOf(previous, d.MacAddress)
+                            : previous);
+                    else
+                        d.LastError = $"{d.DeviceName} did not accept the Undo; it still shows the copy.";
+                    return done;
+                });
+                if (ok)
+                {
+                    AnnounceScreen(d);
+                    RefreshKeptDraft(d);
+                    AppLogger.Info("COPY", $"'{d.DeviceName}' shows {previous.Describe()} again.");
+                }
+                return ok;
+            }
+            finally
+            {
+                _copiesInFlight.Remove(key);
+            }
+        }
+
+        /// <summary>The card's "Copy layout" handle: arms the display, or stops when it is the armed one.</summary>
+        private async Task ToggleCopyArmAsync(DisplayCardViewModel d)
+        {
+            if (ReferenceEquals(_armedDisplay, d)) DisarmDisplay();
+            else await ArmDisplayAsync(d);
+        }
+
+        /// <summary>A tap on a card while a display is armed for copying.</summary>
+        private async Task TapCopyTargetAsync(DisplayCardViewModel source, DisplayCardViewModel d)
+        {
+            if (ReferenceEquals(source, d)) return; // tap Copy layout again to stop
+
+            var decision = CopyDecisionFor(d);
+            if (!decision.Allowed)
+            {
+                d.SetCopyTarget(decision); // nothing happens; the reason stays on the card
+                return;
+            }
+
+            string key = Key(d.Device);
+            if (!_copiesInFlight.Add(key)) return;
+            try
+            {
+                DisarmDisplay(); // the decision (and its EDID) is taken: copy now
+                await ApplyCopyAsync(source, d, decision);
+            }
+            finally
+            {
+                _copiesInFlight.Remove(key);
+            }
+        }
+
+        private async Task<bool> ApplyCopyAsync(DisplayCardViewModel source, DisplayCardViewModel target, CopyDecision decision)
+        {
+            if (!decision.Allowed)
+            {
+                AppLogger.Info("COPY", $"Copy '{source.DeviceName}' -> '{target.DeviceName}' blocked: {decision.Reason}");
+                return false;
+            }
+
+            // The source's picture as it is now (its lock is not taken); the target's is captured under its lock.
+            var screen = CurrentScreen(source);
+            var result = await _multiView.RunExclusiveAsync(target.Device, async () =>
+            {
+                var before = CurrentScreen(target);
+                var r = await _multiView.CopyAsync(target.Device, screen, before);
+                if (r.Ok && Displays.Contains(target)) ShowScreenState(target, r.Now ?? screen);
+                return r;
+            });
+
+            if (!result.Ok)
+            {
+                string reason = (result.Error ?? "The copy failed").TrimEnd('.', ' ');
+                target.LastError = $"{reason}. Nothing changed on {target.DeviceName}.";
+                return false;
+            }
+
+            target.ShowUndoScreen($"{target.DeviceName} now shows {source.DeviceName}'s {screen.Title()}");
+            MarkDraftStale(target);
+            return true;
+        }
+
+        /// <summary>A copy replaced the target's screen: its draft (open in the Composer, or kept) stays, marked as based on an older picture.</summary>
+        private void MarkDraftStale(DisplayCardViewModel target)
+        {
+            if (_composer != null && ReferenceEquals(_composerDisplay, target))
+            {
+                _composer.OnLiveChangedElsewhere(_multiView.GetLive(target.Device), StaleDraftNotice);
+                return;
+            }
+            if (!_keptDrafts.ContainsKey(Key(target.Device))) return;
+            RefreshKeptDraft(target);
+            if (target.HasDraft) target.DraftNotice = StaleDraftNotice;
+        }
+
+        /// <summary>Makes the card (and the external-layout bookkeeping) show a picture the target now has on screen.</summary>
+        private void ShowScreenState(DisplayCardViewModel d, ScreenState now)
+        {
+            var rx = d.Device;
+            string key = Key(rx);
+            switch (now.Kind)
+            {
+                case ScreenKind.MultiView:
+                    _externalScreens.Remove(key);
+                    ShowScreen(d); // from the orchestrator's session; drops the external bookkeeping
+                    return;
+
+                case ScreenKind.External when now.External != null:
+                    rx.ActiveSourceId = string.Empty;
+                    rx.ActiveSourceName = string.Empty;
+                    _externalSubscriptions[key] = now.Subscriptions.Select(s => s.Index).OrderBy(i => i).ToList();
+                    _externalScreens[key] = (now.External, now.Subscriptions,
+                        new MultiViewCanvas(now.Width, now.Height, now.Fps, false, $"{now.Width}x{now.Height}@{now.Fps}"));
+                    var seen = new HashSet<string>();
+                    var names = now.Subscriptions.Where(s => seen.Add(SdvoeClient.NormalizeMac(s.SourceMac))).Select(s => s.SourceName).ToList();
+                    d.SetExternalLayout(now.External.Name, names, $"OUT {now.Width}x{now.Height}@{now.Fps}");
+                    break;
+
+                case ScreenKind.Single when !string.IsNullOrEmpty(now.SourceMac):
+                    _externalSubscriptions.Remove(key);
+                    _externalScreens.Remove(key);
+                    d.ClearLayout();
+                    d.SetPreviewSource(FindSource(now.SourceMac));
+                    break;
+
+                default:
+                    _externalSubscriptions.Remove(key);
+                    _externalScreens.Remove(key);
+                    rx.ActiveSourceId = string.Empty;
+                    rx.ActiveSourceName = string.Empty;
+                    d.ClearLayout();
+                    d.SetPreviewSource(null);
+                    break;
+            }
+            d.NotifyRoutingChanged();
+        }
+
+        private CopyDecision Decide(DisplayCardViewModel source, DisplayCardViewModel target)
+        {
+            _copyEdids.TryGetValue(Key(target.Device), out var edid);
+            bool same = ReferenceEquals(source, target) || Key(source.Device) == Key(target.Device);
+            return DisplayCopyPlanner.Decide(source.DeviceName, CurrentScreen(source), target.DeviceName, target.IsActive, same, edid);
+        }
+
+        /// <summary>Every card but the armed source shows its copy state.</summary>
+        private void RefreshCopyTargets()
+        {
+            foreach (var o in Displays)
+                o.SetCopyTarget(_armedDisplay == null || ReferenceEquals(o, _armedDisplay) ? null : CopyDecisionFor(o));
+        }
+
+        /// <summary>Reads the displays' EDIDs in parallel (read-only). A read that fails or throws yields null ("Can't read ...").</summary>
+        private async Task<List<(string Key, EdidInfo? Edid)>> ReadEdidsAsync(IEnumerable<DisplayCardViewModel> displays)
+        {
+            var reads = displays.Select(async o =>
+            {
+                string? hex = null;
+                try
+                {
+                    hex = await _sdvoeClient.ReadDisplayEdidAsync(o.MacAddress);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn("COPY", $"EDID read for '{o.DeviceName}' failed: {ex.Message}");
+                }
+                return (Key(o.Device), EdidInfo.Parse(hex));
+            });
+            return (await Task.WhenAll(reads)).ToList();
+        }
+
+        /// <summary>The subscriptions a live draft runs on: one per distinct encoder, as the surface planner sends them.</summary>
+        private static IReadOnlyList<RxSubscription> LiveSubscriptions(MultiViewDraft live, AvasDevice rx)
+        {
+            try
+            {
+                return SurfacePlanner.Plan(live, rx.DeviceId).Sources
+                    .Select(s => new RxSubscription(s.Surface, true, "STREAMING", s.Mac,
+                        live.Placements.Values.First(p => SdvoeClient.NormalizeMac(p.SourceMac) == s.Mac).SourceName, s.Stream))
+                    .ToList();
+            }
+            catch (InvalidOperationException)
+            {
+                return Array.Empty<RxSubscription>(); // not plannable (never for the presets); the draft still describes it
+            }
         }
 
         // ---- helpers ----
@@ -913,6 +1328,8 @@ namespace AvasRoutingTool.ViewModels
             {
                 display.SetOnlineState(isOnline);
                 if (isOnline) _ = RestoreDisplayAsync(display); // a decoder that came back may be showing something
+                if (_armedDisplay != null && !ReferenceEquals(display, _armedDisplay))
+                    display.SetCopyTarget(CopyDecisionFor(display)); // e.g. "PAX355S is offline"
             }
 
             OnPropertyChanged(nameof(OnlineSourcesCount));

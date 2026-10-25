@@ -17,6 +17,15 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     }
 
     /// <summary>
+    /// Outcome of copying a display's picture onto another. <paramref name="Error"/> is the hardware's (or the
+    /// planner's) reason when it failed; <paramref name="Now"/> is what the target shows after a successful copy.
+    /// </summary>
+    public sealed record CopyResult(bool Ok, string? Error, ScreenState? Now = null)
+    {
+        public static CopyResult Fail(string error) => new(false, error);
+    }
+
+    /// <summary>
     /// Owns what each decoder shows in multiview and the hardware sequence that puts it there.
     /// A whole staged draft goes live at once (<see cref="TakeAsync"/>): the display's EDID is read again, every
     /// distinct encoder is scaled (and halved when the layout is heavy), the layout is written and loaded with one
@@ -87,12 +96,28 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// <summary>The display keys whose lock the current async flow already holds (makes the lock re-entrant per flow).</summary>
         private readonly AsyncLocal<HashSet<string>?> _held = new();
 
+        /// <summary>A Single View copy routes exactly as a normal Single View route does.</summary>
+        private readonly RoutingOrchestrator _routing;
+
+        /// <summary>What each copy target showed just before its last copy, and when that copy happened (by receiver key).</summary>
+        private readonly Dictionary<string, (ScreenState Screen, DateTime At)> _previousScreens = new();
+
+        /// <summary>A copy target's previous picture can be put back for this long (spec 14.3).</summary>
+        public static readonly TimeSpan CopyUndoWindow = TimeSpan.FromSeconds(10);
+
         /// <param name="fallback">Output format used when a display's EDID cannot be read.</param>
         public MultiViewOrchestrator(ISdvoeClient client, MultiViewCanvas? fallback = null)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
             _fallback = fallback ?? MultiViewCanvasPolicy.DefaultFallback;
+            _routing = new RoutingOrchestrator(_client);
         }
+
+        /// <summary>
+        /// Time source for the copy Undo window. <c>MainViewModel</c> sets its own clock here, so the overview has one
+        /// time source; tests may set one.
+        /// </summary>
+        public Func<DateTime> Clock { get; set; } = () => DateTime.UtcNow;
 
         /// <summary>True when the display has a live multiview (taken or adopted).</summary>
         public bool IsMultiView(AvasDevice rx) => _sessions.ContainsKey(Key(rx));
@@ -317,6 +342,302 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 _gate.Release();
             }
         });
+
+        // ---- copy a display onto another (spec section 15) ----
+
+        /// <summary>
+        /// What the target showed just before its last copy, while that copy is less than <see cref="CopyUndoWindow"/>
+        /// old (evaluated on read: an expired snapshot is dropped). Null when there is nothing to put back.
+        /// </summary>
+        public ScreenState? PreviousScreen(AvasDevice target)
+        {
+            ArgumentNullException.ThrowIfNull(target);
+            string key = Key(target);
+            lock (_previousScreens)
+            {
+                if (!_previousScreens.TryGetValue(key, out var entry)) return null;
+                if (Clock() - entry.At < CopyUndoWindow) return entry.Screen;
+                _previousScreens.Remove(key);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Puts <paramref name="source"/> (another display's picture on screen now) on the target, as the only
+        /// operation on the target (the source's lock is never taken: its state comes from the snapshot).
+        /// Single View: the target leaves multiview (genlock) if needed, then is routed to the same encoder.
+        /// MultiView this tool made: the same preset at the source's output format, named per target
+        /// (<c>avas_&lt;mac&gt;_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c>), same surfaces and subscriptions. External layout: its
+        /// windows as they are, named <c>avas_&lt;mac&gt;_copy_&lt;W&gt;x&lt;H&gt;</c>, recorded read-only like an adopted
+        /// external layout. No EDID canvas re-pick, no scaler and no frame-divider change: the encoders already run
+        /// for the source. On success the target's previous picture is kept for <see cref="CopyUndoWindow"/>; on a
+        /// failure after the target was touched, that picture is put back (best effort).
+        /// </summary>
+        /// <param name="before">
+        /// The target's picture now, captured by the caller under the target's lock (the overview knows its external
+        /// layout and Single View format). When null, what this orchestrator knows is used.
+        /// </param>
+        public Task<CopyResult> CopyAsync(AvasDevice target, ScreenState source, ScreenState? before = null)
+        {
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(source);
+            return ExclusiveAsync(target, async () =>
+            {
+                var snapshot = before ?? CaptureScreen(target);
+                var (result, touched) = await ApplyScreenAsync(target, source);
+                if (result.Ok)
+                {
+                    lock (_previousScreens) _previousScreens[Key(target)] = (snapshot, Clock());
+                    AppLogger.Info("COPY", $"'{target.DeviceName}' now shows {source.Describe()}.");
+                    return result;
+                }
+
+                AppLogger.Warn("COPY", $"Copy to '{target.DeviceName}' failed: {result.Error}");
+                if (touched)
+                {
+                    try
+                    {
+                        if (!await RestoreCoreAsync(target, snapshot))
+                            AppLogger.Warn("COPY", $"'{target.DeviceName}' could not be put back to {snapshot.Describe()}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Warn("COPY", $"Putting '{target.DeviceName}' back failed: {ex.Message}");
+                    }
+                }
+                return result;
+            });
+        }
+
+        /// <summary>
+        /// Puts back a copy target's previous picture (<see cref="PreviousScreen"/>): Nothing = leave every
+        /// subscription and genlock; Single View = route that encoder; MultiView = Take that draft again (its own EDID
+        /// canvas); External = load that layout again. Afterwards the snapshot is gone. False when the device refused.
+        /// </summary>
+        public Task<bool> RestoreScreenAsync(AvasDevice target, ScreenState previous)
+        {
+            ArgumentNullException.ThrowIfNull(target);
+            ArgumentNullException.ThrowIfNull(previous);
+            return ExclusiveAsync(target, async () =>
+            {
+                bool ok = await RestoreCoreAsync(target, previous);
+                if (ok)
+                {
+                    lock (_previousScreens) _previousScreens.Remove(Key(target));
+                }
+                return ok;
+            });
+        }
+
+        /// <summary>
+        /// The picture an external layout <paramref name="source"/> becomes on <paramref name="targetMac"/> when copied:
+        /// the same windows (unshown surfaces black = 255) under the target's copy layout name, with the routed
+        /// subscriptions its windows show.
+        /// </summary>
+        public static ScreenState ExternalCopyOf(ScreenState source, string targetMac)
+        {
+            ArgumentNullException.ThrowIfNull(source);
+            if (source.External == null) throw new ArgumentException("Not an external layout.", nameof(source));
+
+            var surfaces = SurfacePlanner.Plan(source.External, source.Subscriptions, source.Width, source.Height, targetMac);
+            var windows = surfaces.Windows.Select(w => new RxWindow(w.Slot.Index, w.Surface ?? 255,
+                w.Slot.X, w.Slot.Y, w.Slot.Width, w.Slot.Height, w.HOffset, w.VOffset)).ToList();
+            var used = surfaces.Sources
+                .Select(s => source.Subscriptions.First(x => x.IsRouted && x.Index == s.Surface))
+                .ToList();
+            return new ScreenState(ScreenKind.External, source.Width, source.Height, source.Fps, null, null, null,
+                new RxLayout(surfaces.LayoutName, source.Width, source.Height, windows), used);
+        }
+
+        /// <summary>What this orchestrator alone knows the display shows (no Single View format, no external geometry).</summary>
+        private ScreenState CaptureScreen(AvasDevice rx)
+        {
+            var none = Array.Empty<RxSubscription>();
+            var session = Find(rx);
+            if (session != null)
+                return new ScreenState(ScreenKind.MultiView, session.Canvas.Width, session.Canvas.Height, session.Canvas.Fps,
+                    null, null, session.Live.Clone(), null, none);
+            if (_external.ContainsKey(Key(rx)))
+                return new ScreenState(ScreenKind.External, 0, 0, 0, null, null, null, null, none);
+            if (!string.IsNullOrEmpty(rx.ActiveSourceId))
+                return new ScreenState(ScreenKind.Single, 0, 0, 0, rx.ActiveSourceId, rx.ActiveSourceName, null, null, none);
+            return new ScreenState(ScreenKind.Nothing, 0, 0, 0, null, null, null, null, none);
+        }
+
+        /// <summary>Sends the picture. <c>Touched</c>: the target may have changed (so a failure needs putting back).</summary>
+        private Task<(CopyResult Result, bool Touched)> ApplyScreenAsync(AvasDevice rx, ScreenState screen) =>
+            screen.Kind switch
+            {
+                ScreenKind.Single => ApplySingleAsync(rx, screen),
+                ScreenKind.MultiView when screen.Draft != null => ApplyDraftAsync(rx, screen),
+                ScreenKind.External when screen.External != null => ApplyExternalAsync(rx, screen),
+                ScreenKind.MultiView or ScreenKind.External =>
+                    Task.FromResult((CopyResult.Fail("The layout on screen could not be read, so there is nothing to copy."), false)),
+                _ => Task.FromResult((CopyResult.Fail("Nothing to copy."), false)),
+            };
+
+        private async Task<(CopyResult, bool)> ApplySingleAsync(AvasDevice rx, ScreenState screen)
+        {
+            if (string.IsNullOrEmpty(screen.SourceMac)) return (CopyResult.Fail("Nothing to copy."), false);
+
+            bool touched = false;
+            if (Find(rx) != null)
+            {
+                if (!await ReturnToSingleViewAsync(rx))
+                    return (CopyResult.Fail($"'{rx.DeviceName}' did not accept the switch back to Single View."), false);
+                touched = true;
+            }
+            else if (_external.ContainsKey(Key(rx)))
+            {
+                if (!await ExitExternalAsync(rx, Array.Empty<int>()))
+                    return (CopyResult.Fail($"'{rx.DeviceName}' did not accept the switch back to Single View."), false);
+                touched = true;
+            }
+
+            var tx = SourceDevice(screen);
+            if (!await _routing.RouteSingleViewVideoAsync(tx, rx))
+                return (CopyResult.Fail($"'{rx.DeviceName}' did not accept the route to '{tx.DeviceName}'."), touched);
+
+            return (new CopyResult(true, null, screen), true);
+        }
+
+        private async Task<(CopyResult, bool)> ApplyDraftAsync(AvasDevice rx, ScreenState screen)
+        {
+            var source = screen.Draft!;
+            MultiViewDraft draft;
+            SurfacePlan surfaces;
+            try
+            {
+                // The same preset rebuilt at the source's output format: identical blocks (deterministic).
+                draft = new MultiViewDraft(MultiViewPresets.Build(source.Plan.Id, screen.Width, screen.Height));
+                foreach (var slot in source.Plan.Slots)
+                {
+                    if (!source.Placements.TryGetValue(slot.Index, out var p)) continue;
+                    var placed = draft.Place(slot.Index, p.SourceMac, p.SourceName);
+                    if (!placed.Ok) return (CopyResult.Fail(placed.Reason ?? "The layout could not be copied."), false);
+                }
+                surfaces = SurfacePlanner.Plan(draft, rx.DeviceId);
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            {
+                return (CopyResult.Fail(ex.Message), false);
+            }
+
+            var canvas = new MultiViewCanvas(screen.Width, screen.Height, screen.Fps, false, $"{screen.Width}x{screen.Height}@{screen.Fps} (copy)");
+            await _gate.WaitAsync();
+            try
+            {
+                var (error, touched, joined) = await LoadAsync(rx, surfaces, draft.Plan, screen);
+                if (error != null) return (CopyResult.Fail(error), touched);
+
+                var dropped = JoinedOn(rx).Except(joined).OrderBy(i => i).ToList();
+                _external.Remove(Key(rx));
+                // A new session: the Composer's Undo does not reach back past a copy (the copy has its own).
+                _sessions[Key(rx)] = new Session(rx.DeviceName, draft.Clone(), canvas) { Joined = joined };
+                foreach (int index in dropped) await LeaveAsync(rx, index);
+                await RestoreUnusedDividersAsync();
+
+                var subscriptions = surfaces.Sources
+                    .Select(s => new RxSubscription(s.Surface, true, "STREAMING", s.Mac, NameOf(draft, s.Mac), s.Stream))
+                    .ToList();
+                return (new CopyResult(true, null, screen with { Draft = draft.Clone(), External = null, Subscriptions = subscriptions }), true);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task<(CopyResult, bool)> ApplyExternalAsync(AvasDevice rx, ScreenState screen)
+        {
+            var surfaces = SurfacePlanner.Plan(screen.External!, screen.Subscriptions, screen.Width, screen.Height, rx.DeviceId);
+            if (surfaces.Windows.Count == 0)
+                return (CopyResult.Fail("The layout on screen has no windows to copy."), false);
+            var plan = new MultiViewLayoutPlan("copy", surfaces.LayoutName, screen.Width, screen.Height,
+                surfaces.Windows.Select(w => w.Slot).ToList());
+
+            await _gate.WaitAsync();
+            try
+            {
+                var (error, touched, joined) = await LoadAsync(rx, surfaces, plan, screen);
+                if (error != null) return (CopyResult.Fail(error), touched);
+
+                var dropped = JoinedOn(rx).Except(joined).OrderBy(i => i).ToList();
+                // Recorded like an adopted external layout: read-only here, and Off / a Take leave what it joined.
+                _sessions.Remove(Key(rx));
+                _external[Key(rx)] = joined;
+                foreach (int index in dropped) await LeaveAsync(rx, index);
+                await RestoreUnusedDividersAsync();
+
+                return (new CopyResult(true, null, ExternalCopyOf(screen, rx.DeviceId)), true);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        /// <summary>Writes the layout and loads it at the source's format. Error is null on success.</summary>
+        private async Task<(string? Error, bool Touched, IReadOnlySet<int> Joined)> LoadAsync(
+            AvasDevice rx, SurfacePlan surfaces, MultiViewLayoutPlan plan, ScreenState screen)
+        {
+            var none = new HashSet<int>();
+            if (!await _client.CreateMultiViewLayoutAsync(surfaces, plan))
+                return ($"Could not create layout '{surfaces.LayoutName}'.", false, none);
+
+            var subscriptions = surfaces.Sources.Select(s => new MultiViewSubscription(s.Mac, s.Surface, s.Stream)).ToList();
+            if (!await _client.SetMultiViewAsync(rx.DeviceId, surfaces.LayoutName, screen.Width, screen.Height, screen.Fps, subscriptions))
+                return ($"'{rx.DeviceName}' rejected layout '{surfaces.LayoutName}'.", true, none);
+
+            AppLogger.Info("COPY", $"'{rx.DeviceName}' loaded '{surfaces.LayoutName}' with {subscriptions.Count} source(s) at {screen.Width}x{screen.Height}@{screen.Fps}");
+            return (null, true, subscriptions.Select(s => s.SubscriptionIndex).ToHashSet());
+        }
+
+        private async Task<bool> RestoreCoreAsync(AvasDevice rx, ScreenState previous)
+        {
+            string key = Key(rx);
+            switch (previous.Kind)
+            {
+                case ScreenKind.Nothing:
+                    if (Find(rx) != null) return await TurnOffAsync(rx);
+                    if (_external.TryGetValue(key, out var external)) return await ExitExternalAsync(rx, external.OrderBy(i => i));
+                    if (!string.IsNullOrEmpty(rx.ActiveSourceId) && !await _routing.UnrouteDisplayAsync(rx)) return false;
+                    return await _client.SetGenlockedAsync(rx.DeviceId);
+
+                case ScreenKind.Single:
+                    if (string.IsNullOrEmpty(previous.SourceMac)) return false;
+                    if (Find(rx) != null && !await ReturnToSingleViewAsync(rx)) return false;
+                    if (_external.ContainsKey(key) && !await ExitExternalAsync(rx, Array.Empty<int>())) return false;
+                    return await _routing.RouteSingleViewVideoAsync(SourceDevice(previous), rx);
+
+                case ScreenKind.MultiView:
+                    if (previous.Draft == null) return false;
+                    var taken = await TakeAsync(rx, previous.Draft);
+                    return taken.Outcome is TakeOutcome.Applied or TakeOutcome.NothingToTake;
+
+                case ScreenKind.External:
+                    if (previous.External == null) return false;
+                    var (result, _) = await ApplyExternalAsync(rx, previous);
+                    return result.Ok;
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>The subscription indexes this orchestrator knows are joined on the decoder in multiview.</summary>
+        private IReadOnlySet<int> JoinedOn(AvasDevice rx) =>
+            Find(rx)?.Joined ?? (_external.TryGetValue(Key(rx), out var external) ? external : new HashSet<int>());
+
+        private static AvasDevice SourceDevice(ScreenState screen) => new()
+        {
+            DeviceId = screen.SourceMac ?? string.Empty,
+            DeviceName = string.IsNullOrEmpty(screen.SourceName) ? screen.SourceMac ?? string.Empty : screen.SourceName,
+            IsTransmitter = true,
+        };
+
+        private static string NameOf(MultiViewDraft draft, string mac) =>
+            draft.Placements.Values.FirstOrDefault(p => SdvoeClient.NormalizeMac(p.SourceMac) == mac)?.SourceName ?? mac;
 
         /// <summary>Runs <paramref name="action"/> holding the display's lock, unless this async flow already holds it.</summary>
         private async Task<T> ExclusiveAsync<T>(AvasDevice rx, Func<Task<T>> action)

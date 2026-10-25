@@ -27,6 +27,36 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void Plan_FromWindowGeometry_KeepsSurfacesOffsetsAndStreams_AndBlackensUnroutedWindows()
+        {
+            var layout = new AvasRoutingTool.Sdvoe.RxLayout("bavm_custom", 3840, 2160, new[]
+            {
+                new AvasRoutingTool.Sdvoe.RxWindow(1, 5, 1920, 0, 1920, 1080, 16, 8),
+                new AvasRoutingTool.Sdvoe.RxWindow(0, 3, 0, 0, 1920, 1080),
+                new AvasRoutingTool.Sdvoe.RxWindow(2, 3, 0, 1080, 1920, 1080),
+                new AvasRoutingTool.Sdvoe.RxWindow(3, 255, 1920, 1080, 1920, 1080),
+                new AvasRoutingTool.Sdvoe.RxWindow(4, 7, 960, 540, 960, 540),
+            });
+            var subs = new[]
+            {
+                new AvasRoutingTool.Sdvoe.RxSubscription(3, true, "STREAMING", "00:11:22:33:44:02", "TX2", 1),
+                new AvasRoutingTool.Sdvoe.RxSubscription(5, true, "STREAMING", "001122334403", "TX3", 0),
+                new AvasRoutingTool.Sdvoe.RxSubscription(7, false, "STOPPED", "001122334404", "TX4", 1), // not routed
+                new AvasRoutingTool.Sdvoe.RxSubscription(9, true, "STREAMING", "001122334405", "TX5", 1), // no window shows it
+            };
+
+            var plan = SurfacePlanner.Plan(layout, subs, 3840, 2160, Rx);
+
+            Assert.Equal("avas_74fe483c059e_copy_3840x2160", plan.LayoutName);
+            Assert.Equal(new[] { 0, 1, 2, 3, 4 }, plan.Windows.Select(w => w.Slot.Index)); // window order
+            Assert.Equal(new int?[] { 3, 5, 3, null, null }, plan.Windows.Select(w => w.Surface));
+            var second = plan.Windows[1];
+            Assert.Equal((1920, 0, 1920, 1080, 16, 8), (second.Slot.X, second.Slot.Y, second.Slot.Width, second.Slot.Height, second.HOffset, second.VOffset));
+            Assert.Equal(new[] { ("001122334402", 3, 1), ("001122334403", 5, 0) }, plan.Sources.Select(s => (s.Mac, s.Surface, s.Stream)));
+            Assert.Equal((1920, 1080), (plan.Sources[0].Width, plan.Sources[0].Height));
+        }
+
+        [Fact]
         public void Plan_DistinctEncoders_GetSurfacesOneUpwardsInBlockOrder()
         {
             var draft = new MultiViewDraft(MultiViewPresets.Build("matrix2x2", 1920, 1080));

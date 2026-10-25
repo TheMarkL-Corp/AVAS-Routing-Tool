@@ -578,11 +578,15 @@ namespace AvasRoutingTool.ViewModels
         /// The decoder was changed by someone else (state re-read from the hardware). ON SCREEN NOW and the change
         /// list follow; the draft is kept unless it had nothing of its own to lose.
         /// </summary>
-        public void OnLiveChangedElsewhere(MultiViewDraft? live)
+        /// <param name="notice">
+        /// The warning to show when the draft is kept (default "... was changed elsewhere - your draft is kept."). Given
+        /// by the overview when a copy replaced the screen; it is shown even when the new screen matches the old one.
+        /// </param>
+        public void OnLiveChangedElsewhere(MultiViewDraft? live, string? notice = null)
         {
             // Idempotent: the overview re-announces the Composer's own Take / Undo too. Nothing differs, so the Undo
             // window and the banner must stay as they are.
-            if (_disposed || IsSameAsCurrentLive(live)) return;
+            if (_disposed || (notice == null && IsSameAsCurrentLive(live))) return;
 
             _live = live?.Clone();
             _takenAt = null;
@@ -602,7 +606,7 @@ namespace AvasRoutingTool.ViewModels
             Refresh();
 
             if (!followScreen && _draft != null && HasChanges)
-                Banner = new ComposerBanner($"{_display.DeviceName} was changed elsewhere - your draft is kept.", BannerKind.Warning);
+                Banner = new ComposerBanner(notice ?? $"{_display.DeviceName} was changed elsewhere - your draft is kept.", BannerKind.Warning);
         }
 
         /// <summary>Re-evaluates the time-limited Undo; the view calls it from a timer so the offer is withdrawn on time.</summary>

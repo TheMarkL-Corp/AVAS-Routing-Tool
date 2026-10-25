@@ -6,8 +6,12 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     /// <summary>One HTTP call against the BlueRiver Control Server REST API.</summary>
     public sealed record RestCall(string Method, string Path, object? Body);
 
-    /// <summary>A source feeding one multiview surface. The subscription index equals the target surface (API §5.4 examples).</summary>
-    public sealed record MultiViewSubscription(string SourceMac, int SubscriptionIndex);
+    /// <summary>
+    /// A source feeding one multiview surface. The subscription index equals the target surface (API §5.4 examples).
+    /// <see cref="StreamIndex"/> is the encoder's HDMI stream: 1 (the scaled stream) for every layout this tool makes;
+    /// a copied external layout keeps the stream it was found subscribing.
+    /// </summary>
+    public sealed record MultiViewSubscription(string SourceMac, int SubscriptionIndex, int StreamIndex = 1);
 
     /// <summary>
     /// Pure builders for the multiview REST calls, shaped after the SDVoE API Reference 3.9
@@ -20,9 +24,10 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
         /// <summary>
         /// A window on <paramref name="surface"/>; null leaves <c>target_surface</c> out, which the decoder
-        /// shows as black (lab-verified).
+        /// shows as black (lab-verified). The offsets crop into the surface (0 for every layout this tool makes;
+        /// a copied external layout keeps its own).
         /// </summary>
-        public static RestCall CreateWindow(string layoutName, WindowSlot slot, int? surface)
+        public static RestCall CreateWindow(string layoutName, WindowSlot slot, int? surface, int horizontalOffset = 0, int verticalOffset = 0)
         {
             var body = new Dictionary<string, object>
             {
@@ -31,8 +36,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 ["vertical_position"] = slot.Y,
                 ["width"] = slot.Width,
                 ["height"] = slot.Height,
-                ["horizontal_offset"] = 0,
-                ["vertical_offset"] = 0,
+                ["horizontal_offset"] = horizontalOffset,
+                ["vertical_offset"] = verticalOffset,
             };
             if (surface.HasValue) body["target_surface"] = surface.Value;
             return new("POST", $"/api/multiview/layout/{layoutName}/window/{slot.Index}", body);
@@ -54,7 +59,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 subscriptions = subscriptions.Select(s => new
                 {
                     source_device = SdvoeClient.NormalizeMac(s.SourceMac),
-                    stream_index = 1,
+                    stream_index = s.StreamIndex,
                     subscription_index = s.SubscriptionIndex,
                 }).ToArray(),
             });

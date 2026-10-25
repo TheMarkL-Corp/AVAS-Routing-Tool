@@ -363,7 +363,7 @@ namespace AvasRoutingTool.Sdvoe
             if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateLayout(name, plan.Width, plan.Height))) return false;
             foreach (var window in surfacePlan.Windows)
             {
-                if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateWindow(name, window.Slot, window.Surface))) return false;
+                if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateWindow(name, window.Slot, window.Surface, window.HOffset, window.VOffset))) return false;
             }
             return true;
         }

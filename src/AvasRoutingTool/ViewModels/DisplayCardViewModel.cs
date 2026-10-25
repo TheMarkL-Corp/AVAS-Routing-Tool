@@ -31,6 +31,12 @@ namespace AvasRoutingTool.ViewModels
         private bool _isLayoutMenuOpen;
         private bool _hasDraft;
         private SourceCardViewModel? _dropChoiceSource;
+        private CopyDecision? _copyTarget;
+        private bool _isCopySource;
+        private string? _undoToastText;
+        private string? _draftNotice;
+        private Func<DisplayCardViewModel, System.Threading.Tasks.Task>? _copyLayoutAction;
+        private Func<DisplayCardViewModel, System.Threading.Tasks.Task>? _undoScreenAction;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -160,10 +166,107 @@ namespace AvasRoutingTool.ViewModels
 
         public ICommand UnrouteCommand { get; }
 
+        // ---- copy this display onto another (spec 15) ----
+
+        /// <summary>The display shows something that can be copied (a Single View route, a multiview, an external layout).</summary>
+        public bool CanCopyFrom => IsActive && (IsMultiView || _isExternalLayout || !string.IsNullOrEmpty(ActiveSourceId));
+
+        /// <summary>Why the Copy layout handle is disabled ("RX1 shows nothing to copy"); empty when it is enabled.</summary>
+        public string CopyFromBlockedText => CanCopyFrom ? string.Empty : $"{DeviceName} shows nothing to copy";
+
+        /// <summary>This display's Copy layout is armed (or being dragged): it is the copy source.</summary>
+        public bool IsCopySource => _isCopySource;
+
+        /// <summary>A display is armed for copying and this card may receive it (cyan ring, "Release to copy here").</summary>
+        public bool IsCopyTargetAllowed => _copyTarget?.Allowed == true;
+
+        /// <summary>A display is armed for copying and this card may not receive it (lock + <see cref="CopyTargetText"/>).</summary>
+        public bool IsCopyTargetBlocked => _copyTarget != null && !_copyTarget.Allowed;
+
+        /// <summary>While a copy is armed: the note or summary when allowed, the reason when blocked; else empty.</summary>
+        public string CopyTargetText =>
+            _copyTarget == null ? string.Empty
+            : _copyTarget.Allowed ? _copyTarget.Note ?? _copyTarget.Summary
+            : _copyTarget.Reason ?? string.Empty;
+
+        /// <summary>"PAX355S now shows RX1's Matrix 2x2" for 10 s after a copy onto this display; null otherwise.</summary>
+        public string? UndoToastText => _undoToastText;
+
+        /// <summary>The toast's Undo is offered (10 s after a copy onto this display).</summary>
+        public bool CanUndoScreen => _undoToastText != null;
+
+        /// <summary>The kept draft is based on a picture that is no longer on screen (a copy replaced it); null otherwise.</summary>
+        public string? DraftNotice
+        {
+            get => _draftNotice;
+            set { if (_draftNotice == value) return; _draftNotice = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>The toast's Undo: puts back what this display showed before the copy.</summary>
+        public ICommand UndoScreenCommand { get; }
+
+        /// <summary>The "Copy layout" handle tapped: arms this display as the copy source (tap again to stop).</summary>
+        public ICommand CopyLayoutCommand { get; }
+
+        /// <summary>Connects the copy commands to the overview (<see cref="MainViewModel"/> does this for every card it shows).</summary>
+        public void UseCopyActions(Func<DisplayCardViewModel, System.Threading.Tasks.Task> copyLayout,
+            Func<DisplayCardViewModel, System.Threading.Tasks.Task> undoScreen)
+        {
+            _copyLayoutAction = copyLayout;
+            _undoScreenAction = undoScreen;
+        }
+
+        /// <summary>This card's state as a copy target; null when no copy is armed.</summary>
+        public void SetCopyTarget(CopyDecision? decision)
+        {
+            if (_copyTarget == null && decision == null) return;
+            _copyTarget = decision;
+            OnPropertyChanged(nameof(IsCopyTargetAllowed));
+            OnPropertyChanged(nameof(IsCopyTargetBlocked));
+            OnPropertyChanged(nameof(CopyTargetText));
+        }
+
+        public void SetCopySource(bool isSource)
+        {
+            if (_isCopySource == isSource) return;
+            _isCopySource = isSource;
+            OnPropertyChanged(nameof(IsCopySource));
+        }
+
+        public void ShowUndoScreen(string text)
+        {
+            _undoToastText = text;
+            OnPropertyChanged(nameof(UndoToastText));
+            OnPropertyChanged(nameof(CanUndoScreen));
+        }
+
+        public void ClearUndoScreen()
+        {
+            if (_undoToastText == null) return;
+            _undoToastText = null;
+            OnPropertyChanged(nameof(UndoToastText));
+            OnPropertyChanged(nameof(CanUndoScreen));
+        }
+
+        private void NotifyCopySourceChanged()
+        {
+            OnPropertyChanged(nameof(CanCopyFrom));
+            OnPropertyChanged(nameof(CopyFromBlockedText));
+        }
+
         public DisplayCardViewModel(AvasDevice device, Func<AvasDevice, System.Threading.Tasks.Task>? unrouteAction = null)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
             _unrouteAction = unrouteAction;
+
+            CopyLayoutCommand = new RelayCommand(async _ =>
+            {
+                if (_copyLayoutAction != null) await _copyLayoutAction(this);
+            }, _ => CanCopyFrom);
+            UndoScreenCommand = new RelayCommand(async _ =>
+            {
+                if (_undoScreenAction != null) await _undoScreenAction(this);
+            }, _ => CanUndoScreen);
 
             UnrouteCommand = new RelayCommand(async _ =>
             {
@@ -295,6 +398,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(SourceLabel));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(FirstEmptySlotIndex));
+            NotifyCopySourceChanged();
         }
 
         public void SetPreviewSource(SourceCardViewModel? sourceVm)
@@ -335,6 +439,7 @@ namespace AvasRoutingTool.ViewModels
         {
             _device.IsActive = isOnline;
             OnPropertyChanged(nameof(IsActive));
+            NotifyCopySourceChanged();
         }
 
         public void NotifyRoutingChanged()
@@ -346,6 +451,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(ModeBadge));
             OnPropertyChanged(nameof(PreviewBitmap));
             OnPropertyChanged(nameof(IsPreviewSupported));
+            NotifyCopySourceChanged();
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)

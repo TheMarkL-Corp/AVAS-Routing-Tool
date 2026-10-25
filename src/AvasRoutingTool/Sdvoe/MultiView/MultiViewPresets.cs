@@ -30,6 +30,12 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             $"avas_{SdvoeClient.NormalizeMac(rxMac)}_{preset}_{width}x{height}";
 
         /// <summary>
+        /// The name of an external layout copied onto a display: <c>avas_&lt;mac12&gt;_copy_&lt;W&gt;x&lt;H&gt;</c>. "copy" is
+        /// not a preset, so after a restart it is read back as external (read-only), like the layout it copies.
+        /// </summary>
+        public static string CopyLayoutName(int width, int height, string rxMac) => LayoutName("copy", width, height, rxMac);
+
+        /// <summary>
         /// Recognises a layout name this tool created - <c>avas_&lt;mac12&gt;_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c> or the older
         /// <c>avas_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c> - so a layout found on a decoder can be adopted. Layouts made
         /// elsewhere (BAVM, <c>compatibility_4k_2x2</c>) are not ours.

@@ -99,11 +99,15 @@ namespace AvasRoutingTool.Tests
         public Task<bool> PrepareSourceScalerAsync(string txMac, int width, int height) =>
             Record($"scaler:{txMac}:{width}x{height}");
 
+        /// <summary>Output size of the last <c>set:multiview</c>.</summary>
+        public (int Width, int Height) LastMultiViewSize { get; private set; }
+
         public Task<bool> SetMultiViewAsync(string rxMac, string layoutName, int width, int height, int fps,
             System.Collections.Generic.IReadOnlyList<AvasRoutingTool.Sdvoe.MultiView.MultiViewSubscription> subscriptions)
         {
             LastSubscriptions = subscriptions;
             LastFps = fps;
+            LastMultiViewSize = (width, height);
             return Record($"multiview:{rxMac}:{layoutName}:{string.Join(",", System.Linq.Enumerable.Select(subscriptions, s => $"{s.SourceMac}@{s.SubscriptionIndex}"))}");
         }
 
@@ -136,17 +140,25 @@ namespace AvasRoutingTool.Tests
         /// <summary>EDID hex returned for any receiver; null means "no display / read failed".</summary>
         public string? DisplayEdid { get; set; }
 
+        /// <summary>EDID hex per receiver MAC; a receiver missing here gets <see cref="DisplayEdid"/>.</summary>
+        public System.Collections.Generic.Dictionary<string, string?> DisplayEdids { get; } = new();
+
         /// <summary>How many times the display EDID was read.</summary>
-        public int EdidReads { get; private set; }
+        public int EdidReads => _edidReads;
+        private int _edidReads;
+
+        /// <summary>Every EDID read, by receiver MAC.</summary>
+        public System.Collections.Generic.List<string> EdidReadsBy { get; } = new();
 
         /// <summary>Awaited by every EDID read (after it is counted): lets a test hold overlapping layout selections in flight.</summary>
         public System.Func<Task>? DuringEdidRead { get; set; }
 
         public async Task<string?> ReadDisplayEdidAsync(string rxMac)
         {
-            EdidReads++;
+            System.Threading.Interlocked.Increment(ref _edidReads);
+            lock (EdidReadsBy) EdidReadsBy.Add(rxMac);
             if (DuringEdidRead != null) await DuringEdidRead();
-            return DisplayEdid;
+            return DisplayEdids.TryGetValue(rxMac, out var hex) ? hex : DisplayEdid;
         }
 
         public Task<System.Collections.Generic.List<AvasDevice>> DiscoverDevicesAsync()

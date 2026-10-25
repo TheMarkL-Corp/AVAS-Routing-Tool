@@ -47,12 +47,21 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             string size = $"{Width}x{Height}";
             return Kind switch
             {
-                ScreenKind.Single => $"Single View ({SourceName}) - {size}",
+                ScreenKind.Single => $"Single View{Parenthesised(SourceName ?? string.Empty)} - {size}",
                 ScreenKind.MultiView => $"{PresetTitle()}{Parenthesised(DraftSources())} - {size}",
                 ScreenKind.External => $"External layout{Parenthesised(ExternalSources())} - {size}",
                 _ => "Nothing",
             };
         }
+
+        /// <summary>What kind of picture it is, for the operator: "Matrix 2x2", "Single View", "External layout" or "Nothing".</summary>
+        public string Title() => Kind switch
+        {
+            ScreenKind.Single => "Single View",
+            ScreenKind.MultiView => PresetTitle(),
+            ScreenKind.External => "External layout",
+            _ => "Nothing",
+        };
 
         private string PresetTitle()
         {

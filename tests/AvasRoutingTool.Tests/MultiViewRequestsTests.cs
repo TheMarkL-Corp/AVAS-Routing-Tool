@@ -68,6 +68,29 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void CreateWindow_WithOffsets_SendsThem()
+        {
+            var slot = MultiViewPresets.Build("matrix2x2", 1920, 1080).Slots[1];
+
+            var body = Json(MultiViewRequests.CreateWindow("avas_74fe483c059e_copy_1920x1080", slot, 5, 16, 8));
+
+            Assert.Equal(16, body.GetProperty("horizontal_offset").GetInt32());
+            Assert.Equal(8, body.GetProperty("vertical_offset").GetInt32());
+        }
+
+        [Fact]
+        public void SetMultiView_CarriesTheSubscriptionsStreamIndex()
+        {
+            var subs = new[] { new MultiViewSubscription("74fe488b07bb", 3, 0) };
+
+            var body = Json(MultiViewRequests.SetMultiView("74fe483c059e", "avas_74fe483c059e_copy_1920x1080", 1920, 1080, 60, subs));
+
+            var sub = body.GetProperty("subscriptions").EnumerateArray().Single();
+            Assert.Equal(0, sub.GetProperty("stream_index").GetInt32());
+            Assert.Equal(3, sub.GetProperty("subscription_index").GetInt32());
+        }
+
+        [Fact]
         public void SetScaler_NormalisesMacAndSendsWindowSize()
         {
             var call = MultiViewRequests.SetScaler("74:FE:48:8B:07:BB", 960, 540);

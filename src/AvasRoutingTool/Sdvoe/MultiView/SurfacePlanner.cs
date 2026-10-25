@@ -4,11 +4,17 @@ using System.Linq;
 
 namespace AvasRoutingTool.Sdvoe.MultiView
 {
-    /// <summary>One window as it will be created. A null <see cref="Surface"/> means no source: the window is black.</summary>
-    public sealed record PlannedWindow(WindowSlot Slot, int? Surface);
+    /// <summary>
+    /// One window as it will be created. A null <see cref="Surface"/> means no source: the window is black.
+    /// The offsets crop into the surface: 0 for the presets, an external layout's own when it is copied.
+    /// </summary>
+    public sealed record PlannedWindow(WindowSlot Slot, int? Surface, int HOffset = 0, int VOffset = 0);
 
-    /// <summary>One encoder subscription: its scaler size and the surface every block showing it reads.</summary>
-    public sealed record PlannedSource(string Mac, int Surface, int Width, int Height);
+    /// <summary>
+    /// One encoder subscription: its scaler size and the surface every block showing it reads. <see cref="Stream"/>
+    /// is the encoder stream subscribed (1, the scaled stream, unless a copied external layout used another).
+    /// </summary>
+    public sealed record PlannedSource(string Mac, int Surface, int Width, int Height, int Stream = 1);
 
     /// <summary>What a Take sends for one display: the layout name, every window, and one subscription per distinct encoder.</summary>
     public sealed record SurfacePlan(string LayoutName, IReadOnlyList<PlannedWindow> Windows, IReadOnlyList<PlannedSource> Sources);
@@ -66,6 +72,44 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             }
 
             return new SurfacePlan(MultiViewPresets.LayoutName(plan.Id, plan.Width, plan.Height, rxMac), windows, sources);
+        }
+
+        /// <summary>
+        /// The surfaces of a layout read back from a decoder, to load it unchanged on another display (copy of an
+        /// external layout): every window keeps its index, geometry, offsets and surface; a window whose surface
+        /// has no routed subscription is created black. One source per routed subscription a window shows, with
+        /// that subscription's index (= surface) and stream; routed subscriptions no window shows are not copied.
+        /// Named <see cref="MultiViewPresets.CopyLayoutName"/> for <paramref name="rxMac"/>.
+        /// </summary>
+        public static SurfacePlan Plan(RxLayout layout, IReadOnlyList<RxSubscription> subscriptions, int width, int height, string rxMac)
+        {
+            ArgumentNullException.ThrowIfNull(layout);
+            ArgumentNullException.ThrowIfNull(subscriptions);
+
+            var routed = subscriptions.Where(s => s.IsRouted).GroupBy(s => s.Index).ToDictionary(g => g.Key, g => g.First());
+            var windows = new List<PlannedWindow>();
+            var sources = new List<PlannedSource>();
+            var ordered = layout.Windows.OrderBy(w => w.WindowIndex).ToList();
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                var w = ordered[i];
+                var slot = new WindowSlot(w.WindowIndex, (i + 1).ToString(), w.X, w.Y, w.Width, w.Height, w.Surface,
+                    width > 0 ? (double)w.X / width : 0, height > 0 ? (double)w.Y / height : 0,
+                    width > 0 ? (double)w.Width / width : 0, height > 0 ? (double)w.Height / height : 0);
+
+                if (!routed.TryGetValue(w.Surface, out var sub))
+                {
+                    windows.Add(new PlannedWindow(slot, null, w.HOffset, w.VOffset));
+                    continue;
+                }
+
+                windows.Add(new PlannedWindow(slot, w.Surface, w.HOffset, w.VOffset));
+                if (sources.All(s => s.Surface != w.Surface))
+                    sources.Add(new PlannedSource(SdvoeClient.NormalizeMac(sub.SourceMac), w.Surface, w.Width, w.Height, sub.SourceStream));
+            }
+
+            return new SurfacePlan(MultiViewPresets.CopyLayoutName(width, height, rxMac), windows, sources);
         }
     }
 }
