@@ -139,10 +139,14 @@ namespace AvasRoutingTool.Tests
         /// <summary>How many times the display EDID was read.</summary>
         public int EdidReads { get; private set; }
 
-        public Task<string?> ReadDisplayEdidAsync(string rxMac)
+        /// <summary>Awaited by every EDID read (after it is counted): lets a test hold overlapping layout selections in flight.</summary>
+        public System.Func<Task>? DuringEdidRead { get; set; }
+
+        public async Task<string?> ReadDisplayEdidAsync(string rxMac)
         {
             EdidReads++;
-            return Task.FromResult(DisplayEdid);
+            if (DuringEdidRead != null) await DuringEdidRead();
+            return DisplayEdid;
         }
 
         public Task<System.Collections.Generic.List<AvasDevice>> DiscoverDevicesAsync()

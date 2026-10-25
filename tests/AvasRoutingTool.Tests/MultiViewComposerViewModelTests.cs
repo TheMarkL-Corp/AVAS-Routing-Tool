@@ -8,6 +8,8 @@ using AvasRoutingTool.Sdvoe.MultiView;
 using AvasRoutingTool.ViewModels;
 using Xunit;
 
+// NOTE: test names in this file must not contain the substring "Live": the shared filter FullyQualifiedName!~Live
+// (which keeps hardware tests out of the normal run) would silently skip them.
 namespace AvasRoutingTool.Tests
 {
     /// <summary>The Composer's state machine: arm, place, picker, move, Take, Undo. No device call before Take.</summary>
@@ -63,7 +65,7 @@ namespace AvasRoutingTool.Tests
         // ---- the 18 listed tests ----
 
         [Fact]
-        public async Task NewComposer_IsAtStepOne_WithNothingStaged()
+        public void NewComposer_IsAtStepOne_WithNothingStaged()
         {
             var rig = new Rig();
 
@@ -75,7 +77,6 @@ namespace AvasRoutingTool.Tests
             Assert.False(vm.CanTake);
             Assert.Equal("Choose a layout (Step 1).", vm.TakeBlockedReason);
             Assert.Equal(new[] { "matrix2x2", "pip", "side_by_side", "quad_1_3" }, vm.LayoutOptions.Select(l => l.Id));
-            await Task.CompletedTask;
         }
 
         [Fact]
@@ -661,6 +662,396 @@ namespace AvasRoutingTool.Tests
                 Assert.False(b.IsAvailableForArmed);
                 Assert.Equal("TX2 is offline", b.UnavailableReason);
             });
+        }
+
+        // ---- fix round 1 ----
+
+        [Fact]
+        public async Task OverlappingSelects_TheSecondTapWins_WhenItFinishesFirst()
+        {
+            var rig = new Rig();
+            var gates = new List<TaskCompletionSource>();
+            rig.Client.DuringEdidRead = () => { var g = new TaskCompletionSource(); gates.Add(g); return g.Task; };
+            var vm = rig.Composer();
+
+            var first = vm.SelectLayoutAsync("matrix2x2");
+            var second = vm.SelectLayoutAsync("pip");
+            Assert.Equal(2, gates.Count);
+            Assert.True(vm.IsSelecting);
+            Assert.Equal("pip", vm.PendingLayoutId);
+            Assert.Null(vm.SelectedLayoutId);
+
+            gates[1].SetResult();
+            await second;
+            Assert.Equal("pip", vm.SelectedLayoutId);
+            Assert.False(vm.IsSelecting);
+
+            gates[0].SetResult(); // the stale answer arrives late and is dropped
+            await first;
+            Assert.Equal("pip", vm.SelectedLayoutId);
+            Assert.Equal("pip", vm.Draft!.Plan.Id);
+            Assert.Equal(2, vm.Blocks.Count);
+        }
+
+        [Fact]
+        public async Task OverlappingSelects_TheSecondTapWins_WhenTheFirstFinishesFirst()
+        {
+            var rig = new Rig();
+            var gates = new List<TaskCompletionSource>();
+            rig.Client.DuringEdidRead = () => { var g = new TaskCompletionSource(); gates.Add(g); return g.Task; };
+            var vm = rig.Composer();
+
+            var first = vm.SelectLayoutAsync("matrix2x2");
+            var second = vm.SelectLayoutAsync("pip");
+
+            gates[0].SetResult();
+            await first;
+            Assert.Null(vm.Draft); // the stale layout was not adopted
+            Assert.True(vm.IsSelecting);
+
+            gates[1].SetResult();
+            await second;
+            Assert.Equal("pip", vm.SelectedLayoutId);
+            Assert.Equal("pip", vm.Draft!.Plan.Id);
+            Assert.False(vm.IsSelecting);
+            Assert.Null(vm.PendingLayoutId);
+        }
+
+        [Fact]
+        public async Task Take_DuringAnInFlightSelect_DoesNothing()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            var gate = new TaskCompletionSource();
+            rig.Client.DuringEdidRead = () => gate.Task;
+
+            var select = vm.SelectLayoutAsync("pip");
+            Assert.False(vm.CanTake);
+            await vm.TakeAsync();
+            await vm.UndoAsync();
+
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.Equal("matrix2x2", vm.Draft!.Plan.Id); // not swapped under the Take
+            gate.SetResult();
+            await select;
+            Assert.Equal("pip", vm.Draft!.Plan.Id);
+            Assert.True(vm.CanTake);
+        }
+
+        [Fact]
+        public async Task LayoutOptions_AreOwnedByTheComposer_AndFollowSelectedAndPending()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            var matrix = vm.LayoutOptions.Single(o => o.Id == "matrix2x2");
+            var pip = vm.LayoutOptions.Single(o => o.Id == "pip");
+
+            Assert.Equal("Matrix 2x2", matrix.Title);
+            Assert.True(matrix.IsSelected);
+            Assert.False(pip.IsSelected);
+            Assert.All(rig.Layouts, l => Assert.False(l.IsSelected)); // the overview's items are not touched
+
+            var gate = new TaskCompletionSource();
+            rig.Client.DuringEdidRead = () => gate.Task;
+            var select = vm.SelectLayoutAsync("pip");
+            Assert.True(pip.IsPending);
+            Assert.True(matrix.IsSelected);
+
+            gate.SetResult();
+            await select;
+            Assert.True(pip.IsSelected);
+            Assert.False(pip.IsPending);
+            Assert.False(matrix.IsSelected);
+            Assert.All(rig.Layouts, l => Assert.False(l.IsSelected));
+        }
+
+        [Fact]
+        public async Task Resumed_Take_RefreshesTheOutputFormat_AndTheRateNote()
+        {
+            var rig = new Rig();
+            rig.Client.DisplayEdid = TestEdids.ViewSonic4k;
+            var (plan, _) = await rig.Mv.PlanForDisplayAsync(rig.Rx, "matrix2x2");
+            var draft = new MultiViewDraft(plan);
+            Assert.True(draft.Place(0, "tx1", "TX1").Ok);
+            var vm = rig.Composer(draft);
+            Assert.Equal("OUT 3840x2160", vm.OutputText); // nothing live yet: only the plan's size is known
+
+            await vm.TakeAsync();
+
+            Assert.Equal("OUT 3840x2160@60 (VP3268-4K)", vm.OutputText);
+            Assert.Contains("30 fps", vm.RateNote);
+        }
+
+        [Fact]
+        public async Task ChangedElsewhere_ForTheComposersOwnTake_IsIdempotent()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            vm.Arm(rig.Tx2);
+            vm.TapBlock(1);
+            await vm.TakeAsync();
+            Assert.True(vm.CanUndo);
+            var banner = vm.Banner;
+
+            vm.OnLiveChangedElsewhere(rig.Mv.GetLive(rig.Rx)); // the overview re-announces what we just took
+
+            Assert.True(vm.CanUndo);
+            Assert.Equal(banner, vm.Banner);
+        }
+
+        [Fact]
+        public async Task ChangedElsewhere_ToNothing_EmptiesOnScreenNow_AndKeepsTheDraft()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            Assert.Equal(4, vm.LiveBlocks.Count);
+
+            vm.OnLiveChangedElsewhere(null); // e.g. someone turned the display off
+
+            Assert.Empty(vm.LiveBlocks);
+            Assert.False(vm.CanUndo);
+            Assert.Equal(new[] { "0:tx1" }, Placed(vm.Draft));
+            Assert.Single(vm.Changes);
+            Assert.Equal(BlockState.Staged, vm.Blocks[0].State);
+            Assert.Equal(BannerKind.Warning, vm.Banner.Kind);
+            Assert.Contains("was changed elsewhere", vm.Banner.Text);
+        }
+
+        [Fact]
+        public async Task Pip_NumbersAreDisplayNumbers_WhileCommandsTakeTheApiIndex()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            await vm.SelectLayoutAsync("pip");
+            Assert.Equal(new[] { 0, 1 }, vm.Blocks.Select(b => b.Index));
+            Assert.Equal(new[] { "1", "2" }, vm.Blocks.Select(b => b.Label));
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0); // API index 0 = the inset = block 1
+            vm.Disarm();
+            rig.Tx1.SetOnlineState(false);
+            Assert.Equal("TX1 is offline - clear or replace block 1", vm.TakeBlockedReason);
+
+            rig.Tx1.SetOnlineState(true);
+            vm.BeginMove(0);
+            vm.TapBlock(1); // to the background = block 2
+
+            Assert.Equal(new[] { "1:tx1" }, Placed(vm.Draft));
+            Assert.Equal(1, vm.Changes[0].SlotIndex); // raw change keeps the API index
+            Assert.Equal(new[] { "2: - -> TX1" }, vm.ChangeLines); // the list shows the display number
+            rig.Tx1.SetOnlineState(false);
+            Assert.Equal("TX1 is offline - clear or replace block 2", vm.TakeBlockedReason);
+        }
+
+        [Fact]
+        public async Task Quad_SameAs_NamesTheDisplayNumberOfTheFirstBlock()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            await vm.SelectLayoutAsync("quad_1_3");
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(2); // block 3
+            vm.TapBlock(3); // block 4, same size
+
+            Assert.Equal(string.Empty, vm.Blocks[2].SameAsText);
+            Assert.Equal("Same as 3", vm.Blocks[3].SameAsText);
+        }
+
+        [Fact]
+        public async Task AfterDispose_CardChangesAndRefreshDoNothing()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.Dispose();
+            int raised = 0;
+            vm.PropertyChanged += (_, _) => raised++;
+
+            rig.Tx1.SetOnlineState(false);
+            vm.Refresh();
+            rig.Tx1.SetOnlineState(true); // would re-validate if Refresh had re-subscribed
+
+            Assert.Equal(0, raised);
+        }
+
+        [Fact]
+        public async Task CardsRemovedFromTheSources_AreNoLongerWatched()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            rig.Sources.Remove(rig.Tx3);
+            vm.Refresh();
+            int raised = 0;
+            vm.PropertyChanged += (_, _) => raised++;
+
+            rig.Tx3.SetOnlineState(false);
+
+            Assert.Equal(0, raised);
+        }
+
+        [Fact]
+        public async Task Undo_OnAChangedDisplay_SaysSo_AndChangesNothing()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            vm.Arm(rig.Tx2);
+            vm.TapBlock(1);
+            await vm.TakeAsync();
+            rig.Client.MultiViewCalls.Clear();
+
+            rig.Client.DisplayEdid = TestEdids.ViewSonic4k; // a 4K panel was plugged in meanwhile
+            await vm.UndoAsync();
+
+            Assert.Equal(BannerKind.Warning, vm.Banner.Kind);
+            Assert.Contains("changed", vm.Banner.Text);
+            Assert.DoesNotContain("Nothing to undo", vm.Banner.Text);
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { "0:tx1", "1:tx2" }, Placed(rig.Mv.GetLive(rig.Rx)));
+        }
+
+        [Fact]
+        public async Task Undo_WhileBusy_IsIgnored()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            vm.Arm(rig.Tx2);
+            vm.TapBlock(1);
+            await vm.TakeAsync();
+            rig.Client.MultiViewCalls.Clear();
+            var gate = new TaskCompletionSource();
+            rig.Client.DuringCall = entry => entry.StartsWith("multiview:") ? gate.Task : Task.CompletedTask;
+
+            var first = vm.UndoAsync();
+            Assert.True(vm.IsBusy);
+            var second = vm.UndoAsync();
+            gate.SetResult();
+            await Task.WhenAll(first, second);
+
+            Assert.Single(rig.Client.MultiViewCalls, c => c.StartsWith("multiview:"));
+            Assert.False(vm.IsBusy);
+        }
+
+        [Fact]
+        public async Task Hints_AreWithdrawn_WhenTheModeEnds()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.Disarm();
+
+            vm.BeginMove(0);
+            Assert.Equal(BannerKind.Info, vm.Banner.Kind);
+            Assert.Contains("Moving block 1", vm.Banner.Text);
+            vm.Clear(0); // the moving source is gone
+            Assert.Null(vm.MovingFromIndex);
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.Disarm();
+            vm.BeginMove(0);
+            vm.Disarm(); // cancels the move
+            Assert.Null(vm.MovingFromIndex);
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+
+            vm.BeginMove(0);
+            vm.OpenPicker(1);
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+
+            vm.BeginMove(0);
+            vm.TapBlock(1); // the move completes
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+        }
+
+        [Fact]
+        public async Task ScreenEvent_ThrowingSubscriber_DoesNotTurnATakeIntoAFailure()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.LiveChanged += _ => throw new InvalidOperationException("subscriber bug");
+
+            await vm.TakeAsync();
+
+            Assert.Equal("On screen", vm.Banner.Text);
+            Assert.Equal(BannerKind.Success, vm.Banner.Kind);
+            Assert.False(vm.IsBusy);
+        }
+
+        [Fact]
+        public async Task Take_NothingToTake_ReReadsWhatIsOnScreen()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            // The same picture reached the screen by another path; the Composer has not heard yet.
+            Assert.Equal(TakeOutcome.Applied, (await rig.Mv.TakeAsync(rig.Rx, vm.Draft!.Clone())).Outcome);
+            Assert.True(vm.CanTake);
+            rig.Client.MultiViewCalls.Clear();
+
+            await vm.TakeAsync();
+
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.Equal(BannerKind.Info, vm.Banner.Kind);
+            Assert.Equal("Nothing to change since what is on screen.", vm.Banner.Text);
+            Assert.Empty(vm.Changes);
+            Assert.Equal(4, vm.LiveBlocks.Count);
+            Assert.Equal("TX1", vm.LiveBlocks[0].SourceName);
+            Assert.Equal(BlockState.Live, vm.Blocks[0].State);
+            Assert.False(vm.CanTake);
+        }
+
+        [Fact]
+        public async Task Take_ThatThrows_SaysSo_AndUnlocksTheComposer()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            rig.Client.DuringCall = _ => throw new InvalidOperationException("boom");
+
+            await vm.TakeAsync();
+
+            Assert.StartsWith("Take failed", vm.Banner.Text);
+            Assert.Contains("boom", vm.Banner.Text);
+            Assert.Equal(BannerKind.Error, vm.Banner.Kind);
+            Assert.False(vm.IsBusy);
+            Assert.Equal(new[] { "0:tx1" }, Placed(vm.Draft));
+        }
+
+        [Fact]
+        public void ResumedDraft_WithASourceNotInTheSourcesList_IsAnOfflineIssue()
+        {
+            var rig = new Rig();
+            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
+            var draft = new MultiViewDraft(plan);
+            Assert.True(draft.Place(0, "tx9", "TX9").Ok); // no card for it: cannot be verified
+
+            var vm = rig.Composer(draft);
+
+            Assert.Equal(BlockState.Issue, vm.Blocks[0].State);
+            Assert.Equal("TX9 is offline", vm.Blocks[0].IssueText);
+            Assert.False(vm.CanTake);
+            Assert.Equal("TX9 is offline - clear or replace block 1", vm.TakeBlockedReason);
         }
     }
 }

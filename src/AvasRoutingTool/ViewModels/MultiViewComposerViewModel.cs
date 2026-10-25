@@ -54,6 +54,11 @@ namespace AvasRoutingTool.ViewModels
         private ComposerBanner _banner = ComposerBanner.None;
         private DateTime? _takenAt;
         private bool _lastCanUndo;
+        private int _selectSeq;
+        private bool _selecting;
+        private string? _pendingLayoutId;
+        private bool _disposed;
+        private string? _hintText;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -74,7 +79,10 @@ namespace AvasRoutingTool.ViewModels
             _mv = mv ?? throw new ArgumentNullException(nameof(mv));
             _sources = sources ?? throw new ArgumentNullException(nameof(sources));
             _clock = clock ?? (() => DateTime.UtcNow);
-            LayoutOptions = layouts.Where(l => l.IsAvailable && MultiViewPresets.IsMultiView(l.Id)).ToList();
+            LayoutOptions = layouts
+                .Where(l => l.IsAvailable && MultiViewPresets.IsMultiView(l.Id))
+                .Select(l => new ComposerLayoutOptionViewModel(l.Id, l.Title, l.Subtitle, l.IsAvailable))
+                .ToList();
 
             _live = _mv.GetLive(_display.Device);
             _canvas = _mv.GetCanvas(_display.Device);
@@ -91,9 +99,29 @@ namespace AvasRoutingTool.ViewModels
 
         // ---- what the view binds to ----
 
-        public IReadOnlyList<LayoutItemViewModel> LayoutOptions { get; }
+        /// <summary>The layout tiles of Step 1, owned by this Composer (selected / pending follow <see cref="SelectedLayoutId"/> / <see cref="PendingLayoutId"/>).</summary>
+        public IReadOnlyList<ComposerLayoutOptionViewModel> LayoutOptions { get; }
 
-        public string? SelectedLayoutId { get => _selectedLayoutId; private set => Set(ref _selectedLayoutId, value); }
+        /// <summary>The layout staged now; changes only when a selection has finished.</summary>
+        public string? SelectedLayoutId
+        {
+            get => _selectedLayoutId;
+            private set { if (Set(ref _selectedLayoutId, value)) SyncOptions(); }
+        }
+
+        /// <summary>The tile tapped last while the display is still being read; null otherwise.</summary>
+        public string? PendingLayoutId
+        {
+            get => _pendingLayoutId;
+            private set { if (Set(ref _pendingLayoutId, value)) SyncOptions(); }
+        }
+
+        /// <summary>A layout selection is in flight: Take and Undo are refused until it ends.</summary>
+        public bool IsSelecting
+        {
+            get => _selecting;
+            private set { if (Set(ref _selecting, value)) RaiseDerived(); }
+        }
 
         /// <summary>The staged picture, one block per window of the layout, in logical order.</summary>
         public ObservableCollection<ComposerBlockViewModel> Blocks { get; } = new();
@@ -112,7 +140,12 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The block being moved: the next tap on a block is its destination.</summary>
         public int? MovingFromIndex => _movingFrom;
 
+        /// <summary>Blocks that differ from the screen. <see cref="DraftChange.SlotIndex"/> is the API window index; see <see cref="ChangeLines"/> for display numbers.</summary>
         public IReadOnlyList<DraftChange> Changes => _changes;
+
+        /// <summary>The change list as the operator reads it, by display number: "2: - -> TX1" ("-" = empty).</summary>
+        public IReadOnlyList<string> ChangeLines =>
+            _changes.Select(c => $"{NumberOf(c.SlotIndex)}: {c.From ?? "-"} -> {c.To ?? "-"}").ToList();
 
         public bool StepLayoutDone => _stepLayoutDone;
 
@@ -176,7 +209,7 @@ namespace AvasRoutingTool.ViewModels
         // ---- Take / Undo state ----
 
         public bool CanTake =>
-            !_busy && _draft != null && _draft.Placements.Count > 0 && _issues.Count == 0 && HasChanges;
+            !_busy && !_selecting && _draft != null && _draft.Placements.Count > 0 && _issues.Count == 0 && HasChanges;
 
         public string TakeLabel
         {
@@ -195,7 +228,7 @@ namespace AvasRoutingTool.ViewModels
             get
             {
                 if (_draft == null) return "Choose a layout (Step 1).";
-                if (_busy) return null;
+                if (_busy || _selecting) return null;
                 if (_draft.Placements.Count == 0) return NothingPlacedText;
 
                 var issue = _issues.FirstOrDefault();
@@ -211,7 +244,7 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>Undo is offered for <see cref="UndoWindow"/> after a Take, and only while the orchestrator still holds the previous picture.</summary>
         public bool CanUndo =>
-            !_busy && _takenAt.HasValue && _clock() - _takenAt.Value < UndoWindow && _mv.CanUndo(_display.Device);
+            !_busy && !_selecting && _takenAt.HasValue && _clock() - _takenAt.Value < UndoWindow && _mv.CanUndo(_display.Device);
 
         private bool LayoutDiffers => _draft != null && _live != null && _live.Plan.Name != _draft.Plan.Name;
 
@@ -223,9 +256,19 @@ namespace AvasRoutingTool.ViewModels
         /// Stages a layout sized to the display's EDID. Reads the display only: no device change. Sources already
         /// staged follow by block order (<see cref="MultiViewDraft.WithLayout"/>).
         /// </summary>
+        /// <remarks>
+        /// Overlapping selects are sequenced: only the last tap's result is adopted, an older answer arriving late is
+        /// dropped. While one is in flight (<see cref="IsSelecting"/>) Take and Undo are refused, so a Take can never
+        /// send a draft that the select is about to swap. <see cref="SelectedLayoutId"/> changes only when the select
+        /// succeeds (so it "reverts" on failure by never moving); the tapped tile shows as <see cref="PendingLayoutId"/>.
+        /// </remarks>
         public async Task SelectLayoutAsync(string id)
         {
-            if (_busy || !MultiViewPresets.IsMultiView(id)) return;
+            if (_disposed || _busy || !MultiViewPresets.IsMultiView(id)) return;
+
+            int token = ++_selectSeq;
+            IsSelecting = true; // synchronously, before the first await
+            PendingLayoutId = id;
 
             MultiViewLayoutPlan plan;
             MultiViewCanvas canvas;
@@ -233,11 +276,19 @@ namespace AvasRoutingTool.ViewModels
             {
                 (plan, canvas) = await _mv.PlanForDisplayAsync(_display.Device, id);
             }
-            catch (ArgumentException ex)
+            catch (Exception ex)
             {
+                if (token != _selectSeq) return; // a newer tap owns the outcome
+                PendingLayoutId = null;
+                IsSelecting = false;
+                if (ex is not ArgumentException) throw;
                 Banner = new ComposerBanner(ex.Message, BannerKind.Error);
                 return;
             }
+
+            if (token != _selectSeq || _disposed) return; // stale: a newer tap is (or was) in charge
+            PendingLayoutId = null;
+            IsSelecting = false;
 
             int unplacedBefore = UnplacedSources.Count;
             _canvas = canvas;
@@ -268,7 +319,7 @@ namespace AvasRoutingTool.ViewModels
 
             ResetTransient();
             _armed = s;
-            Banner = new ComposerBanner($"Placing {s.DeviceName} - tap a block. Tap {s.DeviceName} again to stop.", BannerKind.Info);
+            SetHint($"Placing {s.DeviceName} - tap a block. Tap {s.DeviceName} again to stop.");
             Refresh();
         }
 
@@ -283,11 +334,17 @@ namespace AvasRoutingTool.ViewModels
         public void Disarm()
         {
             bool wasPlacing = _armed != null;
-            ResetTransient();
-            if (wasPlacing) Banner = ComposerBanner.None;
+            ResetTransient(); // also withdraws the "Placing..." / "Moving..." hint
+            if (wasPlacing && Banner.Kind == BannerKind.Warning) Banner = ComposerBanner.None;
             Refresh();
         }
 
+        /// <summary>
+        /// A tap on a block. <paramref name="i"/> is the API window index (<see cref="ComposerBlockViewModel.Index"/>),
+        /// never the display <see cref="ComposerBlockViewModel.Number"/> / Label.
+        /// Armed: place (stays armed). Moving: move / swap to this block. Unarmed and empty: open the picker.
+        /// Unarmed and placed: open or close the Replace / Move strip.
+        /// </summary>
         public void TapBlock(int i)
         {
             if (_busy || _draft == null || BlockAt(i) == null) return;
@@ -295,6 +352,7 @@ namespace AvasRoutingTool.ViewModels
             if (_movingFrom is int from)
             {
                 _movingFrom = null;
+                ClearHint();
                 if (from != i) MoveBlock(from, i);
                 ClearSelection();
                 Refresh();
@@ -321,24 +379,26 @@ namespace AvasRoutingTool.ViewModels
             Refresh();
         }
 
-        /// <summary>Opens the picker on a block (the strip's Replace).</summary>
+        /// <summary>Opens the picker on a block (the strip's Replace). <paramref name="block"/> is the API window index (<see cref="ComposerBlockViewModel.Index"/>), never Number/Label.</summary>
         public void OpenPicker(int block)
         {
             if (_busy || _draft == null || BlockAt(block) == null) return;
             _armed = null;
             _movingFrom = null;
+            ClearHint();
             ClearSelection();
             _pickerBlock = block;
             Refresh();
         }
 
-        /// <summary>What placing the source in the block would answer, for the picker to show tiles enabled or with the reason.</summary>
+        /// <summary>What placing the source in the block would answer, for the picker to show tiles enabled or with the reason. <paramref name="block"/> is the API window index (<see cref="ComposerBlockViewModel.Index"/>), never Number/Label.</summary>
         public DraftResult CheckPlace(int block, SourceCardViewModel s)
         {
             if (_draft == null) return DraftResult.Refuse("Choose a layout (Step 1).");
             return DraftValidator.CanPlace(_draft, block, s.MacAddress, s.DeviceName, _mv.UsesExcept(_display.Device), IsOnline);
         }
 
+        /// <summary>Places the picked source in the block and closes the picker. <paramref name="block"/> is the API window index (<see cref="ComposerBlockViewModel.Index"/>), never Number/Label.</summary>
         public void Pick(int block, SourceCardViewModel s)
         {
             if (_busy || _draft == null || s == null) return;
@@ -349,7 +409,7 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
-        /// <summary>Starts moving the block's source: the next tap on a block is its destination (occupied = swap).</summary>
+        /// <summary>Starts moving the block's source: the next tap on a block is its destination (occupied = swap). <paramref name="i"/> is the API window index (<see cref="ComposerBlockViewModel.Index"/>), never Number/Label.</summary>
         public void BeginMove(int i)
         {
             if (_busy || _draft == null || !_draft.Placements.ContainsKey(i)) return;
@@ -357,17 +417,21 @@ namespace AvasRoutingTool.ViewModels
             _pickerBlock = null;
             _selectedBlock = null;
             _movingFrom = i;
-            Banner = new ComposerBanner($"Moving block {NumberOf(i)} - tap the block to move it to.", BannerKind.Info);
+            SetHint($"Moving block {NumberOf(i)} - tap the block to move it to.");
             Refresh();
         }
 
-        /// <summary>The corner clear: removes the placement. Staged only - nothing reaches the device.</summary>
+        /// <summary>The corner clear: removes the placement. Staged only - nothing reaches the device. <paramref name="i"/> is the API window index (<see cref="ComposerBlockViewModel.Index"/>), never Number/Label.</summary>
         public void Clear(int i)
         {
             if (_busy || _draft == null) return;
             _draft.Clear(i);
             if (_selectedBlock == i) _selectedBlock = null;
-            if (_movingFrom == i) _movingFrom = null;
+            if (_movingFrom == i)
+            {
+                _movingFrom = null;
+                ClearHint();
+            }
             Refresh();
         }
 
@@ -376,7 +440,11 @@ namespace AvasRoutingTool.ViewModels
             if (_busy || _draft == null) return;
             _draft.ClearAll();
             _selectedBlock = null;
-            _movingFrom = null;
+            if (_movingFrom != null)
+            {
+                _movingFrom = null;
+                ClearHint();
+            }
             Refresh();
         }
 
@@ -385,11 +453,12 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Puts the whole staged picture on screen, or changes nothing. Ignored while a Take or Undo is in flight.</summary>
         public async Task TakeAsync()
         {
-            if (_busy || !CanTake) return;
+            if (_disposed || _busy || _selecting || !CanTake) return;
 
             IsBusy = true; // synchronously, before the first await: a second tap finds the gate shut
             var device = _display.Device;
             var staged = _draft!;
+            bool liveChanged = false;
             try
             {
                 var result = await _mv.TakeAsync(device, staged);
@@ -398,10 +467,14 @@ namespace AvasRoutingTool.ViewModels
                     case TakeOutcome.Applied:
                         _takenAt = _clock();
                         CommitLive();
+                        liveChanged = true;
                         Banner = new ComposerBanner("On screen", BannerKind.Success);
                         break;
 
                     case TakeOutcome.NothingToTake:
+                        // The screen already shows this picture (it changed without us hearing): converge on it.
+                        _live = _mv.GetLive(device);
+                        RebuildLiveBlocks();
                         Banner = new ComposerBanner(NothingToChangeText, BannerKind.Info);
                         break;
 
@@ -425,15 +498,19 @@ namespace AvasRoutingTool.ViewModels
                 IsBusy = false;
                 Refresh();
             }
+
+            // Outside the try: a subscriber that throws must not read as a failed Take.
+            if (liveChanged) RaiseLiveChanged();
         }
 
         /// <summary>Takes the previous picture again (only while <see cref="CanUndo"/>).</summary>
         public async Task UndoAsync()
         {
-            if (_busy || !CanUndo) return;
+            if (_disposed || _busy || _selecting || !CanUndo) return;
 
             IsBusy = true;
             var device = _display.Device;
+            bool liveChanged = false;
             try
             {
                 var result = await _mv.UndoAsync(device);
@@ -441,14 +518,19 @@ namespace AvasRoutingTool.ViewModels
                 {
                     _takenAt = null;
                     _draft = _mv.GetLive(device) ?? _draft;
-                    _canvas = _mv.GetCanvas(device) ?? _canvas;
                     SelectedLayoutId = _draft?.Plan.Id;
                     CommitLive();
+                    liveChanged = true;
                     Banner = new ComposerBanner("Back to the previous picture.", BannerKind.Success);
                 }
                 else if (result.Outcome == TakeOutcome.Rejected)
                 {
                     Banner = new ComposerBanner($"Nothing changed on screen. {result.Error}".TrimEnd(), BannerKind.Error);
+                }
+                else if (result.Outcome == TakeOutcome.DisplayChanged)
+                {
+                    Banner = new ComposerBanner(
+                        result.Error ?? "The display changed - the previous picture no longer fits it.", BannerKind.Warning);
                 }
                 else
                 {
@@ -465,12 +547,14 @@ namespace AvasRoutingTool.ViewModels
                 IsBusy = false;
                 Refresh();
             }
+
+            if (liveChanged) RaiseLiveChanged();
         }
 
         /// <summary>Back to what is on screen (an empty draft on the current layout when nothing is live).</summary>
         public void Discard()
         {
-            if (_busy || _draft == null) return;
+            if (_busy || _selecting || _draft == null) return;
 
             var live = _mv.GetLive(_display.Device);
             _live = live;
@@ -496,6 +580,10 @@ namespace AvasRoutingTool.ViewModels
         /// </summary>
         public void OnLiveChangedElsewhere(MultiViewDraft? live)
         {
+            // Idempotent: the overview re-announces the Composer's own Take / Undo too. Nothing differs, so the Undo
+            // window and the banner must stay as they are.
+            if (_disposed || IsSameAsCurrentLive(live)) return;
+
             _live = live?.Clone();
             _takenAt = null;
             if (live != null) _canvas = _mv.GetCanvas(_display.Device) ?? _canvas;
@@ -529,7 +617,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Re-reads source availability (a source went offline or came back).</summary>
         public void Refresh()
         {
+            if (_disposed) return;
             WatchSources();
+            SyncOptions();
             _issues = _draft == null
                 ? Array.Empty<BlockIssue>()
                 : DraftValidator.Validate(_draft, _mv.UsesExcept(_display.Device), IsOnline);
@@ -550,8 +640,10 @@ namespace AvasRoutingTool.ViewModels
             RaiseDerived();
         }
 
+        /// <summary>Terminal: stops watching the source cards and releases the blocks' preview mirrors. Later calls do nothing.</summary>
         public void Dispose()
         {
+            _disposed = true;
             foreach (var s in _watched) s.PropertyChanged -= OnSourceChanged;
             _watched.Clear();
             DisposeBlocks(Blocks);
@@ -582,7 +674,7 @@ namespace AvasRoutingTool.ViewModels
             var result = _draft!.Move(from, to);
             if (result.Ok)
             {
-                if (Banner.Kind != BannerKind.Success) Banner = ComposerBanner.None;
+                if (Banner.Kind == BannerKind.Warning) Banner = ComposerBanner.None;
             }
             else
             {
@@ -610,10 +702,34 @@ namespace AvasRoutingTool.ViewModels
         private void CommitLive()
         {
             _live = _mv.GetLive(_display.Device);
+            _canvas = _mv.GetCanvas(_display.Device) ?? _canvas; // the Take read the display: output format and rate note follow
             RebuildLiveBlocks();
             ResetTransient();
-            LiveChanged?.Invoke(_live?.Clone());
         }
+
+        /// <summary>Tells the overview the picture on screen changed; a subscriber's failure is logged, never propagated.</summary>
+        private void RaiseLiveChanged()
+        {
+            var handlers = LiveChanged;
+            if (handlers == null) return;
+
+            foreach (var handler in handlers.GetInvocationList().Cast<Action<MultiViewDraft?>>())
+            {
+                try
+                {
+                    handler(_live?.Clone());
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Error("COMPOSER", "A LiveChanged subscriber failed", ex);
+                }
+            }
+        }
+
+        private bool IsSameAsCurrentLive(MultiViewDraft? live) =>
+            live == null
+                ? _live == null
+                : _live != null && live.Plan.Name == _live.Plan.Name && live.DiffFrom(_live).Count == 0;
 
         private void ResetTransient()
         {
@@ -621,14 +737,46 @@ namespace AvasRoutingTool.ViewModels
             _pickerBlock = null;
             _movingFrom = null;
             _selectedBlock = null;
+            ClearHint();
+        }
+
+        private void SetHint(string text)
+        {
+            _hintText = text;
+            Banner = new ComposerBanner(text, BannerKind.Info);
+        }
+
+        /// <summary>Withdraws the "Placing..." / "Moving..." line once its mode has ended; any other banner stays.</summary>
+        private void ClearHint()
+        {
+            if (_hintText != null && Banner.Kind == BannerKind.Info && Banner.Text == _hintText)
+                Banner = ComposerBanner.None;
+            _hintText = null;
+        }
+
+        private void SyncOptions()
+        {
+            foreach (var option in LayoutOptions)
+            {
+                option.IsSelected = option.Id == _selectedLayoutId;
+                option.IsPending = _pendingLayoutId != null && option.Id == _pendingLayoutId;
+            }
         }
 
         private void ClearSelection() => _selectedBlock = null;
 
         private WindowSlot? BlockAt(int index) => _draft?.Plan.Slots.FirstOrDefault(s => s.Index == index);
 
-        /// <summary>1-based position in logical order - the number the operator sees.</summary>
-        private int NumberOf(int slotIndex) => _draft == null ? 0 : _draft.Plan.Slots.ToList().FindIndex(s => s.Index == slotIndex) + 1;
+        /// <summary>
+        /// The display number (1-based position in logical order) of the block with API window index
+        /// <paramref name="slotIndex"/>; a block only the screen's layout has is numbered by that layout.
+        /// </summary>
+        private int NumberOf(int slotIndex)
+        {
+            int n = _draft == null ? -1 : _draft.Plan.Slots.ToList().FindIndex(s => s.Index == slotIndex);
+            if (n < 0 && _live != null) n = _live.Plan.Slots.ToList().FindIndex(s => s.Index == slotIndex);
+            return n < 0 ? slotIndex + 1 : n + 1;
+        }
 
         private bool IsOnline(string mac) => FindSource(mac)?.IsActive ?? false;
 
@@ -712,7 +860,7 @@ namespace AvasRoutingTool.ViewModels
         private void RebuildLiveBlocks()
         {
             DisposeBlocks(LiveBlocks);
-            if (_live == null) return;
+            if (_live == null || _disposed) return;
 
             int number = 0;
             foreach (var slot in _live.Plan.Slots)
@@ -734,13 +882,21 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Follows source availability: a card going offline or online re-validates the draft.</summary>
         private void WatchSources()
         {
-            foreach (var s in _sources())
+            if (_disposed) return;
+
+            var current = _sources().ToHashSet();
+            foreach (var gone in _watched.Where(s => !current.Contains(s)).ToList())
+            {
+                gone.PropertyChanged -= OnSourceChanged;
+                _watched.Remove(gone);
+            }
+            foreach (var s in current)
                 if (_watched.Add(s)) s.PropertyChanged += OnSourceChanged;
         }
 
         private void OnSourceChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(SourceCardViewModel.IsActive)) Refresh();
+            if (!_disposed && e.PropertyName == nameof(SourceCardViewModel.IsActive)) Refresh();
         }
 
         private void RaiseDerived()
