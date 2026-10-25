@@ -160,28 +160,40 @@ namespace AvasRoutingTool.ViewModels
             AppLogger.Info("DISCOVERY", "Starting transceiver refresh cycle...");
             var devices = await _sdvoeClient.DiscoverDevicesAsync();
 
-            // Dynamic Cards: populate TX Sources and RX Displays
+            // Dynamic Cards: populate TX Sources and RX Displays in deterministic order
             Sources.Clear();
             Displays.Clear();
 
-            foreach (var dev in devices)
-            {
-                if (dev.IsTransmitter)
-                {
-                    var sourceVm = new SourceCardViewModel(dev);
-                    Sources.Add(sourceVm);
+            var transmitters = devices.Where(d => d.IsTransmitter).OrderBy(d => d.DeviceName).ToList();
+            var receivers = devices.Where(d => d.IsReceiver).OrderBy(d => d.DeviceName).ToList();
 
-                    if (dev.IsActive)
-                    {
-                        string mcastIp = _ipManager.AllocateIp(dev.DeviceId);
-                        _ = sourceVm.StartPreviewAsync(_rtpReceiver, _sdvoeClient, mcastIp, _config.BasePort);
-                    }
-                }
-                else if (dev.IsReceiver)
+            foreach (var dev in transmitters)
+            {
+                var sourceVm = new SourceCardViewModel(dev);
+                Sources.Add(sourceVm);
+
+                if (dev.IsActive && dev.IsPreviewSupported)
                 {
-                    var displayVm = new DisplayCardViewModel(dev, UnrouteVideoAsync);
-                    Displays.Add(displayVm);
+                    // Allocate sequential multicast IP in order
+                    string mcastIp = _ipManager.AllocateIp(dev.DeviceId);
+                    
+                    // Delay 0.5s upon startup after handshake before starting preview
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(500);
+                        await sourceVm.StartPreviewAsync(_rtpReceiver, _sdvoeClient, mcastIp, 5000);
+                    });
                 }
+                else if (!dev.IsPreviewSupported)
+                {
+                    AppLogger.Info("PREVIEW", $"Skipping preview auto-start for non-AVAS device: '{dev.DeviceName}' (VendorId: {dev.VendorId})");
+                }
+            }
+
+            foreach (var dev in receivers)
+            {
+                var displayVm = new DisplayCardViewModel(dev, UnrouteVideoAsync);
+                Displays.Add(displayVm);
             }
 
             AppLogger.Info("DISCOVERY", $"Transceivers populated: {Sources.Count} Sources (TX), {Displays.Count} Displays (RX).");

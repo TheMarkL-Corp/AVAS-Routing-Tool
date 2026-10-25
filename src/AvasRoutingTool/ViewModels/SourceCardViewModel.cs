@@ -3,8 +3,9 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Media;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using AvasRoutingTool.Logging;
 using AvasRoutingTool.Rtp;
 using AvasRoutingTool.Sdvoe;
 
@@ -13,15 +14,13 @@ namespace AvasRoutingTool.ViewModels
     public class SourceCardViewModel : INotifyPropertyChanged
     {
         private readonly AvasDevice _device;
+        private ISdvoeClient? _sdvoeClient;
+        private IRtpReceiver? _rtpReceiver;
+        private IRtpStreamReceiver? _channel;
         private WriteableBitmap? _previewBitmap;
         private double _fps;
         private bool _isStreaming;
-        private int _frameCount;
-        private DateTime _lastFpsUpdate = DateTime.UtcNow;
-        private byte[]? _frameBuffer;
-        private const int FrameWidth = 320;
-        private const int FrameHeight = 180;
-        private const int Stride = FrameWidth * 4;
+        private bool _isRefreshing;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -30,6 +29,13 @@ namespace AvasRoutingTool.ViewModels
         public string IpAddress => _device.IpAddress;
         public string MacAddress => _device.DeviceId;
         public bool IsActive => _device.IsActive;
+
+        public string LinkMode => _device.LinkMode;
+        public bool IsDualLink => string.Equals(_device.LinkMode, "Dual Link", StringComparison.OrdinalIgnoreCase);
+        public bool IsPreviewSupported => _device.IsPreviewSupported;
+        public string PreviewMulticastIp => !string.IsNullOrEmpty(_device.MulticastIp)
+            ? $"{_device.MulticastIp}:{_device.MulticastPort}"
+            : "N/A";
 
         public double Fps
         {
@@ -43,92 +49,143 @@ namespace AvasRoutingTool.ViewModels
             set { _isStreaming = value; OnPropertyChanged(); }
         }
 
+        public bool IsRefreshing
+        {
+            get => _isRefreshing;
+            set { _isRefreshing = value; OnPropertyChanged(); }
+        }
+
         public WriteableBitmap? PreviewBitmap
         {
             get => _previewBitmap;
             set { _previewBitmap = value; OnPropertyChanged(); }
         }
 
+        public ICommand RefreshPreviewCommand { get; }
+        public ICommand StartPreviewCommand { get; }
+        public ICommand StopPreviewCommand { get; }
+
         public SourceCardViewModel(AvasDevice device)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
-            _frameBuffer = new byte[FrameHeight * Stride];
 
-            // Initialize WriteableBitmap on UI thread if possible
-            if (Application.Current != null && Application.Current.Dispatcher != null)
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    PreviewBitmap = new WriteableBitmap(FrameWidth, FrameHeight, 96, 96, PixelFormats.Bgra32, null);
-                });
-            }
+            RefreshPreviewCommand = new RelayCommand(async _ => await RefreshPreviewAsync(), _ => IsActive && IsPreviewSupported && !IsRefreshing);
+            StartPreviewCommand = new RelayCommand(async _ => await StartManualPreviewAsync(), _ => IsActive && IsPreviewSupported && !IsStreaming && !IsRefreshing);
+            StopPreviewCommand = new RelayCommand(async _ => await StopPreviewAsync(), _ => IsStreaming && !IsRefreshing);
         }
 
-        public async Task StartPreviewAsync(IRtpReceiver rtpReceiver, ISdvoeClient sdvoeClient, string multicastIp, int port = 5004)
+        public async Task StartPreviewAsync(IRtpReceiver rtpReceiver, ISdvoeClient sdvoeClient, string multicastIp, int port = 5000)
         {
-            if (IsStreaming || !IsActive) return;
+            if (!IsActive) return;
+
+            _rtpReceiver = rtpReceiver;
+            _sdvoeClient = sdvoeClient;
+
+            if (!IsPreviewSupported)
+            {
+                AppLogger.Info("PREVIEW", $"Preview skipped for non-AVAS device: {DeviceName} (Vendor: {_device.VendorId})");
+                return;
+            }
 
             _device.MulticastIp = multicastIp;
             _device.MulticastPort = port;
+            OnPropertyChanged(nameof(PreviewMulticastIp));
 
-            rtpReceiver.RegisterChannel(multicastIp, OnRtpPacketReceived);
-            await sdvoeClient.StartStream1ScalerAsync(MacAddress, multicastIp, port);
-            IsStreaming = true;
-        }
-
-        public async Task StopPreviewAsync(IRtpReceiver rtpReceiver, ISdvoeClient sdvoeClient)
-        {
-            if (!IsStreaming) return;
-
-            rtpReceiver.UnregisterChannel(_device.MulticastIp);
-            await sdvoeClient.StopStream1ScalerAsync(MacAddress);
-            IsStreaming = false;
-            Fps = 0;
-        }
-
-        private void OnRtpPacketReceived(byte[] data, int offset, int length)
-        {
-            if (_previewBitmap == null || _frameBuffer == null) return;
-
-            // In RFC 4175 or raw YUV422 payload, skip 12-byte RTP header
-            int payloadOffset = offset + 12;
-            int payloadLength = length - 12;
-            if (payloadLength <= 0) return;
-
-            // Convert slice to BGRA
-            int copyLen = Math.Min(payloadLength, _frameBuffer.Length);
-            Yuv422Rasterizer.ConvertYuv422SliceToBgra(data, payloadOffset, copyLen, _frameBuffer, 0);
-
-            _frameCount++;
-            var now = DateTime.UtcNow;
-            if ((now - _lastFpsUpdate).TotalSeconds >= 1.0)
+            try
             {
-                Fps = Math.Round(_frameCount / (now - _lastFpsUpdate).TotalSeconds, 1);
-                _frameCount = 0;
-                _lastFpsUpdate = now;
+                // Connect or retrieve demux channel
+                _channel = UnifiedRtpDemuxReceiver.Instance.GetOrCreateChannel(_device.IpAddress, multicastIp, _device.NodeIps);
+                _channel.BitmapUpdated += OnBitmapUpdated;
+                _channel.FpsUpdated += OnFpsUpdated;
+
+                _channel.StartListening(multicastIp, port);
+
+                bool success = await sdvoeClient.StartAvasPreviewAsync(MacAddress, multicastIp);
+                IsStreaming = success;
+                AppLogger.Info("PREVIEW", $"Started preview for {DeviceName} on {multicastIp}:{port} (Status: {success})");
             }
-
-            // Update WriteableBitmap on UI thread
-            if (Application.Current != null && Application.Current.Dispatcher != null)
+            catch (Exception ex)
             {
-                Application.Current.Dispatcher.BeginInvoke(() =>
+                AppLogger.Error("PREVIEW", $"Failed to start preview for {DeviceName}", ex);
+                IsStreaming = false;
+            }
+        }
+
+        public async Task StopPreviewAsync()
+        {
+            if (_sdvoeClient == null) return;
+
+            try
+            {
+                if (_channel != null)
                 {
-                    try
-                    {
-                        _previewBitmap.Lock();
-                        System.Runtime.InteropServices.Marshal.Copy(_frameBuffer, 0, _previewBitmap.BackBuffer, _frameBuffer.Length);
-                        _previewBitmap.AddDirtyRect(new Int32Rect(0, 0, FrameWidth, FrameHeight));
-                        _previewBitmap.Unlock();
-                    }
-                    catch { }
-                });
+                    _channel.BitmapUpdated -= OnBitmapUpdated;
+                    _channel.FpsUpdated -= OnFpsUpdated;
+                    _channel.StopListening();
+                }
+
+                await _sdvoeClient.StopAvasPreviewAsync(MacAddress);
+                IsStreaming = false;
+                Fps = 0.0;
+                AppLogger.Info("PREVIEW", $"Stopped preview for {DeviceName}");
             }
+            catch (Exception ex)
+            {
+                AppLogger.Error("PREVIEW", $"Failed to stop preview for {DeviceName}", ex);
+            }
+        }
+
+        public async Task RefreshPreviewAsync()
+        {
+            if (IsRefreshing || !IsPreviewSupported) return;
+
+            IsRefreshing = true;
+            try
+            {
+                AppLogger.Info("PREVIEW", $"Refreshing preview stream for {DeviceName}...");
+                await StopPreviewAsync();
+                await Task.Delay(300);
+
+                if (_rtpReceiver != null && _sdvoeClient != null && !string.IsNullOrEmpty(_device.MulticastIp))
+                {
+                    await StartPreviewAsync(_rtpReceiver, _sdvoeClient, _device.MulticastIp, _device.MulticastPort);
+                }
+            }
+            finally
+            {
+                IsRefreshing = false;
+            }
+        }
+
+        private async Task StartManualPreviewAsync()
+        {
+            if (_rtpReceiver != null && _sdvoeClient != null && !string.IsNullOrEmpty(_device.MulticastIp))
+            {
+                await StartPreviewAsync(_rtpReceiver, _sdvoeClient, _device.MulticastIp, _device.MulticastPort);
+            }
+        }
+
+        private void OnBitmapUpdated(WriteableBitmap bmp)
+        {
+            if (PreviewBitmap != bmp)
+            {
+                PreviewBitmap = bmp;
+            }
+        }
+
+        private void OnFpsUpdated(double fps)
+        {
+            Fps = Math.Round(fps, 1);
         }
 
         public void SetOnlineState(bool isOnline)
         {
             _device.IsActive = isOnline;
             OnPropertyChanged(nameof(IsActive));
+            if (!isOnline && IsStreaming)
+            {
+                _ = StopPreviewAsync();
+            }
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
