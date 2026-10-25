@@ -25,19 +25,8 @@ This document outlines the immediate implementation roadmap for Claude Code to c
 
 ---
 
-### Task 2: Route State Persistence (Priority: Medium)
-* **Context**: The BlueRiver Control Server does not expose an endpoint to query existing subscriptions upon startup.
-* **Requirements**:
-  1. Store active routes in a lightweight local JSON file (`publish/AvasRoutingTool/routes.json` or within `appsettings.json`).
-  2. Format:
-     ```json
-     {
-       "routes": {
-         "74fe483c059e": { "source_mac": "74fe488b07bb", "source_name": "TX2_DUAL LINK_SFPA", "layout": "single" }
-       }
-     }
-     ```
-  3. On startup, match persisted MACs with discovered online devices and restore visual routing states and preview mirroring.
+### Task 2: Route & Layout Restore from Hardware (Priority: Medium) - PLANNED
+> Replaces the earlier `routes.json` idea. The Control Server *does* report state: `get settings` returns each HDMI subscription's `state` and `source` plus `FRAME_BUFFER.display_mode`; `get multiview` returns the loaded layout. Hardware is the source of truth (a local file would go stale when someone routes in the BAVM console). Full plan, including MultiView settings: [`docs/superpowers/plans/2026-10-25-route-restore-and-multiview-settings.md`](../docs/superpowers/plans/2026-10-25-route-restore-and-multiview-settings.md).
 
 ---
 

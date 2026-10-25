@@ -35,8 +35,9 @@ RX1 genlocked at 3840x2160@60 and joined to TX2 stream 0 (its pre-test route is 
 * `join`/`leave` still treat PROCESSING as success (only multiview calls await the request result).
 
 ## Next Steps
-1. When more devices are online: 4K PiP, four live windows, dual-link TX/RX in multiview.
-2. Publish and commit M9 (code + this memory) once the user is happy.
-3. Route + layout restore at startup from `get settings` subscriptions (replaces the planned `routes.json`).
-4. Expose canvas override / divider mode (Auto/On/Off) in Settings.
-5. Independent Audio & USB routing (Handover 05 Task 3); PTZ/camera tray (Task 4).
+(Plan: `docs/superpowers/plans/2026-10-25-route-restore-and-multiview-settings.md` - awaiting the user's confirmation of its recommended decisions.)
+1. Restore routes and multiview layouts from the hardware (`get settings` subscriptions + `get multiview`) at startup, Refresh, device-online and BAVM-tab return; hardware is the source of truth, no local routes file (supersedes Handover 05 Task 2).
+2. Settings: multiview canvas override (validated against the display's advertised modes) and frame-divider mode Auto/Always/Never.
+3. When more devices are online: 4K PiP, four live windows, dual-link TX/RX in multiview.
+4. Independent Audio & USB routing (Handover 05 Task 3); PTZ/camera tray (Task 4).
+5. **Git**: `main` has no `origin` remote configured, so the Phase 2 commit (6501bf4) is local only - the user must supply the remote URL to push.
