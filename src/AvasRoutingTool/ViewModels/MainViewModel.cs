@@ -23,7 +23,13 @@ namespace AvasRoutingTool.ViewModels
         private readonly IRtpReceiver _rtpReceiver;
         private readonly MulticastIpManager _ipManager;
         private readonly RoutingOrchestrator _orchestrator;
-        private readonly MultiViewOrchestrator _multiView;
+                private readonly MultiViewOrchestrator _multiView;
+
+        /// <summary>Subscription indexes of multiview layouts found on decoders that this tool did not create, by receiver MAC.</summary>
+        private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<int>> _externalSubscriptions = new();
+
+        /// <summary>Limits how many receivers are read at once.</summary>
+        private readonly System.Threading.SemaphoreSlim _restoreGate = new(8);
         private AppConfig _config;
 
         private bool _isConnected;
@@ -209,7 +215,131 @@ namespace AvasRoutingTool.ViewModels
 
             OnPropertyChanged(nameof(OnlineSourcesCount));
             OnPropertyChanged(nameof(OnlineDisplaysCount));
+
+            // Show what the decoders are really doing instead of assuming "unrouted".
+            await RestoreStateAsync();
         }
+
+        /// <summary>
+        /// Reads every online receiver (in parallel, read-only) and makes its card show the hardware's truth:
+        /// the Single View source, a multiview layout this tool can drive, or a read-only external layout.
+        /// A receiver that cannot be read keeps its card as it is.
+        /// </summary>
+        public async Task RestoreStateAsync()
+        {
+            var targets = Displays.Where(d => d.IsActive).ToList();
+            if (targets.Count == 0) return;
+
+            var reads = await Task.WhenAll(targets.Select(async d => (Display: d, State: await ReadStateAsync(d))));
+            foreach (var (display, state) in reads)
+            {
+                if (Displays.Contains(display)) ApplyRestoredState(display, state);
+            }
+        }
+
+        /// <summary>Re-reads one receiver (for example when it comes back online).</summary>
+        public async Task RestoreDisplayAsync(DisplayCardViewModel display)
+        {
+            var state = await ReadStateAsync(display);
+            if (Displays.Contains(display)) ApplyRestoredState(display, state);
+        }
+
+        private async Task<RxState?> ReadStateAsync(DisplayCardViewModel display)
+        {
+            await _restoreGate.WaitAsync();
+            try
+            {
+                return await _sdvoeClient.ReadReceiverStateAsync(display.MacAddress);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn("RESTORE", $"Reading '{display.DeviceName}' failed: {ex.Message}");
+                return null;
+            }
+            finally
+            {
+                _restoreGate.Release();
+            }
+        }
+
+        private void ApplyRestoredState(DisplayCardViewModel display, RxState? state)
+        {
+            var rx = display.Device;
+            string key = SdvoeClient.NormalizeMac(rx.DeviceId);
+
+            if (state == null)
+            {
+                AppLogger.Info("RESTORE", $"'{rx.DeviceName}' could not be read; leaving its card as it is.");
+                return;
+            }
+
+            _externalSubscriptions.Remove(key);
+
+            if (!state.IsMultiView)
+            {
+                _multiView.Forget(rx);
+                display.ClearLayout();
+                display.ClearExternalLayout();
+
+                var route = state.SingleViewSource;
+                if (route == null)
+                {
+                    rx.ActiveSourceId = string.Empty;
+                    rx.ActiveSourceName = string.Empty;
+                    display.SetPreviewSource(null);
+                    AppLogger.Info("RESTORE", $"'{rx.DeviceName}' is not routed.");
+                }
+                else
+                {
+                    var sourceVm = FindSource(route.SourceMac);
+                    rx.ActiveSourceId = route.SourceMac;
+                    rx.ActiveSourceName = sourceVm?.DeviceName ?? route.SourceName;
+                    display.SetPreviewSource(sourceVm);
+                    AppLogger.Info("RESTORE", $"'{rx.DeviceName}' is routed to '{rx.ActiveSourceName}'.");
+                }
+                display.NotifyRoutingChanged();
+                return;
+            }
+
+            var restored = MultiViewRestore.Analyze(state)!;
+            rx.ActiveSourceId = string.Empty;
+            rx.ActiveSourceName = string.Empty;
+            display.SetPreviewSource(null);
+
+            if (restored.IsRecognised)
+            {
+                var plan = restored.Plan!;
+                var assignments = new System.Collections.Generic.Dictionary<int, AvasDevice>();
+                var sourceVms = new System.Collections.Generic.Dictionary<int, SourceCardViewModel>();
+                foreach (var s in restored.Sources)
+                {
+                    var vm = FindSource(s.Mac) ?? new SourceCardViewModel(UnknownSource(s.Mac, s.Name));
+                    sourceVms[s.SlotIndex] = vm;
+                    assignments[s.SlotIndex] = vm.Device;
+                }
+
+                _multiView.Adopt(rx, plan, restored.Canvas, assignments);
+                string title = Layouts.FirstOrDefault(l => l.Id == plan.Id)?.Title ?? plan.Id;
+                display.ApplyLayout(plan, title.ToUpperInvariant(), _multiView.DescribeCanvas(rx));
+                foreach (var (slot, vm) in sourceVms) display.AssignSlot(slot, vm);
+                AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs {plan.Id} with {sourceVms.Count} source(s).");
+            }
+            else
+            {
+                _multiView.Forget(rx);
+                _externalSubscriptions[key] = restored.SubscriptionIndexes;
+                display.SetExternalLayout(restored.LayoutName, restored.Sources.Select(s => s.Name).ToList(), $"OUT {restored.Canvas.Description}");
+                AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs an external multiview layout '{restored.LayoutName}'.");
+            }
+            display.NotifyRoutingChanged();
+        }
+
+        private SourceCardViewModel? FindSource(string mac) =>
+            Sources.FirstOrDefault(s => SdvoeClient.NormalizeMac(s.MacAddress) == SdvoeClient.NormalizeMac(mac));
+
+        /// <summary>A source the app has not discovered: known only by what the decoder reports (no preview).</summary>
+        private static AvasDevice UnknownSource(string mac, string name) =>
+            new() { DeviceId = mac, DeviceName = string.IsNullOrEmpty(name) ? mac : name, IsTransmitter = true, IsActive = true, VendorId = 0 };
 
         public async Task<bool> RouteVideoAsync(AvasDevice sourceTx, AvasDevice displayRx)
         {
@@ -224,6 +354,19 @@ namespace AvasRoutingTool.ViewModels
                     return false;
                 }
                 Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId)?.ClearLayout();
+            }
+
+            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
+            if (_externalSubscriptions.ContainsKey(rxKey))
+            {
+                // Found running a layout set elsewhere: leave multiview first or the join would not take effect.
+                if (!await _multiView.ExitExternalAsync(displayRx, Array.Empty<int>()))
+                {
+                    AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
+                    return false;
+                }
+                _externalSubscriptions.Remove(rxKey);
+                Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId)?.ClearExternalLayout();
             }
 
             AppLogger.Info("ROUTING", $"Requesting route: '{sourceTx.DeviceName}' ({sourceTx.DeviceId}) -> '{displayRx.DeviceName}' ({displayRx.DeviceId})");
@@ -249,14 +392,23 @@ namespace AvasRoutingTool.ViewModels
 
             AppLogger.Info("ROUTING", $"Requesting unroute on '{displayRx.DeviceName}' ({displayRx.DeviceId})");
             bool wasMultiView = _multiView.IsMultiView(displayRx);
-            bool ok = wasMultiView
-                ? await _multiView.TurnOffAsync(displayRx)
-                : await _orchestrator.UnrouteDisplayAsync(displayRx);
+            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
+            bool wasExternal = _externalSubscriptions.TryGetValue(rxKey, out var externalIndexes);
+            bool ok = wasExternal
+                ? await _multiView.ExitExternalAsync(displayRx, externalIndexes!)
+                : wasMultiView
+                    ? await _multiView.TurnOffAsync(displayRx)
+                    : await _orchestrator.UnrouteDisplayAsync(displayRx);
             if (ok)
             {
                 var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
                 displayVm?.SetPreviewSource(null);
                 if (wasMultiView) displayVm?.ClearLayout();
+                if (wasExternal)
+                {
+                    _externalSubscriptions.Remove(rxKey);
+                    displayVm?.ClearExternalLayout();
+                }
                 displayVm?.NotifyRoutingChanged();
                 AppLogger.Info("ROUTING", $"Successfully unrouted '{displayRx.DeviceName}'.");
             }
@@ -283,8 +435,22 @@ namespace AvasRoutingTool.ViewModels
                 return false;
             }
 
+            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
+
             if (string.Equals(layoutId, "single", StringComparison.OrdinalIgnoreCase))
             {
+                if (_externalSubscriptions.ContainsKey(rxKey))
+                {
+                    if (!await _multiView.ExitExternalAsync(displayRx, Array.Empty<int>()))
+                    {
+                        displayVm.LastError = $"'{displayRx.DeviceName}' did not accept the switch back to Single View.";
+                        return false;
+                    }
+                    _externalSubscriptions.Remove(rxKey);
+                    displayVm.ClearExternalLayout();
+                    return true;
+                }
+
                 if (!_multiView.IsMultiView(displayRx)) return true;
 
                 if (!await _multiView.ReturnToSingleViewAsync(displayRx))
@@ -318,6 +484,7 @@ namespace AvasRoutingTool.ViewModels
                 return false;
             }
 
+            _externalSubscriptions.Remove(rxKey);
             displayRx.ActiveSourceId = string.Empty;
             displayRx.ActiveSourceName = string.Empty;
 
@@ -377,6 +544,7 @@ namespace AvasRoutingTool.ViewModels
             if (display != null)
             {
                 display.SetOnlineState(isOnline);
+                if (isOnline) _ = RestoreDisplayAsync(display); // a decoder that came back may be showing something
             }
 
             OnPropertyChanged(nameof(OnlineSourcesCount));

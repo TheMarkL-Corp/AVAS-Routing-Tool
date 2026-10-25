@@ -49,6 +49,12 @@ namespace AvasRoutingTool.Sdvoe
         /// </summary>
         Task<string?> ReadDisplayEdidAsync(string rxMac);
 
+        /// <summary>
+        /// Reads what a receiver is really doing (display mode, HDMI subscriptions and, in multiview, the loaded layout).
+        /// Read-only. Returns null when the receiver cannot be read; never throws.
+        /// </summary>
+        Task<RxState?> ReadReceiverStateAsync(string rxMac);
+
         /// <summary>Returns a receiver to the full-screen genlocked display mode used by Single View.</summary>
         Task<bool> SetGenlockedAsync(string rxMac);
 

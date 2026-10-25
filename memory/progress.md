@@ -82,6 +82,14 @@
   - [ ] Hardware still open (needs more devices online): 4K PiP, four live windows, dual link
   - [ ] Publish standalone build and commit
 
+- [~] **M10: Route & layout restore from hardware** (Part A done; see ADR 004)
+  - [x] `RxStateReader` / `RxState` (pure) with fixtures from real replies
+  - [x] `ISdvoeClient.ReadReceiverStateAsync` (get settings + get multiview, request polling)
+  - [x] `MultiViewPresets.TryParseName`, `MultiViewRestore.Analyze`, `MultiViewOrchestrator.Adopt/Forget/ExitExternalAsync`
+  - [x] `MainViewModel.RestoreStateAsync` (startup, Refresh, device online, BAVM-tab return), external-layout notice, genlock before join / Off / Single View on external layouts
+  - [x] 282 non-live tests; live read-only check on RX1/PAX355S
+  - [ ] Task 7 EDID VICs, Task 8 Settings (canvas override, divider mode), Task 9 hardware run of a restored multiview + publish
+
 - [x] **M8.1: Adaptive Card & Grid Panel Layout System**
   - [x] Pure algorithmic layout calculator `AdaptiveGridLayout` with 16:9 aspect preservation, dynamic row/column determination, and vertical scroll detection.
   - [x] Custom WPF `AdaptiveCardPanel` integrating `ScrollViewer` viewport-height awareness and symmetric horizontal/vertical centering.

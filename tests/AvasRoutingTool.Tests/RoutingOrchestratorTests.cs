@@ -91,6 +91,21 @@ namespace AvasRoutingTool.Tests
 
         public Task<bool> SetGenlockedAsync(string rxMac) => Record($"genlock:{rxMac}");
 
+        /// <summary>State returned by <see cref="ReadReceiverStateAsync"/> per receiver MAC (missing = unreadable).</summary>
+        public System.Collections.Generic.Dictionary<string, AvasRoutingTool.Sdvoe.RxState?> ReceiverStates { get; } = new();
+
+        /// <summary>Optional artificial delay per receiver MAC, to prove reads run in parallel.</summary>
+        public System.Collections.Generic.Dictionary<string, System.TimeSpan> ReceiverReadDelay { get; } = new();
+
+        public System.Collections.Generic.List<string> ReceiverReads { get; } = new();
+
+        public async Task<AvasRoutingTool.Sdvoe.RxState?> ReadReceiverStateAsync(string rxMac)
+        {
+            lock (ReceiverReads) ReceiverReads.Add(rxMac);
+            if (ReceiverReadDelay.TryGetValue(rxMac, out var delay)) await Task.Delay(delay);
+            return ReceiverStates.TryGetValue(rxMac, out var s) ? s : null;
+        }
+
         /// <summary>MACs whose stream-1 divider was already on before the tool touched anything.</summary>
         public System.Collections.Generic.HashSet<string> AlreadyHalved { get; } = new();
 

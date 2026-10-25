@@ -1,5 +1,7 @@
 # Route/Layout Restore from Hardware & MultiView Settings Implementation Plan
 
+> **Status (2026-10-25):** Part A (Tasks 1-6) implemented and unit-tested; the user confirmed the three decisions. Remaining: Task 7 (EDID VICs), Task 8 (Settings), Task 9 (hardware run of a restored multiview, publish).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** (A) On startup, on Refresh, and when the operator comes back from the BAVM Console tab, make every display card show what the decoders are *really* doing (Single View source, or MultiView layout with its windows), read from the hardware instead of assuming "unrouted". (B) Let the operator override the multiview output format and choose the frame-divider mode in Settings.
@@ -53,29 +55,29 @@ tests/AvasRoutingTool.Tests/
 ## Tasks
 
 ### Task 1: Capture fixtures and parse receiver state (pure)
-- [ ] Capture read-only replies from the lab (RX1 Single View, RX1 Matrix at FHD and 4K, PAX not in multiview) into `tests/.../Fixtures`, trimmed to `FRAME_BUFFER`, `HDMI_ENCODER.status.video`, `subscriptions` and the `get multiview` layout.
-- [ ] Failing tests for `RxStateReader`: single view source (idx0 STREAMING), unrouted (all STOPPED), multiview with 1 and 2 subscriptions mapped to surfaces, `INVALID_STATE` multiview error, a source that is offline/unknown, malformed JSON -> `null`, unknown `display_mode`.
-- [ ] Implement `RxState` + `RxStateReader`. Commit.
+- [x] Capture read-only replies from the lab (RX1 Single View, RX1 Matrix at FHD and 4K, PAX not in multiview) into `tests/.../Fixtures`, trimmed to `FRAME_BUFFER`, `HDMI_ENCODER.status.video`, `subscriptions` and the `get multiview` layout.
+- [x] Failing tests for `RxStateReader`: single view source (idx0 STREAMING), unrouted (all STOPPED), multiview with 1 and 2 subscriptions mapped to surfaces, `INVALID_STATE` multiview error, a source that is offline/unknown, malformed JSON -> `null`, unknown `display_mode`.
+- [x] Implement `RxState` + `RxStateReader`. Commit.
 
 ### Task 2: Layout name recognition
-- [ ] Failing tests: `avas_matrix2x2_3840x2160` -> (`matrix2x2`, 3840, 2160); `avas_quad_1_3_1920x1080` (underscores in the preset); `compatibility_4k_2x2` / garbage -> not ours.
-- [ ] Implement `MultiViewPresets.TryParseName`. Commit.
+- [x] Failing tests: `avas_matrix2x2_3840x2160` -> (`matrix2x2`, 3840, 2160); `avas_quad_1_3_1920x1080` (underscores in the preset); `compatibility_4k_2x2` / garbage -> not ours.
+- [x] Implement `MultiViewPresets.TryParseName`. Commit.
 
 ### Task 3: Client read
-- [ ] Failing tests (recording handler): Single View makes one `get settings` call; MultiView adds `get multiview`; `get multiview` error is tolerated; server error -> `null`.
-- [ ] `ISdvoeClient.ReadReceiverStateAsync` + `SdvoeClient`; extend `MockSdvoeClient`. Commit.
+- [x] Failing tests (recording handler): Single View makes one `get settings` call; MultiView adds `get multiview`; `get multiview` error is tolerated; server error -> `null`.
+- [x] `ISdvoeClient.ReadReceiverStateAsync` + `SdvoeClient`; extend `MockSdvoeClient`. Commit.
 
 ### Task 4: Adopt a restored session
-- [ ] Failing tests: `Adopt` creates a session without hardware calls; the next `AssignAsync` does not re-create the layout nor re-read the EDID; a restored heavy layout does not restore dividers it never set; slot indexes map from subscription surfaces; an assignment whose source is unknown still shows (name from the reply).
-- [ ] Implement `Adopt`. Commit.
+- [x] Failing tests: `Adopt` creates a session without hardware calls; the next `AssignAsync` does not re-create the layout nor re-read the EDID; a restored heavy layout does not restore dividers it never set; slot indexes map from subscription surfaces; an assignment whose source is unknown still shows (name from the reply).
+- [x] Implement `Adopt`. Commit.
 
 ### Task 5: Restore into the view models
-- [ ] Failing tests with the mock client: Single View source + preview mirroring; recognised MultiView -> `ApplyLayout` + `AssignSlot` + `CanvasInfo`; external layout -> badge, no slots; unreadable RX stays unrouted and others still restore; offline RX skipped; parallel reads (a slow RX does not block).
-- [ ] `MainViewModel.RestoreStateAsync`, called from `RefreshDevicesAsync`, on device-online events and on tab re-select (`MainWindow`). Commit.
+- [x] Failing tests with the mock client: Single View source + preview mirroring; recognised MultiView -> `ApplyLayout` + `AssignSlot` + `CanvasInfo`; external layout -> badge, no slots; unreadable RX stays unrouted and others still restore; offline RX skipped; parallel reads (a slow RX does not block).
+- [x] `MainViewModel.RestoreStateAsync`, called from `RefreshDevicesAsync`, on device-online events and on tab re-select (`MainWindow`). Commit.
 
 ### Task 6: Join on a multiview RX we did not start
-- [ ] Failing test: RX restored as external multiview + `RouteVideoAsync` -> `genlock` then `join`.
-- [ ] Implement via the restored display mode. Commit.
+- [x] Failing test: RX restored as external multiview + `RouteVideoAsync` -> `genlock` then `join`.
+- [x] Implement via the restored display mode. Commit.
 
 ### Task 7: Display-advertised modes (EDID VICs)
 - [ ] Failing tests with the real VP3268-4K EDID: CTA Video Data Block VICs decode to (w, h, hz) for the common VIC table; DTD + VIC modes are merged without duplicates.

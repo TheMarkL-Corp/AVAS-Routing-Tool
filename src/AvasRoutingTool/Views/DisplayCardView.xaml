@@ -311,6 +311,7 @@
                                         <MultiDataTrigger.Conditions>
                                             <Condition Binding="{Binding IsRouted}" Value="True" />
                                             <Condition Binding="{Binding IsPreviewSupported}" Value="False" />
+                                            <Condition Binding="{Binding IsExternalLayout}" Value="False" />
                                         </MultiDataTrigger.Conditions>
                                         <Setter Property="Visibility" Value="Visible" />
                                     </MultiDataTrigger>
@@ -337,6 +338,36 @@
                                    FontSize="10"
                                    Foreground="{StaticResource Brush.Text.Muted}"
                                    HorizontalAlignment="Center"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <!-- Decoder runs a multiview layout set elsewhere (found when restoring state): read-only notice -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="320" Margin="12">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsExternalLayout}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Path Data="{StaticResource Icon.Monitor}"
+                              Fill="{StaticResource Brush.Accent.Primary}"
+                              Width="26" Height="26"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding ExternalLayoutText, Mode=OneWay}"
+                                   FontSize="11"
+                                   Foreground="{StaticResource Brush.Text.Secondary}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Margin="0,8,0,0" />
+                        <TextBlock Text="Drop a source to switch this display to Single View"
+                                   FontSize="9"
+                                   Foreground="#475569"
+                                   TextAlignment="Center"
                                    Margin="0,4,0,0" />
                     </StackPanel>
 

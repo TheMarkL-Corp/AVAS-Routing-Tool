@@ -1,0 +1,17 @@
+﻿{
+   "status" : "SUCCESS",
+   "request_id" : null,
+   "result" : {
+      "devices" : [],
+      "error" : [
+         {
+            "device_id" : "74fe488b22ca",
+            "device_name" : "PAX355S_SFP A",
+            "reason" : "INVALID_STATE",
+            "message" : "Device must be in Multiview to retrieve layout information."
+         }
+      ]
+   },
+   "error" : null
+}
+

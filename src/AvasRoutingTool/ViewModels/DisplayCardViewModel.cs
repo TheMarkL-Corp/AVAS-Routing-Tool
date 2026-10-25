@@ -23,6 +23,9 @@ namespace AvasRoutingTool.ViewModels
         private string _layoutTitle = string.Empty;
         private string? _lastError;
         private string _canvasInfo = string.Empty;
+        private bool _isExternalLayout;
+        private int _externalSourceCount;
+        private string _externalLayoutText = string.Empty;
         private double _canvasAspect = 16.0 / 9.0;
         private List<int> _logicalOrder = new();
 
@@ -36,7 +39,13 @@ namespace AvasRoutingTool.ViewModels
 
         public string ActiveSourceId => _device.ActiveSourceId;
         public string ActiveSourceName => _device.ActiveSourceName;
-        public bool IsRouted => !string.IsNullOrEmpty(_device.ActiveSourceId) || Slots.Any(s => s.IsAssigned);
+        public bool IsRouted => !string.IsNullOrEmpty(_device.ActiveSourceId) || Slots.Any(s => s.IsAssigned) || _isExternalLayout;
+
+        /// <summary>The decoder is running a multiview layout this tool did not create (found when restoring state). Read-only.</summary>
+        public bool IsExternalLayout => _isExternalLayout;
+
+        /// <summary>What to tell the operator about an external layout.</summary>
+        public string ExternalLayoutText => _externalLayoutText;
 
         /// <summary>Layout currently on this display: <c>single</c> or a multiview preset id.</summary>
         public string LayoutId => _layoutId;
@@ -47,7 +56,7 @@ namespace AvasRoutingTool.ViewModels
         public ObservableCollection<WindowSlotViewModel> Slots { get; } = new();
 
         /// <summary>Header pill text: layout name in multiview, otherwise routed state.</summary>
-        public string ModeBadge => IsMultiView ? _layoutTitle : IsRouted ? "SINGLE VIEW" : "UNROUTED";
+        public string ModeBadge => IsMultiView ? _layoutTitle : _isExternalLayout ? "EXTERNAL LAYOUT" : IsRouted ? "SINGLE VIEW" : "UNROUTED";
 
         /// <summary>Lowest-numbered window that has no source yet, or null when all are filled / not multiview.</summary>
         public int? FirstEmptySlotIndex
@@ -81,7 +90,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Footer label: the routed source's BAVM name ("N IN LAYOUT" in multiview), or "NONE" when unrouted.</summary>
         public string SourceLabel => IsMultiView
             ? $"{Slots.Count(s => s.IsAssigned)} IN LAYOUT"
-            : IsRouted && !string.IsNullOrEmpty(ActiveSourceName) ? ActiveSourceName : "NONE";
+            : _isExternalLayout
+                ? $"{_externalSourceCount} IN LAYOUT"
+                : IsRouted && !string.IsNullOrEmpty(ActiveSourceName) ? ActiveSourceName : "NONE";
 
         public WriteableBitmap? PreviewBitmap
         {
@@ -127,6 +138,7 @@ namespace AvasRoutingTool.ViewModels
             DetachSlotSources();
             SetPreviewSource(null);
 
+            ResetExternalLayout();
             _layoutId = plan.Id;
             _layoutTitle = title;
             _canvasInfo = canvasInfo;
@@ -144,6 +156,7 @@ namespace AvasRoutingTool.ViewModels
         public void ClearLayout()
         {
             DetachSlotSources();
+            ResetExternalLayout();
             _layoutId = "single";
             _layoutTitle = string.Empty;
             _canvasInfo = string.Empty;
@@ -152,6 +165,51 @@ namespace AvasRoutingTool.ViewModels
             LastError = null;
             Slots.Clear();
             NotifyLayoutChanged();
+        }
+
+        /// <summary>
+        /// Shows that the decoder runs a layout made elsewhere (BAVM, the built-in 4K 2x2): its sources are listed but
+        /// there are no drop zones. Plain routing, Off and Single View still work (they leave multiview first).
+        /// </summary>
+        public void SetExternalLayout(string layoutName, IReadOnlyList<string> sourceNames, string canvasInfo)
+        {
+            DetachSlotSources();
+            Slots.Clear();
+            SetPreviewSource(null);
+            _layoutId = "single";
+            _layoutTitle = string.Empty;
+            _logicalOrder = new List<int>();
+            _canvasAspect = 16.0 / 9.0;
+            LastError = null;
+
+            _isExternalLayout = true;
+            _externalSourceCount = sourceNames.Count;
+            string what = string.IsNullOrEmpty(layoutName)
+                ? "Running a multiview layout set elsewhere (read-only)"
+                : $"Running layout '{layoutName}' set elsewhere (read-only)";
+            _externalLayoutText = sourceNames.Count == 0 ? what : $"{what}: {string.Join(", ", sourceNames)}";
+            _canvasInfo = canvasInfo;
+            OnPropertyChanged(nameof(IsExternalLayout));
+            OnPropertyChanged(nameof(ExternalLayoutText));
+            NotifyLayoutChanged();
+        }
+
+        public void ClearExternalLayout()
+        {
+            if (!_isExternalLayout) return;
+            ResetExternalLayout();
+            _canvasInfo = string.Empty;
+            NotifyLayoutChanged();
+        }
+
+        private void ResetExternalLayout()
+        {
+            if (!_isExternalLayout) return;
+            _isExternalLayout = false;
+            _externalSourceCount = 0;
+            _externalLayoutText = string.Empty;
+            OnPropertyChanged(nameof(IsExternalLayout));
+            OnPropertyChanged(nameof(ExternalLayoutText));
         }
 
         public void AssignSlot(int slotIndex, SourceCardViewModel? source)

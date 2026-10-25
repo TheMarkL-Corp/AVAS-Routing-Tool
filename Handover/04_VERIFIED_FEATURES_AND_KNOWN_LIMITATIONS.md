@@ -73,7 +73,7 @@ During real-hardware testing and deep debugging passes, several subtle bugs were
 1. **No Subscription Query Endpoint in Control Server** *(correction 2026-10-25: `POST /api/device/{mac}` with `{"op":"get","subset":"settings"}` DOES return `subscriptions` with each HDMI subscription's `state` and `source` device - route restore at startup is possible)*:
    * Probed all known Semtech commands (`get all/<mac> subscription`, `get subscription`, `get join`). The BlueRiver Control Server does **not** expose active subscription state via query.
    * **Consequence**: Upon app restart or refresh, display cards start in an unrouted visual state until routed from this application.
-   * **Recommended Next Step**: Implement local state persistence (see [05_NEXT_STEPS_AND_PHASE_2_PLAN.md](./05_NEXT_STEPS_AND_PHASE_2_PLAN.md)).
+   * **Superseded (2026-10-25, ADR 004)**: state is now read back from the hardware at startup/Refresh/BAVM-tab return. Original note: Implement local state persistence (see [05_NEXT_STEPS_AND_PHASE_2_PLAN.md](./05_NEXT_STEPS_AND_PHASE_2_PLAN.md)).
 
 2. **Non-AVAS Transceivers Lack In-Band Preview**:
    * Units like `VEGA_1100` lack the Cypress Baseboard MCU UART and do not provide raw RFC 4175 preview streaming on UDP 5004.

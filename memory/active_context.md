@@ -34,10 +34,13 @@ RX1 genlocked at 3840x2160@60 and joined to TX2 stream 0 (its pre-test route is 
 * Routes and multiview layouts are not restored on app start (but `get settings` makes it possible - next step).
 * `join`/`leave` still treat PROCESSING as success (only multiview calls await the request result).
 
+## Route/layout restore (M10, Part A done, uncommitted until the next commit)
+On startup, Refresh, a decoder coming back online and returning from the BAVM Console tab, every online receiver is read (read-only, parallel) and its card shows what the hardware really does: Single View source, a multiview layout this tool created (adopted - next drop just reloads it), or an *external* layout (read-only notice; join/Off/Single View leave multiview first). See ADR 004 and `docs/superpowers/plans/2026-10-25-route-restore-and-multiview-settings.md`. 282 non-live tests pass (fixtures are real trimmed replies in `tests/AvasRoutingTool.Tests/Fixtures`). Live read-only check: RX1 reads as Single View from TX2 (stream 0), PAX355S as unrouted (FAST_SWITCHED).
+
 ## Next Steps
-(Plan: `docs/superpowers/plans/2026-10-25-route-restore-and-multiview-settings.md` - awaiting the user's confirmation of its recommended decisions.)
-1. Restore routes and multiview layouts from the hardware (`get settings` subscriptions + `get multiview`) at startup, Refresh, device-online and BAVM-tab return; hardware is the source of truth, no local routes file (supersedes Handover 05 Task 2).
-2. Settings: multiview canvas override (validated against the display's advertised modes) and frame-divider mode Auto/Always/Never.
+1. Plan Task 7-8: EDID CTA video-mode (VIC) parsing, then Settings for the multiview canvas override and divider mode Auto/Always/Never.
+2. Hardware run of a *restored multiview* (needs RX1 put into a Matrix first - ask the user), then publish.
 3. When more devices are online: 4K PiP, four live windows, dual-link TX/RX in multiview.
 4. Independent Audio & USB routing (Handover 05 Task 3); PTZ/camera tray (Task 4).
-5. **Git**: `main` has no `origin` remote configured, so the Phase 2 commit (6501bf4) is local only - the user must supply the remote URL to push.
+5. Follow-up: follow `SETTINGS_CHANGED` events so cards are live, not re-synced on triggers.
+6. **Git**: `main` has no `origin` remote; the user asked to create/push to their GitHub (TheMarkL-Corp) but the GitHub connector/CLI/browser are not signed in - needs the user to sign in or create an empty repo.

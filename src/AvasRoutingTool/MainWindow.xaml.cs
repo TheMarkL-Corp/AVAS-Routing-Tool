@@ -20,6 +20,7 @@ namespace AvasRoutingTool
         private readonly RoutingOrchestrator _orchestrator;
         private readonly MainViewModel _viewModel;
         private bool _isWebViewInitialized;
+        private bool _leftVisualRouting;
 
         public MainWindow()
         {
@@ -64,9 +65,17 @@ namespace AvasRoutingTool
                 ViewVisualRouting.Visibility = Visibility.Visible;
                 ViewBavmConsole.Visibility = Visibility.Collapsed;
                 ViewLogs.Visibility = Visibility.Collapsed;
+
+                // Routes may have been changed in the BAVM console meanwhile: re-read what the decoders really do.
+                if (_leftVisualRouting && _viewModel != null)
+                {
+                    _leftVisualRouting = false;
+                    await _viewModel.RestoreStateAsync();
+                }
             }
             else if (TabBavmConsole.IsChecked == true)
             {
+                _leftVisualRouting = true;
                 ViewVisualRouting.Visibility = Visibility.Collapsed;
                 ViewBavmConsole.Visibility = Visibility.Visible;
                 ViewLogs.Visibility = Visibility.Collapsed;

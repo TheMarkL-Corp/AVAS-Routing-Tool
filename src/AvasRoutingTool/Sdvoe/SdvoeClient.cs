@@ -382,6 +382,24 @@ namespace AvasRoutingTool.Sdvoe
             return SendRestCallAsync(MultiView.MultiViewRequests.SetMultiView(rxMac, plan.Name, plan.Width, plan.Height, fps, subscriptions));
         }
 
+        public async Task<RxState?> ReadReceiverStateAsync(string rxMac)
+        {
+            string norm = NormalizeMac(rxMac);
+            var settings = await RequestAsync("POST", $"/api/device/{norm}", new { op = "get", subset = "settings" });
+            if (!settings.Ok || settings.Body == null)
+            {
+                AppLogger.Warn("RESTORE", $"Could not read the state of {norm}: {settings.Failure ?? "no reply"}");
+                return null;
+            }
+
+            var state = RxStateReader.Parse(settings.Body);
+            if (state == null || !state.IsMultiView) return state;
+
+            // The layout name is only available through the multiview subset; if it is refused the state is still useful.
+            var layout = await RequestAsync("POST", $"/api/device/{norm}", new { op = "get", subset = "multiview" });
+            return layout.Body == null ? state : RxStateReader.Parse(settings.Body, layout.Body);
+        }
+
         public async Task<bool?> ReadStream1FrameDividerAsync(string txMac)
         {
             string norm = NormalizeMac(txMac);

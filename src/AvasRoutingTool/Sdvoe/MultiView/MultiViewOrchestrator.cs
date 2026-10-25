@@ -90,6 +90,42 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 : new Dictionary<int, AvasDevice>();
 
         /// <summary>
+        /// Registers a layout found already running on a decoder (restored from the hardware) so the next drop
+        /// simply reloads it. Changes no device. Dividers already on are not ours and are never switched back.
+        /// </summary>
+        public void Adopt(AvasDevice rx, MultiViewLayoutPlan plan, MultiViewCanvas canvas, IReadOnlyDictionary<int, AvasDevice> assignments)
+        {
+            var session = new Session(plan, canvas) { LayoutCreated = true };
+            foreach (var a in assignments) session.Assignments[a.Key] = a.Value;
+            _sessions[Key(rx)] = session;
+        }
+
+        /// <summary>Drops what we believe about a decoder (the hardware says otherwise). Changes no device.</summary>
+        public void Forget(AvasDevice rx) => _sessions.Remove(Key(rx));
+
+        /// <summary>
+        /// Leaves a multiview this tool did not start (an external layout): optionally leaves the given
+        /// subscriptions, then returns the decoder to full-screen genlock.
+        /// </summary>
+        public async Task<bool> ExitExternalAsync(AvasDevice rx, IEnumerable<int> subscriptionIndexesToLeave)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                foreach (int index in subscriptionIndexesToLeave)
+                {
+                    if (!await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", index))
+                        AppLogger.Warn("MULTIVIEW", $"Leave of subscription {index} on '{rx.DeviceName}' was not accepted.");
+                }
+                return await _client.SetGenlockedAsync(rx.DeviceId);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        /// <summary>
         /// Selects a layout for a decoder with every window empty, sized to the display's EDID.
         /// Only reads from the device; nothing is changed until the first source is assigned.
         /// </summary>

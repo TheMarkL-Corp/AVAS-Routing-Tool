@@ -20,6 +20,33 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         public static bool IsMultiView(string? id) =>
             id != null && Ids.Contains(id, StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Recognises a layout name this tool created (<c>avas_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c>), so a layout found
+        /// on a decoder can be adopted. Layouts made elsewhere (BAVM, <c>compatibility_4k_2x2</c>) are not ours.
+        /// </summary>
+        public static bool TryParseName(string? name, out string id, out int width, out int height)
+        {
+            id = string.Empty;
+            width = height = 0;
+            if (string.IsNullOrEmpty(name)) return false;
+
+            foreach (var candidate in Ids)
+            {
+                string prefix = $"avas_{candidate}_";
+                if (!name.StartsWith(prefix, StringComparison.Ordinal)) continue;
+
+                var parts = name.Substring(prefix.Length).Split('x');
+                if (parts.Length == 2 && int.TryParse(parts[0], out width) && int.TryParse(parts[1], out height) && width > 0 && height > 0)
+                {
+                    id = candidate;
+                    return true;
+                }
+            }
+
+            width = height = 0;
+            return false;
+        }
+
         public static MultiViewLayoutPlan Build(string id, int canvasWidth, int canvasHeight)
         {
             if (!IsMultiView(id))

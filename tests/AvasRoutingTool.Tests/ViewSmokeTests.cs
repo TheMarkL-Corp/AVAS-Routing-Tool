@@ -150,6 +150,65 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void DisplayCardView_ExternalLayout_RendersTheNoticeAndHidesTheMisleadingText() =>
+            RunSta(() =>
+            {
+                var vm = new DisplayCardViewModel(Rx());
+                vm.SetExternalLayout("compatibility_4k_2x2", new[] { "TX2", "VEGA_1100" }, "OUT 3840x2160@60 (running)");
+                var view = new DisplayCardView { DataContext = vm };
+
+                // IsVisible needs the window to be open (ActualWidth can be stale on a collapsed element's children).
+                var window = new Window { Content = view, Width = 1920, Height = 1080, ShowInTaskbar = false, WindowStyle = WindowStyle.None, Left = -10000 };
+                window.Show();
+                try
+                {
+                    view.UpdateLayout();
+                    Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+
+                    var notice = FindTextBlock(view, "Running layout 'compatibility_4k_2x2'");
+                    Assert.NotNull(notice);
+                    Assert.True(notice!.IsVisible, "external layout notice is not shown");
+
+                    var routedToSource = FindTextBlock(view, "Routed to Source");
+                    Assert.True(routedToSource == null || !routedToSource.IsVisible, "'Routed to Source' must be hidden for an external layout");
+                    var dropHere = FindTextBlock(view, "Drop Source Here to Route");
+                    Assert.True(dropHere == null || !dropHere.IsVisible, "unrouted placeholder must be hidden for an external layout");
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+
+        private static System.Windows.Controls.TextBlock? FindTextBlock(DependencyObject root, string startsWith)
+        {
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                if (child is System.Windows.Controls.TextBlock tb && tb.Text.StartsWith(startsWith, StringComparison.Ordinal)) return tb;
+                var nested = FindTextBlock(child, startsWith);
+                if (nested != null) return nested;
+            }
+            return null;
+        }
+
+        [Fact]
+        public void VisualRoutingView_WithARestoredExternalLayoutAndARestoredMultiView_RendersWithoutCrash() =>
+            RunSta(() =>
+            {
+                var sdvoeClient = new MockSdvoeClient();
+                var vm = new MainViewModel(new Configuration.ConfigService(), sdvoeClient, new MockRtpReceiver(),
+                    new MulticastIpManager(), new RoutingOrchestrator(sdvoeClient));
+                var external = new DisplayCardViewModel(Rx());
+                external.SetExternalLayout("", new[] { "TX2" }, "OUT 3840x2160@60 (running)");
+                vm.Displays.Add(external);
+                vm.Displays.Add(MultiViewDisplay("matrix2x2", fill: true));
+
+                Layout(new VisualRoutingView { DataContext = vm });
+            });
+
+        [Fact]
         public void SourceCardView_RendersWithoutBindingCrash() =>
             RunSta(() => Layout(new SourceCardView
             {
