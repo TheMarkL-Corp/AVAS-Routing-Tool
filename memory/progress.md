@@ -66,6 +66,22 @@
   - [x] Architecture Polish: Extracted clean, standalone `RelayCommand.cs` in `AvasRoutingTool.ViewModels`.
   - [x] Unit test suite expanded and passing (32/32 tests passed) and updated standalone package (`publish/AvasRoutingTool/AvasRoutingTool.exe`).
 
+- [~] **M9: Phase 2 MultiView Layouts** (code complete, unit-tested, partly validated on hardware - see `memory/active_context.md`)
+  - [x] Plan `docs/superpowers/plans/2026-10-25-phase2-multiview-layouts.md` and ADR 003
+  - [x] `MultiViewPresets` geometry (16:9 windows, API limits, surface allocation) + `MultiViewRequests` REST builders pinned to API Reference 3.9
+  - [x] `SdvoeClient` multiview methods (layout/scaler/set:multiview/genlock) with REST-order tests via `HttpMessageHandler` seam
+  - [x] `MultiViewOrchestrator` (lazy apply, move, scaler-conflict guard, rollback, back to single, turn off)
+  - [x] `DisplayCardViewModel` slots, `WindowSlotViewModel`, `MainViewModel.ApplyLayoutAsync/AssignSlotAsync`, layout-tile drop on cards
+  - [x] `FractionalLayoutPanel` + multiview surface in `DisplayCardView` with per-window drop zones, error banner, STA smoke tests
+  - [x] Canvas from the display EDID (`EdidInfo`, `MultiViewCanvasPolicy`), validated on RX1 (3840x2160@60)
+  - [x] Background requests awaited via `/api/request/{id}` (multiview calls)
+  - [x] Stream-1 frame divider when estimated bandwidth > 9 Gbps (restores only what the tool changed)
+  - [x] 218 non-live tests passing
+  - [x] Hardware: RX capabilities, 2-source Matrix (FHD and 4K), 4K 1+3 Quad, stream 1 vs MCU preview, frame divider, non-AVAS source (user-confirmed pictures)
+  - [x] Hardware: leave multiview (genlock + join), Off, divider restore, lab state restored
+  - [ ] Hardware still open (needs more devices online): 4K PiP, four live windows, dual link
+  - [ ] Publish standalone build and commit
+
 - [x] **M8.1: Adaptive Card & Grid Panel Layout System**
   - [x] Pure algorithmic layout calculator `AdaptiveGridLayout` with 16:9 aspect preservation, dynamic row/column determination, and vertical scroll detection.
   - [x] Custom WPF `AdaptiveCardPanel` integrating `ScrollViewer` viewport-height awareness and symmetric horizontal/vertical centering.

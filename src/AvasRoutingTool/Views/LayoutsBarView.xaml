@@ -26,7 +26,7 @@
                            FontWeight="Bold"
                            Foreground="{StaticResource Brush.Text.Secondary}"
                            VerticalAlignment="Center" />
-                <TextBlock Text="• Phase 1: Single View active • Phase 2: MultiView staged"
+                <TextBlock Text="• Drag a layout onto a display, then drop sources into its windows"
                            FontSize="11"
                            Foreground="{StaticResource Brush.Text.Muted}"
                            VerticalAlignment="Center"
@@ -58,7 +58,7 @@
                                         <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                             <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Highlight}" />
                                         </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsPhase1Supported}" Value="False">
+                                        <DataTrigger Binding="{Binding IsAvailable}" Value="False">
                                             <Setter Property="Opacity" Value="0.6" />
                                         </DataTrigger>
                                     </Style.Triggers>

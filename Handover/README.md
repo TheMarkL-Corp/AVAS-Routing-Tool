@@ -28,7 +28,7 @@ All commands run from the repository root: `c:\Users\POC-615\Documents\GitHub\AV
 | **Run Application** | `dotnet run --project src/AvasRoutingTool/AvasRoutingTool.csproj` |
 | **Publish Standalone Binary** | `dotnet publish src/AvasRoutingTool/AvasRoutingTool.csproj -c Release -o publish/AvasRoutingTool` |
 
-> **Current Test Status**: **59 / 59 tests passing** across unit, integration, and STA view-smoke suites.
+> **Current Test Status**: **147 non-live tests passing** (unit, integration, STA view-smoke). The `Live*` tests route/unroute real lab hardware when a Control Server is up, so run them only deliberately: `dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~Live"` for the safe set. If the app is running, add `--artifacts-path <scratch dir>` because the Debug output is locked.
 
 ---
 

@@ -32,3 +32,12 @@ The centralized software daemon (port 6970 TCP / 8080 REST) managing the SDVoE d
 
 ### Stream 1 Scaler
 The hardware scaling engine on the Semtech AVP2000 SoC (`HDMI:1`). Used for acquiring low-bandwidth, downscaled monitoring video without interfering with the uncompressed 4K60 main video stream.
+
+### MultiView Window / Surface / Layout (API terms)
+* **Layout** (server side): a named canvas (`avas_matrix2x2_1920x1080`) holding up to 32 windows; created with `POST /api/multiview/layout/{name}` and loaded on an RX with `set:multiview`.
+* **Window**: a rectangle on the decoder output (position + size) showing one surface; a lower window index paints on top.
+* **Surface**: a frame-buffer slot a source stream is written into (0 up to 4096x2160, 1-11 up to 2048x1080). Subscription index == surface index.
+* **Scaled stream (stream 1)**: a TX's `HDMI:1` output sized by `set:scaler`; the only stream a multiview RX can use together with uncompressed video.
+* **Genlocked**: the full-screen display mode Single View uses; `set:video GENLOCKED` is how a decoder leaves multiview.
+* **EDID canvas**: the multiview output format (width, height, refresh) taken from the preferred timing in the EDID the decoder read from its display.
+* **Frame divider (stream 1)**: TX scaler option that runs the scaled stream at half frame rate (`nodes[SCALER:0].inputs[main:0].configuration.source.value` = 1) to cut multiview bandwidth.

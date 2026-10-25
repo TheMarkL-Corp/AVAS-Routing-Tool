@@ -19,13 +19,24 @@ namespace AvasRoutingTool.Sdvoe
         private StreamReader? _reader;
         private StreamWriter? _writer;
         private readonly SemaphoreSlim _commandLock = new(1, 1);
-        private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
+        private readonly HttpClient _httpClient;
         private CancellationTokenSource? _readCts;
         private TaskCompletionSource<string>? _pendingCommandTcs;
         private string _host = "127.0.0.1";
         private int _telnetPort = 6970;
         private int _restPort = 8090;
         private bool _isDisposed;
+
+        public SdvoeClient() : this(null)
+        {
+        }
+
+        /// <summary>Test seam: lets tests observe REST traffic without a Control Server.</summary>
+        public SdvoeClient(HttpMessageHandler? handler)
+        {
+            _httpClient = handler == null ? new HttpClient() : new HttpClient(handler);
+            _httpClient.Timeout = TimeSpan.FromSeconds(5);
+        }
 
         public bool IsConnected => _tcpClient != null && _tcpClient.Connected;
         public event Action<string, bool>? DeviceStateChanged;
@@ -344,6 +355,184 @@ namespace AvasRoutingTool.Sdvoe
             return success;
         }
 
+        public async Task<bool> CreateMultiViewLayoutAsync(MultiView.MultiViewLayoutPlan plan)
+        {
+            AppLogger.Info("MULTIVIEW", $"Creating layout '{plan.Name}' ({plan.Width}x{plan.Height}, {plan.Slots.Count} windows)");
+
+            if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateLayout(plan))) return false;
+            foreach (var slot in plan.Slots)
+            {
+                if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateWindow(plan, slot))) return false;
+            }
+            return true;
+        }
+
+        public async Task<bool> PrepareSourceScalerAsync(string txMac, int width, int height)
+        {
+            AppLogger.Info("MULTIVIEW", $"Preparing {NormalizeMac(txMac)} stream 1 at {width}x{height}");
+
+            if (!await SendRestCallAsync(MultiView.MultiViewRequests.SetScaler(txMac, width, height))) return false;
+            return await SendRestCallAsync(MultiView.MultiViewRequests.StartScaledStream(txMac));
+        }
+
+        public Task<bool> SetMultiViewAsync(string rxMac, MultiView.MultiViewLayoutPlan plan, int fps,
+            IReadOnlyList<MultiView.MultiViewSubscription> subscriptions)
+        {
+            AppLogger.Info("MULTIVIEW", $"Loading '{plan.Name}' on {NormalizeMac(rxMac)} with {subscriptions.Count} subscription(s)");
+            return SendRestCallAsync(MultiView.MultiViewRequests.SetMultiView(rxMac, plan.Name, plan.Width, plan.Height, fps, subscriptions));
+        }
+
+        public async Task<bool?> ReadStream1FrameDividerAsync(string txMac)
+        {
+            string norm = NormalizeMac(txMac);
+            var result = await RequestAsync("POST", $"/api/device/{norm}", new { op = "get", subset = "settings" });
+            if (!result.Ok || result.Body == null) return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(result.Body);
+                foreach (var device in doc.RootElement.GetProperty("result").GetProperty("devices").EnumerateArray())
+                {
+                    if (!device.TryGetProperty("nodes", out var nodes)) continue;
+                    foreach (var node in nodes.EnumerateArray())
+                    {
+                        if (!node.TryGetProperty("type", out var type) || type.GetString() != "SCALER") continue;
+                        if (!node.TryGetProperty("inputs", out var inputs)) continue;
+                        foreach (var input in inputs.EnumerateArray())
+                        {
+                            if (input.TryGetProperty("configuration", out var cfg) &&
+                                cfg.TryGetProperty("source", out var src) &&
+                                src.TryGetProperty("value", out var value) &&
+                                value.ValueKind == JsonValueKind.Number)
+                            {
+                                return value.GetInt32() == 1;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+            {
+                AppLogger.Warn("MULTIVIEW", $"Unexpected settings reply from {norm}: {ex.Message}");
+            }
+            return null;
+        }
+
+        public Task<bool> SetStream1FrameDividerAsync(string txMac, bool halve)
+        {
+            AppLogger.Info("MULTIVIEW", $"{NormalizeMac(txMac)} stream 1 frame divider {(halve ? "ON (half rate)" : "OFF (full rate)")}");
+            return SendRestCallAsync(MultiView.MultiViewRequests.SetScalerFrameDivider(txMac, halve));
+        }
+
+        public Task<bool> SetGenlockedAsync(string rxMac)
+        {
+            AppLogger.Info("MULTIVIEW", $"Returning {NormalizeMac(rxMac)} to genlocked single view");
+            return SendRestCallAsync(MultiView.MultiViewRequests.SetGenlocked(rxMac));
+        }
+
+        /// <summary>How long a background request may stay PROCESSING before we give up on it.</summary>
+        public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(8);
+
+        public TimeSpan PollInterval { get; set; } = TimeSpan.FromMilliseconds(200);
+
+        public async Task<string?> ReadDisplayEdidAsync(string rxMac)
+        {
+            string norm = NormalizeMac(rxMac);
+            var result = await RequestAsync("POST", $"/api/device/{norm}", new { op = "get", subset = "edid" });
+            if (!result.Ok || result.Body == null)
+            {
+                AppLogger.Warn("EDID", $"Could not read the display EDID from {norm}: {result.Failure ?? "no reply"}");
+                return null;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(result.Body);
+                foreach (var device in doc.RootElement.GetProperty("result").GetProperty("devices").EnumerateArray())
+                {
+                    if (!device.TryGetProperty("nodes", out var nodes)) continue;
+                    foreach (var node in nodes.EnumerateArray())
+                    {
+                        if (!node.TryGetProperty("type", out var type) || type.GetString() != "HDMI_MONITOR") continue;
+                        if (!node.TryGetProperty("status", out var status)) continue;
+
+                        bool connected = status.TryGetProperty("connected", out var c) && c.ValueKind == JsonValueKind.True;
+                        if (!connected)
+                        {
+                            AppLogger.Info("EDID", $"{norm}: no display connected.");
+                            return null;
+                        }
+                        return status.TryGetProperty("edid", out var edid) ? edid.GetString() : null;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+            {
+                AppLogger.Warn("EDID", $"Unexpected EDID reply from {norm}: {ex.Message}");
+            }
+            return null;
+        }
+
+        private async Task<bool> SendRestCallAsync(MultiView.RestCall call)
+        {
+            var result = await RequestAsync(call.Method, call.Path, call.Body);
+            if (!result.Ok)
+                AppLogger.Warn("MULTIVIEW", $"{call.Method} {call.Path} failed: {result.Failure ?? "no reply"}");
+            return result.Ok;
+        }
+
+        private sealed record RequestResult(bool Ok, string? Body, string? Failure);
+
+        /// <summary>
+        /// Sends a call and, if the server answers PROCESSING, follows /api/request/{id} until the request
+        /// really finishes, so a device that refuses the command later is reported as a failure.
+        /// </summary>
+        private async Task<RequestResult> RequestAsync(string method, string path, object? payload)
+        {
+            try
+            {
+                var (httpOk, body) = await SendRawAsync(method, path, payload);
+                var inspection = RestResponse.Inspect(body);
+                if (inspection == null) return new RequestResult(false, body, httpOk ? "unreadable reply" : "HTTP error");
+
+                if (string.Equals(inspection.Status, "PROCESSING", StringComparison.OrdinalIgnoreCase) && inspection.RequestId is long id)
+                {
+                    var deadline = DateTime.UtcNow + RequestTimeout;
+                    while (string.Equals(inspection.Status, "PROCESSING", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (DateTime.UtcNow >= deadline)
+                            return new RequestResult(false, body, $"request {id} still PROCESSING after {RequestTimeout.TotalSeconds:0.#}s");
+
+                        await Task.Delay(PollInterval);
+                        (httpOk, body) = await SendRawAsync("GET", $"/api/request/{id}", null);
+                        inspection = RestResponse.Inspect(body);
+                        if (inspection == null) return new RequestResult(false, body, "unreadable request reply");
+                    }
+                }
+
+                bool ok = string.Equals(inspection.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase) && inspection.Failure == null;
+                return new RequestResult(ok, body, inspection.Failure ?? (ok ? null : inspection.Status));
+            }
+            catch (Exception ex)
+            {
+                return new RequestResult(false, null, ex.Message);
+            }
+        }
+
+        private async Task<(bool HttpOk, string Body)> SendRawAsync(string method, string path, object? payload)
+        {
+            string url = $"http://{_host}:{_restPort}{path}";
+            using var request = new HttpRequestMessage(new HttpMethod(method), url);
+            if (payload != null)
+            {
+                request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+            }
+            using var resp = await _httpClient.SendAsync(request);
+            string body = await resp.Content.ReadAsStringAsync();
+            AppLogger.Debug("REST", $"{method} {path} -> HTTP {(int)resp.StatusCode}");
+            return (resp.IsSuccessStatusCode, body);
+        }
+
         public async Task<List<AvasDevice>> DiscoverDevicesAsync()
         {
             var list = new List<AvasDevice>();
@@ -541,3 +730,4 @@ namespace AvasRoutingTool.Sdvoe
         }
     }
 }
+

@@ -1,42 +1,42 @@
 # Active Context
 
 ## Current Status & Focus
-* **Current Phase**: Phase 1 (Single View Video Routing) Decoder Un-Routing, Live Preview Mirroring & Adaptive FullHD Layout Completed and Verified.
+* **Current Phase**: Phase 2 (MultiView layouts) is **built, unit-tested and validated on the lab hardware** (what remains: 4K PiP, four live windows, dual link - needs more devices online). Phase 1 (Single View) remains as delivered in M8/M8.1.
 * **Core Architecture**: Dual-Mode Shell (Native Visual Routing Canvas + Embedded BAVM Console in WebView2 + Live Diagnostics Tab).
-* **Key Enhancements Delivered (Milestones M8 & M8.1)**:
-  1. **Multi-Modal Decoder Un-Routing**:
-     - Dedicated Red `[ ⏻ Turn Off / Disconnect ]` action button in the decoder card footer bound to `UnrouteCommand`, which dispatches Semtech BlueRiver REST `leave` (`POST /api/device/{rxMac}` with `op: "leave", subscription_type: "HDMI"`).
-     - Drag-and-drop support from the bottom `"Off"` layout tile (`LayoutItemViewModel.Id == "off"`) onto any display card to trigger un-routing and clear active stream.
-  2. **Live Video Preview Mirroring on Decoder Cards**:
-     - `DisplayCardViewModel` reactively mirrors the active `SourceCardViewModel.PreviewBitmap` reference with zero additional network socket overhead or redundant decoding.
-     - When routed to an AVAS transmitter (`TX2_DUAL LINK_SFPA`), the decoder card immediately renders the identical live video stream with an active source overlay pill (`● <ActiveSourceName>`).
-     - When un-routed or turned off, the decoder card smoothly resets to the idle drop-target surface (`"Drop Source Here to Route"`).
-  3. **Non-AVAS Routing Fallback State**:
-     - When routed to a non-AVAS transmitter (`VEGA_1100`), the decoder displays an informative, polished banner: `"Routed to VEGA_1100"` with `"Preview Not Available (Non-AVAS Device)"`.
-  4. **Fluid Adaptive Card & Grid Panel Layout (Milestone M8.1)**:
-     - Implemented `AdaptiveGridLayout` pure algorithm and `AdaptiveCardPanel` custom WPF panel.
-     - Cards automatically grow to fill the available section height on FullHD (1920x1080) screens while strictly maintaining 16:9 video preview surfaces, eliminating left-clustering and large dead black voids.
-     - When few cards exist (e.g. 2 sources / 2 decoders), cards scale up to 580px width and are centered horizontally and vertically; when many cards exist (8+), cards gracefully fall back to 320px readable width with smooth vertical scrolling.
-     - Integrated `AdaptiveCardPanel` into `VisualRoutingView.xaml` for both Video Sources and Target Displays.
-  5. **Clean Command Architecture**:
-     - Extracted `RelayCommand.cs` into `AvasRoutingTool.ViewModels`.
+* **Plan / design record**: `docs/superpowers/plans/2026-10-25-phase2-multiview-layouts.md`, ADR 003 incl. its hardware-validation amendment (`memory/decisions/2026-10-25-phase2-multiview-layouts.md`).
+
+## What Phase 2 does now (M9, uncommitted at time of writing)
+1. Drag a layout tile (`Matrix 2x2`, `PIP`, `Side-by-Side`, `1+3 Quad`) onto a display card -> one drop zone per window. The decoder's **display EDID is read** (`get edid`) and the canvas is the display's preferred timing (RX1's panel: 3840x2160@60); fallback 1920x1080@60 with a visible reason. Nothing is changed on a device yet.
+2. Drop a source into a window (or on the card background -> first free window). First drop re-reads the EDID, then per source: `set:scaler` (window size), stream 1 start, **frame divider ON if the estimated stream-1 bandwidth > 9 Gbps** (4K60 Matrix/PiP/Quad), create layout `avas_<preset>_<W>x<H>`, `set:multiview` at the display's fps. All background requests are awaited via `/api/request/{id}`.
+3. Windows mirror the sources' live preview bitmaps; non-AVAS sources show "Preview not available". The card shows `OUT 3840x2160@60 (VP3268-4K) ...` and a bandwidth/divider note.
+4. Single View tile / plain drop -> `set:video GENLOCKED` then `join`; Turn Off / Off tile -> leave each subscription, genlock, and restore full frame rate on sources the tool halved (sources already halved by the lab, e.g. VEGA_1100, are never changed).
+5. Refusals show on the card (`LastError`): offline/not a TX, one TX needing two scaler sizes, hardware rejection (rolled back). A source that refuses the divider just runs at full rate (noted on the card).
+
+## Hardware validation so far (lab, 2026-10-25; RX1 + TX2_DUAL LINK + VEGA_1100; TX1 and RX2 offline)
+* RX1/PAX355S: AVP2000 FW 2.2.0.0, `video_processing: true`. TX2 and VEGA_1100: `scaler: true`, `frame_rate_divider: true` (VEGA already had its divider on - lab config).
+* Matrix at FHD, Matrix at 4K60 (two 1080p windows), 1+3 Quad at 4K (2560x1440 focus window on surface 0) all loaded with SUCCESS and **user confirmed the picture**; frame divider verified (scaler out 30 fps, RX1 stays 3840x2160@60).
+* Stream 1 coexists with the in-band MCU preview (`set rtp ON`) on TX2.
+* `get settings` exposes each RX's **subscriptions** (source device/state) - route restore at startup is possible (the old "no query" note was wrong).
+* **Leave multiview validated** (real orchestrator): `ReturnToSingleViewAsync` -> RX1 GENLOCKED 3840x2160@60, then REST `join` TX2 -> subscription idx0 STREAMING from TX2#0; the tool switched TX2's divider back to full and left VEGA_1100's own divider alone. **Off validated**: leaves each subscription, RX1 GENLOCKED with no active subs, dividers restored as above.
+* **User judgement**: half-rate (30 fps) sources in a 4K60 Matrix look fine.
+* **Not yet validated**: 4K PiP; four live windows (only 2 sources online); dual-link units (TX1 / RX2 offline).
 
 ## Test & Build Verification
-* **Unit Tests**: All 59 tests passing in `tests/AvasRoutingTool.Tests/` (including 9 `AdaptiveGridLayoutTests`, 3 `AdaptiveCardPanelTests`, and 4 STA `ViewSmokeTests`).
-* **Hardware API Verification**: Tested REST `start` on TX2 (`74fe488b07bb`), `join` on RX1 (`74fe483c059e`), and `leave` on RX1 via BlueRiver REST API (`127.0.0.1:8090`).
-* **Standalone Release Binary**: Successfully built and published to `publish/AvasRoutingTool/AvasRoutingTool.exe`.
+* **218 non-live tests pass** (`dotnet test --filter "FullyQualifiedName!~Live"`), including real-XAML STA smoke tests for every preset.
+* **Live tests were deliberately NOT run** (`LiveFunctionTests` route/unroute real lab hardware whenever the Control Server on 127.0.0.1:8090 is up).
+* `publish/AvasRoutingTool/AvasRoutingTool.exe` is not rebuilt for Phase 2 yet. Build with `--artifacts-path <scratch>` if the app is running (Debug output is locked).
+* Lab harness used for validation (throwaway, not in the repo): a console project in the session scratchpad referencing `AvasRoutingTool.csproj` that drives the real `SdvoeClient` + `MultiViewOrchestrator`.
 
-## Full Function Test & Debugging Pass (post-M8)
-Two root-cause defects found and fixed via systematic debugging (both were invisible to the earlier 32 unit tests):
-1. **App crashed on every launch** (`InvalidOperationException`: TwoWay binding on read-only `DisplayCardViewModel.ActiveSourceName` in a `<Run>`). Fixed with a one-way `SourceLabel` property ("NONE" when unrouted). Guarded by `ViewSmokeTests` (real XAML views rendered on an STA thread).
-2. **Every route/unroute was reported as failed** although the hardware accepted it: the Control Server pretty-prints JSON (`"status" : "PROCESSING"`) and the client matched the literal `"status":"PROCESSING"`. Fixed by `RestResponse.IsAccepted` (structural JSON parse). Guarded by `RestResponseTests`.
-* Added crash-capture seam in `App.xaml.cs` (AppDomain / Dispatcher / Task unhandled exceptions -> `app.log` category `CRASH`).
-* Added `LiveFunctionTests` (all TX x RX route/unroute pairs, AVAS preview start/stop, discovery invariants; auto-skip without a Control Server).
-* **Known limitation**: the Control Server exposes no subscription-state `get` subset (probed `get all/<mac> ...`), so existing routes are NOT restored on app start/refresh; cards show unrouted until routed from this app.
-* Lesson: a green unit suite does not prove the app launches; keep view-smoke tests for every view.
+## Current lab state (restored after the validation)
+RX1 genlocked at 3840x2160@60 and joined to TX2 stream 0 (its pre-test route is unknown; TX2 was the route used by the app earlier). TX2: divider off, stream 1 stopped, MCU preview off. VEGA_1100 untouched (stream 1 running and divider on were its own state). Three test layouts remain on the Control Server (harmless; the app overwrites them): `avas_matrix2x2_1920x1080`, `avas_matrix2x2_3840x2160`, `avas_quad_1_3_3840x2160`. TX2's scaler is still sized 1920x1080 from the last multiview run.
+
+## Known limitations
+* Routes and multiview layouts are not restored on app start (but `get settings` makes it possible - next step).
+* `join`/`leave` still treat PROCESSING as success (only multiview calls await the request result).
 
 ## Next Steps
-1. User visual sign-off of `publish/AvasRoutingTool/AvasRoutingTool.exe` (drag-to-route, Turn Off, "Off" tile drag, decoder preview mirroring, FullHD layout).
-2. Decide how to handle route-state restore on startup (needs a server-side state source or local persistence).
-3. Plan Phase 2 MultiView canvas layouts (Matrix 2x2, PIP, Side-by-Side, 1+3 Quad).
-
+1. When more devices are online: 4K PiP, four live windows, dual-link TX/RX in multiview.
+2. Publish and commit M9 (code + this memory) once the user is happy.
+3. Route + layout restore at startup from `get settings` subscriptions (replaces the planned `routes.json`).
+4. Expose canvas override / divider mode (Auto/On/Off) in Settings.
+5. Independent Audio & USB routing (Handover 05 Task 3); PTZ/camera tray (Task 4).

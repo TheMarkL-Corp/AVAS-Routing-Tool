@@ -33,6 +33,17 @@ When Source TX is routed to Display RX (Single View):
 When Disconnected:
 `leave <rx>:HDMI:0`
 
-### 5. Multicast IP Management
+### 5. MultiView Layouts (Phase 2, ADR 003)
+* A layout tile dropped on a display card only prepares empty windows; the first source dropped into a window applies it (`MultiViewOrchestrator`): per source `set:scaler` (window size) + `start` HDMI stream 1, create layout `avas_<preset>_<W>x<H>` once, then `set:multiview` with every subscription (`subscription_index` == target surface).
+* The canvas (output format) is read from the decoder's display EDID (`get edid` -> `EdidInfo` -> `MultiViewCanvasPolicy`), at layout drop and again before the first hardware apply; fallback 1920x1080@60 with a visible reason. Never hard-code the output resolution.
+* Over 9 Gbps estimated stream-1 bandwidth -> TX stream 1 at half frame rate via the scaler frame divider; the tool only restores dividers it switched on itself.
+* Multiview REST calls wait for `/api/request/{id}` and fail on `result.error` (a PROCESSING reply is not success).
+* All windows are 16:9 cells fitted into the canvas (`MultiViewPresets`); window size == the TX scaler size, so one TX can have only one stream-1 size across all decoders (conflict is refused before any call).
+* A source appears once per layout (duplicates are API errors) - re-dropping moves it. Leave multiview with `set:video GENLOCKED` then the normal `join`.
+* Windows mirror source `PreviewBitmap` references (no extra sockets). `FractionalLayoutPanel` places them by fractional rect, letterboxed to the canvas aspect.
+* REST bodies live in `MultiViewRequests` (pure) and are pinned by tests to the PDS-062489 3.9 examples; never hand-write them elsewhere.
+* Test seam: `new SdvoeClient(HttpMessageHandler)`; `MockSdvoeClient.MultiViewCalls` logs the ordered calls.
+
+### 6. Multicast IP Management
 * Pool range: `225.0.0.1` to `225.0.1.254` (510 Class D IP addresses).
 * Thread-safe allocation and reclamation via `MulticastIpManager`.

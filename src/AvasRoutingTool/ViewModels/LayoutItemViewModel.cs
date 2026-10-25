@@ -13,8 +13,8 @@ namespace AvasRoutingTool.ViewModels
         public string Id { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Subtitle { get; set; } = string.Empty;
-        public bool IsPhase1Supported { get; set; }
-        public string BadgeText => IsPhase1Supported ? (IsSelected ? "ACTIVE" : "READY") : "PHASE 2";
+        public bool IsAvailable { get; set; }
+        public string BadgeText => IsAvailable ? (IsSelected ? "ACTIVE" : "READY") : "SOON";
 
         public bool IsSelected
         {

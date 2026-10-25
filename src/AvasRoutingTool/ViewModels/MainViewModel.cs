@@ -12,6 +12,7 @@ using AvasRoutingTool.Configuration;
 using AvasRoutingTool.Logging;
 using AvasRoutingTool.Rtp;
 using AvasRoutingTool.Sdvoe;
+using AvasRoutingTool.Sdvoe.MultiView;
 
 namespace AvasRoutingTool.ViewModels
 {
@@ -22,6 +23,7 @@ namespace AvasRoutingTool.ViewModels
         private readonly IRtpReceiver _rtpReceiver;
         private readonly MulticastIpManager _ipManager;
         private readonly RoutingOrchestrator _orchestrator;
+        private readonly MultiViewOrchestrator _multiView;
         private AppConfig _config;
 
         private bool _isConnected;
@@ -70,13 +72,15 @@ namespace AvasRoutingTool.ViewModels
             ISdvoeClient sdvoeClient,
             IRtpReceiver rtpReceiver,
             MulticastIpManager ipManager,
-            RoutingOrchestrator orchestrator)
+            RoutingOrchestrator orchestrator,
+            MultiViewOrchestrator? multiView = null)
         {
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
             _rtpReceiver = rtpReceiver ?? throw new ArgumentNullException(nameof(rtpReceiver));
             _ipManager = ipManager ?? throw new ArgumentNullException(nameof(ipManager));
             _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
+            _multiView = multiView ?? new MultiViewOrchestrator(sdvoeClient);
 
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
@@ -147,12 +151,12 @@ namespace AvasRoutingTool.ViewModels
         private void InitializeLayouts()
         {
             Layouts.Clear();
-            Layouts.Add(new LayoutItemViewModel { Id = "off", Title = "Off", Subtitle = "Mute video", IsPhase1Supported = true });
-            Layouts.Add(new LayoutItemViewModel { Id = "single", Title = "Single View", Subtitle = "Full screen (1:1)", IsPhase1Supported = true, IsSelected = true });
-            Layouts.Add(new LayoutItemViewModel { Id = "matrix2x2", Title = "Matrix 2x2", Subtitle = "4-quad grid", IsPhase1Supported = false });
-            Layouts.Add(new LayoutItemViewModel { Id = "pip", Title = "PIP", Subtitle = "Picture-in-picture", IsPhase1Supported = false });
-            Layouts.Add(new LayoutItemViewModel { Id = "side_by_side", Title = "Side-by-Side", Subtitle = "Split dual view", IsPhase1Supported = false });
-            Layouts.Add(new LayoutItemViewModel { Id = "quad_1_3", Title = "1+3 Quad", Subtitle = "1 Master + 3 sub", IsPhase1Supported = false });
+            Layouts.Add(new LayoutItemViewModel { Id = "off", Title = "Off", Subtitle = "Mute video", IsAvailable = true });
+            Layouts.Add(new LayoutItemViewModel { Id = "single", Title = "Single View", Subtitle = "Full screen (1:1)", IsAvailable = true, IsSelected = true });
+            Layouts.Add(new LayoutItemViewModel { Id = "matrix2x2", Title = "Matrix 2x2", Subtitle = "4-quad grid", IsAvailable = true });
+            Layouts.Add(new LayoutItemViewModel { Id = "pip", Title = "PIP", Subtitle = "Picture-in-picture", IsAvailable = true });
+            Layouts.Add(new LayoutItemViewModel { Id = "side_by_side", Title = "Side-by-Side", Subtitle = "Split dual view", IsAvailable = true });
+            Layouts.Add(new LayoutItemViewModel { Id = "quad_1_3", Title = "1+3 Quad", Subtitle = "1 Master + 3 sub", IsAvailable = true });
         }
 
         public async Task RefreshDevicesAsync()
@@ -211,6 +215,17 @@ namespace AvasRoutingTool.ViewModels
         {
             if (sourceTx == null || displayRx == null) return false;
 
+            if (_multiView.IsMultiView(displayRx))
+            {
+                // A multiview decoder must go back to genlocked full screen before a plain join takes effect.
+                if (!await _multiView.ReturnToSingleViewAsync(displayRx))
+                {
+                    AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
+                    return false;
+                }
+                Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId)?.ClearLayout();
+            }
+
             AppLogger.Info("ROUTING", $"Requesting route: '{sourceTx.DeviceName}' ({sourceTx.DeviceId}) -> '{displayRx.DeviceName}' ({displayRx.DeviceId})");
             bool ok = await _orchestrator.RouteSingleViewVideoAsync(sourceTx, displayRx);
             if (ok)
@@ -233,11 +248,15 @@ namespace AvasRoutingTool.ViewModels
             if (displayRx == null) return false;
 
             AppLogger.Info("ROUTING", $"Requesting unroute on '{displayRx.DeviceName}' ({displayRx.DeviceId})");
-            bool ok = await _orchestrator.UnrouteDisplayAsync(displayRx);
+            bool wasMultiView = _multiView.IsMultiView(displayRx);
+            bool ok = wasMultiView
+                ? await _multiView.TurnOffAsync(displayRx)
+                : await _orchestrator.UnrouteDisplayAsync(displayRx);
             if (ok)
             {
                 var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
                 displayVm?.SetPreviewSource(null);
+                if (wasMultiView) displayVm?.ClearLayout();
                 displayVm?.NotifyRoutingChanged();
                 AppLogger.Info("ROUTING", $"Successfully unrouted '{displayRx.DeviceName}'.");
             }
@@ -246,6 +265,102 @@ namespace AvasRoutingTool.ViewModels
                 AppLogger.Warn("ROUTING", $"Failed to unroute '{displayRx.DeviceName}'.");
             }
             return ok;
+        }
+
+        /// <summary>
+        /// Applies a layout tile to a display. <c>single</c> returns it to full screen; a multiview preset only
+        /// prepares empty drop zones (hardware is touched when the first source lands). A source already routed
+        /// in Single View is carried into the first window so the picture does not disappear.
+        /// </summary>
+        public async Task<bool> ApplyLayoutAsync(string layoutId, AvasDevice displayRx)
+        {
+            if (displayRx == null) return false;
+
+            var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
+            if (displayVm == null || !displayVm.IsActive)
+            {
+                AppLogger.Warn("MULTIVIEW", $"Layout '{layoutId}' ignored: display '{displayRx.DeviceName}' is not available.");
+                return false;
+            }
+
+            if (string.Equals(layoutId, "single", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!_multiView.IsMultiView(displayRx)) return true;
+
+                if (!await _multiView.ReturnToSingleViewAsync(displayRx))
+                {
+                    displayVm.LastError = $"'{displayRx.DeviceName}' did not accept the switch back to Single View.";
+                    return false;
+                }
+                displayVm.ClearLayout();
+                return true;
+            }
+
+            if (!MultiViewPresets.IsMultiView(layoutId))
+            {
+                AppLogger.Warn("MULTIVIEW", $"'{layoutId}' is not a multiview layout.");
+                return false;
+            }
+
+            AvasDevice? carried = string.IsNullOrEmpty(displayRx.ActiveSourceId)
+                ? null
+                : Sources.FirstOrDefault(s => s.MacAddress == displayRx.ActiveSourceId)?.Device;
+
+            MultiViewLayoutPlan plan;
+            try
+            {
+                plan = await _multiView.BeginLayoutAsync(displayRx, layoutId);
+            }
+            catch (ArgumentException ex)
+            {
+                displayVm.LastError = ex.Message;
+                AppLogger.Warn("MULTIVIEW", $"Layout '{layoutId}' cannot be built: {ex.Message}");
+                return false;
+            }
+
+            displayRx.ActiveSourceId = string.Empty;
+            displayRx.ActiveSourceName = string.Empty;
+
+            string title = Layouts.FirstOrDefault(l => l.Id == layoutId)?.Title ?? layoutId;
+            displayVm.ApplyLayout(plan, title.ToUpperInvariant(), _multiView.DescribeCanvas(displayRx));
+            displayVm.NotifyRoutingChanged();
+            AppLogger.Info("MULTIVIEW", $"'{displayRx.DeviceName}' switched to {plan.Id} ({plan.Slots.Count} windows).");
+
+            return carried == null || await AssignSlotAsync(displayRx, plan.Slots[0].Index, carried);
+        }
+
+        /// <summary>Places a source in one window of a display's multiview layout.</summary>
+        public async Task<bool> AssignSlotAsync(AvasDevice displayRx, int slotIndex, AvasDevice sourceTx)
+        {
+            if (displayRx == null || sourceTx == null) return false;
+
+            var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
+            if (displayVm == null) return false;
+
+            var result = await _multiView.AssignAsync(displayRx, slotIndex, sourceTx);
+
+            // The display was swapped since the layout was chosen: redraw the windows for its real output format.
+            if (result.PlanChanged && result.Plan != null)
+            {
+                string title = Layouts.FirstOrDefault(l => l.Id == result.Plan.Id)?.Title ?? result.Plan.Id;
+                displayVm.ApplyLayout(result.Plan, title.ToUpperInvariant(), _multiView.DescribeCanvas(displayRx));
+            }
+
+            if (!result.Success)
+            {
+                displayVm.LastError = result.Error;
+                AppLogger.Warn("MULTIVIEW", $"Window {slotIndex} on '{displayRx.DeviceName}' refused '{sourceTx.DeviceName}': {result.Error}");
+                return false;
+            }
+
+            foreach (int cleared in result.ClearedSlots ?? Array.Empty<int>())
+                displayVm.ClearSlot(cleared);
+
+            var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == sourceTx.DeviceId) ?? new SourceCardViewModel(sourceTx);
+            displayVm.AssignSlot(slotIndex, sourceVm);
+            displayVm.LastError = null;
+            displayVm.NotifyRoutingChanged();
+            return true;
         }
 
         private void OnDeviceStateChanged(string mac, bool isOnline)

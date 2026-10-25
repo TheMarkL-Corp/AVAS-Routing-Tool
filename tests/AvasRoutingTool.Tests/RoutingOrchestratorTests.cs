@@ -59,6 +59,59 @@ namespace AvasRoutingTool.Tests
             return Task.FromResult(true);
         }
 
+        /// <summary>Ordered log of multiview calls, e.g. "scaler:74fe..:960x540", "layout:avas_..", "multiview:rx:layout:3,1".</summary>
+        public System.Collections.Generic.List<string> MultiViewCalls { get; } = new();
+
+        /// <summary>When set, the multiview call whose log entry starts with this prefix reports failure.</summary>
+        public string? FailMultiViewPrefix { get; set; }
+
+        public System.Collections.Generic.IReadOnlyList<AvasRoutingTool.Sdvoe.MultiView.MultiViewSubscription>? LastSubscriptions { get; private set; }
+
+        public int LastFps { get; private set; }
+
+        private Task<bool> Record(string entry)
+        {
+            MultiViewCalls.Add(entry);
+            return Task.FromResult(FailMultiViewPrefix == null || !entry.StartsWith(FailMultiViewPrefix));
+        }
+
+        public Task<bool> CreateMultiViewLayoutAsync(AvasRoutingTool.Sdvoe.MultiView.MultiViewLayoutPlan plan) =>
+            Record($"layout:{plan.Name}");
+
+        public Task<bool> PrepareSourceScalerAsync(string txMac, int width, int height) =>
+            Record($"scaler:{txMac}:{width}x{height}");
+
+        public Task<bool> SetMultiViewAsync(string rxMac, AvasRoutingTool.Sdvoe.MultiView.MultiViewLayoutPlan plan, int fps,
+            System.Collections.Generic.IReadOnlyList<AvasRoutingTool.Sdvoe.MultiView.MultiViewSubscription> subscriptions)
+        {
+            LastSubscriptions = subscriptions;
+            LastFps = fps;
+            return Record($"multiview:{rxMac}:{plan.Name}:{string.Join(",", System.Linq.Enumerable.Select(subscriptions, s => $"{s.SourceMac}@{s.SubscriptionIndex}"))}");
+        }
+
+        public Task<bool> SetGenlockedAsync(string rxMac) => Record($"genlock:{rxMac}");
+
+        /// <summary>MACs whose stream-1 divider was already on before the tool touched anything.</summary>
+        public System.Collections.Generic.HashSet<string> AlreadyHalved { get; } = new();
+
+        public Task<bool?> ReadStream1FrameDividerAsync(string txMac) =>
+            Task.FromResult<bool?>(AlreadyHalved.Contains(txMac));
+
+        public Task<bool> SetStream1FrameDividerAsync(string txMac, bool halve) =>
+            Record($"divider:{txMac}:{(halve ? "half" : "full")}");
+
+        /// <summary>EDID hex returned for any receiver; null means "no display / read failed".</summary>
+        public string? DisplayEdid { get; set; }
+
+        /// <summary>How many times the display EDID was read.</summary>
+        public int EdidReads { get; private set; }
+
+        public Task<string?> ReadDisplayEdidAsync(string rxMac)
+        {
+            EdidReads++;
+            return Task.FromResult(DisplayEdid);
+        }
+
         public Task<System.Collections.Generic.List<AvasDevice>> DiscoverDevicesAsync()
         {
             return Task.FromResult(new System.Collections.Generic.List<AvasDevice>());

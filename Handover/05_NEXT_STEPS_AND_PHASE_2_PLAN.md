@@ -7,11 +7,13 @@ This document outlines the immediate implementation roadmap for Claude Code to c
 ## 1. High-Priority Next Tasks
 
 ### Task 1: Phase 2 MultiView Canvas Layouts (Priority: High)
-* **Context**: The bottom bar ([`LayoutsBarView.xaml`](../src/AvasRoutingTool/Views/LayoutsBarView.xaml)) already renders staged preset tiles for:
+> **Status (2026-10-25): code-complete and unit-tested, hardware validation pending.** See [`docs/superpowers/plans/2026-10-25-phase2-multiview-layouts.md`](../docs/superpowers/plans/2026-10-25-phase2-multiview-layouts.md), [ADR 003](../memory/decisions/2026-10-25-phase2-multiview-layouts.md) and `memory/active_context.md`. What remains is the hardware validation gate in that plan, then publish/commit. The requirements below describe what was built; ids in code are `matrix2x2`, `pip`, `side_by_side`, `quad_1_3`.
+
+* **Context**: The bottom bar ([`LayoutsBarView.xaml`](../src/AvasRoutingTool/Views/LayoutsBarView.xaml)) has tiles for:
   * `Matrix 2x2` (`matrix2x2`): 4 equal quadrant windows.
   * `PIP` (`pip`): 1 full-screen primary window with 1 picture-in-picture overlay inset.
-  * `Side-by-Side` (`sideBySide`): Split-screen dual windows (50% / 50%).
-  * `1+3 Quad` (`quad1Plus3`): 1 large surgical focus window + 3 thumbnail column windows.
+  * `Side-by-Side` (`side_by_side`): Split-screen dual windows (50% / 50%).
+  * `1+3 Quad` (`quad_1_3`): 1 large surgical focus window + 3 thumbnail column windows.
 * **Requirements**:
   1. **Multi-Window Drop Targets on Decoders**:
      * When a MultiView layout is selected on a display card, transform the single drop-target surface into multiple sub-window drop zones (e.g., Quadrant 1, Quadrant 2, Quadrant 3, Quadrant 4).

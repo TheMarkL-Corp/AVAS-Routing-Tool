@@ -66,6 +66,89 @@ namespace AvasRoutingTool.Tests
         public void DisplayCardView_Routed_RendersWithoutBindingCrash() =>
             RunSta(() => Layout(new DisplayCardView { DataContext = new DisplayCardViewModel(Rx("74fe488b07bb")) }));
 
+        private static DisplayCardViewModel MultiViewDisplay(string layoutId, bool fill)
+        {
+            var vm = new DisplayCardViewModel(Rx());
+            vm.ApplyLayout(Sdvoe.MultiView.MultiViewPresets.Build(layoutId, 1920, 1080), layoutId.ToUpperInvariant());
+            if (fill)
+            {
+                var src = new SourceCardViewModel(new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = "TX2", VendorId = 105, IsTransmitter = true, IsActive = true })
+                {
+                    PreviewBitmap = new System.Windows.Media.Imaging.WriteableBitmap(64, 36, 96, 96, System.Windows.Media.PixelFormats.Bgr24, null)
+                };
+                vm.AssignSlot(vm.Slots[0].Index, src);
+                vm.AssignSlot(vm.Slots[1].Index, new SourceCardViewModel(new AvasDevice { DeviceId = "0016c0589c1e", DeviceName = "VEGA", VendorId = 192, IsTransmitter = true, IsActive = true }));
+            }
+            return vm;
+        }
+
+        [Theory]
+        [InlineData("matrix2x2")]
+        [InlineData("pip")]
+        [InlineData("side_by_side")]
+        [InlineData("quad_1_3")]
+        public void DisplayCardView_MultiViewEmptyWindows_RendersWithoutBindingCrash(string layoutId) =>
+            RunSta(() => Layout(new DisplayCardView { DataContext = MultiViewDisplay(layoutId, fill: false) }));
+
+        [Theory]
+        [InlineData("matrix2x2")]
+        [InlineData("pip")]
+        public void DisplayCardView_MultiViewFilledWindows_RendersWithoutBindingCrash(string layoutId) =>
+            RunSta(() => Layout(new DisplayCardView { DataContext = MultiViewDisplay(layoutId, fill: true) }));
+
+        [Fact]
+        public void DisplayCardView_MultiViewWithError_RendersWithoutBindingCrash() =>
+            RunSta(() =>
+            {
+                var vm = MultiViewDisplay("matrix2x2", fill: false);
+                vm.LastError = "Camera A is already scaled to 960x540.";
+                Layout(new DisplayCardView { DataContext = vm });
+            });
+
+        [Fact]
+        public void DisplayCardView_MultiViewWindows_AreLaidOutInsideTheSurface() =>
+            RunSta(() =>
+            {
+                var view = new DisplayCardView { DataContext = MultiViewDisplay("matrix2x2", fill: false) };
+                Layout(view);
+
+                // One panel child per window, all with a real size - the fractional rects reached the panel.
+                var panel = FindDescendant<Controls.FractionalLayoutPanel>(view);
+                Assert.NotNull(panel);
+                Assert.Equal(4, panel!.Children.Count);
+                foreach (System.Windows.UIElement child in panel.Children)
+                {
+                    var fe = (FrameworkElement)child;
+                    Assert.True(fe.ActualWidth > 20 && fe.ActualHeight > 10, $"window rendered {fe.ActualWidth}x{fe.ActualHeight}");
+                }
+            });
+
+        [Fact]
+        public void VisualRoutingView_WithAMultiViewDisplay_RendersWithoutCrash() =>
+            RunSta(() =>
+            {
+                var sdvoeClient = new MockSdvoeClient();
+                var vm = new MainViewModel(new Configuration.ConfigService(), sdvoeClient, new MockRtpReceiver(),
+                    new MulticastIpManager(), new RoutingOrchestrator(sdvoeClient));
+                vm.Displays.Add(MultiViewDisplay("quad_1_3", fill: true));
+                vm.Displays.Add(new DisplayCardViewModel(Rx("74fe488b07bb")));
+
+                Layout(new VisualRoutingView { DataContext = vm });
+            });
+
+        private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+        {
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                if (child is T match) return match;
+                var nested = FindDescendant<T>(child);
+                if (nested != null) return nested;
+            }
+            return null;
+        }
+
         [Fact]
         public void SourceCardView_RendersWithoutBindingCrash() =>
             RunSta(() => Layout(new SourceCardView

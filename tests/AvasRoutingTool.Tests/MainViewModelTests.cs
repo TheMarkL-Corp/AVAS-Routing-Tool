@@ -24,7 +24,7 @@ namespace AvasRoutingTool.Tests
     public class MainViewModelTests
     {
         [Fact]
-        public void Layouts_SingleViewIsActive_AndMultiViewsArePhase2()
+        public void Layouts_SingleViewIsActive_AndMultiViewsAreReady()
         {
             var configService = new ConfigService();
             var sdvoeClient = new MockSdvoeClient();
@@ -36,14 +36,14 @@ namespace AvasRoutingTool.Tests
 
             var single = vm.Layouts.FirstOrDefault(l => l.Id == "single");
             Assert.NotNull(single);
-            Assert.True(single.IsPhase1Supported);
+            Assert.True(single.IsAvailable);
             Assert.True(single.IsSelected);
             Assert.Equal("ACTIVE", single.BadgeText);
 
             var matrix = vm.Layouts.FirstOrDefault(l => l.Id == "matrix2x2");
             Assert.NotNull(matrix);
-            Assert.False(matrix.IsPhase1Supported);
-            Assert.Equal("PHASE 2", matrix.BadgeText);
+            Assert.True(matrix.IsAvailable);
+            Assert.Equal("READY", matrix.BadgeText);
         }
 
         [Fact]
