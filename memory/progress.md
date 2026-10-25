@@ -66,3 +66,10 @@
   - [x] Architecture Polish: Extracted clean, standalone `RelayCommand.cs` in `AvasRoutingTool.ViewModels`.
   - [x] Unit test suite expanded and passing (32/32 tests passed) and updated standalone package (`publish/AvasRoutingTool/AvasRoutingTool.exe`).
 
+- [x] **M8.1: Adaptive Card & Grid Panel Layout System**
+  - [x] Pure algorithmic layout calculator `AdaptiveGridLayout` with 16:9 aspect preservation, dynamic row/column determination, and vertical scroll detection.
+  - [x] Custom WPF `AdaptiveCardPanel` integrating `ScrollViewer` viewport-height awareness and symmetric horizontal/vertical centering.
+  - [x] Sizing unconstraint on `SourceCardView` and `DisplayCardView` allowing cards to naturally scale from 320px up to 600px width.
+  - [x] Integration into `VisualRoutingView.xaml` eliminating card clustering and empty canvas voids.
+  - [x] Comprehensive test coverage (59/59 unit and view-smoke tests passed) and updated standalone package (`publish/AvasRoutingTool/AvasRoutingTool.exe`).
+

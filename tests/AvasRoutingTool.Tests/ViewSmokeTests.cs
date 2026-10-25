@@ -72,5 +72,31 @@ namespace AvasRoutingTool.Tests
             {
                 DataContext = new SourceCardViewModel(new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = "TX2", VendorId = 105, IsTransmitter = true, IsActive = true })
             }));
+
+        [Fact]
+        public void VisualRoutingView_WithSourcesAndDisplays_RendersWithAdaptiveCardPanelWithoutCrash() =>
+            RunSta(() =>
+            {
+                var configService = new Configuration.ConfigService();
+                var sdvoeClient = new MockSdvoeClient();
+                var rtpReceiver = new MockRtpReceiver();
+                var ipManager = new MulticastIpManager();
+                var orchestrator = new RoutingOrchestrator(sdvoeClient);
+                var vm = new MainViewModel(configService, sdvoeClient, rtpReceiver, ipManager, orchestrator);
+
+                vm.Sources.Add(new SourceCardViewModel(new AvasDevice
+                {
+                    DeviceId = "74fe488b07bb", DeviceName = "TX2", VendorId = 105, IsTransmitter = true, IsActive = true
+                }));
+                vm.Sources.Add(new SourceCardViewModel(new AvasDevice
+                {
+                    DeviceId = "74fe488b07bc", DeviceName = "TX1", VendorId = 105, IsTransmitter = true, IsActive = true
+                }));
+                vm.Displays.Add(new DisplayCardViewModel(Rx("74fe488b07bb")));
+                vm.Displays.Add(new DisplayCardViewModel(Rx("")));
+
+                var view = new VisualRoutingView { DataContext = vm };
+                Layout(view);
+            });
     }
 }
