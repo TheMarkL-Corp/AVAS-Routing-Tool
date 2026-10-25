@@ -48,6 +48,29 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void CreateWindow_WithSurface_UsesTheGivenLayoutNameAndSurface()
+        {
+            var slot = MultiViewPresets.Build("matrix2x2", 1920, 1080).Slots[1];
+
+            var call = MultiViewRequests.CreateWindow("avas_74fe483c059e_matrix2x2_1920x1080", slot, 5);
+
+            Assert.Equal("/api/multiview/layout/avas_74fe483c059e_matrix2x2_1920x1080/window/1", call.Path);
+            Assert.Equal(5, Json(call).GetProperty("target_surface").GetInt32());
+        }
+
+        [Fact]
+        public void CreateWindow_WithoutSurface_OmitsTargetSurface()
+        {
+            var slot = MultiViewPresets.Build("matrix2x2", 1920, 1080).Slots[1];
+
+            var call = MultiViewRequests.CreateWindow("avas_74fe483c059e_matrix2x2_1920x1080", slot, null);
+
+            var body = Json(call);
+            Assert.False(body.TryGetProperty("target_surface", out _));
+            Assert.Equal(960, body.GetProperty("width").GetInt32());
+        }
+
+        [Fact]
         public void SetScaler_NormalisesMacAndSendsWindowSize()
         {
             var call = MultiViewRequests.SetScaler("74:FE:48:8B:07:BB", 960, 540);

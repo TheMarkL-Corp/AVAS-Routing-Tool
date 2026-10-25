@@ -20,9 +20,19 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         public static bool IsMultiView(string? id) =>
             id != null && Ids.Contains(id, StringComparer.OrdinalIgnoreCase);
 
+        private const int MacLength = 12;
+
         /// <summary>
-        /// Recognises a layout name this tool created (<c>avas_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c>), so a layout found
-        /// on a decoder can be adopted. Layouts made elsewhere (BAVM, <c>compatibility_4k_2x2</c>) are not ours.
+        /// A layout's name on the Control Server: one per display, so two decoders never edit each other's
+        /// layout. Names must not start with a digit or contain '-', hence the <c>avas_</c> prefix and a bare MAC.
+        /// </summary>
+        public static string LayoutName(string preset, int width, int height, string rxMac) =>
+            $"avas_{SdvoeClient.NormalizeMac(rxMac)}_{preset}_{width}x{height}";
+
+        /// <summary>
+        /// Recognises a layout name this tool created - <c>avas_&lt;mac12&gt;_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c> or the older
+        /// <c>avas_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c> - so a layout found on a decoder can be adopted. Layouts made
+        /// elsewhere (BAVM, <c>compatibility_4k_2x2</c>) are not ours.
         /// </summary>
         public static bool TryParseName(string? name, out string id, out int width, out int height)
         {
@@ -33,9 +43,15 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             foreach (var candidate in Ids)
             {
                 string prefix = $"avas_{candidate}_";
-                if (!name.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                string rest;
+                if (name.StartsWith(prefix, StringComparison.Ordinal))
+                    rest = name.Substring(prefix.Length);
+                else if (HasMacBeforePreset(name, candidate))
+                    rest = name.Substring("avas_".Length + MacLength + 1 + candidate.Length + 1);
+                else
+                    continue;
 
-                var parts = name.Substring(prefix.Length).Split('x');
+                var parts = rest.Split('x');
                 if (parts.Length == 2 && int.TryParse(parts[0], out width) && int.TryParse(parts[1], out height) && width > 0 && height > 0)
                 {
                     id = candidate;
@@ -45,6 +61,18 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
             width = height = 0;
             return false;
+        }
+
+        /// <summary><c>avas_&lt;12 hex&gt;_&lt;preset&gt;_...</c></summary>
+        private static bool HasMacBeforePreset(string name, string preset)
+        {
+            const string head = "avas_";
+            int presetStart = head.Length + MacLength + 1;
+            if (name.Length <= presetStart || name[presetStart - 1] != '_') return false;
+            for (int i = head.Length; i < presetStart - 1; i++)
+                if (!Uri.IsHexDigit(name[i])) return false;
+            return name.StartsWith(head, StringComparison.Ordinal)
+                && string.CompareOrdinal(name, presetStart, preset + "_", 0, preset.Length + 1) == 0;
         }
 
         public static MultiViewLayoutPlan Build(string id, int canvasWidth, int canvasHeight)

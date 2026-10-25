@@ -18,18 +18,29 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         public static RestCall CreateLayout(MultiViewLayoutPlan plan) =>
             new("POST", $"/api/multiview/layout/{plan.Name}", new { op = "create", width = plan.Width, height = plan.Height });
 
+        /// <summary>The window on the plan's own surface; kept for callers that do not plan surfaces yet.</summary>
         public static RestCall CreateWindow(MultiViewLayoutPlan plan, WindowSlot slot) =>
-            new("POST", $"/api/multiview/layout/{plan.Name}/window/{slot.Index}", new
+            CreateWindow(plan.Name, slot, slot.TargetSurface);
+
+        /// <summary>
+        /// A window on <paramref name="surface"/>; null leaves <c>target_surface</c> out, which the decoder
+        /// shows as black (lab-verified).
+        /// </summary>
+        public static RestCall CreateWindow(string layoutName, WindowSlot slot, int? surface)
+        {
+            var body = new Dictionary<string, object>
             {
-                op = "create",
-                horizontal_position = slot.X,
-                vertical_position = slot.Y,
-                width = slot.Width,
-                height = slot.Height,
-                horizontal_offset = 0,
-                vertical_offset = 0,
-                target_surface = slot.TargetSurface,
-            });
+                ["op"] = "create",
+                ["horizontal_position"] = slot.X,
+                ["vertical_position"] = slot.Y,
+                ["width"] = slot.Width,
+                ["height"] = slot.Height,
+                ["horizontal_offset"] = 0,
+                ["vertical_offset"] = 0,
+            };
+            if (surface.HasValue) body["target_surface"] = surface.Value;
+            return new("POST", $"/api/multiview/layout/{layoutName}/window/{slot.Index}", body);
+        }
 
         public static RestCall SetScaler(string txMac, int width, int height) =>
             new("POST", DevicePath(txMac), new { op = "set:scaler", width, height });
