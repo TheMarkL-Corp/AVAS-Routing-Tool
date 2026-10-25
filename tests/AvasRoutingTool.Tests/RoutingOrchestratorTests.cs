@@ -39,6 +39,16 @@ namespace AvasRoutingTool.Tests
             return Task.FromResult(true);
         }
 
+        public Task<bool> StartAvasPreviewAsync(string mac, string multicastIp)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> StopAvasPreviewAsync(string mac)
+        {
+            return Task.FromResult(true);
+        }
+
         public Task<bool> StartStream1ScalerAsync(string txMac, string multicastIp, int port = 5004)
         {
             return Task.FromResult(true);

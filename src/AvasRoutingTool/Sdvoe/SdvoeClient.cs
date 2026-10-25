@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AvasRoutingTool.Logging;
+using AvasRoutingTool.Rtp;
 
 namespace AvasRoutingTool.Sdvoe
 {
@@ -18,7 +19,7 @@ namespace AvasRoutingTool.Sdvoe
         private StreamReader? _reader;
         private StreamWriter? _writer;
         private readonly SemaphoreSlim _commandLock = new(1, 1);
-        private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(4) };
+        private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
         private CancellationTokenSource? _readCts;
         private TaskCompletionSource<string>? _pendingCommandTcs;
         private string _host = "127.0.0.1";
@@ -28,6 +29,12 @@ namespace AvasRoutingTool.Sdvoe
 
         public bool IsConnected => _tcpClient != null && _tcpClient.Connected;
         public event Action<string, bool>? DeviceStateChanged;
+
+        public static string NormalizeMac(string mac)
+        {
+            if (string.IsNullOrWhiteSpace(mac)) return string.Empty;
+            return mac.Replace(":", "").Replace("-", "").Trim().ToLowerInvariant();
+        }
 
         public async Task<bool> ConnectAsync(string host, int telnetPort = 6970, int restPort = 8090)
         {
@@ -118,7 +125,6 @@ namespace AvasRoutingTool.Sdvoe
                 _pendingCommandTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
                 await _writer.WriteLineAsync(command);
 
-                // Wait up to 3.5 seconds for response
                 var timeoutTask = Task.Delay(3500);
                 var completedTask = await Task.WhenAny(_pendingCommandTcs.Task, timeoutTask);
 
@@ -155,7 +161,6 @@ namespace AvasRoutingTool.Sdvoe
 
                     if (string.IsNullOrWhiteSpace(line)) continue;
 
-                    // Check for unsolicited notifications
                     if (line.StartsWith("EVENT DEVICE_STATUS", StringComparison.OrdinalIgnoreCase))
                     {
                         AppLogger.Info("SDVOE-EVENT", line);
@@ -173,7 +178,6 @@ namespace AvasRoutingTool.Sdvoe
                     }
                     else
                     {
-                        // Command response line
                         _pendingCommandTcs?.TrySetResult(line);
                     }
                 }
@@ -189,53 +193,164 @@ namespace AvasRoutingTool.Sdvoe
             }
         }
 
+        private async Task<bool> SendRestPostAsync(string path, object payload)
+        {
+            try
+            {
+                string url = $"http://{_host}:{_restPort}{path}";
+                string json = JsonSerializer.Serialize(payload);
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var resp = await _httpClient.PostAsync(url, content);
+                if (resp.IsSuccessStatusCode)
+                {
+                    string body = await resp.Content.ReadAsStringAsync();
+                    AppLogger.Info("REST", $"POST {path} response: {body}");
+                    return body.Contains("\"status\":\"SUCCESS\"", StringComparison.OrdinalIgnoreCase) ||
+                           body.Contains("\"status\":\"PROCESSING\"", StringComparison.OrdinalIgnoreCase) ||
+                           body.Contains("\"send_rs232\"", StringComparison.OrdinalIgnoreCase);
+                }
+                else
+                {
+                    AppLogger.Warn("REST", $"POST {path} returned HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("REST", $"Failed POST {path}: {ex.Message}");
+            }
+            return false;
+        }
+
+        public async Task<bool> EnsureUartApiModeAsync(string mac)
+        {
+            string normMac = NormalizeMac(mac);
+            var payload = new
+            {
+                stream_type = "rs232",
+                stream_index = 1,
+                op = "switch:api"
+            };
+            return await SendRestPostAsync($"/api/device/{normMac}", payload);
+        }
+
+        public async Task<bool> StartAvasPreviewAsync(string mac, string multicastIp)
+        {
+            string normMac = NormalizeMac(mac);
+            AppLogger.Info("PREVIEW", $"Starting AVAS preview stream on {normMac} -> {multicastIp}:5000");
+
+            await EnsureUartApiModeAsync(normMac);
+
+            var igmpPayload = new
+            {
+                op = "send:rs232",
+                port_index = 1,
+                data_string = $"set rtp igmp {multicastIp}\r\n"
+            };
+            await SendRestPostAsync($"/api/device/{normMac}", igmpPayload);
+
+            var onPayload = new
+            {
+                op = "send:rs232",
+                port_index = 1,
+                data_string = "set rtp ON\r\n"
+            };
+            return await SendRestPostAsync($"/api/device/{normMac}", onPayload);
+        }
+
+        public async Task<bool> StopAvasPreviewAsync(string mac)
+        {
+            string normMac = NormalizeMac(mac);
+            AppLogger.Info("PREVIEW", $"Stopping AVAS preview stream on {normMac}");
+
+            var offPayload = new
+            {
+                op = "send:rs232",
+                port_index = 1,
+                data_string = "set rtp OFF\r\n"
+            };
+            return await SendRestPostAsync($"/api/device/{normMac}", offPayload);
+        }
+
+        public Task<bool> StartStream1ScalerAsync(string txMac, string multicastIp, int port = 5004)
+        {
+            return StartAvasPreviewAsync(txMac, multicastIp);
+        }
+
+        public Task<bool> StopStream1ScalerAsync(string txMac)
+        {
+            return StopAvasPreviewAsync(txMac);
+        }
+
         public async Task<bool> JoinStreamAsync(string rxMac, string txMac, string streamType = "HDMI", int streamIndex = 0)
         {
             if (string.IsNullOrWhiteSpace(rxMac) || string.IsNullOrWhiteSpace(txMac)) return false;
 
-            string cmd = $"join {rxMac}:{streamType}:{streamIndex} {txMac}:{streamType}:{streamIndex}";
-            AppLogger.Info("ROUTING", $"Executing video route: {cmd}");
-            string response = await SendCommandAsync(cmd);
-            AppLogger.Info("ROUTING", $"Route response: {response}");
-            return response.Contains("SUCCESS", StringComparison.OrdinalIgnoreCase) || !response.Contains("ERROR", StringComparison.OrdinalIgnoreCase);
+            string normRx = NormalizeMac(rxMac);
+            string normTx = NormalizeMac(txMac);
+
+            AppLogger.Info("ROUTING", $"Executing video route: {normTx} -> {normRx} ({streamType}:{streamIndex})");
+
+            // 1. Ensure transmitter stream is running
+            var startPayload = new
+            {
+                op = "start",
+                stream_type = streamType,
+                stream_index = streamIndex
+            };
+            await SendRestPostAsync($"/api/device/{normTx}", startPayload);
+
+            // 2. Route receiver to transmitter
+            var joinPayload = new
+            {
+                op = "join",
+                source_device = normTx,
+                stream_type = streamType,
+                stream_index = streamIndex,
+                subscription_index = 0
+            };
+            bool success = await SendRestPostAsync($"/api/device/{normRx}", joinPayload);
+
+            if (!success && IsConnected)
+            {
+                // Telnet fallback
+                string cmd = $"join {normRx}:{streamType}:{streamIndex} {normTx}:{streamType}:{streamIndex}";
+                string response = await SendCommandAsync(cmd);
+                success = response.Contains("SUCCESS", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return success;
         }
 
         public async Task<bool> LeaveStreamAsync(string rxMac, string streamType = "HDMI", int streamIndex = 0)
         {
             if (string.IsNullOrWhiteSpace(rxMac)) return false;
 
-            string cmd = $"leave {rxMac}:{streamType}:{streamIndex}";
-            AppLogger.Info("ROUTING", $"Executing video unroute: {cmd}");
-            string response = await SendCommandAsync(cmd);
-            AppLogger.Info("ROUTING", $"Unroute response: {response}");
-            return response.Contains("SUCCESS", StringComparison.OrdinalIgnoreCase) || !response.Contains("ERROR", StringComparison.OrdinalIgnoreCase);
-        }
+            string normRx = NormalizeMac(rxMac);
+            AppLogger.Info("ROUTING", $"Unrouting receiver {normRx} ({streamType}:{streamIndex})");
 
-        public async Task<bool> StartStream1ScalerAsync(string txMac, string multicastIp, int port = 5004)
-        {
-            if (string.IsNullOrWhiteSpace(txMac) || string.IsNullOrWhiteSpace(multicastIp)) return false;
+            var leavePayload = new
+            {
+                op = "leave",
+                subscription_type = streamType,
+                subscription_index = streamIndex
+            };
+            bool success = await SendRestPostAsync($"/api/device/{normRx}", leavePayload);
 
-            string cmd = $"set {txMac} stream HDMI 1 enable true address {multicastIp} port {port} auto_stop true remove_audio true";
-            AppLogger.Info("RTP", $"Starting preview Stream 1 Scaler: {cmd}");
-            string response = await SendCommandAsync(cmd);
-            return response.Contains("SUCCESS", StringComparison.OrdinalIgnoreCase) || !response.Contains("ERROR", StringComparison.OrdinalIgnoreCase);
-        }
+            if (!success && IsConnected)
+            {
+                string cmd = $"leave {normRx}:{streamType}:{streamIndex}";
+                string response = await SendCommandAsync(cmd);
+                success = response.Contains("SUCCESS", StringComparison.OrdinalIgnoreCase);
+            }
 
-        public async Task<bool> StopStream1ScalerAsync(string txMac)
-        {
-            if (string.IsNullOrWhiteSpace(txMac)) return false;
-
-            string cmd = $"set {txMac} stream HDMI 1 enable false address 0.0.0.0";
-            AppLogger.Info("RTP", $"Stopping preview Stream 1 Scaler: {cmd}");
-            string response = await SendCommandAsync(cmd);
-            return response.Contains("SUCCESS", StringComparison.OrdinalIgnoreCase) || !response.Contains("ERROR", StringComparison.OrdinalIgnoreCase);
+            return success;
         }
 
         public async Task<List<AvasDevice>> DiscoverDevicesAsync()
         {
             var list = new List<AvasDevice>();
 
-            // 1. Try Telnet first: 'get all identity'
+            // 1. Query via Telnet
             if (IsConnected)
             {
                 AppLogger.Info("DISCOVERY", "Querying devices via Telnet: 'get all identity'...");
@@ -245,13 +360,14 @@ namespace AvasRoutingTool.Sdvoe
                     list = ParseDevicesJson(telnetJson);
                     if (list.Count > 0)
                     {
-                        AppLogger.Info("DISCOVERY", $"Telnet discovery found {list.Count} devices: {string.Join(", ", list.ConvertAll(d => $"{d.DeviceName} ({d.DeviceId}, IP:{d.IpAddress}, TX:{d.IsTransmitter}, RX:{d.IsReceiver})"))}");
+                        RegisterTransmitterAliases(list);
+                        AppLogger.Info("DISCOVERY", $"Telnet discovery found {list.Count} devices: {string.Join(", ", list.ConvertAll(d => $"{d.DeviceName} ({d.DeviceId}, IP:{d.IpAddress}, Link:{d.LinkMode})"))}");
                         return list;
                     }
                 }
             }
 
-            // 2. Fallback to REST API: POST http://{_host}:{_restPort}/api/device/ALL with body {"op":"get","subset":"identity"}
+            // 2. Query via REST
             try
             {
                 string url = $"http://{_host}:{_restPort}/api/device/ALL";
@@ -264,7 +380,8 @@ namespace AvasRoutingTool.Sdvoe
                 {
                     string restJson = await response.Content.ReadAsStringAsync();
                     list = ParseDevicesJson(restJson);
-                    AppLogger.Info("DISCOVERY", $"REST discovery found {list.Count} devices: {string.Join(", ", list.ConvertAll(d => $"{d.DeviceName} ({d.DeviceId}, IP:{d.IpAddress}, TX:{d.IsTransmitter}, RX:{d.IsReceiver})"))}");
+                    RegisterTransmitterAliases(list);
+                    AppLogger.Info("DISCOVERY", $"REST discovery found {list.Count} devices: {string.Join(", ", list.ConvertAll(d => $"{d.DeviceName} ({d.DeviceId}, IP:{d.IpAddress}, Link:{d.LinkMode})"))}");
                     return list;
                 }
                 else
@@ -278,6 +395,24 @@ namespace AvasRoutingTool.Sdvoe
             }
 
             return list;
+        }
+
+        private static void RegisterTransmitterAliases(List<AvasDevice> devices)
+        {
+            foreach (var dev in devices)
+            {
+                if (dev.IsTransmitter && !string.IsNullOrWhiteSpace(dev.IpAddress))
+                {
+                    foreach (var nodeIp in dev.NodeIps)
+                    {
+                        if (!nodeIp.Equals(dev.IpAddress, StringComparison.OrdinalIgnoreCase))
+                        {
+                            UnifiedRtpDemuxReceiver.Instance.RegisterAlias(nodeIp, dev.IpAddress);
+                            AppLogger.Info("DISCOVERY", $"Registered RTP alias: {nodeIp} -> {dev.IpAddress} ({dev.DeviceName})");
+                        }
+                    }
+                }
+            }
         }
 
         public static List<AvasDevice> ParseDevicesJson(string json)
@@ -301,7 +436,6 @@ namespace AvasRoutingTool.Sdvoe
 
                     if (string.IsNullOrEmpty(mac)) continue;
 
-                    // Device Name (prefer device_name root, fallback to configuration.device_name, fallback to MAC)
                     string name = d.TryGetProperty("device_name", out var nameProp) ? nameProp.GetString() ?? "" : "";
                     if (string.IsNullOrEmpty(name) && d.TryGetProperty("configuration", out var confElem) &&
                         confElem.TryGetProperty("device_name", out var confName))
@@ -310,14 +444,12 @@ namespace AvasRoutingTool.Sdvoe
                     }
                     if (string.IsNullOrEmpty(name)) name = mac;
 
-                    // Active status
                     bool isActive = true;
                     if (d.TryGetProperty("status", out var statusElem) && statusElem.TryGetProperty("active", out var activeProp))
                     {
                         isActive = activeProp.GetBoolean();
                     }
 
-                    // Identity (TX, RX, Vendor, Product, Chip)
                     int vid = 105, pid = 80, chip = 0;
                     bool isTx = false, isRx = false;
 
@@ -330,8 +462,10 @@ namespace AvasRoutingTool.Sdvoe
                         if (idElem.TryGetProperty("is_receiver", out var rxProp)) isRx = rxProp.GetBoolean();
                     }
 
-                    // IP Address from nodes
-                    string ip = "";
+                    string primaryIp = "";
+                    var nodeIps = new List<string>();
+                    string detectedLinkMode = "Single Link";
+
                     if (d.TryGetProperty("nodes", out var nodesElem))
                     {
                         foreach (var node in nodesElem.EnumerateArray())
@@ -340,23 +474,53 @@ namespace AvasRoutingTool.Sdvoe
                                 nodeStatus.TryGetProperty("ip", out var ipObj) &&
                                 ipObj.TryGetProperty("address", out var ipAddr))
                             {
-                                ip = ipAddr.GetString() ?? "";
-                                if (!string.IsNullOrEmpty(ip)) break;
+                                string addr = ipAddr.GetString() ?? "";
+                                if (!string.IsNullOrEmpty(addr))
+                                {
+                                    if (string.IsNullOrEmpty(primaryIp)) primaryIp = addr;
+                                    if (!nodeIps.Contains(addr)) nodeIps.Add(addr);
+                                }
+                            }
+
+                            if (node.TryGetProperty("type", out var typeProp) &&
+                                string.Equals(typeProp.GetString(), "MULTI_LINK_TRANSMITTER", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (node.TryGetProperty("configuration", out var cfgElem) &&
+                                    cfgElem.TryGetProperty("link_mode", out var lmProp))
+                                {
+                                    string lm = lmProp.GetString() ?? "";
+                                    if (lm.Equals("DUAL", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        detectedLinkMode = "Dual Link";
+                                    }
+                                }
                             }
                         }
+                    }
+
+                    if (name.Contains("DUAL", StringComparison.OrdinalIgnoreCase))
+                    {
+                        detectedLinkMode = "Dual Link";
+                    }
+
+                    if (!isTx || vid != 105)
+                    {
+                        detectedLinkMode = "N/A";
                     }
 
                     list.Add(new AvasDevice
                     {
                         DeviceId = mac,
                         DeviceName = name,
-                        IpAddress = ip,
+                        IpAddress = primaryIp,
                         VendorId = vid,
                         ProductId = pid,
                         ChipId = chip,
                         IsTransmitter = isTx,
                         IsReceiver = isRx,
-                        IsActive = isActive
+                        IsActive = isActive,
+                        LinkMode = detectedLinkMode,
+                        NodeIps = nodeIps
                     });
                 }
             }

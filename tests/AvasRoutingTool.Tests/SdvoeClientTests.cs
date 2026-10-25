@@ -94,6 +94,33 @@ namespace AvasRoutingTool.Tests
             Assert.True(tx.IsActive);
             Assert.Equal(105, tx.VendorId);
             Assert.Equal(81, tx.ProductId);
+            Assert.Equal("Dual Link", tx.LinkMode);
+            Assert.Contains("10.32.32.12", tx.NodeIps);
+        }
+
+        [Fact]
+        public void ParseDevicesJson_NonAvasDevice_LinkModeIsNA()
+        {
+            string vegaJson = @"{
+                ""result"": {
+                    ""devices"": [
+                        {
+                            ""device_id"": ""0016c0589c1e"",
+                            ""device_name"": ""VEGA_1100"",
+                            ""identity"": {
+                                ""vendor_id"": 192,
+                                ""product_id"": 11,
+                                ""is_transmitter"": true
+                            }
+                        }
+                    ]
+                }
+            }";
+
+            var devs = SdvoeClient.ParseDevicesJson(vegaJson);
+            Assert.Single(devs);
+            Assert.Equal("N/A", devs[0].LinkMode);
+            Assert.False(devs[0].IsPreviewSupported);
         }
 
         [Fact]
