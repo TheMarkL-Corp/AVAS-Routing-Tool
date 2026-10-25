@@ -205,5 +205,90 @@ namespace AvasRoutingTool.Tests
             Assert.Empty(c.MultiViewCalls);
             Assert.Equal(0, c.EdidReads);
         }
+
+        // ---- one thing at a time per display ----
+
+        private static async Task Within(Task task, string what)
+        {
+            var done = await Task.WhenAny(task, Task.Delay(System.TimeSpan.FromSeconds(10)));
+            Assert.True(ReferenceEquals(done, task), $"{what} did not finish: deadlock?");
+            await task;
+        }
+
+        [Fact]
+        public async Task RunExclusive_HoldsATakeOnTheSameDisplay_AndCallsInsideDoNotTakeTheLockAgain()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            var (plan, _) = await o.PlanForDisplayAsync(rx, "matrix2x2");
+            var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var exclusive = o.RunExclusiveAsync(rx, async () =>
+            {
+                Assert.True(await o.ReturnToSingleViewAsync(rx)); // re-entrant inside the section: no deadlock
+                Assert.True(await o.ExitExternalAsync(rx, System.Array.Empty<int>()));
+                await hold.Task;
+                return 42;
+            });
+            var take = o.TakeAsync(rx, Draft(plan, (0, "tx1")));
+            await Task.Delay(100);
+
+            Assert.False(take.IsCompleted);
+            Assert.DoesNotContain(c.MultiViewCalls, e => e.StartsWith("multiview:"));
+
+            hold.SetResult();
+            await Within(Task.WhenAll(exclusive, take), "exclusive section + Take");
+            Assert.Equal(42, await exclusive);
+            Assert.Equal(TakeOutcome.Applied, (await take).Outcome);
+            Assert.True(o.IsMultiView(rx));
+        }
+
+        [Fact]
+        public async Task RunExclusive_OnOneDisplay_DoesNotHoldAnother()
+        {
+            var (o, _) = Create();
+            var rx1 = Rx("rx1");
+            var rx2 = Rx("rx2");
+            var (plan, _) = await o.PlanForDisplayAsync(rx2, "matrix2x2");
+            var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var exclusive = o.RunExclusiveAsync(rx1, async () => { await hold.Task; return true; });
+            await Within(o.TakeAsync(rx2, Draft(plan, (0, "tx1"))), "Take on another display");
+
+            Assert.False(exclusive.IsCompleted);
+            hold.SetResult();
+            await exclusive;
+        }
+
+        [Fact]
+        public async Task Take_OverAnAdoptedExternalLayout_LeavesTheExternalSubscriptionsItNoLongerUses()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            o.AdoptExternal(rx, new[] { 1, 3 });
+            Assert.False(o.IsMultiView(rx)); // read-only: nothing to drive yet
+            var (plan, _) = await o.PlanForDisplayAsync(rx, "matrix2x2");
+
+            var result = await o.TakeAsync(rx, Draft(plan, (0, "tx1")));
+
+            Assert.Equal(TakeOutcome.Applied, result.Outcome);
+            Assert.Equal(new[] { "rx1:3" }, c.Leaves); // 1 is subscribed again by the new layout
+            Assert.True(await o.TurnOffAsync(rx));
+            Assert.Equal(new[] { "rx1:3", "rx1:1" }, c.Leaves);
+        }
+
+        [Fact]
+        public async Task Forget_DropsAnAdoptedExternalLayout()
+        {
+            var (o, c) = Create();
+            var rx = Rx();
+            o.AdoptExternal(rx, new[] { 3 });
+            o.Forget(rx);
+            var (plan, _) = await o.PlanForDisplayAsync(rx, "matrix2x2");
+
+            await o.TakeAsync(rx, Draft(plan, (0, "tx1")));
+
+            Assert.Empty(c.Leaves);
+        }
     }
 }

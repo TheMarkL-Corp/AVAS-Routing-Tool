@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -18,35 +19,49 @@ namespace AvasRoutingTool.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged
     {
+        /// <summary>An armed source is disarmed after this long without placing or arming (spec 5.1).</summary>
+        public static readonly TimeSpan ArmIdleTimeout = TimeSpan.FromSeconds(15);
+
+        /// <summary>The drop choice on a MultiView card closes by itself after this long (spec 5.1).</summary>
+        public static readonly TimeSpan DropChoiceTimeout = TimeSpan.FromSeconds(10);
+
         private readonly IConfigService _configService;
         private readonly ISdvoeClient _sdvoeClient;
         private readonly IRtpReceiver _rtpReceiver;
         private readonly MulticastIpManager _ipManager;
         private readonly RoutingOrchestrator _orchestrator;
         private readonly MultiViewOrchestrator _multiView;
-
-        /// <summary>
-        /// The multiview arrangement each card shows, by receiver MAC (interim until the Composer: every drop is
-        /// taken at once, so this is the live draft, or an empty one on a layout chosen but not yet filled).
-        /// </summary>
-        private readonly System.Collections.Generic.Dictionary<string, MultiViewDraft> _drafts = new();
-
-        /// <summary>
-        /// One at a time per display (by receiver MAC): a drop reads the card's draft, takes it and writes it back, so
-        /// a second drop or an Off must not run in between. Not re-entrant.
-        /// </summary>
-        private readonly System.Collections.Generic.Dictionary<string, System.Threading.SemaphoreSlim> _displayLocks = new();
+        private readonly Func<DateTime> _clock;
 
         /// <summary>Subscription indexes of multiview layouts found on decoders that this tool did not create, by receiver MAC.</summary>
-        private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<int>> _externalSubscriptions = new();
+        private readonly Dictionary<string, IReadOnlyList<int>> _externalSubscriptions = new();
+
+        /// <summary>
+        /// Composer drafts with changes that are not on screen, kept when the Composer was closed (by receiver MAC).
+        /// The card shows "DRAFT"; opening the Composer again resumes it. A restore never overwrites one.
+        /// </summary>
+        private readonly Dictionary<string, MultiViewDraft> _keptDrafts = new();
+
+        /// <summary>When each open drop choice opened, so <see cref="Tick"/> can close it on time.</summary>
+        private readonly Dictionary<DisplayCardViewModel, DateTime> _dropChoiceOpenedAt = new();
 
         /// <summary>Limits how many receivers are read at once.</summary>
         private readonly System.Threading.SemaphoreSlim _restoreGate = new(8);
+
+        /// <summary>Restored states are applied one at a time (the reads run in parallel).</summary>
+        private readonly object _restoreApply = new();
+
         private AppConfig _config;
 
         private bool _isConnected;
         private string _connectionStatus = "Connecting...";
         private string _bavmUrl = "http://localhost:80";
+
+        private MultiViewComposerViewModel? _composer;
+        private DisplayCardViewModel? _composerDisplay;
+        private SourceCardViewModel? _armed;
+        private DateTime _lastArmActivity;
+        private string _draftSignature = string.Empty;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -78,6 +93,15 @@ namespace AvasRoutingTool.ViewModels
         public int OnlineSourcesCount => Sources.Count(s => s.IsActive);
         public int OnlineDisplaysCount => Displays.Count(d => d.IsActive);
 
+        /// <summary>The MultiView Composer that is open (one at a time), or null. It replaces the Displays row while open.</summary>
+        public MultiViewComposerViewModel? ActiveComposer => _composer;
+
+        /// <summary>
+        /// The source tapped to place. In the overview a tap on a display routes it (Single View); while the Composer
+        /// is open this is the Composer's armed source (one state, mirrored).
+        /// </summary>
+        public SourceCardViewModel? ArmedSource => _armed;
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand ClearLogsCommand { get; }
@@ -85,13 +109,15 @@ namespace AvasRoutingTool.ViewModels
 
         public Action? RequestOpenSettings { get; set; }
 
+        /// <param name="clock">Time source for the arm idle timeout, the drop choice timeout and the Composer's Undo window; tests inject one.</param>
         public MainViewModel(
             IConfigService configService,
             ISdvoeClient sdvoeClient,
             IRtpReceiver rtpReceiver,
             MulticastIpManager ipManager,
             RoutingOrchestrator orchestrator,
-            MultiViewOrchestrator? multiView = null)
+            MultiViewOrchestrator? multiView = null,
+            Func<DateTime>? clock = null)
         {
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
@@ -99,6 +125,7 @@ namespace AvasRoutingTool.ViewModels
             _ipManager = ipManager ?? throw new ArgumentNullException(nameof(ipManager));
             _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
             _multiView = multiView ?? new MultiViewOrchestrator(sdvoeClient);
+            _clock = clock ?? (() => DateTime.UtcNow);
 
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
@@ -169,18 +196,22 @@ namespace AvasRoutingTool.ViewModels
         private void InitializeLayouts()
         {
             Layouts.Clear();
-            Layouts.Add(new LayoutItemViewModel { Id = "off", Title = "Off", Subtitle = "Mute video", IsAvailable = true });
-            Layouts.Add(new LayoutItemViewModel { Id = "single", Title = "Single View", Subtitle = "Full screen (1:1)", IsAvailable = true, IsSelected = true });
-            Layouts.Add(new LayoutItemViewModel { Id = "matrix2x2", Title = "Matrix 2x2", Subtitle = "4-quad grid", IsAvailable = true });
-            Layouts.Add(new LayoutItemViewModel { Id = "pip", Title = "PIP", Subtitle = "Picture-in-picture", IsAvailable = true });
-            Layouts.Add(new LayoutItemViewModel { Id = "side_by_side", Title = "Side-by-Side", Subtitle = "Split dual view", IsAvailable = true });
-            Layouts.Add(new LayoutItemViewModel { Id = "quad_1_3", Title = "1+3 Quad", Subtitle = "1 Master + 3 sub", IsAvailable = true });
+            foreach (var layout in LayoutItemViewModel.CreateCatalog())
+            {
+                layout.IsSelected = layout.Id == "single";
+                Layouts.Add(layout);
+            }
         }
 
         public async Task RefreshDevicesAsync()
         {
             AppLogger.Info("DISCOVERY", "Starting transceiver refresh cycle...");
             var devices = await _sdvoeClient.DiscoverDevicesAsync();
+
+            // The cards are rebuilt: a Composer open on an old card is closed (its draft is kept by receiver MAC).
+            CloseComposer();
+            SetArmed(null);
+            foreach (var d in _dropChoiceOpenedAt.Keys.ToList()) CloseDropChoice(d);
 
             // Dynamic Cards: populate TX Sources and RX Displays in deterministic order
             Sources.Clear();
@@ -198,7 +229,7 @@ namespace AvasRoutingTool.ViewModels
                 {
                     // Allocate sequential multicast IP in order
                     string mcastIp = _ipManager.AllocateIp(dev.DeviceId);
-                    
+
                     // Delay 0.5s upon startup after handshake before starting preview
                     _ = Task.Run(async () =>
                     {
@@ -220,6 +251,7 @@ namespace AvasRoutingTool.ViewModels
                     var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == dev.ActiveSourceId);
                     displayVm.SetPreviewSource(sourceVm);
                 }
+                displayVm.HasDraft = _keptDrafts.ContainsKey(Key(dev));
                 Displays.Add(displayVm);
             }
 
@@ -232,29 +264,35 @@ namespace AvasRoutingTool.ViewModels
             await RestoreStateAsync();
         }
 
+        // ---- restore from the hardware ----
+
         /// <summary>
         /// Reads every online receiver (in parallel, read-only) and makes its card show the hardware's truth:
         /// the Single View source, a multiview layout this tool can drive, or a read-only external layout.
-        /// A receiver that cannot be read keeps its card as it is.
+        /// A receiver that cannot be read keeps its card as it is. Each read and its result run as the only operation
+        /// on that display, so a Take or Route in flight is never overwritten by a state read before it finished.
         /// </summary>
         public async Task RestoreStateAsync()
         {
             var targets = Displays.Where(d => d.IsActive).ToList();
             if (targets.Count == 0) return;
 
-            var reads = await Task.WhenAll(targets.Select(async d => (Display: d, State: await ReadStateAsync(d))));
-            foreach (var (display, state) in reads)
-            {
-                if (Displays.Contains(display)) ApplyRestoredState(display, state);
-            }
+            await Task.WhenAll(targets.Select(RestoreOneAsync));
         }
 
         /// <summary>Re-reads one receiver (for example when it comes back online).</summary>
-        public async Task RestoreDisplayAsync(DisplayCardViewModel display)
-        {
-            var state = await ReadStateAsync(display);
-            if (Displays.Contains(display)) ApplyRestoredState(display, state);
-        }
+        public Task RestoreDisplayAsync(DisplayCardViewModel display) => RestoreOneAsync(display);
+
+        private Task RestoreOneAsync(DisplayCardViewModel display) =>
+            _multiView.RunExclusiveAsync(display.Device, async () =>
+            {
+                var state = await ReadStateAsync(display);
+                if (Displays.Contains(display))
+                {
+                    lock (_restoreApply) ApplyRestoredState(display, state);
+                }
+                return true;
+            });
 
         private async Task<RxState?> ReadStateAsync(DisplayCardViewModel display)
         {
@@ -277,7 +315,7 @@ namespace AvasRoutingTool.ViewModels
         private void ApplyRestoredState(DisplayCardViewModel display, RxState? state)
         {
             var rx = display.Device;
-            string key = SdvoeClient.NormalizeMac(rx.DeviceId);
+            string key = Key(rx);
 
             if (state == null)
             {
@@ -286,7 +324,6 @@ namespace AvasRoutingTool.ViewModels
             }
 
             _externalSubscriptions.Remove(key);
-            _drafts.Remove(key);
 
             if (!state.IsMultiView)
             {
@@ -311,6 +348,7 @@ namespace AvasRoutingTool.ViewModels
                     AppLogger.Info("RESTORE", $"'{rx.DeviceName}' is routed to '{rx.ActiveSourceName}'.");
                 }
                 display.NotifyRoutingChanged();
+                AnnounceScreen(display);
                 return;
             }
 
@@ -323,42 +361,48 @@ namespace AvasRoutingTool.ViewModels
             {
                 var draft = restored.Draft!;
                 _multiView.Adopt(rx, draft, restored.Canvas, restored.SubscriptionIndexes);
-                _drafts[key] = draft.Clone();
                 display.ApplyLayout(draft.Plan, LayoutTitle(draft.Plan.Id), _multiView.DescribeCanvas(rx));
                 ShowDraft(display, draft);
                 AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs {draft.Plan.Id} with {draft.Placements.Count} filled block(s).");
             }
             else
             {
-                _multiView.Forget(rx);
+                _multiView.AdoptExternal(rx, restored.SubscriptionIndexes);
                 _externalSubscriptions[key] = restored.SubscriptionIndexes;
                 display.SetExternalLayout(restored.LayoutName, restored.Sources.Select(s => s.Name).ToList(), $"OUT {restored.Canvas.Description}");
                 AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs an external multiview layout '{restored.LayoutName}'.");
             }
             display.NotifyRoutingChanged();
+            AnnounceScreen(display);
         }
 
-        private SourceCardViewModel? FindSource(string mac) =>
-            Sources.FirstOrDefault(s => SdvoeClient.NormalizeMac(s.MacAddress) == SdvoeClient.NormalizeMac(mac));
+        // ---- Single View routing and Off ----
 
-        /// <summary>A source the app has not discovered: known only by what the decoder reports (no preview).</summary>
-        private static AvasDevice UnknownSource(string mac, string name) =>
-            new() { DeviceId = mac, DeviceName = string.IsNullOrEmpty(name) ? mac : name, IsTransmitter = true, IsActive = true, VendorId = 0 };
-
-        public async Task<bool> RouteVideoAsync(AvasDevice sourceTx, AvasDevice displayRx)
+        /// <summary>
+        /// Routes the source to the display in Single View (leaving a multiview first). Runs as the only operation on
+        /// the display: a Take in flight there finishes first, then this route runs.
+        /// </summary>
+        public Task<bool> RouteVideoAsync(AvasDevice sourceTx, AvasDevice displayRx)
         {
-            if (sourceTx == null || displayRx == null) return false;
+            if (sourceTx == null || displayRx == null) return Task.FromResult(false);
+            return _multiView.RunExclusiveAsync(displayRx, () => RouteLockedAsync(sourceTx, displayRx));
+        }
+
+        private async Task<bool> RouteLockedAsync(AvasDevice sourceTx, AvasDevice displayRx)
+        {
+            string rxKey = Key(displayRx);
+            var displayVm = FindDisplay(displayRx);
 
             // A multiview decoder must go back to genlocked full screen before a plain join takes effect.
-            if (_multiView.IsMultiView(displayRx) && !await _multiView.ReturnToSingleViewAsync(displayRx))
+            if (_multiView.IsMultiView(displayRx))
             {
-                AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
-                return false;
+                if (!await _multiView.ReturnToSingleViewAsync(displayRx))
+                {
+                    AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
+                    return false;
+                }
+                displayVm?.ClearLayout();
             }
-
-            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
-            if (_drafts.Remove(rxKey))
-                Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId)?.ClearLayout();
             if (_externalSubscriptions.ContainsKey(rxKey))
             {
                 // Found running a layout set elsewhere: leave multiview first or the join would not take effect.
@@ -368,14 +412,13 @@ namespace AvasRoutingTool.ViewModels
                     return false;
                 }
                 _externalSubscriptions.Remove(rxKey);
-                Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId)?.ClearExternalLayout();
+                displayVm?.ClearExternalLayout();
             }
 
             AppLogger.Info("ROUTING", $"Requesting route: '{sourceTx.DeviceName}' ({sourceTx.DeviceId}) -> '{displayRx.DeviceName}' ({displayRx.DeviceId})");
             bool ok = await _orchestrator.RouteSingleViewVideoAsync(sourceTx, displayRx);
             if (ok)
             {
-                var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
                 var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == sourceTx.DeviceId);
                 displayVm?.SetPreviewSource(sourceVm);
                 displayVm?.NotifyRoutingChanged();
@@ -385,24 +428,15 @@ namespace AvasRoutingTool.ViewModels
             {
                 AppLogger.Warn("ROUTING", $"Failed to route video feed to '{displayRx.DeviceName}'.");
             }
+            AnnounceScreen(displayVm);
             return ok;
         }
 
-        public async Task<bool> UnrouteVideoAsync(AvasDevice displayRx)
+        /// <summary>Turns the display off (leaves a multiview, or the Single View route). Waits for a Take in flight there.</summary>
+        public Task<bool> UnrouteVideoAsync(AvasDevice displayRx)
         {
-            if (displayRx == null) return false;
-
-            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
-            var gate = DisplayLock(rxKey); // an Off must not interleave with a drop on the same display
-            await gate.WaitAsync();
-            try
-            {
-                return await UnrouteLockedAsync(displayRx, rxKey);
-            }
-            finally
-            {
-                gate.Release();
-            }
+            if (displayRx == null) return Task.FromResult(false);
+            return _multiView.RunExclusiveAsync(displayRx, () => UnrouteLockedAsync(displayRx, Key(displayRx)));
         }
 
         private async Task<bool> UnrouteLockedAsync(AvasDevice displayRx, string rxKey)
@@ -415,11 +449,11 @@ namespace AvasRoutingTool.ViewModels
                 : wasMultiView
                     ? await _multiView.TurnOffAsync(displayRx)
                     : await _orchestrator.UnrouteDisplayAsync(displayRx);
+            var displayVm = FindDisplay(displayRx);
             if (ok)
             {
-                var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
                 displayVm?.SetPreviewSource(null);
-                if (_drafts.Remove(rxKey)) displayVm?.ClearLayout(); // the card showed a layout, live or only chosen
+                if (displayVm?.IsMultiView == true) displayVm.ClearLayout();
                 if (wasExternal)
                 {
                     _externalSubscriptions.Remove(rxKey);
@@ -432,50 +466,31 @@ namespace AvasRoutingTool.ViewModels
             {
                 AppLogger.Warn("ROUTING", $"Failed to unroute '{displayRx.DeviceName}'.");
             }
+            AnnounceScreen(displayVm);
             return ok;
         }
 
         /// <summary>
-        /// Applies a layout tile to a display. <c>single</c> returns it to full screen; a multiview preset only
-        /// prepares empty drop zones (hardware is touched when the first source lands). A source already routed
-        /// in Single View is carried into the first window so the picture does not disappear.
+        /// A pick from the card's "Layout" menu (or a layout tile dropped on the card): a MultiView preset opens the
+        /// Composer with it staged and changes no device; <c>single</c> returns the display to Single View; <c>off</c>
+        /// turns it off.
         /// </summary>
-        public async Task<bool> ApplyLayoutAsync(string layoutId, AvasDevice displayRx)
+        public async Task<bool> ChooseLayoutFromCardAsync(DisplayCardViewModel display, string layoutId)
         {
-            if (displayRx == null) return false;
+            if (display == null) return false;
+            display.IsLayoutMenuOpen = false;
 
-            var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
-            if (displayVm == null || !displayVm.IsActive)
+            if (string.Equals(layoutId, "off", StringComparison.OrdinalIgnoreCase))
+                return await UnrouteVideoAsync(display.Device);
+
+            if (!display.IsActive)
             {
-                AppLogger.Warn("MULTIVIEW", $"Layout '{layoutId}' ignored: display '{displayRx.DeviceName}' is not available.");
+                AppLogger.Warn("MULTIVIEW", $"Layout '{layoutId}' ignored: display '{display.DeviceName}' is not available.");
                 return false;
             }
 
-            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
-
             if (string.Equals(layoutId, "single", StringComparison.OrdinalIgnoreCase))
-            {
-                if (_externalSubscriptions.ContainsKey(rxKey))
-                {
-                    if (!await _multiView.ExitExternalAsync(displayRx, Array.Empty<int>()))
-                    {
-                        displayVm.LastError = $"'{displayRx.DeviceName}' did not accept the switch back to Single View.";
-                        return false;
-                    }
-                    _externalSubscriptions.Remove(rxKey);
-                    displayVm.ClearExternalLayout();
-                    return true;
-                }
-
-                // A layout chosen but never filled changed no device: only the card goes back.
-                if (_multiView.IsMultiView(displayRx) && !await _multiView.ReturnToSingleViewAsync(displayRx))
-                {
-                    displayVm.LastError = $"'{displayRx.DeviceName}' did not accept the switch back to Single View.";
-                    return false;
-                }
-                if (_drafts.Remove(rxKey)) displayVm.ClearLayout();
-                return true;
-            }
+                return await _multiView.RunExclusiveAsync(display.Device, () => ReturnToSingleLockedAsync(display));
 
             if (!MultiViewPresets.IsMultiView(layoutId))
             {
@@ -483,102 +498,376 @@ namespace AvasRoutingTool.ViewModels
                 return false;
             }
 
-            AvasDevice? carried = string.IsNullOrEmpty(displayRx.ActiveSourceId)
-                ? null
-                : Sources.FirstOrDefault(s => s.MacAddress == displayRx.ActiveSourceId)?.Device;
+            await OpenComposerAsync(display, layoutId);
+            return ReferenceEquals(_composerDisplay, display);
+        }
 
-            MultiViewLayoutPlan plan;
-            MultiViewCanvas canvas;
-            try
+        private async Task<bool> ReturnToSingleLockedAsync(DisplayCardViewModel display)
+        {
+            var rx = display.Device;
+            string rxKey = Key(rx);
+
+            if (_externalSubscriptions.ContainsKey(rxKey))
             {
-                (plan, canvas) = await _multiView.PlanForDisplayAsync(displayRx, layoutId);
+                if (!await _multiView.ExitExternalAsync(rx, Array.Empty<int>()))
+                {
+                    display.LastError = $"'{rx.DeviceName}' did not accept the switch back to Single View.";
+                    return false;
+                }
+                _externalSubscriptions.Remove(rxKey);
+                display.ClearExternalLayout();
+                display.NotifyRoutingChanged();
+                AnnounceScreen(display);
+                return true;
             }
-            catch (ArgumentException ex)
+
+            // Nothing on screen in multiview: no device to change.
+            if (_multiView.IsMultiView(rx))
             {
-                displayVm.LastError = ex.Message;
-                AppLogger.Warn("MULTIVIEW", $"Layout '{layoutId}' cannot be built: {ex.Message}");
-                return false;
+                if (!await _multiView.ReturnToSingleViewAsync(rx))
+                {
+                    display.LastError = $"'{rx.DeviceName}' did not accept the switch back to Single View.";
+                    return false;
+                }
+                display.ClearLayout();
+                display.NotifyRoutingChanged();
+                AnnounceScreen(display);
+            }
+            return true;
+        }
+
+        // ---- the Composer ----
+
+        /// <summary>
+        /// Opens the Composer for the display (closing one open for another display, which keeps its draft). It
+        /// resumes the display's kept draft, else what is on screen when the display shows a MultiView (and
+        /// <paramref name="layoutId"/> is null or that layout), else starts at Step 1. A different
+        /// <paramref name="layoutId"/> is then staged (reads the display only: no device change), and
+        /// <paramref name="armed"/> (or the source armed in the overview) is armed for placing.
+        /// </summary>
+        public async Task OpenComposerAsync(DisplayCardViewModel d, string? layoutId = null, SourceCardViewModel? armed = null)
+        {
+            ArgumentNullException.ThrowIfNull(d);
+            if (!d.IsActive)
+            {
+                AppLogger.Warn("COMPOSER", $"Composer not opened: display '{d.DeviceName}' is not available.");
+                return;
+            }
+            if (layoutId != null && !MultiViewPresets.IsMultiView(layoutId))
+            {
+                AppLogger.Warn("COMPOSER", $"'{layoutId}' is not a multiview layout.");
+                return;
             }
 
-            _externalSubscriptions.Remove(rxKey);
-            displayRx.ActiveSourceId = string.Empty;
-            displayRx.ActiveSourceName = string.Empty;
+            // The source armed in the overview carries over; one armed in another display's Composer does not
+            // (closing a Composer stops placing).
+            var toArm = armed ?? (_composer == null ? _armed : null);
+            CloseDropChoice(d);
 
-            _drafts[rxKey] = new MultiViewDraft(plan);
-            displayVm.ApplyLayout(plan, LayoutTitle(layoutId), MultiViewCanvasPolicy.Summarize(canvas, plan));
-            displayVm.NotifyRoutingChanged();
-            AppLogger.Info("MULTIVIEW", $"'{displayRx.DeviceName}' switched to {plan.Id} ({plan.Slots.Count} windows).");
+            if (_composer != null && ReferenceEquals(_composerDisplay, d))
+            {
+                // Already open for this display: stage the layout / arm the source there.
+                await StageAndArmAsync(_composer, layoutId, armed);
+                return;
+            }
+            CloseComposer();
 
-            return carried == null || await AssignSlotAsync(displayRx, plan.Slots[0].Index, carried);
+            string key = Key(d.Device);
+            MultiViewDraft? resume;
+            if (_keptDrafts.Remove(key, out var kept))
+            {
+                resume = kept;
+            }
+            else
+            {
+                var live = _multiView.GetLive(d.Device);
+                resume = live != null && (layoutId == null || live.Plan.Id == layoutId) ? live : null;
+            }
+
+            var composer = new MultiViewComposerViewModel(d, _multiView, () => Sources, Layouts, resume, _clock);
+            _composer = composer;
+            _composerDisplay = d;
+            d.HasDraft = false;
+            // Not removed on close: a Take still in flight when the Composer closes must still update the card.
+            composer.LiveChanged += _ => OnComposerTook(d);
+            composer.PropertyChanged += OnComposerPropertyChanged;
+            _draftSignature = Signature(composer.Draft);
+            OnPropertyChanged(nameof(ActiveComposer));
+            AppLogger.Info("COMPOSER", $"Composer opened for '{d.DeviceName}'{(resume != null ? $" on {resume.Plan.Id}" : string.Empty)}.");
+
+            await StageAndArmAsync(composer, layoutId, toArm);
+        }
+
+        private async Task StageAndArmAsync(MultiViewComposerViewModel composer, string? layoutId, SourceCardViewModel? toArm)
+        {
+            if (layoutId != null && composer.Draft?.Plan.Id != layoutId)
+                await composer.SelectLayoutAsync(layoutId);
+            if (!ReferenceEquals(_composer, composer)) return; // closed meanwhile
+
+            // After the layout: staging a layout resets the Composer's transient state, an arm included.
+            if (toArm != null && !ReferenceEquals(composer.ArmedSource, toArm))
+            {
+                composer.Arm(toArm);
+                TouchArm();
+            }
+            SyncFromComposer();
         }
 
         /// <summary>
-        /// Places a source in one block of the card's multiview layout and takes the result at once (interim until
-        /// the Composer stages drops). A source already shown in a block of the same size is added, not moved.
+        /// Closes the Composer. Changes that are not on screen are kept as the display's draft (the card shows it,
+        /// opening the Composer again resumes it); nothing reaches the device. Placing stops.
         /// </summary>
-        public async Task<bool> AssignSlotAsync(AvasDevice displayRx, int slotIndex, AvasDevice sourceTx)
+        public void CloseComposer()
         {
-            if (displayRx == null || sourceTx == null) return false;
+            var composer = _composer;
+            var d = _composerDisplay;
+            if (composer == null || d == null) return;
 
-            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
-            var gate = DisplayLock(rxKey); // the next drop must start from the draft this one leaves behind
-            await gate.WaitAsync();
-            try
+            composer.PropertyChanged -= OnComposerPropertyChanged;
+            string key = Key(d.Device);
+            var draft = composer.Draft;
+            if (draft != null && DiffersFromScreen(draft, _multiView.GetLive(d.Device)))
+                _keptDrafts[key] = draft.Clone();
+            else
+                _keptDrafts.Remove(key);
+            d.HasDraft = _keptDrafts.ContainsKey(key);
+
+            composer.Dispose(); // it watches the source cards
+            _composer = null;
+            _composerDisplay = null;
+            _draftSignature = string.Empty;
+            foreach (var s in Sources) s.UsedInBlocks = 0;
+            SetArmed(null);
+            OnPropertyChanged(nameof(ActiveComposer));
+            AppLogger.Info("COMPOSER", $"Composer closed for '{d.DeviceName}'{(d.HasDraft ? "; draft kept" : string.Empty)}.");
+        }
+
+        /// <summary>A Take or Undo from the Composer put a new picture on screen: the card shows it (one way: never fed back).</summary>
+        private void OnComposerTook(DisplayCardViewModel d)
+        {
+            if (!Displays.Contains(d)) return;
+            ShowScreen(d);
+            RefreshKeptDraft(d);
+        }
+
+        /// <summary>
+        /// Makes the card show the multiview that is on the display's screen now, read from the orchestrator (not from
+        /// the notification): when a Route or Off already followed the Take, the screen is no longer a multiview and
+        /// the card is left to them.
+        /// </summary>
+        private void ShowScreen(DisplayCardViewModel d)
+        {
+            var rx = d.Device;
+            var live = _multiView.GetLive(rx);
+            if (live == null) return;
+
+            _externalSubscriptions.Remove(Key(rx));
+            rx.ActiveSourceId = string.Empty;
+            rx.ActiveSourceName = string.Empty;
+            d.ApplyLayout(live.Plan, LayoutTitle(live.Plan.Id), _multiView.DescribeCanvas(rx)); // also clears LastError
+            ShowDraft(d, live);
+            d.NotifyRoutingChanged();
+        }
+
+        /// <summary>The display's picture changed outside the Composer (route, Off, restore): an open Composer follows it.</summary>
+        private void AnnounceScreen(DisplayCardViewModel? d)
+        {
+            if (d == null || _composer == null || !ReferenceEquals(_composerDisplay, d)) return;
+            _composer.OnLiveChangedElsewhere(_multiView.GetLive(d.Device));
+        }
+
+        /// <summary>A kept draft that the screen now shows (for example after a Take sent it) is no longer a draft.</summary>
+        private void RefreshKeptDraft(DisplayCardViewModel d)
+        {
+            string key = Key(d.Device);
+            if (_keptDrafts.TryGetValue(key, out var kept) && !DiffersFromScreen(kept, _multiView.GetLive(d.Device)))
+                _keptDrafts.Remove(key);
+            d.HasDraft = _keptDrafts.ContainsKey(key);
+        }
+
+        private static bool DiffersFromScreen(MultiViewDraft draft, MultiViewDraft? live) =>
+            live == null
+                ? draft.Placements.Count > 0
+                : draft.Plan.Name != live.Plan.Name || draft.DiffFrom(live).Count > 0;
+
+        private void OnComposerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (!ReferenceEquals(sender, _composer)) return;
+            if (e.PropertyName is nameof(MultiViewComposerViewModel.ArmedSource) or nameof(MultiViewComposerViewModel.Draft))
+                SyncFromComposer();
+        }
+
+        /// <summary>Mirrors the Composer's arm onto the source cards, counts their blocks, and notes placing as activity.</summary>
+        private void SyncFromComposer()
+        {
+            var composer = _composer;
+            if (composer == null) return;
+
+            var armed = composer.ArmedSource;
+            if (!ReferenceEquals(armed, _armed))
             {
-                return await AssignSlotLockedAsync(displayRx, rxKey, slotIndex, sourceTx);
+                SetArmed(armed);
+                if (armed != null) TouchArm();
             }
-            finally
+
+            var draft = composer.Draft;
+            var counts = draft == null
+                ? new Dictionary<string, int>()
+                : draft.Placements.Values.GroupBy(p => SdvoeClient.NormalizeMac(p.SourceMac)).ToDictionary(g => g.Key, g => g.Count());
+            foreach (var s in Sources)
+                s.UsedInBlocks = counts.TryGetValue(SdvoeClient.NormalizeMac(s.MacAddress), out int n) ? n : 0;
+
+            string signature = Signature(draft);
+            if (signature != _draftSignature)
             {
-                gate.Release();
+                _draftSignature = signature;
+                if (_armed != null) TouchArm(); // a placement (or any edit of the picture) counts as activity
             }
         }
 
-        private async Task<bool> AssignSlotLockedAsync(AvasDevice displayRx, string rxKey, int slotIndex, AvasDevice sourceTx)
+        private static string Signature(MultiViewDraft? draft) =>
+            draft == null
+                ? string.Empty
+                : draft.Plan.Name + "|" + string.Join(",", draft.Placements.OrderBy(p => p.Key)
+                    .Select(p => $"{p.Key}={SdvoeClient.NormalizeMac(p.Value.SourceMac)}"));
+
+        // ---- tap-to-arm and the drop choice ----
+
+        /// <summary>
+        /// Arms the source (tap again to stop). One source at a time; while the Composer is open this arms it there.
+        /// </summary>
+        public void ArmSource(SourceCardViewModel s)
         {
-            var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
-            if (displayVm == null || !_drafts.TryGetValue(rxKey, out var shown)) return false;
-
-            bool Refuse(string? reason)
+            if (s == null) return;
+            if (_composer != null)
             {
-                displayVm.LastError = reason;
-                AppLogger.Warn("MULTIVIEW", $"Block {slotIndex} on '{displayRx.DeviceName}' refused '{sourceTx.DeviceName}': {reason}");
-                return false;
+                _composer.Arm(s); // toggles; mirrored back through SyncFromComposer
+                SyncFromComposer();
+                TouchArm();
+                return;
             }
 
-            if (!sourceTx.IsTransmitter) return Refuse($"'{sourceTx.DeviceName}' is not a transmitter.");
-
-            var draft = shown.Clone();
-            var placed = DraftValidator.CanPlace(draft, slotIndex, sourceTx.DeviceId, sourceTx.DeviceName,
-                _multiView.UsesExcept(displayRx), isOnline: _ => sourceTx.IsActive);
-            if (!placed.Ok) return Refuse(placed.Reason);
-            draft.Place(slotIndex, sourceTx.DeviceId, sourceTx.DeviceName);
-
-            var result = await _multiView.TakeAsync(displayRx, draft);
-
-            // The display was swapped since the layout was chosen: redraw the blocks for its real output and take again.
-            bool redrawn = false;
-            if (result.Outcome == TakeOutcome.DisplayChanged && result.NewPlan != null)
-            {
-                draft = draft.WithLayout(result.NewPlan);
-                redrawn = true;
-                result = await _multiView.TakeAsync(displayRx, draft);
-            }
-
-            bool applied = result.Outcome is TakeOutcome.Applied or TakeOutcome.NothingToTake;
-            if (redrawn)
-            {
-                displayVm.ApplyLayout(draft.Plan, LayoutTitle(draft.Plan.Id), applied ? _multiView.DescribeCanvas(displayRx) : string.Empty);
-                if (!applied) _drafts[rxKey] = new MultiViewDraft(draft.Plan); // the card now shows the redrawn, empty blocks
-            }
-
-            if (!applied) return Refuse(result.Error);
-
-            _drafts[rxKey] = draft;
-            ShowDraft(displayVm, draft);
-            displayVm.LastError = null;
-            displayVm.NotifyRoutingChanged();
-            return true;
+            SetArmed(ReferenceEquals(_armed, s) ? null : s);
+            TouchArm();
         }
+
+        /// <summary>
+        /// A tap on a display card. With a source armed: a Single View or unrouted card is routed now (Single View
+        /// stays immediate) and the source is disarmed; a MultiView card asks first (the drop choice). Nothing armed:
+        /// does nothing (the card's Layout menu opens the Composer).
+        /// </summary>
+        public async Task TapDisplayAsync(DisplayCardViewModel d)
+        {
+            var s = _armed;
+            if (d == null || s == null || _composer != null || !d.IsActive) return;
+            TouchArm();
+
+            if (d.IsMultiView)
+            {
+                OpenDropChoice(d, s);
+                return;
+            }
+
+            if (await RouteVideoAsync(s.Device, d.Device) && ReferenceEquals(_armed, s))
+                SetArmed(null); // one Single View route disarms
+        }
+
+        /// <summary>
+        /// A source dropped on a display card (or on a block of its mini view): a MultiView card asks first (the drop
+        /// choice), any other card routes it in Single View now. A non-transmitter is refused.
+        /// </summary>
+        public async Task<bool> DropSourceAsync(DisplayCardViewModel d, AvasDevice tx)
+        {
+            if (d == null || tx == null || !tx.IsTransmitter || !d.IsActive) return false;
+
+            if (d.IsMultiView)
+            {
+                OpenDropChoice(d, FindSource(tx.DeviceId) ?? new SourceCardViewModel(tx));
+                return true;
+            }
+            return await RouteVideoAsync(tx, d.Device);
+        }
+
+        /// <summary>Opens the two-choice prompt on a MultiView card: Full screen (Single View) or Into a block... It closes after 10 s.</summary>
+        public void OpenDropChoice(DisplayCardViewModel d, SourceCardViewModel s)
+        {
+            if (d == null || s == null) return;
+            foreach (var other in _dropChoiceOpenedAt.Keys.Where(o => !ReferenceEquals(o, d)).ToList()) CloseDropChoice(other);
+            d.OpenDropChoice(s);
+            _dropChoiceOpenedAt[d] = _clock();
+            TouchArm();
+        }
+
+        /// <summary>The drop choice's "Full screen (Single View)": leaves MultiView and routes the source now.</summary>
+        public async Task<bool> ChooseFullScreenAsync(DisplayCardViewModel d)
+        {
+            var s = d?.DropChoiceSource;
+            if (d == null || s == null) return false;
+            CloseDropChoice(d);
+
+            bool ok = await RouteVideoAsync(s.Device, d.Device);
+            if (ok && ReferenceEquals(_armed, s)) SetArmed(null);
+            return ok;
+        }
+
+        /// <summary>The drop choice's "Into a block...": opens the Composer on what is on screen with the source armed.</summary>
+        public async Task ChooseIntoBlockAsync(DisplayCardViewModel d)
+        {
+            var s = d?.DropChoiceSource;
+            if (d == null || s == null) return;
+            CloseDropChoice(d);
+            await OpenComposerAsync(d, null, s);
+        }
+
+        private void CloseDropChoice(DisplayCardViewModel d)
+        {
+            _dropChoiceOpenedAt.Remove(d);
+            d.CloseDropChoice();
+        }
+
+        /// <summary>
+        /// Time-based housekeeping; the view calls it from a timer. Disarms after <see cref="ArmIdleTimeout"/> without
+        /// activity (arming, placing, editing in the Composer), closes a drop choice after <see cref="DropChoiceTimeout"/>,
+        /// and lets the Composer withdraw its Undo on time.
+        /// </summary>
+        public void Tick()
+        {
+            var now = _clock();
+
+            if (_armed != null && now - _lastArmActivity >= ArmIdleTimeout)
+            {
+                AppLogger.Info("UI", $"'{_armed.DeviceName}' disarmed after {ArmIdleTimeout.TotalSeconds:0} s idle.");
+                if (_composer != null)
+                {
+                    _composer.Disarm();
+                    SyncFromComposer();
+                }
+                SetArmed(null);
+            }
+
+            foreach (var (d, openedAt) in _dropChoiceOpenedAt.ToList())
+            {
+                if (!d.IsDropChoiceOpen) _dropChoiceOpenedAt.Remove(d);
+                else if (now - openedAt >= DropChoiceTimeout) CloseDropChoice(d);
+            }
+
+            _composer?.Tick();
+        }
+
+        private void TouchArm() => _lastArmActivity = _clock();
+
+        /// <summary>Exactly one source card (or none) shows as armed.</summary>
+        private void SetArmed(SourceCardViewModel? s)
+        {
+            var previous = _armed;
+            _armed = s;
+            if (previous != null && !ReferenceEquals(previous, s)) previous.IsArmed = false;
+            foreach (var source in Sources) source.IsArmed = ReferenceEquals(source, s);
+            if (s != null) s.IsArmed = true;
+            if (!ReferenceEquals(previous, s)) OnPropertyChanged(nameof(ArmedSource));
+        }
+
+        // ---- helpers ----
 
         /// <summary>Makes the card's blocks show the draft's sources (only the blocks that differ are touched).</summary>
         private void ShowDraft(DisplayCardViewModel display, MultiViewDraft draft)
@@ -595,15 +884,16 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
-        private System.Threading.SemaphoreSlim DisplayLock(string rxKey)
-        {
-            lock (_displayLocks)
-            {
-                if (!_displayLocks.TryGetValue(rxKey, out var gate))
-                    _displayLocks[rxKey] = gate = new System.Threading.SemaphoreSlim(1, 1);
-                return gate;
-            }
-        }
+        private SourceCardViewModel? FindSource(string mac) =>
+            Sources.FirstOrDefault(s => SdvoeClient.NormalizeMac(s.MacAddress) == SdvoeClient.NormalizeMac(mac));
+
+        private DisplayCardViewModel? FindDisplay(AvasDevice rx) => Displays.FirstOrDefault(d => d.MacAddress == rx.DeviceId);
+
+        /// <summary>A source the app has not discovered: known only by what the decoder reports (no preview).</summary>
+        private static AvasDevice UnknownSource(string mac, string name) =>
+            new() { DeviceId = mac, DeviceName = string.IsNullOrEmpty(name) ? mac : name, IsTransmitter = true, IsActive = true, VendorId = 0 };
+
+        private static string Key(AvasDevice d) => SdvoeClient.NormalizeMac(d.DeviceId);
 
         private string LayoutTitle(string layoutId) =>
             (Layouts.FirstOrDefault(l => l.Id == layoutId)?.Title ?? layoutId).ToUpperInvariant();

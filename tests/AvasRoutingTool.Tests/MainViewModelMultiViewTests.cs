@@ -6,8 +6,13 @@ using AvasRoutingTool.Sdvoe.MultiView;
 using AvasRoutingTool.ViewModels;
 using Xunit;
 
+// NOTE: test names in this file must not contain the substring "Live" (the FullyQualifiedName!~Live filter skips them).
 namespace AvasRoutingTool.Tests
 {
+    /// <summary>
+    /// MultiView from the overview: a layout is staged in the Composer (no device change) and goes on screen with
+    /// Take; the card shows what is on screen. Migrated from the interim per-drop API (ApplyLayoutAsync / AssignSlotAsync).
+    /// </summary>
     public class MainViewModelMultiViewTests
     {
         private sealed class Rig
@@ -33,6 +38,32 @@ namespace AvasRoutingTool.Tests
                 Vm.Sources.Add(Tx1Vm);
                 Vm.Sources.Add(Tx2Vm);
             }
+
+            public MultiViewComposerViewModel Composer => Vm.ActiveComposer!;
+
+            /// <summary>Opens the Composer on RX1 with the layout staged (the card's Layout menu / a layout tile drop).</summary>
+            public async Task<MultiViewComposerViewModel> Compose(string layoutId)
+            {
+                Assert.True(await Vm.ChooseLayoutFromCardAsync(RxVm, layoutId));
+                return Composer;
+            }
+
+            /// <summary>Places the source in the block (API window index) and stops placing.</summary>
+            public void Place(int slot, SourceCardViewModel source)
+            {
+                Composer.Arm(source);
+                Composer.TapBlock(slot);
+                Composer.Disarm();
+            }
+
+            public async Task TakeMatrixWithTx1Async()
+            {
+                await Compose("matrix2x2");
+                Place(0, Tx1Vm);
+                await Composer.TakeAsync();
+                Vm.CloseComposer();
+                Client.MultiViewCalls.Clear();
+            }
         }
 
         [Fact]
@@ -49,25 +80,28 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ApplyLayout_OnUnroutedDisplay_ShowsEmptyWindowsWithoutHardwareCalls()
+        public async Task ChoosingAPreset_OnAnUnroutedDisplay_StagesEmptyBlocksWithoutHardwareCalls()
         {
             var rig = new Rig();
 
-            bool ok = await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            var composer = await rig.Compose("matrix2x2");
 
-            Assert.True(ok);
-            Assert.True(rig.RxVm.IsMultiView);
-            Assert.Equal(4, rig.RxVm.Slots.Count);
+            Assert.Equal(4, composer.Blocks.Count);
+            Assert.All(composer.Blocks, b => Assert.False(b.IsPlaced));
             Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.False(rig.RxVm.IsMultiView); // the card shows the screen, which did not change
         }
 
         [Fact]
-        public async Task ApplyLayout_On4kDisplay_UsesTheDisplayEdidAndShowsTheOutputFormat()
+        public async Task Take_On4kDisplay_UsesTheDisplayEdid_AndTheCardShowsTheOutputFormat()
         {
             var rig = new Rig();
             rig.Client.DisplayEdid = TestEdids.ViewSonic4k;
+            var composer = await rig.Compose("matrix2x2");
+            Assert.Equal("OUT 3840x2160@60 (VP3268-4K)", composer.OutputText);
+            rig.Place(0, rig.Tx1Vm);
 
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            await composer.TakeAsync();
 
             Assert.Contains("3840x2160@60", rig.RxVm.CanvasInfo);
             Assert.Contains("VP3268-4K", rig.RxVm.CanvasInfo);
@@ -76,53 +110,64 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ApplyLayout_WithoutAnEdid_ShowsTheFallbackAndWhy()
+        public async Task Take_WithoutAnEdid_TheCardShowsTheFallbackAndWhy()
         {
             var rig = new Rig();
             rig.Client.DisplayEdid = null;
+            var composer = await rig.Compose("matrix2x2");
+            rig.Place(0, rig.Tx1Vm);
 
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            await composer.TakeAsync();
 
             Assert.Contains("1920x1080@60", rig.RxVm.CanvasInfo);
             Assert.Contains("EDID unavailable", rig.RxVm.CanvasInfo);
         }
 
         [Fact]
-        public async Task ApplyLayout_OnASixteenByTenDisplay_KeepsItsAspectForTheWindowSurface()
+        public async Task Take_OnASixteenByTenDisplay_KeepsItsAspectForTheWindowSurface()
         {
             var rig = new Rig();
             rig.Client.DisplayEdid = TestEdids.Build((1920, 1200, 60, false));
+            var composer = await rig.Compose("matrix2x2");
+            Assert.Equal(1920, composer.Draft!.Plan.Width);
+            Assert.Equal(1200, composer.Draft.Plan.Height);
+            rig.Place(0, rig.Tx1Vm);
 
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            await composer.TakeAsync();
 
             Assert.Equal(1920.0 / 1200.0, rig.RxVm.CanvasAspect, 3);
         }
 
         [Fact]
-        public async Task AssignSlot_WhenTheDisplayWasSwappedMeanwhile_RedrawsTheCardForTheNewOutput()
+        public async Task Take_WhenTheDisplayWasSwappedMeanwhile_RedrawsThenTheNextTakeShowsTheNewOutputOnTheCard()
         {
             var rig = new Rig();
             rig.Client.DisplayEdid = TestEdids.Build((1920, 1080, 60, false));
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            Assert.Contains("1920x1080@60", rig.RxVm.CanvasInfo);
+            var composer = await rig.Compose("matrix2x2");
+            rig.Place(1, rig.Tx1Vm);
 
             rig.Client.DisplayEdid = TestEdids.ViewSonic4k;
-            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx1);
+            await composer.TakeAsync(); // the display changed: nothing is sent, the blocks are redrawn
+            Assert.Equal(BannerKind.Warning, composer.Banner.Kind);
+            Assert.False(rig.RxVm.IsMultiView);
+            Assert.Equal(3840, composer.Draft!.Plan.Width);
 
-            Assert.True(ok);
+            await composer.TakeAsync();
+
             Assert.Contains("3840x2160@60", rig.RxVm.CanvasInfo);
             Assert.Equal(4, rig.RxVm.Slots.Count);
             Assert.True(rig.RxVm.Slots.Single(s => s.Index == 1).IsAssigned);
         }
 
         [Fact]
-        public async Task ApplyLayoutSingle_ClearsTheOutputFormat()
+        public async Task SingleView_AfterChoosingALayoutThatWasNeverTaken_ChangesNoDevice()
         {
             var rig = new Rig();
             rig.Client.DisplayEdid = TestEdids.ViewSonic4k;
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            await rig.Compose("matrix2x2");
+            rig.Vm.CloseComposer();
 
-            await rig.Vm.ApplyLayoutAsync("single", rig.Rx);
+            Assert.True(await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "single"));
 
             Assert.Empty(rig.RxVm.CanvasInfo);
             Assert.False(rig.RxVm.IsMultiView);
@@ -130,12 +175,18 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ApplyLayout_OnRoutedDisplay_KeepsTheCurrentSourceInTheFirstWindow()
+        public async Task ChoosingAPreset_OnARoutedDisplay_KeepsItRoutedUntilTake_ThenLeavesSingleView()
         {
             var rig = new Rig();
             await rig.Vm.RouteVideoAsync(rig.Tx1, rig.Rx);
 
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            var composer = await rig.Compose("matrix2x2");
+
+            Assert.Equal("tx1", rig.Rx.ActiveSourceId); // staged only
+            Assert.All(composer.Blocks, b => Assert.False(b.IsPlaced)); // spec 5.1: the layout opens with empty blocks
+
+            rig.Place(0, rig.Tx1Vm);
+            await composer.TakeAsync();
 
             var first = rig.RxVm.Slots.Single(s => s.Index == 0);
             Assert.True(first.IsAssigned);
@@ -145,102 +196,132 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task AssignSlot_Success_FillsTheWindow()
+        public async Task Take_Success_FillsTheCardBlock()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            var composer = await rig.Compose("matrix2x2");
+            rig.Place(2, rig.Tx2Vm);
 
-            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx, 2, rig.Tx2);
+            await composer.TakeAsync();
 
-            Assert.True(ok);
             var slot = rig.RxVm.Slots.Single(s => s.Index == 2);
             Assert.True(slot.IsAssigned);
             Assert.Equal("TX2", slot.SourceName);
             Assert.True(rig.RxVm.IsRouted);
             Assert.False(rig.RxVm.HasError);
+            Assert.Equal("MATRIX 2X2 · 1/4", rig.RxVm.ModeBadge);
         }
 
         [Fact]
-        public async Task AssignSlot_Failure_LeavesWindowEmptyAndReportsTheError()
+        public async Task Take_Refused_LeavesTheScreenAndTheCardAsTheyWere_AndKeepsTheDraft()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            var composer = await rig.Compose("matrix2x2");
+            rig.Place(0, rig.Tx1Vm);
             rig.Client.FailMultiViewPrefix = "multiview:";
 
-            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            await composer.TakeAsync();
 
-            Assert.False(ok);
-            Assert.False(rig.RxVm.Slots.Single(s => s.Index == 0).IsAssigned);
-            Assert.True(rig.RxVm.HasError);
-            Assert.Contains("RX1", rig.RxVm.LastError);
+            Assert.Equal(BannerKind.Error, composer.Banner.Kind);
+            Assert.Contains("RX1", composer.Banner.Text);
+            Assert.Contains("Nothing changed on screen", composer.Banner.Text);
+            Assert.False(rig.MultiView.IsMultiView(rig.Rx));
+            Assert.False(rig.RxVm.IsMultiView);
+            Assert.True(composer.Draft!.Placements.ContainsKey(0));
+
+            rig.Vm.CloseComposer();
+            Assert.True(rig.RxVm.HasDraft); // the refused picture is still there to resume
         }
 
         [Fact]
-        public async Task AssignSlot_TheSameSourceInASecondEqualBlock_IsAddedNotMoved()
+        public async Task TheSameSourceInASecondEqualBlock_IsAddedNotMoved()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            var composer = await rig.Compose("matrix2x2");
+            rig.Place(0, rig.Tx1Vm);
+            rig.Place(3, rig.Tx1Vm);
 
-            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx, 3, rig.Tx1);
+            await composer.TakeAsync();
 
-            Assert.True(ok);
             Assert.Equal("TX1", rig.RxVm.Slots.Single(s => s.Index == 0).SourceName);
             Assert.Equal("TX1", rig.RxVm.Slots.Single(s => s.Index == 3).SourceName);
             Assert.Single(rig.Client.LastSubscriptions!); // one encoder, one subscription read by both windows
         }
 
         [Fact]
-        public async Task AssignSlot_TheSameSourceInABlockOfAnotherSize_IsRefusedWithoutHardwareCalls()
+        public async Task TheSameSourceInABlockOfAnotherSize_IsRefusedWithoutHardwareCalls()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("quad_1_3", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1); // the big focus block
-            rig.Client.MultiViewCalls.Clear();
+            var composer = await rig.Compose("quad_1_3");
+            rig.Place(0, rig.Tx1Vm); // the big focus block
 
-            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx1);
+            composer.Arm(rig.Tx1Vm);
+            composer.TapBlock(1);
 
-            Assert.False(ok);
-            Assert.Contains("One encoder has one size per layout", rig.RxVm.LastError);
-            Assert.False(rig.RxVm.Slots.Single(s => s.Index == 1).IsAssigned);
+            Assert.Contains("One encoder has one size per layout", composer.Banner.Text);
+            Assert.False(composer.Draft!.Placements.ContainsKey(1));
             Assert.Empty(rig.Client.MultiViewCalls);
         }
 
         [Fact]
-        public async Task AssignSlot_OfflineOrNonTransmitterSource_IsRefusedWithoutHardwareCalls()
+        public async Task SizeConflictWithAnotherDisplay_IsRefusedWithoutHardwareCalls()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            rig.Tx1.IsActive = false;
+            var rx2 = new AvasDevice { DeviceId = "rx2", DeviceName = "RX2", IsReceiver = true, IsActive = true };
+            var rx2Vm = new DisplayCardViewModel(rx2, rig.Vm.UnrouteVideoAsync);
+            rig.Vm.Displays.Add(rx2Vm);
+            await rig.TakeMatrixWithTx1Async(); // TX1 runs at 960x540 on RX1
+
+            await rig.Vm.ChooseLayoutFromCardAsync(rx2Vm, "quad_1_3");
+            var composer = rig.Composer;
+            composer.Arm(rig.Tx1Vm);
+            composer.TapBlock(0); // the big block: another size
+
+            Assert.Contains("RX1", composer.Banner.Text);
+            Assert.Empty(composer.Draft!.Placements);
+            Assert.Empty(rig.Client.MultiViewCalls);
+        }
+
+        [Fact]
+        public async Task OfflineSource_IsUnavailable_AndANonTransmitterDropIsRefused_WithoutHardwareCalls()
+        {
+            var rig = new Rig();
+            var composer = await rig.Compose("matrix2x2");
+            rig.Tx1Vm.SetOnlineState(false);
             var notTx = new AvasDevice { DeviceId = "rx9", DeviceName = "RX9", IsReceiver = true, IsActive = true };
 
-            bool offline = await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
-            Assert.Contains("TX1 is offline", rig.RxVm.LastError);
-            bool wrongKind = await rig.Vm.AssignSlotAsync(rig.Rx, 0, notTx);
+            var offline = composer.CheckPlace(0, rig.Tx1Vm);
+            bool dropped = await rig.Vm.DropSourceAsync(rig.RxVm, notTx);
 
-            Assert.False(offline);
-            Assert.False(wrongKind);
-            Assert.Contains("not a transmitter", rig.RxVm.LastError);
+            Assert.False(offline.Ok);
+            Assert.Contains("TX1 is offline", offline.Reason);
+            Assert.False(dropped);
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.Null(rig.Client.LastVideoTx);
+        }
+
+        [Fact]
+        public async Task ComposerWithoutALayout_StartsAtStepOne_AndCannotTake()
+        {
+            var rig = new Rig();
+
+            await rig.Vm.OpenComposerAsync(rig.RxVm);
+
+            Assert.Null(rig.Composer.Draft);
+            Assert.False(rig.Composer.CanTake);
+            Assert.Equal("Choose a layout (Step 1).", rig.Composer.TakeBlockedReason);
             Assert.Empty(rig.Client.MultiViewCalls);
         }
 
         [Fact]
-        public async Task AssignSlot_OnADisplayWithoutALayout_IsRefused()
+        public async Task Take_ClearsAPreviousCardErrorOnSuccess()
         {
             var rig = new Rig();
-
-            Assert.False(await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1));
-            Assert.Empty(rig.Client.MultiViewCalls);
-        }
-
-        [Fact]
-        public async Task AssignSlot_ClearsAPreviousErrorOnSuccess()
-        {
-            var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            var composer = await rig.Compose("matrix2x2");
             rig.RxVm.LastError = "old";
+            rig.Place(0, rig.Tx1Vm);
 
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            await composer.TakeAsync();
 
             Assert.False(rig.RxVm.HasError);
         }
@@ -249,9 +330,7 @@ namespace AvasRoutingTool.Tests
         public async Task RouteVideo_OnMultiViewDisplay_ReturnsToGenlockThenJoins()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
-            rig.Client.MultiViewCalls.Clear();
+            await rig.TakeMatrixWithTx1Async();
 
             bool ok = await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx);
 
@@ -264,11 +343,24 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task RouteVideo_WhenGenlockIsRefused_DoesNotJoin_AndTheCardKeepsTheMultiView()
+        {
+            var rig = new Rig();
+            await rig.TakeMatrixWithTx1Async();
+            rig.Client.FailMultiViewPrefix = "genlock:";
+
+            bool ok = await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx);
+
+            Assert.False(ok);
+            Assert.Null(rig.Client.LastVideoTx);
+            Assert.True(rig.RxVm.IsMultiView);
+        }
+
+        [Fact]
         public async Task Unroute_OnMultiViewDisplay_TurnsEverythingOff()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            await rig.TakeMatrixWithTx1Async();
 
             bool ok = await rig.Vm.UnrouteVideoAsync(rig.Rx);
 
@@ -279,14 +371,12 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ApplyLayoutSingle_OnMultiViewDisplay_ReturnsToSingleView()
+        public async Task SingleViewFromTheCard_OnMultiViewDisplay_ReturnsToSingleView()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
-            rig.Client.MultiViewCalls.Clear();
+            await rig.TakeMatrixWithTx1Async();
 
-            bool ok = await rig.Vm.ApplyLayoutAsync("single", rig.Rx);
+            bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "single");
 
             Assert.True(ok);
             Assert.Equal(new[] { "genlock:rx1" }, rig.Client.MultiViewCalls);
@@ -294,115 +384,69 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ApplyLayout_SwitchingBetweenMultiViewPresets_StartsWithEmptyWindows()
+        public async Task SingleViewFromTheCard_WhenGenlockIsRefused_ReportsItOnTheCard()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            await rig.TakeMatrixWithTx1Async();
+            rig.Client.FailMultiViewPrefix = "genlock:";
 
-            await rig.Vm.ApplyLayoutAsync("side_by_side", rig.Rx);
-
-            Assert.Equal(2, rig.RxVm.Slots.Count);
-            Assert.All(rig.RxVm.Slots, s => Assert.False(s.IsAssigned));
-        }
-
-        [Fact]
-        public async Task ApplyLayout_OnOfflineDisplay_IsRefused()
-        {
-            var rig = new Rig();
-            rig.RxVm.SetOnlineState(false);
-
-            bool ok = await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "single");
 
             Assert.False(ok);
-            Assert.False(rig.RxVm.IsMultiView);
+            Assert.True(rig.RxVm.IsMultiView);
+            Assert.Contains("did not accept the switch back to Single View", rig.RxVm.LastError);
         }
 
-        // ---- drops and Off on one display are handled one at a time ---------------------------------
-
-        /// <summary>
-        /// Holds the first multiview call starting with <paramref name="prefix"/> until <c>release</c> is called;
-        /// <c>entered</c> completes once that call is in flight.
-        /// </summary>
-        private static (Task Entered, System.Action Release) HoldFirstCall(MockSdvoeClient client, string prefix)
+        [Fact]
+        public async Task Undo_PutsThePreviousPictureBackOnTheCard()
         {
+            var rig = new Rig();
+            await rig.TakeMatrixWithTx1Async();
+            await rig.Vm.OpenComposerAsync(rig.RxVm);
+            rig.Place(1, rig.Tx2Vm);
+            await rig.Composer.TakeAsync();
+            Assert.True(rig.RxVm.Slots.Single(s => s.Index == 1).IsAssigned);
+
+            await rig.Composer.UndoAsync();
+
+            Assert.False(rig.RxVm.Slots.Single(s => s.Index == 1).IsAssigned);
+            Assert.Equal("TX1", rig.RxVm.Slots.Single(s => s.Index == 0).SourceName);
+        }
+
+        [Fact]
+        public void OffIssuedBeforeATake_WinsFirst_ThenTheTakeRuns() => UiThread.Run(async () =>
+        {
+            var rig = new Rig();
+            await rig.TakeMatrixWithTx1Async();
+            await rig.Vm.OpenComposerAsync(rig.RxVm);
+            rig.Place(1, rig.Tx2Vm);
             var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            client.DuringCall = entry =>
-                entry.StartsWith(prefix) && entered.TrySetResult() ? release.Task : Task.CompletedTask;
-            return (entered.Task, () => release.TrySetResult());
-        }
-
-        [Fact]
-        public async Task TwoQuickDrops_OfDifferentSources_BothEndUpLiveAndOnTheCard()
-        {
-            var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
-
-            var first = rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
-            await entered; // the first take is in flight
-            var second = rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx2);
-            release();
-            var results = await Task.WhenAll(first, second);
-
-            Assert.All(results, Assert.True);
-            var live = rig.MultiView.GetLive(rig.Rx)!;
-            Assert.Equal(new[] { (0, "tx1"), (1, "tx2") }, live.Placements.OrderBy(p => p.Key).Select(p => (p.Key, p.Value.SourceMac)));
-            Assert.Equal("TX1", rig.RxVm.Slots.Single(s => s.Index == 0).SourceName);
-            Assert.Equal("TX2", rig.RxVm.Slots.Single(s => s.Index == 1).SourceName);
-        }
-
-        [Fact]
-        public async Task OffIssuedBeforeADrop_WinsAndTheDropFindsNoLayout()
-        {
-            var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
-            var (entered, release) = HoldFirstCall(rig.Client, "genlock:");
+            rig.Client.DuringCall = e => e.StartsWith("genlock:") && entered.TrySetResult() ? release.Task : Task.CompletedTask;
 
             var off = rig.Vm.UnrouteVideoAsync(rig.Rx);
-            await entered; // Off is in flight
-            var drop = rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx2);
-            release();
-            await Task.WhenAll(off, drop);
+            await entered.Task; // Off is in flight
+            var take = rig.Composer.TakeAsync();
+            await Task.Delay(50);
+            Assert.DoesNotContain(rig.Client.MultiViewCalls, c => c.StartsWith("multiview:"));
+            release.TrySetResult();
+            await Task.WhenAll(off, take);
 
-            Assert.True(off.Result);
-            Assert.False(drop.Result);
-            Assert.False(rig.MultiView.IsMultiView(rig.Rx)); // the decoder stayed off...
-            Assert.False(rig.RxVm.IsMultiView);              // ...and so does the card
-            Assert.Equal("genlock:rx1", rig.Client.MultiViewCalls.Last());
-        }
-
-        [Fact]
-        public async Task ADropIssuedBeforeOff_IsTakenThenTurnedOff()
-        {
-            var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
-            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
-            var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
-
-            var drop = rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx2);
-            await entered; // the drop's take is in flight
-            var off = rig.Vm.UnrouteVideoAsync(rig.Rx);
-            release();
-            await Task.WhenAll(drop, off);
-
-            Assert.True(drop.Result);
-            Assert.True(off.Result);
-            Assert.False(rig.MultiView.IsMultiView(rig.Rx));
-            Assert.False(rig.RxVm.IsMultiView);
-            Assert.Contains("rx1:2", rig.Client.Leaves); // Off left the dropped source's subscription too
-            Assert.Equal("genlock:rx1", rig.Client.MultiViewCalls.Last());
-        }
+            Assert.True(await off);
+            var calls = rig.Client.MultiViewCalls;
+            Assert.True(calls.IndexOf("genlock:rx1") < calls.FindLastIndex(c => c.StartsWith("multiview:")));
+            Assert.True(rig.MultiView.IsMultiView(rig.Rx)); // the Take came last, and the card agrees
+            Assert.True(rig.RxVm.IsMultiView);
+        });
 
         [Fact]
-        public async Task ApplyLayout_UnknownId_IsRefused()
+        public async Task ChoosingAPreset_UnknownId_IsRefused()
         {
             var rig = new Rig();
 
-            Assert.False(await rig.Vm.ApplyLayoutAsync("nope", rig.Rx));
+            Assert.False(await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "nope"));
             Assert.False(rig.RxVm.IsMultiView);
+            Assert.Null(rig.Vm.ActiveComposer);
         }
     }
 }

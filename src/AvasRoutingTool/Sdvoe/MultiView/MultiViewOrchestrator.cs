@@ -71,6 +71,22 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         private readonly HashSet<string> _halvedByUs = new();
         private readonly SemaphoreSlim _gate = new(1, 1);
 
+        /// <summary>
+        /// Subscription indexes of a layout found running that this tool did not create (adopted read-only, by
+        /// receiver key). The first Take on that display leaves those its new layout does not subscribe again.
+        /// </summary>
+        private readonly Dictionary<string, IReadOnlySet<int>> _external = new();
+
+        /// <summary>
+        /// One operation at a time per display (by receiver key): a Take, Undo, Off, return to Single View, or a
+        /// caller's <see cref="RunExclusiveAsync{T}"/> section (a Single View route, a restore) never interleave on
+        /// the same display. Taken before <see cref="_gate"/>, never while holding it.
+        /// </summary>
+        private readonly Dictionary<string, SemaphoreSlim> _displayLocks = new();
+
+        /// <summary>The display keys whose lock the current async flow already holds (makes the lock re-entrant per flow).</summary>
+        private readonly AsyncLocal<HashSet<string>?> _held = new();
+
         /// <param name="fallback">Output format used when a display's EDID cannot be read.</param>
         public MultiViewOrchestrator(ISdvoeClient client, MultiViewCanvas? fallback = null)
         {
@@ -123,11 +139,42 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// Dividers already on are not ours and are never switched back.
         /// </summary>
         /// <param name="joinedSubscriptions">The HDMI subscription indexes read back as routed on the decoder.</param>
-        public void Adopt(AvasDevice rx, MultiViewDraft live, MultiViewCanvas canvas, IEnumerable<int> joinedSubscriptions) =>
+        public void Adopt(AvasDevice rx, MultiViewDraft live, MultiViewCanvas canvas, IEnumerable<int> joinedSubscriptions)
+        {
+            _external.Remove(Key(rx));
             _sessions[Key(rx)] = new Session(rx.DeviceName, live.Clone(), canvas) { Joined = joinedSubscriptions.ToHashSet() };
+        }
+
+        /// <summary>
+        /// Registers a multiview layout this tool did not create, found running on a decoder (read-only: there is no
+        /// live draft to drive). Changes no device. The first Take on the display leaves the given subscriptions that
+        /// its own layout does not subscribe again, so no stream of the old layout stays joined.
+        /// </summary>
+        public void AdoptExternal(AvasDevice rx, IEnumerable<int> joinedSubscriptions)
+        {
+            _sessions.Remove(Key(rx));
+            _external[Key(rx)] = joinedSubscriptions.ToHashSet();
+        }
 
         /// <summary>Drops what we believe about a decoder (the hardware says otherwise). Changes no device.</summary>
-        public void Forget(AvasDevice rx) => _sessions.Remove(Key(rx));
+        public void Forget(AvasDevice rx)
+        {
+            _sessions.Remove(Key(rx));
+            _external.Remove(Key(rx));
+        }
+
+        /// <summary>
+        /// Runs <paramref name="action"/> as the only operation on this display: a Take, Undo, Off or return to Single
+        /// View issued meanwhile (here or from the Composer) waits until it ends. Calls to this orchestrator made from
+        /// inside the section for the same display do not wait for the lock again (no deadlock). Other displays are
+        /// not held. Work started inside the section but left running after it ends is not covered.
+        /// </summary>
+        public Task<T> RunExclusiveAsync<T>(AvasDevice rx, Func<Task<T>> action)
+        {
+            ArgumentNullException.ThrowIfNull(rx);
+            ArgumentNullException.ThrowIfNull(action);
+            return ExclusiveAsync(rx, action);
+        }
 
         /// <summary>
         /// The layout sized to the display's EDID, and the output format it will run at. Only reads from the device:
@@ -140,9 +187,14 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         }
 
         /// <summary>Puts the whole draft on the display's screen, or changes nothing.</summary>
-        public async Task<TakeResult> TakeAsync(AvasDevice rx, MultiViewDraft draft)
+        public Task<TakeResult> TakeAsync(AvasDevice rx, MultiViewDraft draft)
         {
             ArgumentNullException.ThrowIfNull(draft);
+            return ExclusiveAsync(rx, () => TakeCoreAsync(rx, draft));
+        }
+
+        private async Task<TakeResult> TakeCoreAsync(AvasDevice rx, MultiViewDraft draft)
+        {
             await _gate.WaitAsync();
             try
             {
@@ -157,8 +209,14 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
                 if (session == null)
                 {
-                    session = new Session(rx.DeviceName, taken, sent.Canvas);
+                    // Taking over a layout made elsewhere: its subscriptions count as joined, so the commit leaves
+                    // those the new layout does not use.
+                    session = new Session(rx.DeviceName, taken, sent.Canvas)
+                    {
+                        Joined = _external.TryGetValue(Key(rx), out var external) ? external : new HashSet<int>()
+                    };
                     _sessions[Key(rx)] = session;
+                    _external.Remove(Key(rx));
                 }
                 else
                 {
@@ -175,7 +233,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         }
 
         /// <summary>Takes the previous live draft again (single level: afterwards there is nothing left to undo).</summary>
-        public async Task<TakeResult> UndoAsync(AvasDevice rx)
+        public Task<TakeResult> UndoAsync(AvasDevice rx) => ExclusiveAsync(rx, () => UndoCoreAsync(rx));
+
+        private async Task<TakeResult> UndoCoreAsync(AvasDevice rx)
         {
             await _gate.WaitAsync();
             try
@@ -202,23 +262,29 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// Leaves a multiview this tool did not start (an external layout): optionally leaves the given
         /// subscriptions, then returns the decoder to full-screen genlock.
         /// </summary>
-        public async Task<bool> ExitExternalAsync(AvasDevice rx, IEnumerable<int> subscriptionIndexesToLeave)
+        public Task<bool> ExitExternalAsync(AvasDevice rx, IEnumerable<int> subscriptionIndexesToLeave)
         {
-            await _gate.WaitAsync();
-            try
+            var toLeave = subscriptionIndexesToLeave.ToList();
+            return ExclusiveAsync(rx, async () =>
             {
-                foreach (int index in subscriptionIndexesToLeave)
-                    await LeaveAsync(rx, index);
-                return await _client.SetGenlockedAsync(rx.DeviceId);
-            }
-            finally
-            {
-                _gate.Release();
-            }
+                await _gate.WaitAsync();
+                try
+                {
+                    foreach (int index in toLeave)
+                        await LeaveAsync(rx, index);
+                    bool ok = await _client.SetGenlockedAsync(rx.DeviceId);
+                    if (ok) _external.Remove(Key(rx));
+                    return ok;
+                }
+                finally
+                {
+                    _gate.Release();
+                }
+            });
         }
 
         /// <summary>Leaves multiview: the decoder goes back to full-screen genlock, ready for a normal join.</summary>
-        public async Task<bool> ReturnToSingleViewAsync(AvasDevice rx)
+        public Task<bool> ReturnToSingleViewAsync(AvasDevice rx) => ExclusiveAsync(rx, async () =>
         {
             await _gate.WaitAsync();
             try
@@ -230,10 +296,10 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             {
                 _gate.Release();
             }
-        }
+        });
 
         /// <summary>Leaves every subscription joined on the decoder, then returns it to genlock.</summary>
-        public async Task<bool> TurnOffAsync(AvasDevice rx)
+        public Task<bool> TurnOffAsync(AvasDevice rx) => ExclusiveAsync(rx, async () =>
         {
             await _gate.WaitAsync();
             try
@@ -249,6 +315,34 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             finally
             {
                 _gate.Release();
+            }
+        });
+
+        /// <summary>Runs <paramref name="action"/> holding the display's lock, unless this async flow already holds it.</summary>
+        private async Task<T> ExclusiveAsync<T>(AvasDevice rx, Func<Task<T>> action)
+        {
+            string key = Key(rx);
+            var held = _held.Value;
+            if (held != null && held.Contains(key)) return await action();
+
+            SemaphoreSlim gate;
+            lock (_displayLocks)
+            {
+                if (!_displayLocks.TryGetValue(key, out gate!))
+                    _displayLocks[key] = gate = new SemaphoreSlim(1, 1);
+            }
+
+            await gate.WaitAsync();
+            // A copy: the parent flow's set is shared by reference and must not see this key.
+            _held.Value = held == null ? new HashSet<string> { key } : new HashSet<string>(held) { key };
+            try
+            {
+                return await action();
+            }
+            finally
+            {
+                _held.Value = held;
+                gate.Release();
             }
         }
 

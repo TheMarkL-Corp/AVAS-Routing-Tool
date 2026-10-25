@@ -127,16 +127,22 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task AfterARestore_TheNextDropKeepsTheRestoredSources()
+        public async Task AfterARestore_TheComposerStartsFromTheScreen_AndATakeKeepsTheRestoredSources()
         {
             var rig = new Rig();
             rig.Hardware(Rx1Mac, "rx_multiview.json", "rx_multiview_layout.json");
             await rig.Vm.RestoreStateAsync();
-            var tx3 = new AvasDevice { DeviceId = "tx3", DeviceName = "TX3", IsTransmitter = true, IsActive = true };
+            var tx3 = new SourceCardViewModel(new AvasDevice { DeviceId = "tx3", DeviceName = "TX3", IsTransmitter = true, IsActive = true });
+            rig.Vm.Sources.Add(tx3);
 
-            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx1, 2, tx3);
+            await rig.Vm.OpenComposerAsync(rig.Rx1Vm);
+            var composer = rig.Vm.ActiveComposer!;
+            Assert.Equal(2, composer.Draft!.Placements.Count);
+            composer.Arm(tx3);
+            composer.TapBlock(2);
+            await composer.TakeAsync();
 
-            Assert.True(ok);
+            Assert.Equal(BannerKind.Success, composer.Banner.Kind);
             Assert.Equal(3, rig.Client.LastSubscriptions!.Count); // the two restored sources stay
             // the legacy layout found running is rewritten under this display's own name
             Assert.Contains($"layout:avas_{Rx1Mac}_matrix2x2_1920x1080", rig.Client.MultiViewCalls);
@@ -183,7 +189,11 @@ namespace AvasRoutingTool.Tests
         public async Task HardwareOverridesALocalLayout_WhenTheDecoderIsNowInSingleView()
         {
             var rig = new Rig();
-            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx1);
+            await rig.Vm.OpenComposerAsync(rig.Rx1Vm, "matrix2x2");
+            rig.Vm.ActiveComposer!.Arm(rig.Tx2Vm);
+            rig.Vm.ActiveComposer.TapBlock(0);
+            await rig.Vm.ActiveComposer.TakeAsync();
+            rig.Vm.CloseComposer();
             Assert.True(rig.Rx1Vm.IsMultiView);
             rig.Hardware(Rx1Mac, "rx_single_view.json"); // someone switched it in the BAVM console
 
@@ -192,8 +202,10 @@ namespace AvasRoutingTool.Tests
             Assert.False(rig.Rx1Vm.IsMultiView);
             Assert.Empty(rig.Rx1Vm.Slots);
             Assert.Equal(Tx2Mac, rig.Rx1Vm.ActiveSourceId);
-            // the orchestrator forgot the layout too
-            Assert.False((await rig.Vm.AssignSlotAsync(rig.Rx1, 0, rig.Tx2)));
+            // the orchestrator forgot the layout too: a new Composer has nothing on screen to start from
+            await rig.Vm.OpenComposerAsync(rig.Rx1Vm);
+            Assert.Null(rig.Vm.ActiveComposer!.Draft);
+            Assert.Empty(rig.Vm.ActiveComposer.LiveBlocks);
         }
 
         [Fact]
@@ -309,7 +321,7 @@ namespace AvasRoutingTool.Tests
             rig.Client.ReceiverStates[Rx1Mac] = Rig.ExternalMultiView();
             await rig.Vm.RestoreStateAsync();
 
-            bool ok = await rig.Vm.ApplyLayoutAsync("single", rig.Rx1);
+            bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.Rx1Vm, "single");
 
             Assert.True(ok);
             Assert.Equal(new[] { $"genlock:{Rx1Mac}" }, rig.Client.MultiViewCalls);
@@ -317,18 +329,28 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ApplyingAPresetOverAnExternalMultiView_ReplacesTheBadgeWithEmptyWindows()
+        public async Task ChoosingAPresetOverAnExternalMultiView_StagesIt_AndTheFirstTakeReplacesTheBadge()
         {
             var rig = new Rig();
             rig.Client.ReceiverStates[Rx1Mac] = Rig.ExternalMultiView();
             await rig.Vm.RestoreStateAsync();
 
-            bool ok = await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx1);
+            bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.Rx1Vm, "matrix2x2");
 
             Assert.True(ok);
+            Assert.True(rig.Rx1Vm.IsExternalLayout); // staged only: the screen still runs the external layout
+            Assert.Empty(rig.Client.MultiViewCalls);
+            var composer = rig.Vm.ActiveComposer!;
+            Assert.Equal(4, composer.Blocks.Count);
+
+            composer.Arm(rig.Tx2Vm);
+            composer.TapBlock(0);
+            await composer.TakeAsync();
+
             Assert.False(rig.Rx1Vm.IsExternalLayout);
             Assert.True(rig.Rx1Vm.IsMultiView);
             Assert.Equal(4, rig.Rx1Vm.Slots.Count);
+            Assert.Contains($"{Rx1Mac}:2", rig.Client.Leaves); // the external layout's other subscription was left
         }
     }
 }

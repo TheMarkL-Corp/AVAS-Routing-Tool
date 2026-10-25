@@ -28,6 +28,9 @@ namespace AvasRoutingTool.ViewModels
         private string _externalLayoutText = string.Empty;
         private double _canvasAspect = 16.0 / 9.0;
         private List<int> _logicalOrder = new();
+        private bool _isLayoutMenuOpen;
+        private bool _hasDraft;
+        private SourceCardViewModel? _dropChoiceSource;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -55,8 +58,51 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Drop zones of the active multiview layout, painted back to front. Empty in Single View.</summary>
         public ObservableCollection<WindowSlotViewModel> Slots { get; } = new();
 
-        /// <summary>Header pill text: layout name in multiview, otherwise routed state.</summary>
-        public string ModeBadge => IsMultiView ? _layoutTitle : _isExternalLayout ? "EXTERNAL LAYOUT" : IsRouted ? "SINGLE VIEW" : "UNROUTED";
+        /// <summary>
+        /// Header pill text. In multiview: the layout and how many of its blocks carry a source on screen
+        /// ("MATRIX 2X2 · 3/4"); otherwise the routed state.
+        /// </summary>
+        public string ModeBadge => IsMultiView
+            ? $"{_layoutTitle.ToUpperInvariant()} · {Slots.Count(s => s.IsAssigned)}/{Slots.Count}"
+            : _isExternalLayout ? "EXTERNAL LAYOUT" : IsRouted ? "SINGLE VIEW" : "UNROUTED";
+
+        /// <summary>The header "Layout" menu: Single View, the four MultiView presets, Off. The layout on screen is selected.</summary>
+        public IReadOnlyList<LayoutItemViewModel> LayoutMenu { get; }
+
+        /// <summary>The header "Layout" menu is open.</summary>
+        public bool IsLayoutMenuOpen
+        {
+            get => _isLayoutMenuOpen;
+            set { if (_isLayoutMenuOpen == value) return; _isLayoutMenuOpen = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>The Composer was closed with changes that are not on screen ("DRAFT - not on screen", Resume). Set by <see cref="MainViewModel"/>.</summary>
+        public bool HasDraft
+        {
+            get => _hasDraft;
+            set { if (_hasDraft == value) return; _hasDraft = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>A source was dropped or tapped on this MultiView card: "Full screen (Single View)" or "Into a block...".</summary>
+        public bool IsDropChoiceOpen => _dropChoiceSource != null;
+
+        /// <summary>The source the drop choice is about; null when the choice is closed.</summary>
+        public SourceCardViewModel? DropChoiceSource => _dropChoiceSource;
+
+        public void OpenDropChoice(SourceCardViewModel source)
+        {
+            _dropChoiceSource = source ?? throw new ArgumentNullException(nameof(source));
+            OnPropertyChanged(nameof(DropChoiceSource));
+            OnPropertyChanged(nameof(IsDropChoiceOpen));
+        }
+
+        public void CloseDropChoice()
+        {
+            if (_dropChoiceSource == null) return;
+            _dropChoiceSource = null;
+            OnPropertyChanged(nameof(DropChoiceSource));
+            OnPropertyChanged(nameof(IsDropChoiceOpen));
+        }
 
         /// <summary>Lowest-numbered window that has no source yet, or null when all are filled / not multiview.</summary>
         public int? FirstEmptySlotIndex
@@ -129,7 +175,20 @@ namespace AvasRoutingTool.ViewModels
                 }
             }, _ => IsRouted || IsMultiView);
 
+            var catalog = LayoutItemViewModel.CreateCatalog();
+            LayoutMenu = catalog.Where(l => l.Id != "off").Concat(catalog.Where(l => l.Id == "off")).ToList();
+            SyncLayoutMenu();
+
             Slots.CollectionChanged += (_, _) => NotifyLayoutChanged();
+        }
+
+        private void SyncLayoutMenu()
+        {
+            foreach (var item in LayoutMenu)
+            {
+                bool selected = !_isExternalLayout && item.Id == _layoutId;
+                if (item.IsSelected != selected) item.IsSelected = selected;
+            }
         }
 
         /// <summary>Switches the card to a multiview layout with every window empty.</summary>
@@ -227,6 +286,7 @@ namespace AvasRoutingTool.ViewModels
 
         private void NotifyLayoutChanged()
         {
+            SyncLayoutMenu();
             OnPropertyChanged(nameof(LayoutId));
             OnPropertyChanged(nameof(IsMultiView));
             OnPropertyChanged(nameof(ModeBadge));

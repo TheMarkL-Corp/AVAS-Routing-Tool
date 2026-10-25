@@ -78,37 +78,24 @@ namespace AvasRoutingTool.Views
             vm.IsDragOver = false;
             var mainVm = Application.Current?.MainWindow?.DataContext as MainViewModel;
 
-            // 1. A layout tile: "off" turns the display off, anything else switches its layout.
+            // 1. A layout tile: as the card's Layout menu (a preset opens the Composer staged; Single View / Off as today).
             if (TryGetLayout(e, out var layout) && layout != null)
             {
-                if (string.Equals(layout.Id, "off", StringComparison.OrdinalIgnoreCase))
+                if (mainVm != null)
                 {
-                    if (vm.UnrouteCommand.CanExecute(null))
-                    {
-                        vm.UnrouteCommand.Execute(null);
-                    }
+                    await mainVm.ChooseLayoutFromCardAsync(vm, layout.Id);
                 }
-                else if (mainVm != null)
+                else if (string.Equals(layout.Id, "off", StringComparison.OrdinalIgnoreCase) && vm.UnrouteCommand.CanExecute(null))
                 {
-                    await mainVm.ApplyLayoutAsync(layout.Id, vm.Device);
+                    vm.UnrouteCommand.Execute(null);
                 }
                 return;
             }
 
-            // 2. A video source.
+            // 2. A video source: a MultiView card asks (drop choice), any other card routes it in Single View.
             if (TryGetSource(e, out var tx) && tx != null && mainVm != null)
             {
-                if (vm.IsMultiView)
-                {
-                    // Dropped beside the windows: use the first free window, otherwise ignore.
-                    if (vm.FirstEmptySlotIndex is int free)
-                    {
-                        await mainVm.AssignSlotAsync(vm.Device, free, tx);
-                    }
-                    return;
-                }
-
-                await mainVm.RouteVideoAsync(tx, vm.Device);
+                await mainVm.DropSourceAsync(vm, tx);
             }
         }
 
@@ -145,9 +132,10 @@ namespace AvasRoutingTool.Views
             e.Handled = true;
             vm.IsDragOver = false;
 
+            // A block of the live mini view is not a place to edit: the drop choice decides (Into a block... opens the Composer).
             if (Application.Current?.MainWindow?.DataContext is MainViewModel mainVm)
             {
-                await mainVm.AssignSlotAsync(vm.Device, slot.Index, tx);
+                await mainVm.DropSourceAsync(vm, tx);
             }
         }
     }

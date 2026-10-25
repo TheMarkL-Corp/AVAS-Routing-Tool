@@ -21,6 +21,8 @@ namespace AvasRoutingTool.ViewModels
         private double _fps;
         private bool _isStreaming;
         private bool _isRefreshing;
+        private bool _isArmed;
+        private int _usedInBlocks;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -59,6 +61,23 @@ namespace AvasRoutingTool.ViewModels
         {
             get => _previewBitmap;
             set { _previewBitmap = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Tapped to place: the next tap on a display routes it (Single View), inside the Composer it fills blocks.
+        /// At most one source is armed at a time; set by <see cref="MainViewModel"/>.
+        /// </summary>
+        public bool IsArmed
+        {
+            get => _isArmed;
+            set { if (_isArmed == value) return; _isArmed = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>How many blocks of the Composer's staged picture show this encoder ("in 2 blocks"); 0 outside the Composer.</summary>
+        public int UsedInBlocks
+        {
+            get => _usedInBlocks;
+            set { if (_usedInBlocks == value) return; _usedInBlocks = value; OnPropertyChanged(); }
         }
 
         public ICommand RefreshPreviewCommand { get; }

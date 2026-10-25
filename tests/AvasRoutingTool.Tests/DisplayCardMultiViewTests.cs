@@ -39,7 +39,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("pip", vm.LayoutId);
             Assert.Equal(new[] { 1, 0 }, vm.Slots.Select(s => s.Index).ToArray()); // back to front
             Assert.All(vm.Slots, s => Assert.False(s.IsAssigned));
-            Assert.Equal("PIP", vm.ModeBadge);
+            Assert.Equal("PIP · 0/2", vm.ModeBadge); // layout and fill: no block carries a source yet
             Assert.False(vm.IsRouted);
         }
 
@@ -166,6 +166,48 @@ namespace AvasRoutingTool.Tests
             vm.NotifyRoutingChanged();
 
             Assert.Equal("SINGLE VIEW", vm.ModeBadge);
+        }
+
+        [Fact]
+        public void ModeBadge_FollowsTheFill_AndIsRaised()
+        {
+            var vm = NewDisplay();
+            vm.ApplyLayout(Plan("side_by_side"), "Side-by-Side");
+            bool raised = false;
+            vm.PropertyChanged += (_, e) => raised |= e.PropertyName == nameof(DisplayCardViewModel.ModeBadge);
+
+            vm.AssignSlot(1, NewSource());
+
+            Assert.True(raised);
+            Assert.Equal("SIDE-BY-SIDE · 1/2", vm.ModeBadge);
+        }
+
+        [Fact]
+        public void DropChoice_OpensWithTheSource_AndCloses()
+        {
+            var vm = NewDisplay();
+            var src = NewSource();
+
+            vm.OpenDropChoice(src);
+            Assert.True(vm.IsDropChoiceOpen);
+            Assert.Same(src, vm.DropChoiceSource);
+
+            vm.CloseDropChoice();
+            Assert.False(vm.IsDropChoiceOpen);
+            Assert.Null(vm.DropChoiceSource);
+        }
+
+        [Fact]
+        public void LayoutMenu_MarksTheLayoutOnScreen()
+        {
+            var vm = NewDisplay();
+            Assert.True(vm.LayoutMenu.Single(l => l.Id == "single").IsSelected);
+
+            vm.ApplyLayout(Plan("pip"), "PIP");
+
+            Assert.True(vm.LayoutMenu.Single(l => l.Id == "pip").IsSelected);
+            Assert.False(vm.LayoutMenu.Single(l => l.Id == "single").IsSelected);
+            Assert.All(vm.LayoutMenu, l => Assert.True(l.IsAvailable));
         }
 
         [Fact]
