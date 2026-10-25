@@ -355,14 +355,15 @@ namespace AvasRoutingTool.Sdvoe
             return success;
         }
 
-        public async Task<bool> CreateMultiViewLayoutAsync(MultiView.MultiViewLayoutPlan plan)
+        public async Task<bool> CreateMultiViewLayoutAsync(MultiView.SurfacePlan surfacePlan, MultiView.MultiViewLayoutPlan plan)
         {
-            AppLogger.Info("MULTIVIEW", $"Creating layout '{plan.Name}' ({plan.Width}x{plan.Height}, {plan.Slots.Count} windows)");
+            string name = surfacePlan.LayoutName;
+            AppLogger.Info("MULTIVIEW", $"Creating layout '{name}' ({plan.Width}x{plan.Height}, {surfacePlan.Windows.Count} windows)");
 
-            if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateLayout(plan))) return false;
-            foreach (var slot in plan.Slots)
+            if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateLayout(name, plan.Width, plan.Height))) return false;
+            foreach (var window in surfacePlan.Windows)
             {
-                if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateWindow(plan, slot))) return false;
+                if (!await SendRestCallAsync(MultiView.MultiViewRequests.CreateWindow(name, window.Slot, window.Surface))) return false;
             }
             return true;
         }
@@ -375,11 +376,11 @@ namespace AvasRoutingTool.Sdvoe
             return await SendRestCallAsync(MultiView.MultiViewRequests.StartScaledStream(txMac));
         }
 
-        public Task<bool> SetMultiViewAsync(string rxMac, MultiView.MultiViewLayoutPlan plan, int fps,
+        public Task<bool> SetMultiViewAsync(string rxMac, string layoutName, int width, int height, int fps,
             IReadOnlyList<MultiView.MultiViewSubscription> subscriptions)
         {
-            AppLogger.Info("MULTIVIEW", $"Loading '{plan.Name}' on {NormalizeMac(rxMac)} with {subscriptions.Count} subscription(s)");
-            return SendRestCallAsync(MultiView.MultiViewRequests.SetMultiView(rxMac, plan.Name, plan.Width, plan.Height, fps, subscriptions));
+            AppLogger.Info("MULTIVIEW", $"Loading '{layoutName}' on {NormalizeMac(rxMac)} with {subscriptions.Count} subscription(s)");
+            return SendRestCallAsync(MultiView.MultiViewRequests.SetMultiView(rxMac, layoutName, width, height, fps, subscriptions));
         }
 
         public async Task<RxState?> ReadReceiverStateAsync(string rxMac)

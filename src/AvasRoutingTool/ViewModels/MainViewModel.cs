@@ -23,7 +23,13 @@ namespace AvasRoutingTool.ViewModels
         private readonly IRtpReceiver _rtpReceiver;
         private readonly MulticastIpManager _ipManager;
         private readonly RoutingOrchestrator _orchestrator;
-                private readonly MultiViewOrchestrator _multiView;
+        private readonly MultiViewOrchestrator _multiView;
+
+        /// <summary>
+        /// The multiview arrangement each card shows, by receiver MAC (interim until the Composer: every drop is
+        /// taken at once, so this is the live draft, or an empty one on a layout chosen but not yet filled).
+        /// </summary>
+        private readonly System.Collections.Generic.Dictionary<string, MultiViewDraft> _drafts = new();
 
         /// <summary>Subscription indexes of multiview layouts found on decoders that this tool did not create, by receiver MAC.</summary>
         private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<int>> _externalSubscriptions = new();
@@ -274,6 +280,7 @@ namespace AvasRoutingTool.ViewModels
             }
 
             _externalSubscriptions.Remove(key);
+            _drafts.Remove(key);
 
             if (!state.IsMultiView)
             {
@@ -308,21 +315,12 @@ namespace AvasRoutingTool.ViewModels
 
             if (restored.IsRecognised)
             {
-                var plan = restored.Plan!;
-                var assignments = new System.Collections.Generic.Dictionary<int, AvasDevice>();
-                var sourceVms = new System.Collections.Generic.Dictionary<int, SourceCardViewModel>();
-                foreach (var s in restored.Sources)
-                {
-                    var vm = FindSource(s.Mac) ?? new SourceCardViewModel(UnknownSource(s.Mac, s.Name));
-                    sourceVms[s.SlotIndex] = vm;
-                    assignments[s.SlotIndex] = vm.Device;
-                }
-
-                _multiView.Adopt(rx, plan, restored.Canvas, assignments);
-                string title = Layouts.FirstOrDefault(l => l.Id == plan.Id)?.Title ?? plan.Id;
-                display.ApplyLayout(plan, title.ToUpperInvariant(), _multiView.DescribeCanvas(rx));
-                foreach (var (slot, vm) in sourceVms) display.AssignSlot(slot, vm);
-                AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs {plan.Id} with {sourceVms.Count} source(s).");
+                var draft = restored.Draft!;
+                _multiView.Adopt(rx, draft, restored.Canvas);
+                _drafts[key] = draft.Clone();
+                display.ApplyLayout(draft.Plan, LayoutTitle(draft.Plan.Id), _multiView.DescribeCanvas(rx));
+                ShowDraft(display, draft);
+                AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs {draft.Plan.Id} with {draft.Placements.Count} filled block(s).");
             }
             else
             {
@@ -345,18 +343,16 @@ namespace AvasRoutingTool.ViewModels
         {
             if (sourceTx == null || displayRx == null) return false;
 
-            if (_multiView.IsMultiView(displayRx))
+            // A multiview decoder must go back to genlocked full screen before a plain join takes effect.
+            if (_multiView.IsMultiView(displayRx) && !await _multiView.ReturnToSingleViewAsync(displayRx))
             {
-                // A multiview decoder must go back to genlocked full screen before a plain join takes effect.
-                if (!await _multiView.ReturnToSingleViewAsync(displayRx))
-                {
-                    AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
-                    return false;
-                }
-                Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId)?.ClearLayout();
+                AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
+                return false;
             }
 
             string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
+            if (_drafts.Remove(rxKey))
+                Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId)?.ClearLayout();
             if (_externalSubscriptions.ContainsKey(rxKey))
             {
                 // Found running a layout set elsewhere: leave multiview first or the join would not take effect.
@@ -403,7 +399,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
                 displayVm?.SetPreviewSource(null);
-                if (wasMultiView) displayVm?.ClearLayout();
+                if (_drafts.Remove(rxKey)) displayVm?.ClearLayout(); // the card showed a layout, live or only chosen
                 if (wasExternal)
                 {
                     _externalSubscriptions.Remove(rxKey);
@@ -451,14 +447,13 @@ namespace AvasRoutingTool.ViewModels
                     return true;
                 }
 
-                if (!_multiView.IsMultiView(displayRx)) return true;
-
-                if (!await _multiView.ReturnToSingleViewAsync(displayRx))
+                // A layout chosen but never filled changed no device: only the card goes back.
+                if (_multiView.IsMultiView(displayRx) && !await _multiView.ReturnToSingleViewAsync(displayRx))
                 {
                     displayVm.LastError = $"'{displayRx.DeviceName}' did not accept the switch back to Single View.";
                     return false;
                 }
-                displayVm.ClearLayout();
+                if (_drafts.Remove(rxKey)) displayVm.ClearLayout();
                 return true;
             }
 
@@ -473,9 +468,10 @@ namespace AvasRoutingTool.ViewModels
                 : Sources.FirstOrDefault(s => s.MacAddress == displayRx.ActiveSourceId)?.Device;
 
             MultiViewLayoutPlan plan;
+            MultiViewCanvas canvas;
             try
             {
-                plan = await _multiView.BeginLayoutAsync(displayRx, layoutId);
+                (plan, canvas) = await _multiView.PlanForDisplayAsync(displayRx, layoutId);
             }
             catch (ArgumentException ex)
             {
@@ -488,47 +484,85 @@ namespace AvasRoutingTool.ViewModels
             displayRx.ActiveSourceId = string.Empty;
             displayRx.ActiveSourceName = string.Empty;
 
-            string title = Layouts.FirstOrDefault(l => l.Id == layoutId)?.Title ?? layoutId;
-            displayVm.ApplyLayout(plan, title.ToUpperInvariant(), _multiView.DescribeCanvas(displayRx));
+            _drafts[rxKey] = new MultiViewDraft(plan);
+            displayVm.ApplyLayout(plan, LayoutTitle(layoutId), MultiViewCanvasPolicy.Summarize(canvas, plan));
             displayVm.NotifyRoutingChanged();
             AppLogger.Info("MULTIVIEW", $"'{displayRx.DeviceName}' switched to {plan.Id} ({plan.Slots.Count} windows).");
 
             return carried == null || await AssignSlotAsync(displayRx, plan.Slots[0].Index, carried);
         }
 
-        /// <summary>Places a source in one window of a display's multiview layout.</summary>
+        /// <summary>
+        /// Places a source in one block of the card's multiview layout and takes the result at once (interim until
+        /// the Composer stages drops). A source already shown in a block of the same size is added, not moved.
+        /// </summary>
         public async Task<bool> AssignSlotAsync(AvasDevice displayRx, int slotIndex, AvasDevice sourceTx)
         {
             if (displayRx == null || sourceTx == null) return false;
 
             var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
-            if (displayVm == null) return false;
+            string rxKey = SdvoeClient.NormalizeMac(displayRx.DeviceId);
+            if (displayVm == null || !_drafts.TryGetValue(rxKey, out var shown)) return false;
 
-            var result = await _multiView.AssignAsync(displayRx, slotIndex, sourceTx);
-
-            // The display was swapped since the layout was chosen: redraw the windows for its real output format.
-            if (result.PlanChanged && result.Plan != null)
+            bool Refuse(string? reason)
             {
-                string title = Layouts.FirstOrDefault(l => l.Id == result.Plan.Id)?.Title ?? result.Plan.Id;
-                displayVm.ApplyLayout(result.Plan, title.ToUpperInvariant(), _multiView.DescribeCanvas(displayRx));
-            }
-
-            if (!result.Success)
-            {
-                displayVm.LastError = result.Error;
-                AppLogger.Warn("MULTIVIEW", $"Window {slotIndex} on '{displayRx.DeviceName}' refused '{sourceTx.DeviceName}': {result.Error}");
+                displayVm.LastError = reason;
+                AppLogger.Warn("MULTIVIEW", $"Block {slotIndex} on '{displayRx.DeviceName}' refused '{sourceTx.DeviceName}': {reason}");
                 return false;
             }
 
-            foreach (int cleared in result.ClearedSlots ?? Array.Empty<int>())
-                displayVm.ClearSlot(cleared);
+            if (!sourceTx.IsTransmitter) return Refuse($"'{sourceTx.DeviceName}' is not a transmitter.");
 
-            var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == sourceTx.DeviceId) ?? new SourceCardViewModel(sourceTx);
-            displayVm.AssignSlot(slotIndex, sourceVm);
+            var draft = shown.Clone();
+            var placed = DraftValidator.CanPlace(draft, slotIndex, sourceTx.DeviceId, sourceTx.DeviceName,
+                _multiView.UsesExcept(displayRx), isOnline: _ => sourceTx.IsActive);
+            if (!placed.Ok) return Refuse(placed.Reason);
+            draft.Place(slotIndex, sourceTx.DeviceId, sourceTx.DeviceName);
+
+            var result = await _multiView.TakeAsync(displayRx, draft);
+
+            // The display was swapped since the layout was chosen: redraw the blocks for its real output and take again.
+            bool redrawn = false;
+            if (result.Outcome == TakeOutcome.DisplayChanged && result.NewPlan != null)
+            {
+                draft = draft.WithLayout(result.NewPlan);
+                redrawn = true;
+                result = await _multiView.TakeAsync(displayRx, draft);
+            }
+
+            bool applied = result.Outcome is TakeOutcome.Applied or TakeOutcome.NothingToTake;
+            if (redrawn)
+            {
+                displayVm.ApplyLayout(draft.Plan, LayoutTitle(draft.Plan.Id), applied ? _multiView.DescribeCanvas(displayRx) : string.Empty);
+                if (!applied) _drafts[rxKey] = new MultiViewDraft(draft.Plan); // the card now shows the redrawn, empty blocks
+            }
+
+            if (!applied) return Refuse(result.Error);
+
+            _drafts[rxKey] = draft;
+            ShowDraft(displayVm, draft);
             displayVm.LastError = null;
             displayVm.NotifyRoutingChanged();
             return true;
         }
+
+        /// <summary>Makes the card's blocks show the draft's sources (only the blocks that differ are touched).</summary>
+        private void ShowDraft(DisplayCardViewModel display, MultiViewDraft draft)
+        {
+            foreach (var slot in display.Slots.ToList())
+            {
+                draft.Placements.TryGetValue(slot.Index, out var placement);
+                string want = placement == null ? string.Empty : SdvoeClient.NormalizeMac(placement.SourceMac);
+                if (SdvoeClient.NormalizeMac(slot.SourceMac) == want) continue;
+
+                display.AssignSlot(slot.Index, placement == null
+                    ? null
+                    : FindSource(placement.SourceMac) ?? new SourceCardViewModel(UnknownSource(placement.SourceMac, placement.SourceName)));
+            }
+        }
+
+        private string LayoutTitle(string layoutId) =>
+            (Layouts.FirstOrDefault(l => l.Id == layoutId)?.Title ?? layoutId).ToUpperInvariant();
 
         private void OnDeviceStateChanged(string mac, bool isOnline)
         {

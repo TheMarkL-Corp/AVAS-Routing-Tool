@@ -21,8 +21,11 @@ namespace AvasRoutingTool.Sdvoe
         Task<bool> StartStream1ScalerAsync(string txMac, string multicastIp, int port = 5004);
         Task<bool> StopStream1ScalerAsync(string txMac);
 
-        /// <summary>Creates (or overwrites) the layout and all its windows on the Control Server.</summary>
-        Task<bool> CreateMultiViewLayoutAsync(MultiView.MultiViewLayoutPlan plan);
+        /// <summary>
+        /// Creates (or overwrites) the layout <see cref="MultiView.SurfacePlan.LayoutName"/> on the Control Server at
+        /// the plan's canvas size, with one window per planned window (a window without a surface is black).
+        /// </summary>
+        Task<bool> CreateMultiViewLayoutAsync(MultiView.SurfacePlan surfacePlan, MultiView.MultiViewLayoutPlan plan);
 
         /// <summary>Sizes a transmitter's scaled stream to its multiview window and starts HDMI stream 1.</summary>
         Task<bool> PrepareSourceScalerAsync(string txMac, int width, int height);
@@ -39,8 +42,8 @@ namespace AvasRoutingTool.Sdvoe
         /// </summary>
         Task<bool?> ReadStream1FrameDividerAsync(string txMac);
 
-        /// <summary>Puts a receiver into multiview, loads the layout and applies the subscriptions.</summary>
-        Task<bool> SetMultiViewAsync(string rxMac, MultiView.MultiViewLayoutPlan plan, int fps,
+        /// <summary>Puts a receiver into multiview, loads the layout and applies the subscriptions, in one call.</summary>
+        Task<bool> SetMultiViewAsync(string rxMac, string layoutName, int width, int height, int fps,
             IReadOnlyList<MultiView.MultiViewSubscription> subscriptions);
 
         /// <summary>

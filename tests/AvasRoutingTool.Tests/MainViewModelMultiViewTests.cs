@@ -122,6 +122,8 @@ namespace AvasRoutingTool.Tests
             await rig.Vm.ApplyLayoutAsync("single", rig.Rx);
 
             Assert.Empty(rig.RxVm.CanvasInfo);
+            Assert.False(rig.RxVm.IsMultiView);
+            Assert.Empty(rig.Client.MultiViewCalls); // nothing was taken, so the decoder is still in Single View
         }
 
         [Fact]
@@ -171,16 +173,61 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task AssignSlot_MovingASourceEmptiesItsOldWindow()
+        public async Task AssignSlot_TheSameSourceInASecondEqualBlock_IsAddedNotMoved()
         {
             var rig = new Rig();
             await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
             await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
 
-            await rig.Vm.AssignSlotAsync(rig.Rx, 3, rig.Tx1);
+            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx, 3, rig.Tx1);
 
-            Assert.False(rig.RxVm.Slots.Single(s => s.Index == 0).IsAssigned);
-            Assert.True(rig.RxVm.Slots.Single(s => s.Index == 3).IsAssigned);
+            Assert.True(ok);
+            Assert.Equal("TX1", rig.RxVm.Slots.Single(s => s.Index == 0).SourceName);
+            Assert.Equal("TX1", rig.RxVm.Slots.Single(s => s.Index == 3).SourceName);
+            Assert.Single(rig.Client.LastSubscriptions!); // one encoder, one subscription read by both windows
+        }
+
+        [Fact]
+        public async Task AssignSlot_TheSameSourceInABlockOfAnotherSize_IsRefusedWithoutHardwareCalls()
+        {
+            var rig = new Rig();
+            await rig.Vm.ApplyLayoutAsync("quad_1_3", rig.Rx);
+            await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1); // the big focus block
+            rig.Client.MultiViewCalls.Clear();
+
+            bool ok = await rig.Vm.AssignSlotAsync(rig.Rx, 1, rig.Tx1);
+
+            Assert.False(ok);
+            Assert.Contains("One encoder has one size per layout", rig.RxVm.LastError);
+            Assert.False(rig.RxVm.Slots.Single(s => s.Index == 1).IsAssigned);
+            Assert.Empty(rig.Client.MultiViewCalls);
+        }
+
+        [Fact]
+        public async Task AssignSlot_OfflineOrNonTransmitterSource_IsRefusedWithoutHardwareCalls()
+        {
+            var rig = new Rig();
+            await rig.Vm.ApplyLayoutAsync("matrix2x2", rig.Rx);
+            rig.Tx1.IsActive = false;
+            var notTx = new AvasDevice { DeviceId = "rx9", DeviceName = "RX9", IsReceiver = true, IsActive = true };
+
+            bool offline = await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1);
+            Assert.Contains("TX1 is offline", rig.RxVm.LastError);
+            bool wrongKind = await rig.Vm.AssignSlotAsync(rig.Rx, 0, notTx);
+
+            Assert.False(offline);
+            Assert.False(wrongKind);
+            Assert.Contains("not a transmitter", rig.RxVm.LastError);
+            Assert.Empty(rig.Client.MultiViewCalls);
+        }
+
+        [Fact]
+        public async Task AssignSlot_OnADisplayWithoutALayout_IsRefused()
+        {
+            var rig = new Rig();
+
+            Assert.False(await rig.Vm.AssignSlotAsync(rig.Rx, 0, rig.Tx1));
+            Assert.Empty(rig.Client.MultiViewCalls);
         }
 
         [Fact]

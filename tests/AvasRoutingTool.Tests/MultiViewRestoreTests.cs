@@ -32,6 +32,11 @@ namespace AvasRoutingTool.Tests
             Assert.Equal((0, "74fe488b07bb", "TX2_DUAL LINK_SFPA"), (sources[0].SlotIndex, sources[0].Mac, sources[0].Name));
             Assert.Equal((1, "0016c0589c1e", "VEGA_1100"), (sources[1].SlotIndex, sources[1].Mac, sources[1].Name));
             Assert.Equal(new[] { 1, 2 }, restored.SubscriptionIndexes.OrderBy(i => i).ToArray());
+
+            var draft = restored.Draft!;
+            Assert.Same(restored.Plan, draft.Plan);
+            Assert.Equal(new[] { 0, 1 }, draft.Placements.Keys.OrderBy(k => k).ToArray());
+            Assert.Equal("VEGA_1100", draft.Placements[1].SourceName);
         }
 
         [Fact]
@@ -46,6 +51,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.False(restored.IsRecognised);
             Assert.Null(restored.Plan);
+            Assert.Null(restored.Draft);
             Assert.Equal("compatibility_4k_2x2", restored.LayoutName);
             Assert.Equal((3840, 2160), (restored.Canvas.Width, restored.Canvas.Height));
             Assert.Equal(2, restored.Sources.Count);
@@ -98,9 +104,6 @@ namespace AvasRoutingTool.Tests
 
     public class MultiViewOrchestratorAdoptTests
     {
-        private static AvasDevice Tx(string mac, string name = "TX") =>
-            new() { DeviceId = mac, DeviceName = name, IsTransmitter = true, IsActive = true };
-
         private static AvasDevice Rx(string mac = "rx1") =>
             new() { DeviceId = mac, DeviceName = "RX " + mac, IsReceiver = true, IsActive = true };
 
@@ -112,35 +115,45 @@ namespace AvasRoutingTool.Tests
 
         private static MultiViewCanvas Canvas(int w, int h, int fps) => new(w, h, fps, false, $"{w}x{h}@{fps} (running)");
 
+        private static MultiViewDraft Live(int w, int h, params (int Slot, string Mac)[] placements)
+        {
+            var draft = new MultiViewDraft(MultiViewPresets.Build("matrix2x2", w, h));
+            foreach (var (slot, mac) in placements) draft.Place(slot, mac, mac.ToUpperInvariant());
+            return draft;
+        }
+
         [Fact]
         public void Adopt_RegistersTheSessionWithoutTouchingAnyDevice()
         {
             var (o, c) = Create();
             var rx = Rx();
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
 
-            o.Adopt(rx, plan, Canvas(1920, 1080, 60), new Dictionary<int, AvasDevice> { [0] = Tx("tx1") });
+            o.Adopt(rx, Live(1920, 1080, (0, "tx1")), Canvas(1920, 1080, 60));
 
             Assert.True(o.IsMultiView(rx));
-            Assert.Equal("tx1", o.GetAssignments(rx)[0].DeviceId);
+            Assert.Equal("tx1", o.GetLive(rx)!.Placements[0].SourceMac);
+            Assert.False(o.CanUndo(rx));
             Assert.Empty(c.MultiViewCalls);
             Assert.Equal(0, c.EdidReads);
         }
 
         [Fact]
-        public async Task AssignAfterAdopt_ReloadsWithoutRecreatingTheLayoutOrRereadingTheEdid()
+        public async Task TakeAfterAdopt_KeepsTheRestoredSourceAndRewritesTheLayoutUnderThisDisplaysName()
         {
             var (o, c) = Create();
             var rx = Rx();
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
-            o.Adopt(rx, plan, Canvas(1920, 1080, 60), new Dictionary<int, AvasDevice> { [0] = Tx("tx1") });
+            var restored = Live(1920, 1080, (0, "tx1"));
+            o.Adopt(rx, restored, Canvas(1920, 1080, 60));
+            var next = o.GetLive(rx)!;
+            next.Place(1, "tx2", "TX2");
 
-            var result = await o.AssignAsync(rx, 1, Tx("tx2"));
+            var result = await o.TakeAsync(rx, next);
 
-            Assert.True(result.Success);
-            Assert.DoesNotContain(c.MultiViewCalls, x => x.StartsWith("layout:"));
-            Assert.Equal(0, c.EdidReads);
+            Assert.Equal(TakeOutcome.Applied, result.Outcome);
+            Assert.Contains("layout:avas_rx1_matrix2x2_1920x1080", c.MultiViewCalls);
+            Assert.Equal(1, c.EdidReads); // the display is checked before the hardware is touched
             Assert.Equal(2, c.LastSubscriptions!.Count); // the restored source stays
+            Assert.True(o.CanUndo(rx)); // back to what was found running
         }
 
         [Fact]
@@ -148,8 +161,7 @@ namespace AvasRoutingTool.Tests
         {
             var (o, c) = Create();
             var rx = Rx();
-            var plan = MultiViewPresets.Build("matrix2x2", 3840, 2160); // heavy at 60 fps
-            o.Adopt(rx, plan, Canvas(3840, 2160, 60), new Dictionary<int, AvasDevice> { [0] = Tx("tx1") });
+            o.Adopt(rx, Live(3840, 2160, (0, "tx1")), Canvas(3840, 2160, 60)); // heavy at 60 fps
 
             await o.TurnOffAsync(rx);
 
@@ -161,12 +173,23 @@ namespace AvasRoutingTool.Tests
         {
             var (o, c) = Create();
             var rx = Rx();
-            o.Adopt(rx, MultiViewPresets.Build("matrix2x2", 1920, 1080), Canvas(1920, 1080, 60), new Dictionary<int, AvasDevice>());
+            o.Adopt(rx, Live(1920, 1080), Canvas(1920, 1080, 60));
 
             Assert.True(await o.ReturnToSingleViewAsync(rx));
 
             Assert.Equal(new[] { "genlock:rx1" }, c.MultiViewCalls);
             Assert.False(o.IsMultiView(rx));
+        }
+
+        [Fact]
+        public void AdoptedLayout_CountsForTheOtherDisplays()
+        {
+            var (o, _) = Create();
+            o.Adopt(Rx("rx1"), Live(1920, 1080, (0, "tx1")), Canvas(1920, 1080, 60));
+
+            var use = Assert.Single(o.UsesExcept(Rx("rx2")));
+
+            Assert.Equal(("RX rx1", "tx1", 960, 540), (use.DisplayName, use.SourceMac, use.Width, use.Height));
         }
 
         [Fact]

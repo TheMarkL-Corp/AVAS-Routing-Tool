@@ -33,9 +33,13 @@ namespace AvasRoutingTool.Tests
             return Task.FromResult(true);
         }
 
+        /// <summary>Every leave, as "rxMac:streamIndex".</summary>
+        public System.Collections.Generic.List<string> Leaves { get; } = new();
+
         public Task<bool> LeaveStreamAsync(string rxMac, string streamType, int streamIndex)
         {
             LastUnroutedRx = rxMac;
+            Leaves.Add($"{rxMac}:{streamIndex}");
             return Task.FromResult(true);
         }
 
@@ -59,7 +63,7 @@ namespace AvasRoutingTool.Tests
             return Task.FromResult(true);
         }
 
-        /// <summary>Ordered log of multiview calls, e.g. "scaler:74fe..:960x540", "layout:avas_..", "multiview:rx:layout:3,1".</summary>
+        /// <summary>Ordered log of multiview calls, e.g. "scaler:74fe..:960x540", "layout:avas_..", "multiview:rx:layout:tx1@1,tx2@2".</summary>
         public System.Collections.Generic.List<string> MultiViewCalls { get; } = new();
 
         /// <summary>When set, the multiview call whose log entry starts with this prefix reports failure.</summary>
@@ -75,18 +79,25 @@ namespace AvasRoutingTool.Tests
             return Task.FromResult(FailMultiViewPrefix == null || !entry.StartsWith(FailMultiViewPrefix));
         }
 
-        public Task<bool> CreateMultiViewLayoutAsync(AvasRoutingTool.Sdvoe.MultiView.MultiViewLayoutPlan plan) =>
-            Record($"layout:{plan.Name}");
+        /// <summary>The windows and surfaces of the last layout created.</summary>
+        public AvasRoutingTool.Sdvoe.MultiView.SurfacePlan? LastSurfacePlan { get; private set; }
+
+        public Task<bool> CreateMultiViewLayoutAsync(AvasRoutingTool.Sdvoe.MultiView.SurfacePlan surfacePlan,
+            AvasRoutingTool.Sdvoe.MultiView.MultiViewLayoutPlan plan)
+        {
+            LastSurfacePlan = surfacePlan;
+            return Record($"layout:{surfacePlan.LayoutName}");
+        }
 
         public Task<bool> PrepareSourceScalerAsync(string txMac, int width, int height) =>
             Record($"scaler:{txMac}:{width}x{height}");
 
-        public Task<bool> SetMultiViewAsync(string rxMac, AvasRoutingTool.Sdvoe.MultiView.MultiViewLayoutPlan plan, int fps,
+        public Task<bool> SetMultiViewAsync(string rxMac, string layoutName, int width, int height, int fps,
             System.Collections.Generic.IReadOnlyList<AvasRoutingTool.Sdvoe.MultiView.MultiViewSubscription> subscriptions)
         {
             LastSubscriptions = subscriptions;
             LastFps = fps;
-            return Record($"multiview:{rxMac}:{plan.Name}:{string.Join(",", System.Linq.Enumerable.Select(subscriptions, s => $"{s.SourceMac}@{s.SubscriptionIndex}"))}");
+            return Record($"multiview:{rxMac}:{layoutName}:{string.Join(",", System.Linq.Enumerable.Select(subscriptions, s => $"{s.SourceMac}@{s.SubscriptionIndex}"))}");
         }
 
         public Task<bool> SetGenlockedAsync(string rxMac) => Record($"genlock:{rxMac}");

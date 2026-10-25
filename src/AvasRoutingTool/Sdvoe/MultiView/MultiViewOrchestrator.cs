@@ -7,48 +7,55 @@ using AvasRoutingTool.Logging;
 
 namespace AvasRoutingTool.Sdvoe.MultiView
 {
-    /// <param name="Plan">The layout in force after the call (it can change if the display changed).</param>
-    /// <param name="PlanChanged">True when the display's EDID gave a different canvas than the one the card was showing.</param>
-    public sealed record MultiViewResult(
-        bool Success,
-        string? Error = null,
-        IReadOnlyList<int>? ClearedSlots = null,
-        MultiViewLayoutPlan? Plan = null,
-        bool PlanChanged = false)
+    public enum TakeOutcome { Applied, NothingToTake, DisplayChanged, Rejected }
+
+    /// <param name="Error">Operator-readable reason for <see cref="TakeOutcome.Rejected"/> or <see cref="TakeOutcome.DisplayChanged"/>.</param>
+    /// <param name="NewPlan">For <see cref="TakeOutcome.DisplayChanged"/>: the same layout rebuilt for the display now attached.</param>
+    public sealed record TakeResult(TakeOutcome Outcome, string? Error = null, MultiViewLayoutPlan? NewPlan = null)
     {
-        public static MultiViewResult Fail(string error, MultiViewLayoutPlan? plan = null, bool planChanged = false) =>
-            new(false, error, null, plan, planChanged);
+        public static TakeResult Reject(string error) => new(TakeOutcome.Rejected, error);
     }
 
     /// <summary>
-    /// Owns the multiview state and hardware sequence of every decoder.
-    /// The output format always comes from the decoder's display: the EDID is read when a layout is
-    /// applied and again right before the first hardware apply (the display may have been swapped).
-    /// Layouts are applied lazily - <see cref="BeginLayoutAsync"/> changes no device; the first
-    /// <see cref="AssignAsync"/> prepares each source's scaled stream, creates the layout and loads it
-    /// (the API rejects an empty subscription list).
+    /// Owns what each decoder shows in multiview and the hardware sequence that puts it there.
+    /// A whole staged draft goes live at once (<see cref="TakeAsync"/>): the display's EDID is read again, every
+    /// distinct encoder is scaled (and halved when the layout is heavy), the layout is written and loaded with one
+    /// <c>set:multiview</c>. A refused Take leaves what is on screen unchanged; the previous live draft is kept for
+    /// a single-level <see cref="UndoAsync"/>.
     /// </summary>
     public sealed class MultiViewOrchestrator
     {
+        private const string NothingPlacedText = "Place at least one source (Step 2).";
+
+        /// <summary>One display that has a live multiview. Exists only while <see cref="Live"/> is on its screen.</summary>
         private sealed class Session
         {
-            public Session(MultiViewLayoutPlan plan, MultiViewCanvas canvas)
+            public Session(string displayName, MultiViewDraft live, MultiViewCanvas canvas)
             {
-                Plan = plan;
+                DisplayName = displayName;
+                Live = live;
                 Canvas = canvas;
             }
 
-            public MultiViewLayoutPlan Plan { get; set; }
+            public string DisplayName { get; set; }
+
+            /// <summary>What is on the screen now.</summary>
+            public MultiViewDraft Live { get; set; }
+
+            /// <summary>What was on the screen before the last Take, for Undo.</summary>
+            public MultiViewDraft? Previous { get; set; }
+
             public MultiViewCanvas Canvas { get; set; }
-            public Dictionary<int, AvasDevice> Assignments { get; } = new();
-            public bool LayoutCreated { get; set; }
 
             /// <summary>Names of sources whose frame divider was refused (they run at full rate).</summary>
-            public HashSet<string> DividerRefused { get; } = new();
+            public IReadOnlySet<string> DividerRefused { get; set; } = new HashSet<string>();
 
             /// <summary>Stream 1 would exceed the bandwidth guideline at full rate, so sources are halved.</summary>
-            public bool NeedsHalfRate => MultiViewCanvasPolicy.NeedsFrameDivider(Plan, Canvas.Fps);
+            public bool NeedsHalfRate => MultiViewCanvasPolicy.NeedsFrameDivider(Live.Plan, Canvas.Fps);
         }
+
+        /// <summary>What a successful send leaves behind, to be committed to the session.</summary>
+        private sealed record Sent(MultiViewCanvas Canvas, IReadOnlySet<string> DividerRefused);
 
         private readonly ISdvoeClient _client;
         private readonly MultiViewCanvas _fallback;
@@ -65,43 +72,123 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             _fallback = fallback ?? MultiViewCanvasPolicy.DefaultFallback;
         }
 
+        /// <summary>True when the display has a live multiview (taken or adopted).</summary>
         public bool IsMultiView(AvasDevice rx) => _sessions.ContainsKey(Key(rx));
 
-        public MultiViewLayoutPlan? GetPlan(AvasDevice rx) =>
-            _sessions.TryGetValue(Key(rx), out var s) ? s.Plan : null;
+        public MultiViewLayoutPlan? GetPlan(AvasDevice rx) => Find(rx)?.Live.Plan;
 
-        public MultiViewCanvas? GetCanvas(AvasDevice rx) =>
-            _sessions.TryGetValue(Key(rx), out var s) ? s.Canvas : null;
+        public MultiViewCanvas? GetCanvas(AvasDevice rx) => Find(rx)?.Canvas;
+
+        /// <summary>A copy of what is on the display's screen, or null when it has no live multiview.</summary>
+        public MultiViewDraft? GetLive(AvasDevice rx) => Find(rx)?.Live.Clone();
+
+        public bool CanUndo(AvasDevice rx) => Find(rx)?.Previous != null;
 
         /// <summary>One line describing the output format (and a bandwidth note when high), for the card.</summary>
         public string DescribeCanvas(AvasDevice rx)
         {
-            if (!_sessions.TryGetValue(Key(rx), out var s)) return string.Empty;
+            var s = Find(rx);
+            if (s == null) return string.Empty;
 
-            string text = MultiViewCanvasPolicy.Summarize(s.Canvas, s.Plan);
+            string text = MultiViewCanvasPolicy.Summarize(s.Canvas, s.Live.Plan);
             if (s.DividerRefused.Count > 0)
                 text += $" · frame divider refused by {string.Join(", ", s.DividerRefused.OrderBy(n => n))}; running at full rate";
             return text;
         }
 
-        public IReadOnlyDictionary<int, AvasDevice> GetAssignments(AvasDevice rx) =>
-            _sessions.TryGetValue(Key(rx), out var s)
-                ? new Dictionary<int, AvasDevice>(s.Assignments)
-                : new Dictionary<int, AvasDevice>();
+        /// <summary>
+        /// Every block of every other display's live layout: which encoder it shows at what size. One encoder has one
+        /// scaler size, so these constrain what this display may take (<see cref="DraftValidator"/>).
+        /// </summary>
+        public IEnumerable<OtherDisplayUse> UsesExcept(AvasDevice rx)
+        {
+            string key = Key(rx);
+            return _sessions
+                .Where(pair => pair.Key != key)
+                .SelectMany(pair => pair.Value.Live.Plan.Slots
+                    .Where(slot => pair.Value.Live.Placements.ContainsKey(slot.Index))
+                    .Select(slot => new OtherDisplayUse(
+                        pair.Value.DisplayName, pair.Value.Live.Placements[slot.Index].SourceMac, slot.Width, slot.Height)))
+                .ToList();
+        }
 
         /// <summary>
-        /// Registers a layout found already running on a decoder (restored from the hardware) so the next drop
-        /// simply reloads it. Changes no device. Dividers already on are not ours and are never switched back.
+        /// Registers a layout found already running on a decoder (restored from the hardware). Changes no device.
+        /// Dividers already on are not ours and are never switched back.
         /// </summary>
-        public void Adopt(AvasDevice rx, MultiViewLayoutPlan plan, MultiViewCanvas canvas, IReadOnlyDictionary<int, AvasDevice> assignments)
-        {
-            var session = new Session(plan, canvas) { LayoutCreated = true };
-            foreach (var a in assignments) session.Assignments[a.Key] = a.Value;
-            _sessions[Key(rx)] = session;
-        }
+        public void Adopt(AvasDevice rx, MultiViewDraft live, MultiViewCanvas canvas) =>
+            _sessions[Key(rx)] = new Session(rx.DeviceName, live.Clone(), canvas);
 
         /// <summary>Drops what we believe about a decoder (the hardware says otherwise). Changes no device.</summary>
         public void Forget(AvasDevice rx) => _sessions.Remove(Key(rx));
+
+        /// <summary>
+        /// The layout sized to the display's EDID, and the output format it will run at. Only reads from the device:
+        /// no session is created and nothing is changed.
+        /// </summary>
+        public async Task<(MultiViewLayoutPlan Plan, MultiViewCanvas Canvas)> PlanForDisplayAsync(AvasDevice rx, string layoutId)
+        {
+            var canvas = await ResolveCanvasAsync(rx);
+            return (MultiViewPresets.Build(layoutId, canvas.Width, canvas.Height), canvas);
+        }
+
+        /// <summary>Puts the whole draft on the display's screen, or changes nothing.</summary>
+        public async Task<TakeResult> TakeAsync(AvasDevice rx, MultiViewDraft draft)
+        {
+            ArgumentNullException.ThrowIfNull(draft);
+            await _gate.WaitAsync();
+            try
+            {
+                if (draft.Placements.Count == 0) return TakeResult.Reject(NothingPlacedText);
+
+                var session = Find(rx);
+                if (session != null && SameLayout(draft, session.Live)) return new TakeResult(TakeOutcome.NothingToTake);
+
+                var taken = draft.Clone();
+                var (result, sent) = await SendAsync(rx, taken);
+                if (sent == null) return result;
+
+                if (session == null)
+                {
+                    _sessions[Key(rx)] = new Session(rx.DeviceName, taken, sent.Canvas) { DividerRefused = sent.DividerRefused };
+                }
+                else
+                {
+                    session.Previous = session.Live;
+                    Commit(session, rx, taken, sent);
+                }
+                return result;
+            }
+            finally
+            {
+                await RestoreUnusedDividersAsync();
+                _gate.Release();
+            }
+        }
+
+        /// <summary>Takes the previous live draft again (single level: afterwards there is nothing left to undo).</summary>
+        public async Task<TakeResult> UndoAsync(AvasDevice rx)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var session = Find(rx);
+                if (session?.Previous == null) return new TakeResult(TakeOutcome.NothingToTake);
+
+                var previous = session.Previous;
+                var (result, sent) = await SendAsync(rx, previous);
+                if (sent == null) return result;
+
+                session.Previous = null;
+                Commit(session, rx, previous, sent);
+                return result;
+            }
+            finally
+            {
+                await RestoreUnusedDividersAsync();
+                _gate.Release();
+            }
+        }
 
         /// <summary>
         /// Leaves a multiview this tool did not start (an external layout): optionally leaves the given
@@ -113,122 +200,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             try
             {
                 foreach (int index in subscriptionIndexesToLeave)
-                {
-                    if (!await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", index))
-                        AppLogger.Warn("MULTIVIEW", $"Leave of subscription {index} on '{rx.DeviceName}' was not accepted.");
-                }
+                    await LeaveAsync(rx, index);
                 return await _client.SetGenlockedAsync(rx.DeviceId);
             }
             finally
             {
-                _gate.Release();
-            }
-        }
-
-        /// <summary>
-        /// Selects a layout for a decoder with every window empty, sized to the display's EDID.
-        /// Only reads from the device; nothing is changed until the first source is assigned.
-        /// </summary>
-        public async Task<MultiViewLayoutPlan> BeginLayoutAsync(AvasDevice rx, string layoutId)
-        {
-            var canvas = await ResolveCanvasAsync(rx);
-            var plan = MultiViewPresets.Build(layoutId, canvas.Width, canvas.Height);
-            _sessions[Key(rx)] = new Session(plan, canvas);
-            return plan;
-        }
-
-        public async Task<MultiViewResult> AssignAsync(AvasDevice rx, int slotIndex, AvasDevice tx)
-        {
-            await _gate.WaitAsync();
-            try
-            {
-                if (!_sessions.TryGetValue(Key(rx), out var session))
-                    return MultiViewResult.Fail($"'{rx.DeviceName}' has no multiview layout selected.");
-
-                // Before the first hardware apply, check the display again: it may have been swapped.
-                bool planChanged = false;
-                if (!session.LayoutCreated)
-                {
-                    var canvas = await ResolveCanvasAsync(rx);
-                    if (canvas.Width != session.Canvas.Width || canvas.Height != session.Canvas.Height || canvas.Fps != session.Canvas.Fps)
-                    {
-                        AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' display changed: {session.Canvas.Description} -> {canvas.Description}");
-                        session.Plan = MultiViewPresets.Build(session.Plan.Id, canvas.Width, canvas.Height);
-                        planChanged = true;
-                    }
-                    session.Canvas = canvas;
-                }
-
-                var plan = session.Plan;
-                MultiViewResult Fail(string error) => MultiViewResult.Fail(error, plan, planChanged);
-
-                var slot = plan.Slots.FirstOrDefault(s => s.Index == slotIndex);
-                if (slot == null)
-                    return Fail($"Layout '{plan.Id}' has no window {slotIndex}.");
-
-                if (!tx.IsTransmitter)
-                    return Fail($"'{tx.DeviceName}' is not a transmitter.");
-                if (!tx.IsActive)
-                    return Fail($"'{tx.DeviceName}' is offline.");
-
-                // A source can only appear once per layout (duplicate streams are ILLEGAL_ARGUMENT), so a
-                // source already in another window of this layout is moved rather than duplicated.
-                var movedFrom = session.Assignments
-                    .Where(a => a.Key != slotIndex && SameDevice(a.Value, tx))
-                    .Select(a => a.Key).ToList();
-
-                string? conflict = FindScalerConflict(session, slot, tx, movedFrom);
-                if (conflict != null) return Fail(conflict);
-
-                if (!await _client.PrepareSourceScalerAsync(tx.DeviceId, slot.Width, slot.Height))
-                    return Fail($"Could not prepare '{tx.DeviceName}' for a {slot.Width}x{slot.Height} window.");
-
-                // Stream 1 at half frame rate when the layout would otherwise exceed the bandwidth guideline.
-                // A source without the divider simply keeps running at full rate; that is not fatal.
-                if (session.NeedsHalfRate)
-                {
-                    // Remember whether the divider was already on, so we only ever undo our own change.
-                    bool alreadyHalved = await _client.ReadStream1FrameDividerAsync(tx.DeviceId) == true;
-                    if (await _client.SetStream1FrameDividerAsync(tx.DeviceId, true))
-                    {
-                        if (!alreadyHalved) _halvedByUs.Add(Key(tx));
-                        session.DividerRefused.Remove(tx.DeviceName);
-                    }
-                    else
-                    {
-                        AppLogger.Warn("MULTIVIEW", $"'{tx.DeviceName}' did not accept the frame divider; stream 1 stays at full rate.");
-                        session.DividerRefused.Add(tx.DeviceName);
-                    }
-                }
-
-                if (!session.LayoutCreated)
-                {
-                    if (!await _client.CreateMultiViewLayoutAsync(plan))
-                        return Fail($"Could not create layout '{plan.Name}'.");
-                    session.LayoutCreated = true;
-                }
-
-                var next = new Dictionary<int, AvasDevice>(session.Assignments);
-                foreach (int old in movedFrom) next.Remove(old);
-                next[slotIndex] = tx;
-
-                var subscriptions = next
-                    .Select(a => new MultiViewSubscription(a.Value.DeviceId,
-                        plan.Slots.First(s => s.Index == a.Key).TargetSurface))
-                    .ToList();
-
-                if (!await _client.SetMultiViewAsync(rx.DeviceId, plan, session.Canvas.Fps, subscriptions))
-                    return Fail($"'{rx.DeviceName}' rejected layout '{plan.Name}'.");
-
-                session.Assignments.Clear();
-                foreach (var a in next) session.Assignments[a.Key] = a.Value;
-
-                AppLogger.Info("MULTIVIEW", $"'{tx.DeviceName}' -> window {slot.Label} of '{rx.DeviceName}' ({plan.Id}, {session.Canvas.Description})");
-                return new MultiViewResult(true, null, movedFrom, plan, planChanged);
-            }
-            finally
-            {
-                await RestoreUnusedDividersAsync();
                 _gate.Release();
             }
         }
@@ -239,15 +215,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             await _gate.WaitAsync();
             try
             {
-                if (!_sessions.ContainsKey(Key(rx))) return true;
-
-                bool ok = await _client.SetGenlockedAsync(rx.DeviceId);
-                if (ok)
-                {
-                    _sessions.Remove(Key(rx));
-                    await RestoreUnusedDividersAsync();
-                }
-                return ok;
+                if (Find(rx) == null) return true;
+                return await GenlockAndEndAsync(rx);
             }
             finally
             {
@@ -255,28 +224,19 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             }
         }
 
-        /// <summary>Drops every window's subscription, then returns the decoder to genlock.</summary>
+        /// <summary>Drops every live subscription (one per distinct encoder), then returns the decoder to genlock.</summary>
         public async Task<bool> TurnOffAsync(AvasDevice rx)
         {
             await _gate.WaitAsync();
             try
             {
-                if (!_sessions.TryGetValue(Key(rx), out var session)) return true;
+                var session = Find(rx);
+                if (session == null) return true;
 
-                foreach (var assignment in session.Assignments)
-                {
-                    int surface = session.Plan.Slots.First(s => s.Index == assignment.Key).TargetSurface;
-                    if (!await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", surface))
-                        AppLogger.Warn("MULTIVIEW", $"Leave of subscription {surface} on '{rx.DeviceName}' was not accepted.");
-                }
+                foreach (var source in SurfacePlanner.Plan(session.Live, rx.DeviceId).Sources)
+                    await LeaveAsync(rx, source.Surface);
 
-                bool ok = await _client.SetGenlockedAsync(rx.DeviceId);
-                if (ok)
-                {
-                    _sessions.Remove(Key(rx));
-                    await RestoreUnusedDividersAsync();
-                }
-                return ok;
+                return await GenlockAndEndAsync(rx);
             }
             finally
             {
@@ -285,14 +245,120 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         }
 
         /// <summary>
-        /// Switches stream 1 back to full frame rate for every source this tool halved and no heavy layout
+        /// The hardware part of a Take: EDID check, validation against the other displays, scalers (and dividers),
+        /// layout, load. Returns <c>sent</c> only when the draft is now on the screen.
+        /// </summary>
+        private async Task<(TakeResult Result, Sent? Sent)> SendAsync(AvasDevice rx, MultiViewDraft draft)
+        {
+            var plan = draft.Plan;
+
+            // The display may have been swapped since the layout was drawn: never send a layout for another canvas.
+            var canvas = await ResolveCanvasAsync(rx);
+            if (canvas.Width != plan.Width || canvas.Height != plan.Height)
+            {
+                AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' display changed: {plan.Width}x{plan.Height} -> {canvas.Description}");
+                MultiViewLayoutPlan redrawn;
+                try
+                {
+                    redrawn = MultiViewPresets.Build(plan.Id, canvas.Width, canvas.Height);
+                }
+                catch (ArgumentException ex)
+                {
+                    return (TakeResult.Reject(ex.Message), null);
+                }
+                return (new TakeResult(TakeOutcome.DisplayChanged,
+                    $"The display of '{rx.DeviceName}' changed to {canvas.Description}; the layout was redrawn for it.", redrawn), null);
+            }
+
+            var conflict = DraftValidator.Validate(draft, UsesExcept(rx), isOnline: _ => true)
+                .FirstOrDefault(i => i.Kind == BlockIssueKind.SizeConflictOtherDisplay);
+            if (conflict != null) return (TakeResult.Reject(conflict.Message), null);
+
+            SurfacePlan surfaces;
+            try
+            {
+                surfaces = SurfacePlanner.Plan(draft, rx.DeviceId);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return (TakeResult.Reject(ex.Message), null);
+            }
+
+            // Stream 1 at half frame rate when the layout would otherwise exceed the bandwidth guideline.
+            // A source without the divider simply keeps running at full rate; that is not fatal.
+            bool halve = MultiViewCanvasPolicy.NeedsFrameDivider(plan, canvas.Fps);
+            var refused = new HashSet<string>();
+            foreach (var source in surfaces.Sources)
+            {
+                string name = draft.Placements.Values.First(p => SdvoeClient.NormalizeMac(p.SourceMac) == source.Mac).SourceName;
+                if (!await _client.PrepareSourceScalerAsync(source.Mac, source.Width, source.Height))
+                    return (TakeResult.Reject($"Could not prepare '{name}' for a {source.Width}x{source.Height} window."), null);
+
+                if (halve && !await HalveAsync(source.Mac, name))
+                    refused.Add(name);
+            }
+
+            if (!await _client.CreateMultiViewLayoutAsync(surfaces, plan))
+                return (TakeResult.Reject($"Could not create layout '{surfaces.LayoutName}'."), null);
+
+            var subscriptions = surfaces.Sources.Select(s => new MultiViewSubscription(s.Mac, s.Surface)).ToList();
+            if (!await _client.SetMultiViewAsync(rx.DeviceId, surfaces.LayoutName, plan.Width, plan.Height, canvas.Fps, subscriptions))
+                return (TakeResult.Reject($"'{rx.DeviceName}' rejected layout '{surfaces.LayoutName}'."), null);
+
+            AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' now shows {plan.Id} with {subscriptions.Count} source(s) ({canvas.Description})");
+            return (new TakeResult(TakeOutcome.Applied), new Sent(canvas, refused));
+        }
+
+        /// <summary>Switches a source's stream 1 to half rate; false when the device refused.</summary>
+        private async Task<bool> HalveAsync(string mac, string name)
+        {
+            // Remember whether the divider was already on, so we only ever undo our own change.
+            bool alreadyHalved = await _client.ReadStream1FrameDividerAsync(mac) == true;
+            if (await _client.SetStream1FrameDividerAsync(mac, true))
+            {
+                if (!alreadyHalved) _halvedByUs.Add(SdvoeClient.NormalizeMac(mac));
+                return true;
+            }
+
+            AppLogger.Warn("MULTIVIEW", $"'{name}' did not accept the frame divider; stream 1 stays at full rate.");
+            return false;
+        }
+
+        private static void Commit(Session session, AvasDevice rx, MultiViewDraft live, Sent sent)
+        {
+            session.DisplayName = rx.DeviceName;
+            session.Live = live;
+            session.Canvas = sent.Canvas;
+            session.DividerRefused = sent.DividerRefused;
+        }
+
+        private async Task LeaveAsync(AvasDevice rx, int subscriptionIndex)
+        {
+            if (!await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", subscriptionIndex))
+                AppLogger.Warn("MULTIVIEW", $"Leave of subscription {subscriptionIndex} on '{rx.DeviceName}' was not accepted.");
+        }
+
+        private async Task<bool> GenlockAndEndAsync(AvasDevice rx)
+        {
+            bool ok = await _client.SetGenlockedAsync(rx.DeviceId);
+            if (ok)
+            {
+                _sessions.Remove(Key(rx));
+                await RestoreUnusedDividersAsync();
+            }
+            return ok;
+        }
+
+        /// <summary>
+        /// Switches stream 1 back to full frame rate for every source this tool halved and no live heavy layout
         /// uses any more. Sources whose divider was already on before we started are never touched.
         /// </summary>
         private async Task RestoreUnusedDividersAsync()
         {
             foreach (string mac in _halvedByUs.ToList())
             {
-                bool stillNeeded = _sessions.Values.Any(s => s.NeedsHalfRate && s.Assignments.Values.Any(a => Key(a) == mac));
+                bool stillNeeded = _sessions.Values.Any(s =>
+                    s.NeedsHalfRate && s.Live.Placements.Values.Any(p => SdvoeClient.NormalizeMac(p.SourceMac) == mac));
                 if (stillNeeded) continue;
 
                 if (await _client.SetStream1FrameDividerAsync(mac, false))
@@ -321,31 +387,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             return canvas;
         }
 
-        /// <summary>
-        /// One TX has one scaled stream, so every window that shows it must want the same size,
-        /// on every decoder.
-        /// </summary>
-        private string? FindScalerConflict(Session session, WindowSlot slot, AvasDevice tx, List<int> movedFrom)
-        {
-            foreach (var other in _sessions.Values)
-            {
-                foreach (var (index, device) in other.Assignments)
-                {
-                    if (!SameDevice(device, tx)) continue;
-                    if (ReferenceEquals(other, session) && (index == slot.Index || movedFrom.Contains(index))) continue;
+        /// <summary>Same layout and the same encoder in every block.</summary>
+        private static bool SameLayout(MultiViewDraft a, MultiViewDraft b) =>
+            a.Plan.Name == b.Plan.Name && a.DiffFrom(b).Count == 0;
 
-                    var existing = other.Plan.Slots.First(s => s.Index == index);
-                    if (existing.Width != slot.Width || existing.Height != slot.Height)
-                    {
-                        return $"'{tx.DeviceName}' is already scaled to {existing.Width}x{existing.Height} for another multiview window; " +
-                               $"this window needs {slot.Width}x{slot.Height}. A source can only have one scaled size.";
-                    }
-                }
-            }
-            return null;
-        }
-
-        private static bool SameDevice(AvasDevice a, AvasDevice b) => Key(a) == Key(b);
+        private Session? Find(AvasDevice rx) => _sessions.TryGetValue(Key(rx), out var s) ? s : null;
 
         private static string Key(AvasDevice d) => SdvoeClient.NormalizeMac(d.DeviceId);
     }

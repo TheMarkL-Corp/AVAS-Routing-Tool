@@ -15,12 +15,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     /// </summary>
     public static class MultiViewRequests
     {
-        public static RestCall CreateLayout(MultiViewLayoutPlan plan) =>
-            new("POST", $"/api/multiview/layout/{plan.Name}", new { op = "create", width = plan.Width, height = plan.Height });
-
-        /// <summary>The window on the plan's own surface; kept for callers that do not plan surfaces yet.</summary>
-        public static RestCall CreateWindow(MultiViewLayoutPlan plan, WindowSlot slot) =>
-            CreateWindow(plan.Name, slot, slot.TargetSurface);
+        public static RestCall CreateLayout(string layoutName, int width, int height) =>
+            new("POST", $"/api/multiview/layout/{layoutName}", new { op = "create", width, height });
 
         /// <summary>
         /// A window on <paramref name="surface"/>; null leaves <c>target_surface</c> out, which the decoder

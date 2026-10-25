@@ -14,12 +14,10 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public void CreateLayout_PostsNameInPathWithCanvasSize()
         {
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
-
-            var call = MultiViewRequests.CreateLayout(plan);
+            var call = MultiViewRequests.CreateLayout("avas_74fe483c059e_matrix2x2_1920x1080", 1920, 1080);
 
             Assert.Equal("POST", call.Method);
-            Assert.Equal("/api/multiview/layout/avas_matrix2x2_1920x1080", call.Path);
+            Assert.Equal("/api/multiview/layout/avas_74fe483c059e_matrix2x2_1920x1080", call.Path);
             var body = Json(call);
             Assert.Equal("create", body.GetProperty("op").GetString());
             Assert.Equal(1920, body.GetProperty("width").GetInt32());
@@ -29,13 +27,12 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public void CreateWindow_UsesApiIndexPositionSizeAndTargetSurface()
         {
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
-            var slot = plan.Slots[3];
+            var slot = MultiViewPresets.Build("matrix2x2", 1920, 1080).Slots[3];
 
-            var call = MultiViewRequests.CreateWindow(plan, slot);
+            var call = MultiViewRequests.CreateWindow("avas_74fe483c059e_matrix2x2_1920x1080", slot, 2);
 
             Assert.Equal("POST", call.Method);
-            Assert.Equal("/api/multiview/layout/avas_matrix2x2_1920x1080/window/3", call.Path);
+            Assert.Equal("/api/multiview/layout/avas_74fe483c059e_matrix2x2_1920x1080/window/3", call.Path);
             var body = Json(call);
             Assert.Equal("create", body.GetProperty("op").GetString());
             Assert.Equal(960, body.GetProperty("horizontal_position").GetInt32());
@@ -44,7 +41,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(540, body.GetProperty("height").GetInt32());
             Assert.Equal(0, body.GetProperty("horizontal_offset").GetInt32());
             Assert.Equal(0, body.GetProperty("vertical_offset").GetInt32());
-            Assert.Equal(slot.TargetSurface, body.GetProperty("target_surface").GetInt32());
+            Assert.Equal(2, body.GetProperty("target_surface").GetInt32());
         }
 
         [Fact]

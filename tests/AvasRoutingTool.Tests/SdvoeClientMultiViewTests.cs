@@ -44,20 +44,46 @@ namespace AvasRoutingTool.Tests
 
     public class SdvoeClientMultiViewTests
     {
+        private const string LayoutName = "avas_74fe483c059e_matrix2x2_1920x1080";
+
+        /// <summary>TX2 in blocks 1 and 3 (one shared surface), VEGA in block 2, block 4 black.</summary>
+        private static (SurfacePlan Surfaces, MultiViewLayoutPlan Plan) SharedSurfaceLayout()
+        {
+            var draft = new MultiViewDraft(MultiViewPresets.Build("matrix2x2", 1920, 1080));
+            draft.Place(0, "74fe488b07bb", "TX2");
+            draft.Place(1, "0016c0589c1e", "VEGA");
+            draft.Place(2, "74fe488b07bb", "TX2");
+            return (SurfacePlanner.Plan(draft, "74fe483c059e"), draft.Plan);
+        }
+
         [Fact]
-        public async Task CreateMultiViewLayoutAsync_PostsLayoutThenEveryWindowInOrder()
+        public async Task CreateMultiViewLayoutAsync_PostsTheLayoutUnderItsDisplayNameThenEveryWindowInOrder()
         {
             var handler = new RecordingHandler();
             var client = new SdvoeClient(handler);
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
+            var (surfaces, plan) = SharedSurfaceLayout();
 
-            bool ok = await client.CreateMultiViewLayoutAsync(plan);
+            bool ok = await client.CreateMultiViewLayoutAsync(surfaces, plan);
 
             Assert.True(ok);
             Assert.Equal(5, handler.Calls.Count);
-            Assert.Equal("/api/multiview/layout/avas_matrix2x2_1920x1080", handler.Calls[0].Path);
+            Assert.Equal($"/api/multiview/layout/{LayoutName}", handler.Calls[0].Path);
+            Assert.Equal(1920, handler.Calls[0].Body.GetProperty("width").GetInt32());
+            Assert.Equal(1080, handler.Calls[0].Body.GetProperty("height").GetInt32());
             for (int i = 0; i < 4; i++)
-                Assert.Equal($"/api/multiview/layout/avas_matrix2x2_1920x1080/window/{i}", handler.Calls[i + 1].Path);
+                Assert.Equal($"/api/multiview/layout/{LayoutName}/window/{i}", handler.Calls[i + 1].Path);
+        }
+
+        [Fact]
+        public async Task CreateMultiViewLayoutAsync_WindowsShareASurface_AndAnEmptyBlockIsBlack()
+        {
+            var handler = new RecordingHandler();
+            var (surfaces, plan) = SharedSurfaceLayout();
+
+            await new SdvoeClient(handler).CreateMultiViewLayoutAsync(surfaces, plan);
+
+            int? Surface(int window) => handler.Calls[window + 1].Body.TryGetProperty("target_surface", out var s) ? s.GetInt32() : null;
+            Assert.Equal(new int?[] { 1, 2, 1, null }, Enumerable.Range(0, 4).Select(Surface).ToArray());
         }
 
         [Fact]
@@ -65,9 +91,9 @@ namespace AvasRoutingTool.Tests
         {
             var handler = new RecordingHandler { FailFromCall = 2 };
             var client = new SdvoeClient(handler);
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
+            var (surfaces, plan) = SharedSurfaceLayout();
 
-            bool ok = await client.CreateMultiViewLayoutAsync(plan);
+            bool ok = await client.CreateMultiViewLayoutAsync(surfaces, plan);
 
             Assert.False(ok);
             Assert.Equal(2, handler.Calls.Count);
@@ -105,16 +131,16 @@ namespace AvasRoutingTool.Tests
         {
             var handler = new RecordingHandler();
             var client = new SdvoeClient(handler);
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
 
-            bool ok = await client.SetMultiViewAsync("74fe483c059e", plan, 60,
+            bool ok = await client.SetMultiViewAsync("74fe483c059e", LayoutName, 1920, 1080, 60,
                 new[] { new MultiViewSubscription("74fe488b07bb", 1) });
 
             Assert.True(ok);
             var call = Assert.Single(handler.Calls);
             Assert.Equal("/api/device/74fe483c059e", call.Path);
             Assert.Equal("set:multiview", call.Body.GetProperty("op").GetString());
-            Assert.Equal("avas_matrix2x2_1920x1080", call.Body.GetProperty("layout").GetString());
+            Assert.Equal(LayoutName, call.Body.GetProperty("layout").GetString());
+            Assert.Equal(1920, call.Body.GetProperty("video").GetProperty("width").GetInt32());
             Assert.Equal(60, call.Body.GetProperty("video").GetProperty("fps").GetInt32());
         }
 
@@ -136,9 +162,8 @@ namespace AvasRoutingTool.Tests
                 Responder = (m, p, _) => m == "POST" ? Processing(9) : ++polls < 3 ? Processing(9) : Done(9)
             };
             var client = FastClient(handler);
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
 
-            bool ok = await client.SetMultiViewAsync("74fe483c059e", plan, 60, new[] { new MultiViewSubscription("74fe488b07bb", 1) });
+            bool ok = await client.SetMultiViewAsync("74fe483c059e", LayoutName, 1920, 1080, 60, new[] { new MultiViewSubscription("74fe488b07bb", 1) });
 
             Assert.True(ok);
             Assert.Equal("/api/request/9", handler.Calls[^1].Path);
@@ -155,9 +180,8 @@ namespace AvasRoutingTool.Tests
                     : Done(12, "[{\"device_id\":\"74fe483c059e\",\"reason\":\"DEVICE_TYPE\"}]")
             };
             var client = FastClient(handler);
-            var plan = MultiViewPresets.Build("matrix2x2", 1920, 1080);
 
-            bool ok = await client.SetMultiViewAsync("74fe483c059e", plan, 60, new[] { new MultiViewSubscription("74fe488b07bb", 1) });
+            bool ok = await client.SetMultiViewAsync("74fe483c059e", LayoutName, 1920, 1080, 60, new[] { new MultiViewSubscription("74fe488b07bb", 1) });
 
             Assert.False(ok);
         }

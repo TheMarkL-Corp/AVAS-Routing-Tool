@@ -127,7 +127,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task AfterARestore_TheNextDropJustReloadsTheRunningLayout()
+        public async Task AfterARestore_TheNextDropKeepsTheRestoredSources()
         {
             var rig = new Rig();
             rig.Hardware(Rx1Mac, "rx_multiview.json", "rx_multiview_layout.json");
@@ -137,9 +137,28 @@ namespace AvasRoutingTool.Tests
             bool ok = await rig.Vm.AssignSlotAsync(rig.Rx1, 2, tx3);
 
             Assert.True(ok);
-            Assert.DoesNotContain(rig.Client.MultiViewCalls, c => c.StartsWith("layout:"));
             Assert.Equal(3, rig.Client.LastSubscriptions!.Count); // the two restored sources stay
-            Assert.Equal(0, rig.Client.EdidReads);
+            // the legacy layout found running is rewritten under this display's own name
+            Assert.Contains($"layout:avas_{Rx1Mac}_matrix2x2_1920x1080", rig.Client.MultiViewCalls);
+            Assert.Equal(1, rig.Client.EdidReads); // the display is checked before the hardware is touched
+            Assert.Equal(3, rig.Rx1Vm.Slots.Count(s => s.IsAssigned));
+        }
+
+        [Fact]
+        public async Task SharedSurfaceLayout_FillsEveryBlockReadingTheSubscription()
+        {
+            var rig = new Rig();
+            var state = RxStateReader.Parse(Fixtures.Read("rx_multiview_shared_surface.json"), Fixtures.Read("rx_multiview_shared_surface_layout.json"))!;
+            rig.Client.ReceiverStates[Rx1Mac] = state with { Layout = state.Layout! with { Name = $"avas_{Rx1Mac}_matrix2x2_1920x1080" } };
+
+            await rig.Vm.RestoreStateAsync();
+
+            Assert.True(rig.Rx1Vm.IsMultiView);
+            string block1 = rig.Rx1Vm.Slots.Single(s => s.Index == 0).SourceName;
+            Assert.NotEmpty(block1);
+            Assert.Equal(block1, rig.Rx1Vm.Slots.Single(s => s.Index == 2).SourceName);
+            Assert.False(rig.Rx1Vm.Slots.Single(s => s.Index == 3).IsAssigned); // a black window
+            Assert.Empty(rig.Client.MultiViewCalls);
         }
 
         [Fact]

@@ -8,15 +8,17 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     public sealed record RestoredSource(int SlotIndex, string Mac, string Name);
 
     /// <summary>
-    /// A multiview layout found on a receiver. <see cref="Plan"/> is set only for layouts this tool created
-    /// (<c>avas_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c>); anything else is external and shown read-only.
+    /// A multiview layout found on a receiver. <see cref="Plan"/> and <see cref="Draft"/> are set only for layouts
+    /// this tool created (<see cref="MultiViewPresets.TryParseName"/>); anything else is external and shown read-only.
     /// </summary>
+    /// <param name="Draft">What is on the screen, as a draft: a subscription read by several windows fills each of their blocks.</param>
     public sealed record RestoredMultiView(
         string LayoutName,
         MultiViewLayoutPlan? Plan,
         MultiViewCanvas Canvas,
         IReadOnlyList<RestoredSource> Sources,
-        IReadOnlyList<int> SubscriptionIndexes)
+        IReadOnlyList<int> SubscriptionIndexes,
+        MultiViewDraft? Draft = null)
     {
         public bool IsRecognised => Plan != null;
     }
@@ -42,15 +44,20 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 try
                 {
                     var plan = MultiViewPresets.Build(id, pw, ph);
+                    var draft = new MultiViewDraft(plan);
                     var sources = new List<RestoredSource>();
-                    foreach (var sub in routed)
+                    foreach (var window in state.Layout.Windows.OrderBy(w => w.WindowIndex))
                     {
-                        // subscription index == the surface feeding a window
-                        var window = state.Layout.Windows.FirstOrDefault(w => w.Surface == sub.Index);
-                        if (window != null && plan.Slots.Any(s => s.Index == window.WindowIndex))
-                            sources.Add(new RestoredSource(window.WindowIndex, sub.SourceMac, sub.SourceName));
+                        // A window shows the subscription whose index is its surface. A surface nobody subscribes
+                        // (255 = a black window read back from the decoder) leaves the block empty.
+                        var sub = routed.FirstOrDefault(s => s.Index == window.Surface);
+                        if (sub == null) continue;
+                        // refused: not a block of the plan, or a second size for one encoder
+                        if (!draft.Place(window.WindowIndex, sub.SourceMac, sub.SourceName).Ok) continue;
+
+                        sources.Add(new RestoredSource(window.WindowIndex, sub.SourceMac, sub.SourceName));
                     }
-                    return new RestoredMultiView(layoutName, plan, canvas, sources, subscriptionIndexes);
+                    return new RestoredMultiView(layoutName, plan, canvas, sources, subscriptionIndexes, draft);
                 }
                 catch (ArgumentException)
                 {
