@@ -64,11 +64,14 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         public static bool NeedsFrameDivider(MultiViewLayoutPlan plan, int fps) =>
             EstimateGbps(plan, fps) > RecommendedGbps;
 
+        /// <summary>The output format alone, e.g. <c>OUT 3840x2160@60 (VP3268-4K)</c>.</summary>
+        public static string OutputLabel(MultiViewCanvas canvas) => $"OUT {canvas.Description}";
+
         /// <summary>One line for the card: the output format plus what is done about high bandwidth.</summary>
         public static string Summarize(MultiViewCanvas canvas, MultiViewLayoutPlan plan)
         {
             double gbps = EstimateGbps(plan, canvas.Fps);
-            string text = $"OUT {canvas.Description}";
+            string text = OutputLabel(canvas);
             if (gbps <= RecommendedGbps) return text;
 
             double halved = gbps / 2;
