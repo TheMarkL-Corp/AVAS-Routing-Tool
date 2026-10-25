@@ -94,7 +94,15 @@ namespace AvasRoutingTool.Sdvoe
                         {
                             string content = w.TryGetProperty("content", out _) ? Str(w, "content") : "VIDEO";
                             if (content != "VIDEO" || !w.TryGetProperty("target_surface", out _)) continue;
-                            windows.Add(new RxWindow(Int(w, "index"), Int(w, "target_surface")));
+                            windows.Add(new RxWindow(
+                                Int(w, "index"),
+                                Int(w, "target_surface"),
+                                Int(w, "horizontal_position"),
+                                Int(w, "vertical_position"),
+                                Int(w, "width"),
+                                Int(w, "height"),
+                                Int(w, "horizontal_offset"),
+                                Int(w, "vertical_offset")));
                         }
                     }
 

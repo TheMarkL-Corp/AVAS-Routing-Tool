@@ -72,6 +72,19 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void ParseLayout_ReadsWindowGeometry()
+        {
+            var layout = RxStateReader.ParseLayout(Fixtures.Read("rx_multiview_layout.json"))!;
+
+            var w3 = layout.Windows.Single(w => w.WindowIndex == 3);
+            Assert.Equal((960, 540, 960, 540), (w3.X, w3.Y, w3.Width, w3.Height));
+            Assert.Equal((0, 0), (w3.HOffset, w3.VOffset));
+
+            var w1 = layout.Windows.Single(w => w.WindowIndex == 1);
+            Assert.Equal((960, 0, 960, 540), (w1.X, w1.Y, w1.Width, w1.Height));
+        }
+
+        [Fact]
         public void ParseLayout_InvalidStateError_ReturnsNull()
         {
             Assert.Null(RxStateReader.ParseLayout(Fixtures.Read("rx_not_multiview_error.json")));

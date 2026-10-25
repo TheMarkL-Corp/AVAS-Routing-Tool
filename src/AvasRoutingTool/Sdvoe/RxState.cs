@@ -17,8 +17,19 @@ namespace AvasRoutingTool.Sdvoe
         public bool IsRouted => Enabled && !string.IsNullOrEmpty(SourceMac);
     }
 
-    /// <summary>A window of the layout currently loaded on a receiver, and the surface (subscription) feeding it.</summary>
-    public sealed record RxWindow(int WindowIndex, int Surface);
+    /// <summary>
+    /// A window of the layout currently loaded on a receiver, and the surface (subscription) feeding it.
+    /// X/Y/Width/Height/HOffset/VOffset are the window geometry from <c>get multiview</c> (0 when not read).
+    /// </summary>
+    public sealed record RxWindow(
+        int WindowIndex,
+        int Surface,
+        int X = 0,
+        int Y = 0,
+        int Width = 0,
+        int Height = 0,
+        int HOffset = 0,
+        int VOffset = 0);
 
     /// <summary>The multiview layout currently loaded on a receiver (<c>get multiview</c>).</summary>
     public sealed record RxLayout(string Name, int Width, int Height, IReadOnlyList<RxWindow> Windows);
