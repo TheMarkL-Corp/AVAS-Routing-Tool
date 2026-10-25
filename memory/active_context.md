@@ -20,10 +20,21 @@
      - Extracted `RelayCommand.cs` into `AvasRoutingTool.ViewModels`.
 
 ## Test & Build Verification
-* **Unit Tests**: All 32 unit tests passing in `tests/AvasRoutingTool.Tests/`.
+* **Unit Tests**: All 46 tests passing in `tests/AvasRoutingTool.Tests/`.
 * **Hardware API Verification**: Tested REST `start` on TX2 (`74fe488b07bb`), `join` on RX1 (`74fe483c059e`), and `leave` on RX1 via BlueRiver REST API (`127.0.0.1:8090`).
 * **Standalone Release Binary**: Successfully built and published to `publish/AvasRoutingTool/AvasRoutingTool.exe`.
 
+## Full Function Test & Debugging Pass (post-M8)
+Two root-cause defects found and fixed via systematic debugging (both were invisible to the earlier 32 unit tests):
+1. **App crashed on every launch** (`InvalidOperationException`: TwoWay binding on read-only `DisplayCardViewModel.ActiveSourceName` in a `<Run>`). Fixed with a one-way `SourceLabel` property ("NONE" when unrouted). Guarded by `ViewSmokeTests` (real XAML views rendered on an STA thread).
+2. **Every route/unroute was reported as failed** although the hardware accepted it: the Control Server pretty-prints JSON (`"status" : "PROCESSING"`) and the client matched the literal `"status":"PROCESSING"`. Fixed by `RestResponse.IsAccepted` (structural JSON parse). Guarded by `RestResponseTests`.
+* Added crash-capture seam in `App.xaml.cs` (AppDomain / Dispatcher / Task unhandled exceptions -> `app.log` category `CRASH`).
+* Added `LiveFunctionTests` (all TX x RX route/unroute pairs, AVAS preview start/stop, discovery invariants; auto-skip without a Control Server).
+* **Known limitation**: the Control Server exposes no subscription-state `get` subset (probed `get all/<mac> ...`), so existing routes are NOT restored on app start/refresh; cards show unrouted until routed from this app.
+* Lesson: a green unit suite does not prove the app launches; keep view-smoke tests for every view.
+
 ## Next Steps
-1. User testing and visual sign-off of the standalone desktop application (`publish/AvasRoutingTool/AvasRoutingTool.exe`).
-2. Plan Phase 2 MultiView canvas layouts (Matrix 2x2, PIP, Side-by-Side, 1+3 Quad).
+1. User visual sign-off of `publish/AvasRoutingTool/AvasRoutingTool.exe` (drag-to-route, Turn Off, "Off" tile drag, decoder preview mirroring, FullHD layout).
+2. Decide how to handle route-state restore on startup (needs a server-side state source or local persistence).
+3. Plan Phase 2 MultiView canvas layouts (Matrix 2x2, PIP, Side-by-Side, 1+3 Quad).
+

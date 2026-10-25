@@ -28,6 +28,9 @@ namespace AvasRoutingTool.ViewModels
         public string ActiveSourceName => _device.ActiveSourceName;
         public bool IsRouted => !string.IsNullOrEmpty(_device.ActiveSourceId);
 
+        /// <summary>Footer label: the routed source's BAVM name, or "NONE" when unrouted.</summary>
+        public string SourceLabel => IsRouted && !string.IsNullOrEmpty(ActiveSourceName) ? ActiveSourceName : "NONE";
+
         public WriteableBitmap? PreviewBitmap
         {
             get => _previewBitmap;
@@ -109,6 +112,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(ActiveSourceId));
             OnPropertyChanged(nameof(ActiveSourceName));
             OnPropertyChanged(nameof(IsRouted));
+            OnPropertyChanged(nameof(SourceLabel));
             OnPropertyChanged(nameof(PreviewBitmap));
             OnPropertyChanged(nameof(IsPreviewSupported));
         }

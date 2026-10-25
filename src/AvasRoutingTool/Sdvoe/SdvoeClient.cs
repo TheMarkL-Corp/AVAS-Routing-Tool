@@ -205,9 +205,7 @@ namespace AvasRoutingTool.Sdvoe
                 {
                     string body = await resp.Content.ReadAsStringAsync();
                     AppLogger.Info("REST", $"POST {path} response: {body}");
-                    return body.Contains("\"status\":\"SUCCESS\"", StringComparison.OrdinalIgnoreCase) ||
-                           body.Contains("\"status\":\"PROCESSING\"", StringComparison.OrdinalIgnoreCase) ||
-                           body.Contains("\"send_rs232\"", StringComparison.OrdinalIgnoreCase);
+                    return RestResponse.IsAccepted(body);
                 }
                 else
                 {

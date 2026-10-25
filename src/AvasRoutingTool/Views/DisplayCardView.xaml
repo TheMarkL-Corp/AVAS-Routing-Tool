@@ -244,7 +244,7 @@
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock FontSize="10" Foreground="{StaticResource Brush.Text.Muted}" HorizontalAlignment="Right">
                         <Run Text="SOURCE: " />
-                        <Run Text="{Binding ActiveSourceName, TargetNullValue='NONE'}" Foreground="{StaticResource Brush.Text.Secondary}" FontWeight="Medium" />
+                        <Run Text="{Binding SourceLabel, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Secondary}" FontWeight="Medium" />
                     </TextBlock>
                 </StackPanel>
             </Grid>
