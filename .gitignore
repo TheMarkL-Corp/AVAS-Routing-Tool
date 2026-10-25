@@ -34,3 +34,11 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
+
+# Internal AI Memory & Instructions (Non-customer facing)
+memory/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.superpowers/
+
