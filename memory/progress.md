@@ -46,3 +46,14 @@
   - [x] End-to-end automated test suite passing (16/16)
   - [x] Standalone portable build generation (`publish/AvasRoutingTool/AvasRoutingTool.exe`)
   - [x] Complete memory synchronization
+
+- [x] **M7: Hardware Live Preview, Video Routing & Telemetry Overhaul**
+  - [x] RFC 4175 zero-allocation header parser (`RtpHeader.cs`) and progressive scanline frame reassembler (`ScanlineFrameReassembler.cs`)
+  - [x] In-band Cypress Baseboard MCU UART 1 preview lifecycle control (`switch:api`, `set rtp igmp`, `set rtp ON / OFF`)
+  - [x] Strict AVAS transceiver preview filtering (`VendorId == 105`) with `"Preview not supported"` badge for non-AVAS units
+  - [x] Dual Link detection ("Single Link" vs "Dual Link") with SFP B companion IP demux alias registration
+  - [x] WPF Drag-and-drop drop-suppression resolution with `DragOver` and multi-type payload support
+  - [x] Official REST video routing (`POST /api/device/{rxMac}` with `op: "join"` and `source_device`)
+  - [x] Telemetry labels (Multicast IP, FPS) and card controls (`Refresh`, `Start Preview`, `Stop Preview`)
+  - [x] Deterministic sequential multicast IP allocation ordered by `DeviceName` with 0.5s startup delay
+  - [x] Expanded test suite passing (27/27 passed) and updated standalone package (`publish/AvasRoutingTool/AvasRoutingTool.exe`)
