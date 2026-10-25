@@ -17,16 +17,28 @@ namespace AvasRoutingTool.Views
         {
             if (DataContext is DisplayCardViewModel vm && vm.IsActive)
             {
-                if (e.Data.GetDataPresent(typeof(AvasDevice)))
+                if (e.Data.GetDataPresent(typeof(AvasDevice)) || e.Data.GetDataPresent(typeof(SourceCardViewModel)))
                 {
-                    var tx = e.Data.GetData(typeof(AvasDevice)) as AvasDevice;
-                    if (tx != null && tx.IsTransmitter && tx.IsActive)
-                    {
-                        vm.IsDragOver = true;
-                        e.Effects = DragDropEffects.Link;
-                        e.Handled = true;
-                        return;
-                    }
+                    vm.IsDragOver = true;
+                    e.Effects = DragDropEffects.Link;
+                    e.Handled = true;
+                    return;
+                }
+            }
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void Card_DragOver(object sender, DragEventArgs e)
+        {
+            if (DataContext is DisplayCardViewModel vm && vm.IsActive)
+            {
+                if (e.Data.GetDataPresent(typeof(AvasDevice)) || e.Data.GetDataPresent(typeof(SourceCardViewModel)))
+                {
+                    vm.IsDragOver = true;
+                    e.Effects = DragDropEffects.Link;
+                    e.Handled = true;
+                    return;
                 }
             }
             e.Effects = DragDropEffects.None;
@@ -47,15 +59,22 @@ namespace AvasRoutingTool.Views
             {
                 vm.IsDragOver = false;
 
+                AvasDevice? tx = null;
                 if (e.Data.GetDataPresent(typeof(AvasDevice)))
                 {
-                    var tx = e.Data.GetData(typeof(AvasDevice)) as AvasDevice;
-                    if (tx != null && tx.IsTransmitter)
+                    tx = e.Data.GetData(typeof(AvasDevice)) as AvasDevice;
+                }
+                else if (e.Data.GetDataPresent(typeof(SourceCardViewModel)))
+                {
+                    var sourceVm = e.Data.GetData(typeof(SourceCardViewModel)) as SourceCardViewModel;
+                    tx = sourceVm?.Device;
+                }
+
+                if (tx != null && tx.IsTransmitter)
+                {
+                    if (Application.Current.MainWindow?.DataContext is MainViewModel mainVm)
                     {
-                        if (Application.Current.MainWindow?.DataContext is MainViewModel mainVm)
-                        {
-                            await mainVm.RouteVideoAsync(tx, vm.Device);
-                        }
+                        await mainVm.RouteVideoAsync(tx, vm.Device);
                     }
                 }
             }

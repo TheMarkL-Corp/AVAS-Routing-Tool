@@ -5,6 +5,7 @@
              Margin="8"
              AllowDrop="True"
              DragEnter="Card_DragEnter"
+             DragOver="Card_DragOver"
              DragLeave="Card_DragLeave"
              Drop="Card_Drop">
 
