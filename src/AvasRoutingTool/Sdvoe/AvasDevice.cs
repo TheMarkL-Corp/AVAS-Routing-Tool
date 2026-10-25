@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace AvasRoutingTool.Sdvoe
 {
     public class AvasDevice
@@ -15,8 +17,13 @@ namespace AvasRoutingTool.Sdvoe
         public string ActiveSourceId { get; set; } = string.Empty; // For RX: currently routed TX MAC
         public string ActiveSourceName { get; set; } = string.Empty; // For RX: currently routed TX DeviceName
         public string MulticastIp { get; set; } = string.Empty;
-        public int MulticastPort { get; set; } = 5004;
+        public int MulticastPort { get; set; } = 5000;
         public double FramesPerSecond { get; set; }
         public string Resolution { get; set; } = "1080p60";
+
+        public string LinkMode { get; set; } = "Single Link";
+        public bool IsAvasDevice => VendorId == 105;
+        public bool IsPreviewSupported => IsAvasDevice && IsTransmitter;
+        public List<string> NodeIps { get; set; } = new();
     }
 }
