@@ -47,7 +47,10 @@
                                 Background="{StaticResource Brush.Surface.Elevated}"
                                 BorderThickness="1"
                                 CornerRadius="6"
-                                Padding="10,6">
+                                Padding="10,6"
+                                Cursor="Hand"
+                                PreviewMouseLeftButtonDown="LayoutCard_PreviewMouseLeftButtonDown"
+                                MouseMove="LayoutCard_MouseMove">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}" />

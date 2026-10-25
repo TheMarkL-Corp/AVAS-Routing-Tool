@@ -2,35 +2,18 @@ using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using AvasRoutingTool.Sdvoe;
 
 namespace AvasRoutingTool.ViewModels
 {
-    public class RelayCommand : ICommand
-    {
-        private readonly Action<object?> _execute;
-        private readonly Predicate<object?>? _canExecute;
-
-        public event EventHandler? CanExecuteChanged
-        {
-            add => CommandManager.RequerySuggested += value;
-            remove => CommandManager.RequerySuggested -= value;
-        }
-
-        public RelayCommand(Action<object?> execute, Predicate<object?>? canExecute = null)
-        {
-            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-            _canExecute = canExecute;
-        }
-
-        public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);
-        public void Execute(object? parameter) => _execute(parameter);
-    }
-
     public class DisplayCardViewModel : INotifyPropertyChanged
     {
         private readonly AvasDevice _device;
         private readonly Func<AvasDevice, System.Threading.Tasks.Task>? _unrouteAction;
+        private SourceCardViewModel? _currentSourceVm;
+        private WriteableBitmap? _previewBitmap;
+        private bool _isPreviewSupported;
         private bool _isDragOver;
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -44,6 +27,18 @@ namespace AvasRoutingTool.ViewModels
         public string ActiveSourceId => _device.ActiveSourceId;
         public string ActiveSourceName => _device.ActiveSourceName;
         public bool IsRouted => !string.IsNullOrEmpty(_device.ActiveSourceId);
+
+        public WriteableBitmap? PreviewBitmap
+        {
+            get => _previewBitmap;
+            set { _previewBitmap = value; OnPropertyChanged(); }
+        }
+
+        public bool IsPreviewSupported
+        {
+            get => _isPreviewSupported;
+            set { _isPreviewSupported = value; OnPropertyChanged(); }
+        }
 
         public bool IsDragOver
         {
@@ -63,9 +58,44 @@ namespace AvasRoutingTool.ViewModels
                 if (_unrouteAction != null)
                 {
                     await _unrouteAction(_device);
+                    SetPreviewSource(null);
                     NotifyRoutingChanged();
                 }
             }, _ => IsRouted);
+        }
+
+        public void SetPreviewSource(SourceCardViewModel? sourceVm)
+        {
+            if (_currentSourceVm != null)
+            {
+                _currentSourceVm.PropertyChanged -= OnSourcePropertyChanged;
+            }
+
+            _currentSourceVm = sourceVm;
+
+            if (_currentSourceVm != null)
+            {
+                _currentSourceVm.PropertyChanged += OnSourcePropertyChanged;
+                IsPreviewSupported = _currentSourceVm.IsPreviewSupported;
+                PreviewBitmap = _currentSourceVm.PreviewBitmap;
+            }
+            else
+            {
+                IsPreviewSupported = false;
+                PreviewBitmap = null;
+            }
+        }
+
+        private void OnSourcePropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(SourceCardViewModel.PreviewBitmap) && _currentSourceVm != null)
+            {
+                PreviewBitmap = _currentSourceVm.PreviewBitmap;
+            }
+            else if (e.PropertyName == nameof(SourceCardViewModel.IsPreviewSupported) && _currentSourceVm != null)
+            {
+                IsPreviewSupported = _currentSourceVm.IsPreviewSupported;
+            }
         }
 
         public void SetOnlineState(bool isOnline)
@@ -79,6 +109,8 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(ActiveSourceId));
             OnPropertyChanged(nameof(ActiveSourceName));
             OnPropertyChanged(nameof(IsRouted));
+            OnPropertyChanged(nameof(PreviewBitmap));
+            OnPropertyChanged(nameof(IsPreviewSupported));
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)

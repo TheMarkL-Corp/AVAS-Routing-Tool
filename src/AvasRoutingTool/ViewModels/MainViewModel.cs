@@ -193,6 +193,11 @@ namespace AvasRoutingTool.ViewModels
             foreach (var dev in receivers)
             {
                 var displayVm = new DisplayCardViewModel(dev, UnrouteVideoAsync);
+                if (!string.IsNullOrEmpty(dev.ActiveSourceId))
+                {
+                    var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == dev.ActiveSourceId);
+                    displayVm.SetPreviewSource(sourceVm);
+                }
                 Displays.Add(displayVm);
             }
 
@@ -211,6 +216,8 @@ namespace AvasRoutingTool.ViewModels
             if (ok)
             {
                 var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
+                var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == sourceTx.DeviceId);
+                displayVm?.SetPreviewSource(sourceVm);
                 displayVm?.NotifyRoutingChanged();
                 AppLogger.Info("ROUTING", $"Successfully routed video feed to '{displayRx.DeviceName}'.");
             }
@@ -230,6 +237,7 @@ namespace AvasRoutingTool.ViewModels
             if (ok)
             {
                 var displayVm = Displays.FirstOrDefault(d => d.MacAddress == displayRx.DeviceId);
+                displayVm?.SetPreviewSource(null);
                 displayVm?.NotifyRoutingChanged();
                 AppLogger.Info("ROUTING", $"Successfully unrouted '{displayRx.DeviceName}'.");
             }

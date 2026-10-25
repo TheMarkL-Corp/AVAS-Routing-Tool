@@ -1,25 +1,28 @@
 # Active Context
 
 ## Current Status & Focus
-* **Current Phase**: Phase 1 (Single View Video Routing) Live Preview & Drag-to-Route Fixes Completed & Verified on Hardware.
-* **Core Architecture**: Approach A (Dual-Mode Shell: Native Visual Routing Canvas + Embedded BAVM Console in WebView2 + Live Diagnostics Tab).
-* **Key Fixes & Refinements Delivered**:
-  1. **AVAS MCU Preview Control**: Integrated REST in-band MCU Cypress Baseboard controller (`POST /api/device/{mac}` with `switch:api`, `set rtp igmp <multicastIp>`, `set rtp ON / OFF` over UART node 1 `rs232:1`). Tested live on `TX2_DUAL LINK_SFPA` (`74fe488b07bb`), streaming 425+ RFC 4175 datagrams in 1.5 seconds from companion SFP `10.32.32.14:5000`.
-  2. **Strict Device Filtering**: Guarded preview lifecycle by `VendorId == 105`. Non-AVAS transceivers (e.g. Advantech `VEGA_1100`, `VendorId == 192`) skip MCU commands and cleanly display `"Preview not supported"` on their card view.
-  3. **WPF Drag-to-Route Restoration**: Resolved drag-to-drop suppression on `DisplayCardView.xaml` by implementing `DragOver` (`e.Effects = DragDropEffects.Link; e.Handled = true;`) and handling both `AvasDevice` and `SourceCardViewModel` payloads.
-  4. **Official REST Video Routing**: Implemented Semtech BlueRiver REST `join` and `leave` (`POST /api/device/{rxMac}` with `op: "join"` / `op: "leave"`) with automatic transmitter start (`op: "start"`). Tested live between `TX2_DUAL LINK_SFPA` and `RX1_c059e_SFPA`.
-  5. **Link Mode & Telemetry UI**: Added detection and stylish badge for "Single Link" vs "Dual Link", multicast IP display (`MCAST: 225.0.0.X:5000`), FPS badge, and manual preview lifecycle action buttons (`[ 🔄 Refresh ]`, `[ ▶ Start ]`, `[ ⏹ Stop ]`).
-  6. **Ordered Dynamic Multicast Allocation & Startup Delay**: Ordered transmitters by `DeviceName` so TX1 gets the first IP in the range (`225.0.0.1`), TX2 gets the second, and delayed preview auto-start by 500ms after device handshake.
+* **Current Phase**: Phase 1 (Single View Video Routing) Decoder Un-Routing, Live Preview Mirroring & Responsive FullHD Layout Completed and Verified.
+* **Core Architecture**: Dual-Mode Shell (Native Visual Routing Canvas + Embedded BAVM Console in WebView2 + Live Diagnostics Tab).
+* **Key Enhancements Delivered (Milestone M8)**:
+  1. **Multi-Modal Decoder Un-Routing**:
+     - Dedicated Red `[ ⏻ Turn Off / Disconnect ]` action button in the decoder card footer bound to `UnrouteCommand`, which dispatches Semtech BlueRiver REST `leave` (`POST /api/device/{rxMac}` with `op: "leave", subscription_type: "HDMI"`).
+     - Drag-and-drop support from the bottom `"Off"` layout tile (`LayoutItemViewModel.Id == "off"`) onto any display card to trigger un-routing and clear active stream.
+  2. **Live Video Preview Mirroring on Decoder Cards**:
+     - `DisplayCardViewModel` reactively mirrors the active `SourceCardViewModel.PreviewBitmap` reference with zero additional network socket overhead or redundant decoding.
+     - When routed to an AVAS transmitter (`TX2_DUAL LINK_SFPA`), the decoder card immediately renders the identical live video stream with an active source overlay pill (`● <ActiveSourceName>`).
+     - When un-routed or turned off, the decoder card smoothly resets to the idle drop-target surface (`"Drop Source Here to Route"`).
+  3. **Non-AVAS Routing Fallback State**:
+     - When routed to a non-AVAS transmitter (`VEGA_1100`), the decoder displays an informative, polished banner: `"Routed to VEGA_1100"` with `"Preview Not Available (Non-AVAS Device)"`.
+  4. **Fluid Responsive Card Sizing for FullHD Screens (1920x1080)**:
+     - Upgraded both `SourceCardView` and `DisplayCardView` from cramped fixed dimensions (320px/300px) to fluid `Width="440" Height="295" Margin="10"` featuring 16:9 widescreen video preview surfaces (`Height="185"`).
+     - Replaced rigid layout containers in `VisualRoutingView.xaml` with `WrapPanel` inside scrollable viewports and `MinHeight="330"` rows, fitting 4 cards across a 1920x1080 screen without wrapping and eliminating empty dark voids.
+  5. **Clean Command Architecture**:
+     - Extracted `RelayCommand.cs` into `AvasRoutingTool.ViewModels`.
 
-## Recent Changes
-* Added `VendorId`, `ProductId`, `LinkMode`, `IsAvasDevice`, `IsPreviewSupported`, and `NodeIps` to `AvasDevice.cs`.
-* Implemented `RtpHeader.cs` (20-byte combined RFC 3550 + RFC 4175 parser) and `ScanlineFrameReassembler.cs`.
-* Overhauled `UnifiedRtpDemuxReceiver.cs` and `Yuv422Rasterizer.cs` with zero-allocation unsafe blitting, multi-adapter subnet IGMP joining, and alias demuxing.
-* Implemented REST MCU preview and REST video routing in `SdvoeClient.cs`.
-* Added `DragOver` handler to `DisplayCardView.xaml` and `.xaml.cs`.
-* Added Link Mode badge, Multicast IP label, and action buttons (`Refresh`, `Start`, `Stop`) to `SourceCardView.xaml` and `SourceCardViewModel.cs`.
-* All 27 unit tests passing in `tests/AvasRoutingTool.Tests/`.
-* Re-published standalone release package in `publish/AvasRoutingTool/AvasRoutingTool.exe`.
+## Test & Build Verification
+* **Unit Tests**: All 32 unit tests passing in `tests/AvasRoutingTool.Tests/`.
+* **Hardware API Verification**: Tested REST `start` on TX2 (`74fe488b07bb`), `join` on RX1 (`74fe483c059e`), and `leave` on RX1 via BlueRiver REST API (`127.0.0.1:8090`).
+* **Standalone Release Binary**: Successfully built and published to `publish/AvasRoutingTool/AvasRoutingTool.exe`.
 
 ## Next Steps
 1. User testing and visual sign-off of the standalone desktop application (`publish/AvasRoutingTool/AvasRoutingTool.exe`).

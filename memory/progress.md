@@ -57,3 +57,12 @@
   - [x] Telemetry labels (Multicast IP, FPS) and card controls (`Refresh`, `Start Preview`, `Stop Preview`)
   - [x] Deterministic sequential multicast IP allocation ordered by `DeviceName` with 0.5s startup delay
   - [x] Expanded test suite passing (27/27 passed) and updated standalone package (`publish/AvasRoutingTool/AvasRoutingTool.exe`)
+
+- [x] **M8: Decoder Un-Route, Live Preview Mirroring & Responsive FullHD Layout**
+  - [x] Multi-modal Decoder Un-Routing: Red `[ ⏻ Turn Off / Disconnect ]` card button dispatching REST `leave` (`op: "leave"`) and drag-and-drop support from bottom `"Off"` layout tile (`LayoutItemViewModel.Id == "off"`).
+  - [x] Live Video Preview Mirroring: Zero-overhead reactive mirroring of active source `PreviewBitmap` onto routed `DisplayCardView`, with active source tag overlay (`● <SourceName>`).
+  - [x] Fallback State for Non-AVAS Sources: Display cards routed to non-AVAS transmitters (e.g. `VEGA_1100`) clearly show `"Routed to <SourceName>"` with `"Preview Not Available (Non-AVAS Device)"` notice.
+  - [x] Fluid Responsive Card Dimensions: Expanded cards from fixed 320px/300px blocks to `Width="440" Height="295" Margin="10"` featuring 16:9 widescreen video preview surfaces, with `WrapPanel` and row `MinHeight="330"` eliminating void space on FullHD (1920x1080) screens.
+  - [x] Architecture Polish: Extracted clean, standalone `RelayCommand.cs` in `AvasRoutingTool.ViewModels`.
+  - [x] Unit test suite expanded and passing (32/32 tests passed) and updated standalone package (`publish/AvasRoutingTool/AvasRoutingTool.exe`).
+

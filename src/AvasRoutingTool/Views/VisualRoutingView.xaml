@@ -6,9 +6,9 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" MinHeight="260" />
+            <RowDefinition Height="*" MinHeight="330" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="260" />
+            <RowDefinition Height="*" MinHeight="330" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -63,11 +63,11 @@
                 <!-- Sources Carousel / Horizontal List -->
                 <ScrollViewer Grid.Row="1"
                               HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled">
+                              VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Sources}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
+                                <WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
@@ -134,11 +134,11 @@
                 <!-- Displays Carousel / Horizontal List -->
                 <ScrollViewer Grid.Row="1"
                               HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled">
+                              VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Displays}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
+                                <WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>

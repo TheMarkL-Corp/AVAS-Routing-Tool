@@ -1,8 +1,8 @@
 <UserControl x:Class="AvasRoutingTool.Views.DisplayCardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="300" Height="220"
-             Margin="8"
+             Width="440" Height="295"
+             Margin="10"
              AllowDrop="True"
              DragEnter="Card_DragEnter"
              DragOver="Card_DragOver"
@@ -37,6 +37,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -108,51 +109,84 @@
                 </Border>
             </Grid>
 
-            <!-- Display Routing Body -->
+            <!-- Live Video Preview Surface -->
             <Border Grid.Row="1"
-                    Background="#0B0F17"
+                    Background="#070A0F"
                     BorderBrush="{StaticResource Brush.Border.Default}"
                     BorderThickness="1"
                     CornerRadius="6"
-                    Padding="12">
+                    ClipToBounds="True">
                 <Grid>
-                    <!-- Routed State View -->
+                    <!-- Actual Mirrored Video Image -->
+                    <Image Source="{Binding PreviewBitmap}"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="LowQuality" />
+
+                    <!-- Active Source overlay tag (visible when video is playing) -->
+                    <Border HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Margin="8"
+                            Background="#D90B0F17"
+                            BorderBrush="#33FFFFFF"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6,2">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsRouted}" Value="True" />
+                                            <Condition Binding="{Binding IsPreviewSupported}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="● " Foreground="#10B981" FontSize="9" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ActiveSourceName}" Foreground="{StaticResource Brush.Text.Primary}" FontSize="10" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Routed to Non-AVAS Device Overlay (No preview stream available) -->
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <StackPanel.Style>
                             <Style TargetType="StackPanel">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsRouted}" Value="True">
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsRouted}" Value="True" />
+                                            <Condition Binding="{Binding IsPreviewSupported}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
                                         <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
+                                    </MultiDataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </StackPanel.Style>
-
                         <Path Data="{StaticResource Icon.Monitor}"
                               Fill="{StaticResource Brush.Accent.Primary}"
                               Width="26" Height="26"
                               Stretch="Uniform"
                               HorizontalAlignment="Center" />
-
-                        <TextBlock Text="Active Source"
+                        <TextBlock Text="Routed to Source"
                                    FontSize="10"
                                    Foreground="{StaticResource Brush.Text.Muted}"
                                    HorizontalAlignment="Center"
                                    Margin="0,6,0,2" />
-
                         <TextBlock Text="{Binding ActiveSourceName}"
-                                   FontSize="14"
+                                   FontSize="13"
                                    FontWeight="Bold"
                                    Foreground="{StaticResource Brush.Text.Primary}"
                                    HorizontalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
-
-                        <Button Content="✕  Unroute Video"
-                                Style="{StaticResource Style.Button.Unroute}"
-                                Command="{Binding UnrouteCommand}"
-                                Margin="0,10,0,0"
-                                HorizontalAlignment="Center" />
+                        <TextBlock Text="Preview Not Available (Non-AVAS Device)"
+                                   FontSize="10"
+                                   Foreground="{StaticResource Brush.Text.Muted}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0" />
                     </StackPanel>
 
                     <!-- Unrouted / Drop Target Placeholder -->
@@ -170,22 +204,28 @@
 
                         <Path Data="{StaticResource Icon.Monitor}"
                               Fill="{StaticResource Brush.Text.Muted}"
-                              Width="26" Height="26"
+                              Width="28" Height="28"
                               Stretch="Uniform"
                               HorizontalAlignment="Center"
-                              Opacity="0.4" />
+                              Opacity="0.35" />
 
                         <TextBlock Text="Drop Source Here to Route"
                                    FontSize="11"
+                                   FontWeight="Medium"
                                    Foreground="{StaticResource Brush.Text.Muted}"
                                    HorizontalAlignment="Center"
-                                   Margin="0,6,0,0" />
+                                   Margin="0,8,0,0" />
+                        <TextBlock Text="Drag any TX card above or 'Off' to turn off"
+                                   FontSize="9"
+                                   Foreground="#475569"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,2,0,0" />
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Card Footer -->
-            <Grid Grid.Row="2" Margin="0,8,0,0">
+            <!-- Card Telemetry Row -->
+            <Grid Grid.Row="2" Margin="0,6,0,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -200,15 +240,71 @@
                                Foreground="{StaticResource Brush.Text.Muted}" />
                 </StackPanel>
 
-                <Border Grid.Column="1"
+                <!-- Active Source Label / Status -->
+                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock FontSize="10" Foreground="{StaticResource Brush.Text.Muted}" HorizontalAlignment="Right">
+                        <Run Text="SOURCE: " />
+                        <Run Text="{Binding ActiveSourceName, TargetNullValue='NONE'}" Foreground="{StaticResource Brush.Text.Secondary}" FontWeight="Medium" />
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+
+            <!-- Card Action & Drop Hint Row -->
+            <Grid Grid.Row="3" Margin="0,4,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Turn Off / Disconnect Button -->
+                <Button Grid.Column="0"
+                        Command="{Binding UnrouteCommand}"
+                        ToolTip="Turn off display feed / Unroute video"
+                        Background="#26EF4444"
+                        Foreground="#EF4444"
+                        BorderBrush="#4DEF4444"
+                        BorderThickness="1"
+                        FontSize="10"
+                        FontWeight="SemiBold"
+                        Padding="8,3"
+                        Cursor="Hand">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRouted}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⏻" FontSize="10" Margin="0,0,4,0" />
+                        <TextBlock Text="Turn Off" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Drop Target / State Hint -->
+                <Border Grid.Column="2"
                         Background="{StaticResource Brush.Surface.Elevated}"
                         CornerRadius="4"
                         Padding="6,3"
                         VerticalAlignment="Center">
-                    <TextBlock Text="TARGET DISPLAY"
-                               FontSize="9"
+                    <TextBlock FontSize="9"
                                FontWeight="Bold"
-                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                               Foreground="{StaticResource Brush.Text.Secondary}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="TARGET DISPLAY" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRouted}" Value="True">
+                                        <Setter Property="Text" Value="DROP TO SWITCH" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Border>
             </Grid>
         </Grid>
