@@ -65,6 +65,21 @@ namespace AvasRoutingTool.Tests
         // ---- the 18 listed tests ----
 
         [Fact]
+        public async Task Placing_RaisesChangeLines_SoTheChangeListFollows()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            var raised = new List<string?>();
+            vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+
+            Assert.Contains(nameof(MultiViewComposerViewModel.ChangeLines), raised);
+            Assert.Equal(new[] { "1: - -> TX1" }, vm.ChangeLines);
+        }
+
+        [Fact]
         public void NewComposer_IsAtStepOne_WithNothingStaged()
         {
             var rig = new Rig();

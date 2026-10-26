@@ -5,15 +5,45 @@
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
              Background="{StaticResource Brush.Background.Dark}">
 
+    <UserControl.Resources>
+        <views:IsNullConverter x:Key="IsNull" />
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" MinHeight="330" />
+            <!-- Sources: half the screen in the overview; a fixed palette row while the Composer is open -->
+            <RowDefinition>
+                <RowDefinition.Style>
+                    <Style TargetType="RowDefinition">
+                        <Setter Property="Height" Value="*" />
+                        <Setter Property="MinHeight" Value="330" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                <Setter Property="Height" Value="340" />
+                                <Setter Property="MinHeight" Value="0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </RowDefinition.Style>
+            </RowDefinition>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="330" />
+            <RowDefinition>
+                <RowDefinition.Style>
+                    <Style TargetType="RowDefinition">
+                        <Setter Property="Height" Value="*" />
+                        <Setter Property="MinHeight" Value="330" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                <Setter Property="MinHeight" Value="0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </RowDefinition.Style>
+            </RowDefinition>
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- TOP ROW: Sources (TX) Section -->
+        <!-- TOP ROW: Sources (TX) Section (the Composer's palette while it is open) -->
         <Border Grid.Row="0" Margin="16,12,16,6">
             <Grid>
                 <Grid.RowDefinitions>
@@ -44,11 +74,21 @@
                     </StackPanel>
 
                     <TextBlock Grid.Column="1"
-                               Text="Drag an active source card to any target display"
                                FontSize="11"
                                Foreground="{StaticResource Brush.Text.Muted}"
                                VerticalAlignment="Center"
-                               Margin="12,0,0,0" />
+                               Margin="12,0,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="Tap a source, then tap a display - or drag the source onto the display" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                        <Setter Property="Text" Value="Tap a source, then tap the blocks it should fill" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
                     <Border Grid.Column="2"
                             Background="{StaticResource Brush.Surface.Elevated}"
@@ -84,16 +124,66 @@
         <!-- Subtle Divider -->
         <Border Grid.Row="1" Height="1" Background="{StaticResource Brush.Border.Default}" Margin="16,4" />
 
-        <!-- MIDDLE ROW: Displays (RX) Section -->
+        <!-- MIDDLE ROW: Displays (RX) Section - replaced by the Composer while one is open -->
         <Border Grid.Row="2" Margin="16,6,16,12">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
+                <!-- Arm banner (overview only; the Composer shows its own hint): one armed thing, one line -->
+                <Border Grid.Row="0"
+                        Background="#082F3A"
+                        BorderBrush="{StaticResource Brush.Border.DropTarget}"
+                        BorderThickness="2"
+                        CornerRadius="10"
+                        Padding="14,6"
+                        Margin="0,0,0,10">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ArmBannerText, Mode=OneWay}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding ArmBannerText, Mode=OneWay}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="#CFFAFE"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="1"
+                                x:Name="StopPlacingButton"
+                                Style="{StaticResource Style.Button.Composer}"
+                                Background="{StaticResource Brush.Border.DropTarget}"
+                                BorderBrush="{StaticResource Brush.Border.DropTarget}"
+                                Foreground="#04232B"
+                                Content="Stop"
+                                Margin="12,0,0,0"
+                                Click="StopPlacing_Click" />
+                    </Grid>
+                </Border>
+
                 <!-- Section Header -->
-                <Grid Grid.Row="0" Margin="4,0,4,8">
+                <Grid Grid.Row="1" Margin="4,0,4,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -133,7 +223,7 @@
                 </Grid>
 
                 <!-- Displays Carousel / Horizontal List -->
-                <ScrollViewer Grid.Row="1"
+                <ScrollViewer Grid.Row="2"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Displays}">
@@ -152,7 +242,34 @@
             </Grid>
         </Border>
 
-        <!-- BOTTOM ROW: Layouts Bar -->
-        <views:LayoutsBarView Grid.Row="3" />
+        <!-- MIDDLE ROW while composing: the MultiView Composer for one display (DataContext = ActiveComposer) -->
+        <views:MultiViewComposerView Grid.Row="2"
+                                     x:Name="ComposerView"
+                                     Margin="16,6,16,12"
+                                     DataContext="{Binding ActiveComposer, Mode=OneWay}"
+                                     Sources="{Binding DataContext.Sources, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:VisualRoutingView}}">
+            <views:MultiViewComposerView.Style>
+                <Style TargetType="views:MultiViewComposerView">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </views:MultiViewComposerView.Style>
+        </views:MultiViewComposerView>
+
+        <!-- BOTTOM ROW: Layouts Bar (the Composer has its own layout rail) -->
+        <views:LayoutsBarView Grid.Row="3">
+            <views:LayoutsBarView.Style>
+                <Style TargetType="views:LayoutsBarView">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </views:LayoutsBarView.Style>
+        </views:LayoutsBarView>
     </Grid>
 </UserControl>

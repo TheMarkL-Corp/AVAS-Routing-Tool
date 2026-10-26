@@ -935,7 +935,7 @@ namespace AvasRoutingTool.ViewModels
         {
             foreach (var name in new[]
             {
-                nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes),
+                nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes), nameof(ChangeLines),
                 nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason),
                 nameof(CanUndo), nameof(UnplacedSources), nameof(OutputText), nameof(RateNote), nameof(HeaderNotice),
             })

@@ -18,6 +18,8 @@
     <Color x:Key="Color.Text.Secondary">#94A3B8</Color>
     <Color x:Key="Color.Text.Muted">#64748B</Color>
     <Color x:Key="Color.Action.Danger">#EF4444</Color>
+    <!-- MultiView Composer: staged, not on screen yet (always paired with a dashed line and a STAGED label) -->
+    <Color x:Key="Color.Status.Staged">#F59E0B</Color>
 
     <!-- SolidColorBrushes -->
     <SolidColorBrush x:Key="Brush.Background.Dark" Color="{StaticResource Color.Background.Dark}" />
@@ -36,6 +38,7 @@
     <SolidColorBrush x:Key="Brush.Text.Secondary" Color="{StaticResource Color.Text.Secondary}" />
     <SolidColorBrush x:Key="Brush.Text.Muted" Color="{StaticResource Color.Text.Muted}" />
     <SolidColorBrush x:Key="Brush.Action.Danger" Color="{StaticResource Color.Action.Danger}" />
+    <SolidColorBrush x:Key="Brush.Status.Staged" Color="{StaticResource Color.Status.Staged}" />
 
     <!-- Button Styles -->
     <Style x:Key="Style.Button.Primary" TargetType="Button">
@@ -125,6 +128,102 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- MultiView Composer: Take (primary, >= 72 px, 16 px semibold). Disabled keeps a readable label (no opacity fade). -->
+    <Style x:Key="Style.Button.Take" TargetType="Button">
+        <Setter Property="MinHeight" Value="72" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.Primary}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False">
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                    <Setter Property="TextAlignment" Value="Center" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Accent.PrimaryHover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter Property="BorderBrush" Value="#93C5FD" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Background" Value="{StaticResource Brush.Surface.Elevated}" />
+                            <Setter Property="BorderBrush" Value="#334155" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- MultiView Composer: every other button (>= 56 px for gloved touch, 16 px semibold) -->
+    <Style x:Key="Style.Button.Composer" TargetType="Button">
+        <Setter Property="MinHeight" Value="56" />
+        <Setter Property="MinWidth" Value="56" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+        <Setter Property="Background" Value="{StaticResource Brush.Surface.Elevated}" />
+        <Setter Property="BorderBrush" Value="#334155" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="Padding" Value="16,6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Surface.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter Property="BorderBrush" Value="#93C5FD" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- MultiView Composer: body and label text (>= 14 px, >= 4.5:1 on the card and background colours) -->
+    <Style x:Key="Style.Text.ComposerLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
     <!-- ScrollBar & ScrollViewer Dark Style -->

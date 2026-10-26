@@ -3,8 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              MinWidth="320"
              PreviewMouseLeftButtonDown="Card_PreviewMouseLeftButtonDown"
-             MouseMove="Card_MouseMove">
+             MouseMove="Card_MouseMove"
+             MouseLeftButtonUp="Card_MouseLeftButtonUp">
 
+    <Grid>
     <Border Background="{StaticResource Brush.Surface.Card}"
             BorderBrush="{StaticResource Brush.Border.Default}"
             BorderThickness="1"
@@ -338,18 +340,103 @@
                     </Button>
                 </StackPanel>
 
-                <!-- Drag Handle hint -->
-                <Border Grid.Column="2"
-                        Background="{StaticResource Brush.Surface.Elevated}"
-                        CornerRadius="4"
-                        Padding="6,3"
-                        VerticalAlignment="Center">
-                    <TextBlock Text="DRAG TO ROUTE"
-                               FontSize="9"
-                               FontWeight="Bold"
-                               Foreground="{StaticResource Brush.Text.Secondary}" />
-                </Border>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- In the Composer: how many staged blocks show this encoder -->
+                    <Border x:Name="UsedInBlocksBadge"
+                            Background="#2A1F08"
+                            BorderBrush="{StaticResource Brush.Status.Staged}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6,2"
+                            Margin="0,0,6,0"
+                            VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#FDE68A">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="{Binding UsedInBlocks, Mode=OneWay, StringFormat='in {0} blocks'}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="1">
+                                            <Setter Property="Text" Value="in 1 block" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+
+                    <!-- Tapped to place: the ring alone is colour, so it also says so -->
+                    <Border Background="#082F3A"
+                            BorderBrush="{StaticResource Brush.Border.DropTarget}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6,2"
+                            VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="Placing" FontSize="14" FontWeight="Bold" Foreground="#A5F3FC" />
+                    </Border>
+
+                    <!-- Tap / drag hint (gives way to the badges: the card is narrow) -->
+                    <Border Background="{StaticResource Brush.Surface.Elevated}"
+                            CornerRadius="4"
+                            Padding="6,3"
+                            VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="TAP OR DRAG TO ROUTE"
+                                   FontSize="9"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                    </Border>
+                </StackPanel>
             </Grid>
         </Grid>
     </Border>
+
+    <!-- Armed ring (cyan, spec 9), drawn over the card edge so the card does not move -->
+    <Border x:Name="ArmedRing"
+            BorderBrush="{StaticResource Brush.Border.DropTarget}"
+            BorderThickness="3"
+            CornerRadius="8"
+            IsHitTestVisible="False">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
+                        <Setter Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
+    </Border>
+    </Grid>
 </UserControl>

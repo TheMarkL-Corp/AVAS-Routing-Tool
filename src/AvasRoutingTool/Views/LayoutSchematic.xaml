@@ -1,0 +1,58 @@
+<UserControl x:Class="AvasRoutingTool.Views.LayoutSchematic"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+             Focusable="False"
+             IsHitTestVisible="False">
+
+    <!-- A layout preset drawn as its real block geometry (16:9 screen, letterbox gaps included). -->
+    <Border Background="#070A0F"
+            BorderBrush="#334155"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="2">
+        <Grid>
+            <ItemsControl x:Name="CellsHost" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <controls:FractionalLayoutPanel AspectRatio="1.7777777777777777" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding X, Mode=OneWay}" />
+                        <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding Y, Mode=OneWay}" />
+                        <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding W, Mode=OneWay}" />
+                        <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding H, Mode=OneWay}" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="1.5"
+                                Background="#1E3A5F"
+                                BorderBrush="{StaticResource Brush.Accent.Primary}"
+                                BorderThickness="1"
+                                CornerRadius="2">
+                            <TextBlock Text="{Binding Number, Mode=OneWay}"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="#DBEAFE"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Off: a dark screen with the word, never colour alone -->
+            <TextBlock x:Name="OffGlyph"
+                       Text="OFF"
+                       Visibility="Collapsed"
+                       FontSize="13"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource Brush.Text.Secondary}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+        </Grid>
+    </Border>
+</UserControl>

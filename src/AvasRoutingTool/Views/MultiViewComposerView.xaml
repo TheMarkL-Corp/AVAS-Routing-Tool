@@ -1,0 +1,1223 @@
+<UserControl x:Class="AvasRoutingTool.Views.MultiViewComposerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:AvasRoutingTool.Views"
+             xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+             Foreground="{StaticResource Brush.Text.Primary}">
+
+    <!--
+        The MultiView Composer for one display (spec 5.2): left rail = Step 1 layout tiles, centre = the staged canvas
+        at the display's real aspect, right rail = ON SCREEN NOW, changes and Take. DataContext = MultiViewComposerViewModel.
+        Every control calls the view model; nothing reaches the device before Take.
+    -->
+    <UserControl.Resources>
+        <views:AspectRatioConverter x:Key="AspectRatio" />
+        <views:PaintOrderConverter x:Key="PaintOrder" />
+        <views:HasItemsConverter x:Key="HasItems" />
+        <views:IsNullConverter x:Key="IsNull" />
+        <views:SameTextConverter x:Key="SameText" />
+
+        <!-- Dark, thin scroll bar for the rails (the system one is a bright bar on the dark theme) -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Background="#475569" CornerRadius="4" />
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Geometry x:Key="Icon.Lock">M7,11 L7,7 A5,5 0 0,1 17,7 L17,11 M5,11 L19,11 L19,21 L5,21 Z</Geometry>
+
+        <!-- Small dark chip over a preview (legible on any picture) -->
+        <Style x:Key="Chip" TargetType="Border">
+            <Setter Property="Background" Value="#D9070A0F" />
+            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+
+        <Style x:Key="RailCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Surface.Card}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <Style x:Key="RailHeading" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+        </Style>
+
+        <!-- Step marker: number until the step is done, then a check (shape and text, not colour alone) -->
+        <Style x:Key="StepDot" TargetType="Border">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="CornerRadius" Value="15" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="Background" Value="{StaticResource Brush.Surface.Elevated}" />
+            <Setter Property="BorderBrush" Value="#475569" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== Header: which display, its output, and the way back ===== -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding HeaderNotice, Mode=OneWay}"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Margin="0,0,12,0"
+                               VerticalAlignment="Center" />
+                    <Border Background="{StaticResource Brush.Surface.Elevated}" CornerRadius="12" Padding="10,4" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding OutputText, Mode=OneWay}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding OutputText, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="#CBD5E1" />
+                    </Border>
+                    <Border Background="{StaticResource Brush.Surface.Elevated}" CornerRadius="12" Padding="10,4" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RateNote, Mode=OneWay}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding RateNote, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="#CBD5E1" />
+                    </Border>
+                </WrapPanel>
+                <TextBlock Style="{StaticResource Style.Text.ComposerLabel}"
+                           Margin="0,4,0,0"
+                           Text="Preview: low-rate monitoring pictures, fitted to each block without cropping. They are not the surgical feed." />
+            </StackPanel>
+
+            <Button x:Name="CloseComposerButton"
+                    Grid.Column="1"
+                    Style="{StaticResource Style.Button.Composer}"
+                    Content="Back to displays"
+                    ToolTip="Close the Composer. Changes that are not on screen are kept as a draft on the display card."
+                    AutomationProperties.Name="Back to displays"
+                    Click="Close_Click" />
+        </Grid>
+
+        <!-- ===== Body: left rail | canvas | right rail ===== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== Left rail: Step 1 layout, Step 2 place, Step 3 check and take ===== -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,10,0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <!-- Step 1 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource StepDot}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StepLayoutDone, Mode=OneWay}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Accent.Primary}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="1" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StepLayoutDone, Mode=OneWay}" Value="True">
+                                                <Setter Property="Text" Value="✓" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <TextBlock Text="LAYOUT" Style="{StaticResource RailHeading}" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding LayoutOptions, Mode=OneWay}" Focusable="False" Margin="0,0,0,16">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button x:Name="LayoutTile"
+                                        Foreground="{StaticResource Brush.Text.Primary}"
+                                        MinHeight="96"
+                                        Margin="0,0,0,10"
+                                        HorizontalContentAlignment="Stretch"
+                                        Cursor="Hand"
+                                        AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                                        Click="LayoutTile_Click">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd"
+                                                    Background="{StaticResource Brush.Surface.Card}"
+                                                    BorderBrush="#334155"
+                                                    BorderThickness="2"
+                                                    CornerRadius="10"
+                                                    Padding="10">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Surface.Hover}" />
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding IsPending, Mode=OneWay}" Value="True">
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Border.DropTarget}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                                    <Setter TargetName="bd" Property="BorderThickness" Value="3" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#93C5FD" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}" Width="120" Height="70" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Subtitle, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
+                                            <TextBlock Text="✓ Selected" FontSize="14" FontWeight="Bold" Foreground="#93C5FD" Margin="0,2,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="Reading the display..." FontSize="14" FontWeight="Bold" Foreground="#A5F3FC" Margin="0,2,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPending, Mode=OneWay}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Step 2 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource StepDot}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Accent.Primary}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="2" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="True">
+                                                <Setter Property="Text" Value="✓" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <TextBlock Text="PLACE SOURCES" Style="{StaticResource RailHeading}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,0,0,8"
+                               Text="Tap a source above, then its blocks - or tap an empty block." />
+
+                    <!-- Sources a layout change left without a block -->
+                    <StackPanel Margin="0,0,0,8">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding UnplacedSources, Mode=OneWay, Converter={StaticResource HasItems}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Unplaced after the layout change - tap to place again:" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="#FCD34D" TextWrapping="Wrap" Margin="0,0,0,6" />
+                        <ItemsControl ItemsSource="{Binding UnplacedSources, Mode=OneWay}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource Style.Button.Composer}"
+                                            Margin="0,0,8,8"
+                                            Background="#2A1F08"
+                                            BorderBrush="{StaticResource Brush.Status.Staged}"
+                                            Foreground="#FDE68A"
+                                            Content="{Binding SourceName, Mode=OneWay}"
+                                            Click="Unplaced_Click" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Step 3 -->
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,6">
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource StepDot}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CanTake, Mode=OneWay}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Accent.Primary}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="3" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CanTake, Mode=OneWay}" Value="True">
+                                                <Setter Property="Text" Value="✓" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <TextBlock Text="CHECK, THEN TAKE" Style="{StaticResource RailHeading}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource Style.Text.ComposerLabel}"
+                               Text="Nothing changes on screen until Take." />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ===== Centre: the staged canvas ===== -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Status line: what the frame shows, the Composer's own hint / result, and Done -->
+                <Grid Grid.Row="0" MinHeight="56" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock x:Name="StagedLabel"
+                                   Text="STAGED - not on screen yet"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="#FCD34D">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource HasItems}}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding CanTake, Mode=OneWay}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock x:Name="OnScreenLabel"
+                                   Text="ON SCREEN - this is what the surgeon sees"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="#93C5FD">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource HasItems}}" Value="False" />
+                                                <Condition Binding="{Binding CanTake, Mode=OneWay}" Value="False" />
+                                                <Condition Binding="{Binding LiveBlocks, Mode=OneWay, Converter={StaticResource HasItems}}" Value="True" />
+                                                <Condition Binding="{Binding Draft, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
+                    <Border Grid.Column="1" x:Name="BannerHost" BorderThickness="2" CornerRadius="10" Padding="12,6" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#0F1E3A" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="None">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                                        <Setter Property="Background" Value="#0B2A1E" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Online}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                                        <Setter Property="Background" Value="#2A1F08" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Staged}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                                        <Setter Property="Background" Value="#3B0D0D" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Action.Danger}" />
+                                    </DataTrigger>
+                                    <!-- An armed source draws the cyan of the blocks it can fill -->
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Info" />
+                                            <Condition Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Background" Value="#082F3A" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.DropTarget}" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontSize="15" FontWeight="Bold" Margin="0,0,8,0" VerticalAlignment="Top">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="i" />
+                                        <Setter Property="Foreground" Value="#93C5FD" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                                                <Setter Property="Text" Value="✓" />
+                                                <Setter Property="Foreground" Value="#A7F3D0" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                                                <Setter Property="Text" Value="!" />
+                                                <Setter Property="Foreground" Value="#FDE68A" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                                                <Setter Property="Text" Value="✕" />
+                                                <Setter Property="Foreground" Value="#FCA5A5" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding Banner.Text, Mode=OneWay}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" MaxWidth="640" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Done placing / Cancel move (Disarm stops both) -->
+                    <Button Grid.Column="2" x:Name="DoneButton" Margin="12,0,0,0" Click="Disarm_Click" VerticalAlignment="Center">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Setter Property="Content" Value="Done placing" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MovingFromIndex, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Content" Value="Cancel move" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Content" Value="Done placing" />
+                                        <Setter Property="Background" Value="{StaticResource Brush.Border.DropTarget}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.DropTarget}" />
+                                        <Setter Property="Foreground" Value="#04232B" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+
+                <!-- The screen: black canvas at the display's real aspect, framed by its state -->
+                <Grid Grid.Row="1" x:Name="CanvasHost" Margin="8">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+
+                    <controls:FractionalLayoutPanel>
+                        <controls:FractionalLayoutPanel.AspectRatio>
+                            <MultiBinding Converter="{StaticResource AspectRatio}" Mode="OneWay">
+                                <Binding Path="Draft.Plan.Width" Mode="OneWay" />
+                                <Binding Path="Draft.Plan.Height" Mode="OneWay" />
+                            </MultiBinding>
+                        </controls:FractionalLayoutPanel.AspectRatio>
+                        <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" Background="#000000" />
+                        <Rectangle x:Name="CanvasFrame"
+                                   controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1"
+                                   Margin="-6"
+                                   RadiusX="10" RadiusY="10"
+                                   StrokeThickness="3"
+                                   IsHitTestVisible="False">
+                            <Rectangle.Style>
+                                <Style TargetType="Rectangle">
+                                    <Setter Property="Stroke" Value="{StaticResource Brush.Border.Default}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Visibility, ElementName=OnScreenLabel}" Value="Visible">
+                                            <Setter Property="Stroke" Value="{StaticResource Brush.Status.Routed}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Visibility, ElementName=StagedLabel}" Value="Visible">
+                                            <Setter Property="Stroke" Value="{StaticResource Brush.Status.Staged}" />
+                                            <Setter Property="StrokeDashArray" Value="4 2" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Rectangle.Style>
+                        </Rectangle>
+                    </controls:FractionalLayoutPanel>
+
+                    <!-- Step 1 not done: say what to do -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Margin="24">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Draft, Mode=OneWay}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Step 1 · Choose a layout on the left" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                        <TextBlock Text="The blocks appear here empty. Nothing changes on the surgeon's screen until you press Take."
+                                   FontSize="15" Foreground="{StaticResource Brush.Text.Secondary}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0" />
+                    </StackPanel>
+
+                    <!-- The blocks -->
+                    <ItemsControl x:Name="BlocksHost" ItemsSource="{Binding Blocks, Mode=OneWay}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:FractionalLayoutPanel>
+                                    <controls:FractionalLayoutPanel.AspectRatio>
+                                        <MultiBinding Converter="{StaticResource AspectRatio}" Mode="OneWay">
+                                            <Binding Path="Draft.Plan.Width" Mode="OneWay" />
+                                            <Binding Path="Draft.Plan.Height" Mode="OneWay" />
+                                        </MultiBinding>
+                                    </controls:FractionalLayoutPanel.AspectRatio>
+                                </controls:FractionalLayoutPanel>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding NormalizedX, Mode=OneWay}" />
+                                <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding NormalizedY, Mode=OneWay}" />
+                                <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding NormalizedWidth, Mode=OneWay}" />
+                                <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding NormalizedHeight, Mode=OneWay}" />
+                                <Setter Property="Panel.ZIndex" Value="{Binding Index, Mode=OneWay, Converter={StaticResource PaintOrder}}" />
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4">
+                                    <!-- 1. The block itself: one tap = TapBlock (place / picker / strip / move target) -->
+                                    <Button x:Name="BlockSurface"
+                                            Foreground="{StaticResource Brush.Text.Primary}"
+                                            Click="Block_Click"
+                                            Cursor="Hand"
+                                            AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Block {0}'}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="#070A0F" CornerRadius="6" ClipToBounds="True">
+                                                    <ContentPresenter />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                        <Grid x:Name="BlockPicture" ClipToBounds="True">
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                                                            <Setter Property="Opacity" Value="0.4" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
+                                            <!-- Live preview, fitted uniformly: never cropped or stretched -->
+                                            <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
+                                                   Stretch="Uniform"
+                                                   RenderOptions.BitmapScalingMode="LowQuality" />
+                                            <!-- Placed non-AVAS source: no preview, say so with its name -->
+                                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding IsPlaced, Mode=OneWay}" Value="True" />
+                                                                    <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <TextBlock Text="{Binding SourceName, Mode=OneWay}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="NO PREVIEW · non-AVAS source" FontSize="14" FontWeight="Bold" Foreground="#CBD5E1" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                            <!-- Empty block, nothing armed and no move: what a tap does -->
+                                            <TextBlock Text="Tap to choose a source" FontSize="16" Foreground="#CBD5E1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding DataContext.ArmedSource, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource IsNull}}" Value="False">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding DataContext.MovingFromIndex, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource IsNull}}" Value="False">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Button>
+
+                                    <!-- 2. State line: staged = dashed amber, on screen = solid blue, problem = red, selected = bright blue -->
+                                    <Rectangle RadiusX="6" RadiusY="6" IsHitTestVisible="False">
+                                        <Rectangle.Style>
+                                            <Style TargetType="Rectangle">
+                                                <Setter Property="Stroke" Value="#334155" />
+                                                <Setter Property="StrokeThickness" Value="2" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding State, Mode=OneWay}" Value="Staged">
+                                                        <Setter Property="Stroke" Value="{StaticResource Brush.Status.Staged}" />
+                                                        <Setter Property="StrokeThickness" Value="3" />
+                                                        <Setter Property="StrokeDashArray" Value="4 2" />
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding State, Mode=OneWay}" Value="Live" />
+                                                            <Condition Binding="{Binding IsPlaced, Mode=OneWay}" Value="True" />
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Stroke" Value="{StaticResource Brush.Status.Routed}" />
+                                                    </MultiDataTrigger>
+                                                    <DataTrigger Binding="{Binding State, Mode=OneWay}" Value="Issue">
+                                                        <Setter Property="Stroke" Value="{StaticResource Brush.Action.Danger}" />
+                                                        <Setter Property="StrokeThickness" Value="3" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+                                                        <Setter Property="Stroke" Value="#93C5FD" />
+                                                        <Setter Property="StrokeThickness" Value="3" />
+                                                        <Setter Property="StrokeDashArray" Value="{x:Null}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsMoveSource, Mode=OneWay}" Value="True">
+                                                        <Setter Property="Stroke" Value="{StaticResource Brush.Border.DropTarget}" />
+                                                        <Setter Property="StrokeThickness" Value="3" />
+                                                        <Setter Property="StrokeDashArray" Value="2 2" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Rectangle.Style>
+                                    </Rectangle>
+
+                                    <!-- 3. Armed and this block can take it: cyan ring + "+ Place TX2" -->
+                                    <Grid IsHitTestVisible="False">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.ArmedSource, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <!-- Already shows the armed source: nothing to offer -->
+                                                    <DataTrigger Value="True">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource SameText}" Mode="OneWay">
+                                                                <Binding Path="SourceMac" Mode="OneWay" />
+                                                                <Binding Path="DataContext.ArmedSource.MacAddress" Mode="OneWay" RelativeSource="{RelativeSource AncestorType=views:MultiViewComposerView}" />
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <Rectangle RadiusX="6" RadiusY="6" Fill="#2906B6D4" Stroke="{StaticResource Brush.Border.DropTarget}" StrokeThickness="3" />
+                                        <Border Background="#D904232B" CornerRadius="8" Padding="14,8" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12">
+                                            <TextBlock FontSize="17" FontWeight="Bold" Foreground="#A5F3FC" TextWrapping="Wrap" TextAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, StringFormat='+ Place {0}'}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                                                                <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, StringFormat='Replace with {0}'}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- 4. Armed and this block cannot take it: lock + the reason, in words -->
+                                    <Border Background="#C7070A0F" CornerRadius="6" IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <!-- Top margin clears the block number; the source / size chips are hidden meanwhile -->
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,44,12,6" MaxWidth="380">
+                                            <Path x:Name="LockIcon"
+                                                  Data="{StaticResource Icon.Lock}"
+                                                  Stroke="#E2E8F0"
+                                                  StrokeThickness="2"
+                                                  StrokeLineJoin="Round"
+                                                  Width="22" Height="22"
+                                                  Stretch="Uniform"
+                                                  HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding UnavailableReason, Mode=OneWay}"
+                                                       FontSize="14"
+                                                       Foreground="#F1F5F9"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       Margin="0,6,0,0" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 5. Moving: other blocks are destinations -->
+                                    <Border Background="#D904232B" CornerRadius="8" Padding="14,8" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.MovingFromIndex, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsMoveSource, Mode=OneWay}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock FontSize="17" FontWeight="Bold" Foreground="#A5F3FC">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="Move here" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                                                            <Setter Property="Text" Value="Swap here" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+
+                                    <!-- 6. What blocks Take on this block (offline, size conflict) -->
+                                    <Border VerticalAlignment="Top" HorizontalAlignment="Center" Margin="56,8,56,0"
+                                            Background="#F21F0A0A" BorderBrush="{StaticResource Brush.Action.Danger}" BorderThickness="1"
+                                            CornerRadius="6" Padding="10,4" IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IssueText, Mode=OneWay}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#FCA5A5" TextWrapping="Wrap">
+                                            <Run Text="✕ " /><Run Text="{Binding IssueText, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </Border>
+
+                                    <!-- 7. Block number (28 px), top-left -->
+                                    <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="10,0">
+                                        <TextBlock Text="{Binding Label, Mode=OneWay}" FontSize="28" FontWeight="Bold" />
+                                    </Border>
+
+                                    <!-- 8. Source name pill and "Same as N" chip, bottom-left; output size bottom-right -->
+                                    <Grid VerticalAlignment="Bottom" Margin="8" IsHitTestVisible="False">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <!-- The name gives way (ellipsis) on small blocks such as the PIP inset -->
+                                        <Border Grid.Column="0" Style="{StaticResource Chip}" Margin="0,0,6,0" HorizontalAlignment="Left">
+                                            <Border.Visibility>
+                                                <Binding Path="IsPlaced" Mode="OneWay">
+                                                    <Binding.Converter>
+                                                        <BooleanToVisibilityConverter />
+                                                    </Binding.Converter>
+                                                </Binding>
+                                            </Border.Visibility>
+                                            <TextBlock Text="{Binding SourceName, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        </Border>
+                                        <Border Grid.Column="1" Margin="0,0,6,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource Chip}">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Staged}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SameAsText, Mode=OneWay}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding SameAsText, Mode=OneWay}" FontSize="14" FontWeight="Bold" Foreground="#FDE68A" />
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource Chip}" Padding="6,2">
+                                            <TextBlock Text="{Binding SizeText, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="#CBD5E1" />
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- 9. Replace / Move strip (a tap on a placed block opens it; no hover anywhere) -->
+                                    <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Background="#F20F1626" BorderBrush="#475569" BorderThickness="1" CornerRadius="10" Padding="6">
+                                        <Border.Visibility>
+                                            <Binding Path="IsSelected" Mode="OneWay">
+                                                <Binding.Converter>
+                                                    <BooleanToVisibilityConverter />
+                                                </Binding.Converter>
+                                            </Binding>
+                                        </Border.Visibility>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button x:Name="ReplaceButton" Style="{StaticResource Style.Button.Composer}" Content="Replace" MinWidth="104" Margin="0,0,12,0" Click="Replace_Click" />
+                                            <Button x:Name="MoveButton" Style="{StaticResource Style.Button.Composer}" Content="Move" MinWidth="104" Click="Move_Click" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 10. Corner clear: 32 px glyph, 48 px hit area (transparent padding). Staged only, so one tap is safe. -->
+                                    <Button x:Name="CornerClear"
+                                            Width="48" Height="48"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Margin="0,2,2,0"
+                                            Cursor="Hand"
+                                            Command="{Binding ClearCommand, Mode=OneWay}"
+                                            ToolTip="Clear this block (staged only)"
+                                            AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Clear block {0}'}">
+                                        <Button.Visibility>
+                                            <Binding Path="IsPlaced" Mode="OneWay">
+                                                <Binding.Converter>
+                                                    <BooleanToVisibilityConverter />
+                                                </Binding.Converter>
+                                            </Binding>
+                                        </Button.Visibility>
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="Transparent">
+                                                    <Border x:Name="CornerClearGlyph"
+                                                            Width="32" Height="32"
+                                                            CornerRadius="16"
+                                                            Background="#EB3B0D0D"
+                                                            BorderBrush="#F87171"
+                                                            BorderThickness="1"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center">
+                                                        <TextBlock Text="✕" FontSize="16" FontWeight="Bold" Foreground="#FECACA"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                                        <Setter TargetName="CornerClearGlyph" Property="BorderBrush" Value="#93C5FD" />
+                                                        <Setter TargetName="CornerClearGlyph" Property="BorderThickness" Value="2" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Grid>
+
+            <!-- ===== Right rail: ON SCREEN NOW, changes, Take ===== -->
+            <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <Border Style="{StaticResource RailCard}">
+                        <StackPanel>
+                            <TextBlock Text="ON SCREEN NOW" Style="{StaticResource RailHeading}" Margin="0,0,0,8" />
+                            <Grid>
+                                <controls:FractionalLayoutPanel AspectRatio="1.7777777777777777" MinHeight="150">
+                                    <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1"
+                                            Background="#000000" BorderBrush="{StaticResource Brush.Status.Routed}" BorderThickness="2" CornerRadius="6" />
+                                </controls:FractionalLayoutPanel>
+                                <ItemsControl ItemsSource="{Binding LiveBlocks, Mode=OneWay}" Focusable="False" IsHitTestVisible="False" Margin="2">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <controls:FractionalLayoutPanel AspectRatio="1.7777777777777777" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding NormalizedX, Mode=OneWay}" />
+                                            <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding NormalizedY, Mode=OneWay}" />
+                                            <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding NormalizedWidth, Mode=OneWay}" />
+                                            <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding NormalizedHeight, Mode=OneWay}" />
+                                            <Setter Property="Panel.ZIndex" Value="{Binding Index, Mode=OneWay, Converter={StaticResource PaintOrder}}" />
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="1" Background="#070A0F" BorderBrush="#334155" BorderThickness="1" ClipToBounds="True">
+                                                <Grid>
+                                                    <Image Source="{Binding PreviewBitmap, Mode=OneWay}" Stretch="Uniform" RenderOptions.BitmapScalingMode="LowQuality" />
+                                                    <TextBlock Text="{Binding SourceName, Mode=OneWay}" FontSize="12" FontWeight="Bold" Foreground="#CBD5E1"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding Label, Mode=OneWay}" FontSize="12" FontWeight="Bold" Margin="4,2" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="No MultiView on this screen" FontSize="14" Foreground="{StaticResource Brush.Text.Secondary}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding LiveBlocks, Mode=OneWay, Converter={StaticResource HasItems}}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                            <TextBlock Text="{Binding OutputText, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource RailCard}">
+                        <StackPanel>
+                            <TextBlock FontSize="14" FontWeight="Bold" Foreground="#FCD34D" Margin="0,0,0,6">
+                                <Run Text="CHANGES (" /><Run Text="{Binding ChangeLines.Count, Mode=OneWay}" /><Run Text=")" />
+                            </TextBlock>
+                            <TextBlock Text="No staged changes.">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource HasItems}}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding ChangeLines, Mode=OneWay}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Mode=OneWay}" FontSize="14" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,2" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Button x:Name="TakeButton"
+                            Style="{StaticResource Style.Button.Take}"
+                            Content="{Binding TakeLabel, Mode=OneWay}"
+                            IsEnabled="{Binding CanTake, Mode=OneWay}"
+                            AutomationProperties.Name="{Binding TakeLabel, Mode=OneWay}"
+                            Click="Take_Click" />
+                    <TextBlock x:Name="TakeBlockedReasonText"
+                               Text="{Binding TakeBlockedReason, Mode=OneWay}"
+                               Margin="0,8,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
+                                <Setter Property="Foreground" Value="#CBD5E1" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TakeBlockedReason, Mode=OneWay}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <Button x:Name="UndoButton"
+                            Content="Undo - back to the previous picture"
+                            Margin="0,12,0,0"
+                            HorizontalAlignment="Stretch"
+                            Click="Undo_Click">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Online}" />
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CanUndo, Mode=OneWay}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="DiscardButton" Grid.Column="0" Content="Discard"
+                                ToolTip="Go back to what is on screen now"
+                                Click="Discard_Click">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Draft, Mode=OneWay}" Value="{x:Null}">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button x:Name="ClearAllButton" Grid.Column="2" Content="Clear all"
+                                ToolTip="Empty every block (staged only)"
+                                Click="ClearAll_Click">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="False">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ===== Block-first picker: anchored to the block, source tiles with their live thumbnail ===== -->
+        <Popup x:Name="PickerPopup"
+               Placement="Center"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               PopupAnimation="None"
+               Closed="PickerPopup_Closed">
+            <Border Background="{StaticResource Brush.Surface.Card}"
+                    BorderBrush="#475569"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="16"
+                    MaxWidth="760">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="PickerTitle" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"
+                                   TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Button Grid.Column="1" Style="{StaticResource Style.Button.Composer}" Content="Cancel" Click="PickerCancel_Click" />
+                    </Grid>
+                    <TextBlock x:Name="PickerEmpty" Text="No sources discovered." Style="{StaticResource Style.Text.ComposerLabel}" Visibility="Collapsed" />
+                    <ItemsControl x:Name="PickerItems" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button x:Name="PickerTile"
+                                        Foreground="{StaticResource Brush.Text.Primary}"
+                                        Width="220"
+                                        MinHeight="160"
+                                        Margin="0,0,12,12"
+                                        Cursor="Hand"
+                                        IsEnabled="{Binding IsEnabled, Mode=OneWay}"
+                                        AutomationProperties.Name="{Binding Source.DeviceName, Mode=OneWay}"
+                                        Click="PickerTile_Click">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="#0F1626" BorderBrush="{StaticResource Brush.Border.DropTarget}" BorderThickness="2" CornerRadius="10" Padding="10">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Surface.Hover}" />
+                                                </Trigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#93C5FD" />
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#334155" />
+                                                    <Setter Property="Cursor" Value="Arrow" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <StackPanel>
+                                        <Border Height="112" Background="#050505" CornerRadius="6" ClipToBounds="True">
+                                            <Grid>
+                                                <Image Source="{Binding Source.PreviewBitmap, Mode=OneWay}" Stretch="Uniform" RenderOptions.BitmapScalingMode="LowQuality">
+                                                    <Image.Style>
+                                                        <Style TargetType="Image">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
+                                                                    <Setter Property="Opacity" Value="0.4" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Image.Style>
+                                                </Image>
+                                                <TextBlock Text="NO PREVIEW · non-AVAS" FontSize="14" FontWeight="Bold" Foreground="#CBD5E1"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock Text="{Binding Source.DeviceName, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,8,0,0" />
+                                        <TextBlock Text="{Binding Source.LinkMode, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                            <Path Data="{StaticResource Icon.Lock}" Stroke="#E2E8F0" StrokeThickness="2" Width="14" Height="14" Stretch="Uniform"
+                                                  Margin="0,2,6,0" VerticalAlignment="Top">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                            <TextBlock Text="{Binding Note, Mode=OneWay}" FontSize="14" Foreground="#E2E8F0" TextWrapping="Wrap" MaxWidth="180" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>
