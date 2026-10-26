@@ -38,7 +38,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="12" />
-            <Setter Property="Margin" Value="0,0,10,12" />
+            <Setter Property="Margin" Value="0,0,4,12" />
         </Style>
 
         <Style x:Key="RailHeading" TargetType="TextBlock">
@@ -60,7 +60,8 @@
     </UserControl.Resources>
 
     <!-- Transparent background: a tap on any empty area stops placing / moving (spec 6) -->
-    <Grid Background="Transparent" MouseLeftButtonUp="Root_MouseLeftButtonUp">
+    <!-- Any release anywhere in the view also ends the block drag gesture (no stale press can start a drag later) -->
+    <Grid Background="Transparent" MouseLeftButtonUp="Root_MouseLeftButtonUp" PreviewMouseLeftButtonUp="Root_PreviewMouseLeftButtonUp">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -134,8 +135,8 @@
             </Grid.ColumnDefinitions>
 
             <!-- ===== Left rail: Step 1 layout, Step 2 place, Step 3 check and take ===== -->
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Margin="0,0,12,0">
+            <ScrollViewer x:Name="LeftRailScroll" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <StackPanel Margin="0,0,4,0">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
                             <Style.Triggers>
@@ -507,6 +508,7 @@
                                             Click="Block_Click"
                                             PreviewMouseLeftButtonDown="BlockSurface_PreviewMouseLeftButtonDown"
                                             PreviewMouseMove="BlockSurface_PreviewMouseMove"
+                                            LostMouseCapture="BlockSurface_LostMouseCapture"
                                             Cursor="Hand"
                                             AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Block {0}'}">
                                         <Button.Template>
@@ -883,7 +885,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                     <StackPanel>
                         <Border Style="{StaticResource RailCard}">
                             <StackPanel>
@@ -1064,9 +1066,9 @@
                     </TextBlock>
 
                     <Button x:Name="UndoButton"
-                            Content="Undo - back to the previous picture"
                             Margin="0,8,0,0"
                             HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="Undo - back to the previous picture"
                             Click="Undo_Click">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
@@ -1079,6 +1081,8 @@
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
+                        <!-- Wraps in the narrow (264 px) rail instead of clipping mid-word -->
+                        <TextBlock Text="Undo - back to the previous picture" TextWrapping="Wrap" TextAlignment="Center" />
                     </Button>
 
                     <Grid Margin="0,8,0,0">
@@ -1149,8 +1153,8 @@
                         <Button Grid.Column="1" Style="{StaticResource Style.Button.Composer}" Content="Cancel" Click="PickerCancel_Click" />
                     </Grid>
                     <TextBlock x:Name="PickerEmpty" DockPanel.Dock="Top" Text="No sources discovered." Style="{StaticResource Style.Text.ComposerLabel}" Visibility="Collapsed" />
-                    <ScrollViewer x:Name="PickerScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl x:Name="PickerItems" Focusable="False" Margin="0,0,10,0">
+                    <ScrollViewer x:Name="PickerScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                        <ItemsControl x:Name="PickerItems" Focusable="False" Margin="0,0,4,0">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel />

@@ -111,11 +111,15 @@
                     </Border>
                 </Grid>
 
-                <!-- Composer: the sources as a compact palette strip (tap arms, drag places; ring and badges stay) -->
+                <!--
+                    Composer: the sources as a compact palette strip (tap arms, drag places; ring and badges stay).
+                    Touch pans it sideways; a touch drag on a card therefore pans (tap-to-arm is the touch path).
+                -->
                 <ScrollViewer Grid.Row="1"
                               x:Name="CompactSourcePalette"
                               HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled">
+                              VerticalScrollBarVisibility="Disabled"
+                              PanningMode="HorizontalOnly">
                     <ScrollViewer.Style>
                         <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
                             <Setter Property="Visibility" Value="Collapsed" />
@@ -126,7 +130,7 @@
                             </Style.Triggers>
                         </Style>
                     </ScrollViewer.Style>
-                    <ItemsControl ItemsSource="{Binding Sources}" Focusable="False" Margin="0,0,0,10">
+                    <ItemsControl ItemsSource="{Binding Sources}" Focusable="False" Margin="0,0,0,4">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />

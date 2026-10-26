@@ -618,8 +618,8 @@ namespace AvasRoutingTool.Tests
         }
 
         [Theory]
-        [InlineData(1280, 720)] // MainWindow default 1280x860, content under the app header
-        [InlineData(1024, 600)] // MainWindow minimum 1024x720
+        [InlineData(1264, 755)] // MainWindow default 1280x860: its content area under the title bar, borders and app header
+        [InlineData(1008, 615)] // MainWindow minimum 1024x720, likewise
         public void Composer_InVisualRoutingView_AtRealWindowSizes_TakeVisible_BlocksWide_NothingOverlaps(int width, int height) =>
             RunSta(() =>
             {
@@ -637,8 +637,13 @@ namespace AvasRoutingTool.Tests
                     Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
                     var palette = FindAll<CompactSourceCardView>(view).Where(s => s.IsVisible).ToList();
                     Assert.Equal(4, palette.Count);
-                    var strip = (FrameworkElement)Named(view, "CompactSourcePalette").Single();
+                    var strip = (ScrollViewer)Named(view, "CompactSourcePalette").Single();
                     Assert.True(strip.ActualHeight <= 160, $"palette strip is {strip.ActualHeight} high");
+
+                    // Touch panning: the palette scrolls sideways, the rails up and down.
+                    Assert.Equal(PanningMode.HorizontalOnly, strip.PanningMode);
+                    Assert.Equal(PanningMode.VerticalOnly, ((ScrollViewer)Named(view, "LeftRailScroll").Single()).PanningMode);
+                    Assert.Equal(PanningMode.VerticalOnly, ((ScrollViewer)Named(view, "RightRailScroll").Single()).PanningMode);
 
                     var take = (FrameworkElement)Named(view, "TakeButton").Single();
                     Assert.True(take.IsVisible);
@@ -698,26 +703,61 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        /// <summary>
+        /// A ScrollViewer with the theme's implicit style, set explicitly: implicit app-level styles are not looked up
+        /// from this test thread (it is not the thread that created the Application).
+        /// </summary>
+        private static ScrollViewer ThemedScroll(double contentHeight) => new()
+        {
+            Style = (Style)Application.Current.FindResource(typeof(ScrollViewer)),
+            Height = 200, Width = 300, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new Border { Height = contentHeight },
+        };
+
         [Fact]
-        public void ThemeScrollBar_Thumb_IsTallerThan20_WhenTheExtentIsTwiceTheViewport() =>
+        public void ThemeScrollBar_Thumb_IsProportional_AndThePageAreasExist() =>
             RunSta(() =>
             {
-                // The theme's implicit ScrollViewer style, set explicitly: implicit app-level styles are not looked up
-                // from this test thread (it is not the thread that created the Application).
-                var scroll = new ScrollViewer
-                {
-                    Style = (Style)Application.Current.FindResource(typeof(ScrollViewer)),
-                    Height = 200, Width = 300, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new Border { Height = 400 },
-                };
+                var scroll = ThemedScroll(400);
                 Showing(scroll, () =>
                 {
                     var bar = FindAll<ScrollBar>(scroll).Single(b => b.Orientation == Orientation.Vertical && b.IsVisible);
                     var thumb = FindAll<Thumb>(bar).Single();
                     Assert.True(thumb.ActualHeight > 20, $"thumb is {thumb.ActualHeight} high");
                     Assert.True(thumb.ActualHeight < bar.ActualHeight, "thumb fills the whole track");
-                    Assert.True(bar.ActualWidth <= 10, $"bar is {bar.ActualWidth} wide (thin theme bar)");
                     Assert.Equal(2, FindAll<RepeatButton>(bar).Count); // page up / page down
                 });
+            });
+
+        [Fact]
+        public void ThemeScrollBar_IsTouchSized_ThinToTheEye_WithAMinimumThumb_AndAStableGutter() =>
+            RunSta(() =>
+            {
+                var scroll = ThemedScroll(20000); // a long list: the proportional thumb would be 2 px
+                double longViewport = 0, shortViewport = 0;
+                Showing(scroll, () =>
+                {
+                    longViewport = scroll.ViewportWidth;
+                    var bar = FindAll<ScrollBar>(scroll).Single(b => b.Orientation == Orientation.Vertical && b.IsVisible);
+                    Assert.True(bar.ActualWidth >= 16, $"bar hit width is {bar.ActualWidth}");
+                    var thumb = FindAll<Thumb>(bar).Single();
+                    Assert.True(thumb.ActualHeight >= 24, $"thumb is {thumb.ActualHeight} high");
+                    Assert.True(thumb.ActualWidth >= 16, $"thumb hit width is {thumb.ActualWidth}");
+                    var visual = Named(thumb, "ThumbVisual").Single();
+                    Assert.True(visual.ActualWidth <= 10, $"visible thumb is {visual.ActualWidth} wide");
+
+                    // The thumb is drawn at >= 3:1 against the page and the card colours.
+                    var thumbColour = ((SolidColorBrush)((Border)visual).Background).Color;
+                    foreach (var key in new[] { "Color.Background.Dark", "Color.Surface.Card" })
+                    {
+                        var against = (Color)Application.Current.FindResource(key);
+                        Assert.True(Contrast(thumbColour, against) >= 3.0, $"thumb on {key}: {Contrast(thumbColour, against):F2}");
+                    }
+                });
+
+                // The gutter is reserved: the content width does not change when the bar appears.
+                var fits = ThemedScroll(50);
+                Showing(fits, () => shortViewport = fits.ViewportWidth);
+                Assert.Equal(longViewport, shortViewport);
             });
 
         private static double Luminance(Color c)
@@ -768,13 +808,88 @@ namespace AvasRoutingTool.Tests
 
                 Showing(view, () =>
                 {
-                    // MouseUp bubbles; each element on the way raises its own (direct) MouseLeftButtonUp, as in the app.
+                    // Raised as the bubbling MouseUp: WPF derives the (direct) MouseLeftButtonUp that the view listens to
+                    // on each element of that route. This synthetic release has no press, so the block button does not
+                    // handle it; what keeps the first tap from disarming is the view's own guard (a tap inside a button
+                    // is not an empty area). The second release lands on the canvas background: an empty area.
                     var block = Named(view, "BlockSurface").First();
                     Tap(FindAll<TextBlock>(block).First(), Mouse.MouseUpEvent);
                     Assert.Same(rig.Tx1, c.ArmedSource);
 
                     Tap((UIElement)Named(view, "CanvasHost").Single(), Mouse.MouseUpEvent);
                     Assert.Null(c.ArmedSource);
+                });
+            });
+
+        [Fact]
+        public void Composer_BlockGesture_IsResetByAnyRelease_SoAStalePressCannotStartABlockDrag() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+
+                Showing(view, () =>
+                {
+                    // A tap on a placed block: press, then release (tunnelling PreviewMouseUp, as real input).
+                    var placed = (UIElement)Named(view, "BlockSurface").First();
+                    Tap(placed, Mouse.PreviewMouseDownEvent);
+                    Assert.True(view.BlockGesture.IsPressed);
+                    Tap(placed, Mouse.PreviewMouseUpEvent);
+                    Assert.False(view.BlockGesture.IsPressed);
+
+                    // Then a press on the empty canvas and a move across the placed block: no block drag starts.
+                    Tap((UIElement)Named(view, "CanvasHost").Single(), Mouse.PreviewMouseDownEvent);
+                    Assert.False(view.BlockGesture.IsPressed);
+                    Assert.False(view.BlockGesture.Move(new Point(5000, 5000)));
+
+                    // A press that loses the mouse capture (e.g. a window switch) is forgotten too.
+                    Tap(placed, Mouse.PreviewMouseDownEvent);
+                    placed.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, 0) { RoutedEvent = Mouse.LostMouseCaptureEvent });
+                    Assert.False(view.BlockGesture.IsPressed);
+                });
+            });
+
+        [Fact]
+        public void Composer_At1008x615_UndoLabel_IsNotClipped() =>
+            RunSta(() =>
+            {
+                var now = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
+                var (vm, rx, sources) = Overview(() => now);
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[0]);
+                c.TapBlock(c.Blocks[0].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                c.Arm(sources[1]); // a second Take: there is now a previous picture to go back to
+                c.TapBlock(c.Blocks[1].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                Assert.True(c.CanUndo);
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var undo = (Button)Named(view, "UndoButton").Single();
+                    Assert.True(undo.IsVisible && undo.ActualHeight >= 56);
+                    var ub = BoundsIn(undo, view);
+                    Assert.True(ub.Bottom <= view.ActualHeight + 0.5, $"Undo at {ub}");
+
+                    var label = FindAll<TextBlock>(undo).Single(t => t.Text.StartsWith("Undo", StringComparison.Ordinal));
+                    var probe = new TextBlock
+                    {
+                        Text = label.Text, FontSize = label.FontSize, FontWeight = label.FontWeight, FontFamily = label.FontFamily,
+                        TextWrapping = label.TextWrapping,
+                    };
+                    probe.Measure(new Size(label.TextWrapping == TextWrapping.NoWrap ? double.PositiveInfinity : label.ActualWidth, double.PositiveInfinity));
+                    Assert.True(probe.DesiredSize.Width <= label.ActualWidth + 0.5, $"label needs {probe.DesiredSize.Width} px, has {label.ActualWidth}");
+                    Assert.True(probe.DesiredSize.Height <= label.ActualHeight + 0.5, $"label needs {probe.DesiredSize.Height} px high, has {label.ActualHeight}");
+                    var lb = BoundsIn(label, undo);
+                    Assert.True(lb.Left >= -0.5 && lb.Right <= undo.ActualWidth + 0.5 && lb.Bottom <= undo.ActualHeight + 0.5, $"label {lb} outside the button");
                 });
             });
 
@@ -879,7 +994,9 @@ namespace AvasRoutingTool.Tests
                 window.Show();
                 Idle();
                 Assert.True(view.IsTimerRunning);
-                Wait(TimeSpan.FromMilliseconds(700));
+                // Poll with a deadline (the timer runs every 250 ms; a busy machine may be slower).
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+                while (vm.ArmedSource != null && DateTime.UtcNow < deadline) Wait(TimeSpan.FromMilliseconds(50));
                 Assert.Null(vm.ArmedSource); // Tick disarmed the idle source
                 window.Close();
                 Idle();

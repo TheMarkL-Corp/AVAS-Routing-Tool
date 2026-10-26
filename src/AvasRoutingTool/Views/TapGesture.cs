@@ -18,6 +18,9 @@ namespace AvasRoutingTool.Views
         private bool _pressed;
         private bool _dragging;
 
+        /// <summary>A press is held here (a later move may still start a drag).</summary>
+        public bool IsPressed => _pressed;
+
         public void Press(Point at)
         {
             _start = at;

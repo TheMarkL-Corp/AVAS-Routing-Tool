@@ -189,7 +189,16 @@ namespace AvasRoutingTool.Views
 
         private readonly TapGesture _blockGesture = new();
 
+        /// <summary>The block drag gesture (tests).</summary>
+        internal TapGesture BlockGesture => _blockGesture;
+
         private void BlockSurface_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => _blockGesture.Press(e.GetPosition(this));
+
+        /// <summary>Any release in the view ends the press: a later press elsewhere can never continue an old one.</summary>
+        private void Root_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) => _blockGesture.Release();
+
+        /// <summary>The block lost the mouse (released, window switch, drag started): forget the press.</summary>
+        private void BlockSurface_LostMouseCapture(object sender, MouseEventArgs e) => _blockGesture.Release();
 
         private void BlockSurface_PreviewMouseMove(object sender, MouseEventArgs e)
         {
