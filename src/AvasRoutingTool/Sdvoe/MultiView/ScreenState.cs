@@ -39,6 +39,12 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         IReadOnlyList<RxSubscription> Subscriptions)
     {
         /// <summary>
+        /// MultiView only: the output format is a copied display's (the picture was copied here), not this display's
+        /// own EDID choice. Putting such a picture back keeps that format.
+        /// </summary>
+        public bool CanvasIsCopy { get; init; }
+
+        /// <summary>
         /// Operator-readable summary, e.g. "Matrix 2x2 (TX2_DUAL LINK_SFPA, VEGA_1100) - 3840x2160" or
         /// "Single View (TX2_DUAL LINK_SFPA) - 3840x2160".
         /// </summary>

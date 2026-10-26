@@ -94,7 +94,7 @@ namespace AvasRoutingTool.Tests
             public Task RestoreExternalOnRx1Async()
             {
                 Client.ReceiverStates[Rx1Mac] = new RxState(Rx1Mac, Rx1Name, "MULTIVIEW", 3840, 2160, 60,
-                    new[] { Sub(3, Tx2Mac, Tx2Name), Sub(5, VegaMac, VegaName) },
+                    new[] { Sub(3, Tx2Mac, Tx2Name), new RxSubscription(5, true, "STREAMING", VegaMac, VegaName, 0) },
                     new RxLayout("bavm_custom", 3840, 2160, new[]
                     {
                         new RxWindow(0, 3, 0, 0, 1920, 1080),
@@ -102,6 +102,13 @@ namespace AvasRoutingTool.Tests
                         new RxWindow(2, 255, 0, 1080, 1920, 1080),
                     }));
                 return Vm.RestoreDisplayAsync(Rx1Vm);
+            }
+
+            /// <summary>The card's display found in the given state.</summary>
+            public Task RestoreAsync(DisplayCardViewModel card, RxState state)
+            {
+                Client.ReceiverStates[card.MacAddress] = state;
+                return Vm.RestoreDisplayAsync(card);
             }
 
             private static AvasDevice Display(string mac, string name) =>
@@ -159,6 +166,7 @@ namespace AvasRoutingTool.Tests
                 rig.Client.LastSurfacePlan!.Windows.Select(w => (w.Slot.Index, w.Slot.X, w.Slot.Y, w.Slot.Width, w.Slot.Height, w.Surface)));
             Assert.True(MultiViewPresets.TryParseName(layout, out string id, out _, out _));
             Assert.Equal("matrix2x2", id);
+            Assert.All(rig.Client.LastSubscriptions!, s => Assert.Equal(1, s.StreamIndex)); // the scaled stream, as the source
 
             Assert.Equal(new[] { $"0:{Tx2Mac}", $"1:{VegaMac}", $"2:{Tx2Mac}" }, Placed(rig.MultiView.GetLive(rig.Pax)));
             Assert.True(rig.PaxVm.IsMultiView);
@@ -469,6 +477,7 @@ namespace AvasRoutingTool.Tests
                 rig.Client.LastSurfacePlan!.Windows.Select(w =>
                     (w.Slot.Index, w.Slot.X, w.Slot.Y, w.Slot.Width, w.Slot.Height, w.HOffset, w.VOffset, w.Surface)));
             Assert.False(MultiViewPresets.TryParseName(layout, out _, out _, out _)); // restores as external
+            Assert.Equal(new[] { 1, 0 }, rig.Client.LastSubscriptions!.Select(s => s.StreamIndex)); // the streams read back
 
             Assert.False(rig.MultiView.IsMultiView(rig.Pax)); // recorded like an adopted external layout (read-only)
             Assert.True(rig.PaxVm.IsExternalLayout);
@@ -681,6 +690,250 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal("Single View - 1920x1080", noName.Describe());
             Assert.Equal("Single View - 1920x1080", nullName.Describe());
+        }
+
+        // ---- fix round 1 ----
+
+        private static RxState Recognised(string mac, string name, string preset, int w, int h, params (int Window, int Sub, string Mac, string Name)[] blocks) =>
+            new(mac, name, "MULTIVIEW", w, h, 60,
+                blocks.Select(b => Sub(b.Sub, b.Mac, b.Name)).GroupBy(s => s.Index).Select(g => g.First()).ToList(),
+                new RxLayout($"avas_{mac}_{preset}_{w}x{h}", w, h, blocks.Select(b => new RxWindow(b.Window, b.Sub)).ToList()));
+
+        private static RxState External(string mac, string name, params RxSubscription[] subs) =>
+            new(mac, name, "MULTIVIEW", 3840, 2160, 60, subs,
+                new RxLayout("bavm_custom", 3840, 2160, subs.Where(s => s.Index != 0).Select((s, i) => new RxWindow(i, s.Index, i * 1920, 0, 1920, 1080)).ToList()));
+
+        private static RxState Unrouted(string mac, string name) =>
+            new(mac, name, "GENLOCKED", 0, 0, 0, Array.Empty<RxSubscription>(), null);
+
+        [Theory]
+        [InlineData("route")]
+        [InlineData("off")]
+        [InlineData("take")]
+        [InlineData("restore")]
+        public async Task AChangeToTheTargetWithinTheUndoWindow_WithdrawsTheCopysUndo(string change)
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm));
+            Assert.True(rig.PaxVm.CanUndoScreen);
+            rig.Now += TimeSpan.FromSeconds(4);
+
+            switch (change)
+            {
+                case "route":
+                    Assert.True(await rig.Vm.RouteVideoAsync(rig.VegaVm.Device, rig.Pax));
+                    break;
+                case "off":
+                    Assert.True(await rig.Vm.UnrouteVideoAsync(rig.Pax));
+                    break;
+                case "take":
+                    await rig.Vm.OpenComposerAsync(rig.PaxVm);
+                    rig.Vm.ActiveComposer!.Arm(rig.VegaVm);
+                    rig.Vm.ActiveComposer.TapBlock(3);
+                    await rig.Vm.ActiveComposer.TakeAsync();
+                    Assert.Equal(BannerKind.Success, rig.Vm.ActiveComposer.Banner.Kind);
+                    break;
+                default:
+                    await rig.RestoreAsync(rig.PaxVm, Unrouted(PaxMac, PaxName)); // re-read from the hardware
+                    break;
+            }
+
+            Assert.False(rig.PaxVm.CanUndoScreen);
+            Assert.Null(rig.PaxVm.UndoToastText);
+            Assert.Null(rig.MultiView.PreviousScreen(rig.Pax));
+            rig.Client.MultiViewCalls.Clear();
+            rig.Client.LastVideoRx = rig.Client.LastVideoTx = null;
+            int leaves = rig.Client.Leaves.Count;
+
+            Assert.False(await rig.Vm.UndoScreenAsync(rig.PaxVm)); // the newer deliberate change stays
+
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.Null(rig.Client.LastVideoTx);
+            Assert.Equal(leaves, rig.Client.Leaves.Count);
+        }
+
+        [Fact]
+        public async Task ComposerTakeOnACopiedTarget_KeepsTheCopiedFormat()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async(1920, 1080);
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm)); // 1080p picture on a 4K display
+            await rig.Vm.OpenComposerAsync(rig.PaxVm);
+            var composer = rig.Vm.ActiveComposer!;
+            composer.Arm(rig.VegaVm);
+            composer.TapBlock(3);
+            rig.Client.MultiViewCalls.Clear();
+
+            await composer.TakeAsync();
+
+            Assert.Equal(BannerKind.Success, composer.Banner.Kind); // Applied, not DisplayChanged
+            string layout = MatrixLayout(PaxMac, 1920, 1080);
+            Assert.Equal(new[] { $"scaler:{Tx2Mac}:960x540", $"scaler:{VegaMac}:960x540", $"layout:{layout}", $"multiview:{PaxMac}:{layout}:{Tx2Mac}@1,{VegaMac}@2" },
+                rig.Client.MultiViewCalls); // a normal Take's scalers, at the one size each encoder already has
+            Assert.Equal((1920, 1080), rig.Client.LastMultiViewSize);
+            Assert.Equal((1920, 1080), (rig.MultiView.GetCanvas(rig.Pax)!.Width, rig.MultiView.GetCanvas(rig.Pax)!.Height));
+            Assert.Equal(new[] { $"0:{Tx2Mac}", $"1:{VegaMac}", $"2:{Tx2Mac}", $"3:{VegaMac}" }, Placed(rig.MultiView.GetLive(rig.Pax)));
+        }
+
+        [Fact]
+        public async Task TakeOnACopiedTarget_ThatNoLongerListsTheCopiedMode_IsRedrawnWithAnHonestReason()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async(1920, 1080);
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm));
+            rig.Client.DisplayEdids[PaxMac] = TestEdids.Build((3840, 2160, 60, false)); // 4K only now
+            var draft = rig.MultiView.GetLive(rig.Pax)!;
+            Assert.True(draft.Place(3, VegaMac, VegaName).Ok);
+            rig.Client.MultiViewCalls.Clear();
+
+            var result = await rig.MultiView.TakeAsync(rig.Pax, draft);
+
+            Assert.Equal(TakeOutcome.DisplayChanged, result.Outcome);
+            Assert.Equal($"'{PaxName}' runs a copied 1920x1080 picture; the layout was redrawn for its own 3840x2160.", result.Error);
+            Assert.Equal((3840, 2160), (result.NewPlan!.Width, result.NewPlan.Height));
+            Assert.Empty(rig.Client.MultiViewCalls);
+        }
+
+        [Fact]
+        public async Task UndoOfACopyOverACopy_PutsTheFirstCopyBackAtItsFormat()
+        {
+            var rig = new Rig(more: true);
+            await rig.RestoreMatrixOnRx1Async(1920, 1080);
+            await rig.RestoreAsync(rig.Rx3Vm, Recognised(Rx3Mac, "RX3", "side_by_side", 1920, 1080,
+                (0, 3, VegaMac, VegaName), (1, 4, Tx2Mac, Tx2Name)));
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm)); // 1080p matrix on the 4K PAX
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx3Vm, rig.PaxVm)); // then RX3's side-by-side over it
+            Assert.Equal("side_by_side", rig.MultiView.GetLive(rig.Pax)!.Plan.Id);
+            rig.Client.MultiViewCalls.Clear();
+
+            Assert.True(await rig.Vm.UndoScreenAsync(rig.PaxVm));
+
+            Assert.Equal("matrix2x2", rig.MultiView.GetLive(rig.Pax)!.Plan.Id);
+            Assert.Equal((1920, 1080), rig.Client.LastMultiViewSize);
+            Assert.Contains($"layout:{MatrixLayout(PaxMac, 1920, 1080)}", rig.Client.MultiViewCalls);
+            Assert.Equal("MATRIX 2X2 · 3/4", rig.PaxVm.ModeBadge);
+        }
+
+        [Fact]
+        public async Task RouteFromAMultiView_LeavesItsStreamOneJoins_NeverIndexZero()
+        {
+            var rig = new Rig();
+            await rig.RestoreSideBySideOnPaxAsync(); // joined 3 and 4
+
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx2Vm.Device, rig.Pax));
+
+            Assert.Contains($"{PaxMac}:3", rig.Client.Leaves);
+            Assert.Contains($"{PaxMac}:4", rig.Client.Leaves);
+            Assert.DoesNotContain($"{PaxMac}:0", rig.Client.Leaves);
+            Assert.Equal(Tx2Mac, rig.Client.LastVideoTx);
+        }
+
+        [Fact]
+        public async Task RouteOntoAnExternalLayout_LeavesItsSubscriptionsExceptIndexZero()
+        {
+            var rig = new Rig();
+            await rig.RestoreAsync(rig.PaxVm, External(PaxMac, PaxName, Sub(0, VegaMac, VegaName), Sub(3, Tx2Mac, Tx2Name), Sub(5, VegaMac, VegaName)));
+            Assert.True(rig.PaxVm.IsExternalLayout);
+
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx2Vm.Device, rig.Pax));
+
+            Assert.Equal(new[] { $"{PaxMac}:3", $"{PaxMac}:5" }, rig.Client.Leaves);
+            Assert.Equal(Tx2Mac, rig.Client.LastVideoTx);
+        }
+
+        [Fact]
+        public async Task SingleCopyOntoAnExternalLayout_LeavesItsSubscriptionsExceptIndexZero()
+        {
+            var rig = new Rig();
+            await rig.RestoreAsync(rig.PaxVm, External(PaxMac, PaxName, Sub(0, VegaMac, VegaName), Sub(3, VegaMac, VegaName)));
+            await rig.Vm.RouteVideoAsync(rig.Tx2Vm.Device, rig.Rx1);
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm));
+
+            Assert.Equal(new[] { $"{PaxMac}:3" }, rig.Client.Leaves);
+            Assert.Equal(Tx2Mac, rig.Client.LastVideoTx);
+            Assert.False(rig.PaxVm.IsExternalLayout);
+        }
+
+        [Fact]
+        public async Task UndoBackToSingleView_FromACopiedExternalLayout_LeavesTheCopysJoins()
+        {
+            var rig = new Rig();
+            await rig.RestoreExternalOnRx1Async();
+            await rig.Vm.RouteVideoAsync(rig.VegaVm.Device, rig.Pax);
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm)); // joined 3 and 5 on PAX
+            rig.Client.Leaves.Clear();
+
+            Assert.True(await rig.Vm.UndoScreenAsync(rig.PaxVm));
+
+            Assert.Equal(new[] { $"{PaxMac}:3", $"{PaxMac}:5" }, rig.Client.Leaves);
+            Assert.Equal(VegaMac, rig.Client.LastVideoTx);
+            Assert.Equal(VegaMac, rig.PaxVm.ActiveSourceId);
+        }
+
+        [Fact]
+        public async Task Copy_WhenTheRollbackAlsoFails_SaysSo_AndReReadsTheTarget()
+        {
+            var rig = new Rig();
+            await rig.RestoreSideBySideOnPaxAsync();
+            await rig.Vm.RouteVideoAsync(rig.Tx2Vm.Device, rig.Rx1);
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            rig.Client.FailJoin = true;                   // the Single View route is refused after the genlock...
+            rig.Client.FailMultiViewPrefix = "multiview:"; // ...and putting the side-by-side back is refused too
+            rig.Client.ReceiverStates[PaxMac] = Unrouted(PaxMac, PaxName); // what the decoder really shows now
+            rig.Client.ReceiverReads.Clear();
+
+            Assert.False(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm));
+
+            Assert.Equal($"'{PaxName}' did not accept the route to '{Tx2Name}'. {PaxName} could not be put back.", rig.PaxVm.LastError);
+            Assert.Contains(PaxMac, rig.Client.ReceiverReads); // re-read: the card shows the truth
+            Assert.False(rig.PaxVm.IsMultiView);
+            Assert.Equal("UNROUTED", rig.PaxVm.ModeBadge);
+        }
+
+        [Fact]
+        public async Task CopyOfAPictureThatConflictsWithAThirdDisplay_IsRefused_BeforeAnyCall()
+        {
+            var rig = new Rig(more: true);
+            await rig.RestoreMatrixOnRx1Async(); // TX2 at 1920x1080 on RX1
+            await rig.RestoreAsync(rig.Rx3Vm, Recognised(Rx3Mac, "RX3", "matrix2x2", 1920, 1080, (0, 1, Tx2Mac, Tx2Name))); // TX2 at 960x540
+            rig.Client.MultiViewCalls.Clear();
+
+            Assert.False(await rig.Vm.CopyDisplayAsync(rig.Rx3Vm, rig.PaxVm));
+
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.False(rig.MultiView.IsMultiView(rig.Pax));
+            Assert.Equal($"{Tx2Name} runs at 1920x1080 on {Rx1Name} - this block is 960x540. Nothing changed on {PaxName}.", rig.PaxVm.LastError);
+        }
+
+        [Fact]
+        public async Task TapOrDropWhileTheArmIsStillReading_IsIgnored()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            rig.Client.DuringEdidRead = () => gate.Task;
+            rig.Client.MultiViewCalls.Clear();
+
+            var arm = rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            await rig.Vm.TapDisplayAsync(rig.PaxVm);
+            bool dropped = await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm);
+
+            Assert.False(dropped);
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.False(rig.PaxVm.IsCopyTargetBlocked); // no false "Can't read" block
+            Assert.Equal(string.Empty, rig.PaxVm.CopyTargetText);
+
+            gate.SetResult();
+            await Within(arm, "Arm");
+            Assert.True(rig.PaxVm.IsCopyTargetAllowed);
+            Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay);
         }
 
         /// <summary>Polls a view-model condition set by a fire-and-forget command.</summary>

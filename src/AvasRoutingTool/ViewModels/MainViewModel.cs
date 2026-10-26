@@ -54,6 +54,9 @@ namespace AvasRoutingTool.ViewModels
         private DisplayCardViewModel? _armedDisplay;
         private int _armSeq;
 
+        /// <summary>The armed display's EDID reads are still in flight: taps and drops on targets are ignored meanwhile.</summary>
+        private bool _armReading;
+
         /// <summary>
         /// Composer drafts with changes that are not on screen, kept when the Composer was closed (by receiver MAC).
         /// The card shows "DRAFT"; opening the Composer again resumes it. A restore never overwrites one.
@@ -359,6 +362,8 @@ namespace AvasRoutingTool.ViewModels
                 return;
             }
 
+            // The hardware's truth replaces what we believed: a copy's Undo (from before that) no longer applies.
+            WithdrawScreenUndo(rx, display);
             _externalSubscriptions.Remove(key);
             _externalScreens.Remove(key);
 
@@ -430,6 +435,7 @@ namespace AvasRoutingTool.ViewModels
         {
             string rxKey = Key(displayRx);
             var displayVm = FindDisplay(displayRx);
+            WithdrawScreenUndo(displayRx, displayVm); // a deliberate change: a copy's Undo must not overwrite it
 
             // A multiview decoder must go back to genlocked full screen before a plain join takes effect.
             if (_multiView.IsMultiView(displayRx))
@@ -441,15 +447,17 @@ namespace AvasRoutingTool.ViewModels
                 }
                 displayVm?.ClearLayout();
             }
-            if (_externalSubscriptions.ContainsKey(rxKey))
+            if (_externalSubscriptions.TryGetValue(rxKey, out var externalIndexes))
             {
                 // Found running a layout set elsewhere: leave multiview first or the join would not take effect.
-                if (!await _multiView.ExitExternalAsync(displayRx, Array.Empty<int>()))
+                // Its stream-1 subscriptions are left too (Ruling R18); index 0 is reused by the join.
+                if (!await _multiView.ExitExternalAsync(displayRx, MultiViewOrchestrator.StreamOneJoins(externalIndexes)))
                 {
                     AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
                     return false;
                 }
                 _externalSubscriptions.Remove(rxKey);
+                _externalScreens.Remove(rxKey);
                 displayVm?.ClearExternalLayout();
             }
 
@@ -480,6 +488,7 @@ namespace AvasRoutingTool.ViewModels
         private async Task<bool> UnrouteLockedAsync(AvasDevice displayRx, string rxKey)
         {
             AppLogger.Info("ROUTING", $"Requesting unroute on '{displayRx.DeviceName}' ({displayRx.DeviceId})");
+            WithdrawScreenUndo(displayRx, FindDisplay(displayRx)); // a deliberate change: a copy's Undo must not overwrite it
             bool wasMultiView = _multiView.IsMultiView(displayRx);
             bool wasExternal = _externalSubscriptions.TryGetValue(rxKey, out var externalIndexes);
             bool ok = wasExternal
@@ -495,6 +504,7 @@ namespace AvasRoutingTool.ViewModels
                 if (wasExternal)
                 {
                     _externalSubscriptions.Remove(rxKey);
+                    _externalScreens.Remove(rxKey);
                     displayVm?.ClearExternalLayout();
                 }
                 displayVm?.NotifyRoutingChanged();
@@ -545,14 +555,16 @@ namespace AvasRoutingTool.ViewModels
             var rx = display.Device;
             string rxKey = Key(rx);
 
-            if (_externalSubscriptions.ContainsKey(rxKey))
+            WithdrawScreenUndo(rx, display); // a deliberate change: a copy's Undo must not overwrite it
+            if (_externalSubscriptions.TryGetValue(rxKey, out var externalIndexes))
             {
-                if (!await _multiView.ExitExternalAsync(rx, Array.Empty<int>()))
+                if (!await _multiView.ExitExternalAsync(rx, MultiViewOrchestrator.StreamOneJoins(externalIndexes)))
                 {
                     display.LastError = $"'{rx.DeviceName}' did not accept the switch back to Single View.";
                     return false;
                 }
                 _externalSubscriptions.Remove(rxKey);
+                _externalScreens.Remove(rxKey);
                 display.ClearExternalLayout();
                 display.NotifyRoutingChanged();
                 AnnounceScreen(display);
@@ -690,9 +702,20 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>A Take or Undo from the Composer put a new picture on screen: the card shows it (one way: never fed back).</summary>
         private void OnComposerTook(DisplayCardViewModel d)
         {
+            WithdrawScreenUndo(d.Device, d); // a deliberate change: a copy's Undo must not overwrite it
             if (!Displays.Contains(d)) return;
             ShowScreen(d);
             RefreshKeptDraft(d);
+        }
+
+        /// <summary>
+        /// The display was changed deliberately (route, Off, Single View, a Composer Take, a re-read from the hardware):
+        /// a copy's Undo from before would overwrite that change, so it is withdrawn with its toast.
+        /// </summary>
+        private void WithdrawScreenUndo(AvasDevice rx, DisplayCardViewModel? d)
+        {
+            _multiView.ForgetPreviousScreen(rx);
+            d?.ClearUndoScreen();
         }
 
         /// <summary>
@@ -952,7 +975,7 @@ namespace AvasRoutingTool.ViewModels
             var canvas = _multiView.GetCanvas(rx);
             if (live != null && canvas != null)
                 return new ScreenState(ScreenKind.MultiView, canvas.Width, canvas.Height, canvas.Fps, null, null, live, null,
-                    LiveSubscriptions(live, rx));
+                    LiveSubscriptions(live, rx)) { CanvasIsCopy = _multiView.CanvasIsCopy(rx) };
 
             if (_externalSubscriptions.ContainsKey(key))
             {
@@ -998,9 +1021,11 @@ namespace AvasRoutingTool.ViewModels
 
             var toRead = Displays.Where(o => o.IsActive && !ReferenceEquals(o, d)).ToList();
             if (CurrentScreen(d).Kind == ScreenKind.Single) toRead.Add(d);
+            _armReading = true; // until the reads are in, a tap or drop is ignored (no false "Can't read" block)
             var read = await ReadEdidsAsync(toRead);
             if (token != _armSeq || !ReferenceEquals(_armedDisplay, d)) return; // disarmed (or re-armed) meanwhile
 
+            _armReading = false;
             foreach (var (key, edid) in read) _copyEdids[key] = edid;
             RefreshCopyTargets();
             OnPropertyChanged(nameof(CopyArmBanner));
@@ -1013,6 +1038,7 @@ namespace AvasRoutingTool.ViewModels
             var was = _armedDisplay;
             _armedDisplay = null;
             _armSeq++;
+            _armReading = false;
             _copyEdids.Clear();
             foreach (var o in Displays)
             {
@@ -1047,6 +1073,11 @@ namespace AvasRoutingTool.ViewModels
         public async Task<bool> CopyDisplayAsync(DisplayCardViewModel source, DisplayCardViewModel target)
         {
             if (source == null || target == null) return false;
+            if (ReferenceEquals(_armedDisplay, source) && _armReading)
+            {
+                AppLogger.Info("COPY", $"Drop on '{target.DeviceName}' ignored: the displays are still being read.");
+                return false;
+            }
             string key = Key(target.Device);
             if (!_copiesInFlight.Add(key))
             {
@@ -1063,7 +1094,7 @@ namespace AvasRoutingTool.ViewModels
                     if (CurrentScreen(source).Kind == ScreenKind.Single) toRead.Add(source);
                     foreach (var (k, edid) in await ReadEdidsAsync(toRead)) _copyEdids[k] = edid;
                 }
-                return await ApplyCopyAsync(source, target, Decide(source, target));
+                return await ApplyCopyAsync(source, target, Decide(source, target), CurrentScreen(source));
             }
             finally
             {
@@ -1127,6 +1158,7 @@ namespace AvasRoutingTool.ViewModels
         private async Task TapCopyTargetAsync(DisplayCardViewModel source, DisplayCardViewModel d)
         {
             if (ReferenceEquals(source, d)) return; // tap Copy layout again to stop
+            if (_armReading) return; // the displays are still being read: no decision yet
 
             var decision = CopyDecisionFor(d);
             if (!decision.Allowed)
@@ -1139,8 +1171,10 @@ namespace AvasRoutingTool.ViewModels
             if (!_copiesInFlight.Add(key)) return;
             try
             {
-                DisarmDisplay(); // the decision (and its EDID) is taken: copy now
-                await ApplyCopyAsync(source, d, decision);
+                // The picture is taken with the arm's EDIDs (a Single View source's format), before disarming drops them.
+                var screen = CurrentScreen(source);
+                DisarmDisplay(); // the decision is taken: copy now
+                await ApplyCopyAsync(source, d, decision, screen);
             }
             finally
             {
@@ -1148,7 +1182,8 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
-        private async Task<bool> ApplyCopyAsync(DisplayCardViewModel source, DisplayCardViewModel target, CopyDecision decision)
+        /// <param name="screen">The source's picture as it is now (its lock is not taken); the target's is captured under its lock.</param>
+        private async Task<bool> ApplyCopyAsync(DisplayCardViewModel source, DisplayCardViewModel target, CopyDecision decision, ScreenState screen)
         {
             if (!decision.Allowed)
             {
@@ -1156,8 +1191,6 @@ namespace AvasRoutingTool.ViewModels
                 return false;
             }
 
-            // The source's picture as it is now (its lock is not taken); the target's is captured under its lock.
-            var screen = CurrentScreen(source);
             var result = await _multiView.RunExclusiveAsync(target.Device, async () =>
             {
                 var before = CurrentScreen(target);
@@ -1169,7 +1202,16 @@ namespace AvasRoutingTool.ViewModels
             if (!result.Ok)
             {
                 string reason = (result.Error ?? "The copy failed").TrimEnd('.', ' ');
-                target.LastError = $"{reason}. Nothing changed on {target.DeviceName}.";
+                if (result.LeftAsItWas)
+                {
+                    target.LastError = $"{reason}. Nothing changed on {target.DeviceName}.";
+                }
+                else
+                {
+                    // The copy changed the target and putting it back failed: show what the hardware really does now.
+                    if (Displays.Contains(target)) await RestoreDisplayAsync(target);
+                    target.LastError = $"{reason}. {target.DeviceName} could not be put back.";
+                }
                 return false;
             }
 

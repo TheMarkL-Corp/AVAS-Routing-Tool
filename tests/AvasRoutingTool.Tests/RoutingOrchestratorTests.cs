@@ -23,8 +23,12 @@ namespace AvasRoutingTool.Tests
             return Task.CompletedTask;
         }
 
+        /// <summary>When true, every join is refused (nothing is recorded).</summary>
+        public bool FailJoin { get; set; }
+
         public Task<bool> JoinStreamAsync(string rxMac, string txMac, string streamType, int streamIndex)
         {
+            if (FailJoin) return Task.FromResult(false);
             if (streamType == "HDMI")
             {
                 LastVideoRx = rxMac;

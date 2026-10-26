@@ -20,7 +20,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     /// Outcome of copying a display's picture onto another. <paramref name="Error"/> is the hardware's (or the
     /// planner's) reason when it failed; <paramref name="Now"/> is what the target shows after a successful copy.
     /// </summary>
-    public sealed record CopyResult(bool Ok, string? Error, ScreenState? Now = null)
+    /// <param name="LeftAsItWas">
+    /// For a failed copy: true when the target was not touched or was put back to what it showed; false when the
+    /// copy had changed it and putting it back failed too (what it shows is then unknown).
+    /// </param>
+    public sealed record CopyResult(bool Ok, string? Error, ScreenState? Now = null, bool LeftAsItWas = true)
     {
         public static CopyResult Fail(string error) => new(false, error);
     }
@@ -56,6 +60,12 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
             public MultiViewCanvas Canvas { get; set; }
 
+            /// <summary>
+            /// <see cref="Canvas"/> is a copied display's output format, not this display's EDID choice. A Take of a
+            /// layout drawn at that size keeps it (while the EDID lists it), so a copy stays usable afterwards.
+            /// </summary>
+            public bool CanvasIsCopy { get; set; }
+
             /// <summary>Names of sources whose frame divider was refused (they run at full rate).</summary>
             public IReadOnlySet<string> DividerRefused { get; set; } = new HashSet<string>();
 
@@ -70,7 +80,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         }
 
         /// <summary>What a successful send leaves behind, to be committed to the session.</summary>
-        private sealed record Sent(MultiViewCanvas Canvas, IReadOnlySet<string> DividerRefused, IReadOnlySet<int> Joined);
+        private sealed record Sent(MultiViewCanvas Canvas, IReadOnlySet<string> DividerRefused, IReadOnlySet<int> Joined, bool CanvasIsCopy = false);
 
         private readonly ISdvoeClient _client;
         private readonly MultiViewCanvas _fallback;
@@ -125,6 +135,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         public MultiViewLayoutPlan? GetPlan(AvasDevice rx) => Find(rx)?.Live.Plan;
 
         public MultiViewCanvas? GetCanvas(AvasDevice rx) => Find(rx)?.Canvas;
+
+        /// <summary>The display's live multiview runs at a copied display's output format (not its own EDID choice).</summary>
+        public bool CanvasIsCopy(AvasDevice rx) => Find(rx)?.CanvasIsCopy == true;
 
         /// <summary>A copy of what is on the display's screen, or null when it has no live multiview.</summary>
         public MultiViewDraft? GetLive(AvasDevice rx) => Find(rx)?.Live.Clone();
@@ -215,10 +228,13 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         public Task<TakeResult> TakeAsync(AvasDevice rx, MultiViewDraft draft)
         {
             ArgumentNullException.ThrowIfNull(draft);
-            return ExclusiveAsync(rx, () => TakeCoreAsync(rx, draft));
+            return ExclusiveAsync(rx, () => TakeCoreAsync(rx, draft, null));
         }
 
-        private async Task<TakeResult> TakeCoreAsync(AvasDevice rx, MultiViewDraft draft)
+        /// <param name="copiedCanvas">
+        /// A copied output format the draft may keep (an Undo back to a copy); null = the session's own when it is a copy.
+        /// </param>
+        private async Task<TakeResult> TakeCoreAsync(AvasDevice rx, MultiViewDraft draft, MultiViewCanvas? copiedCanvas)
         {
             await _gate.WaitAsync();
             try
@@ -229,7 +245,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 if (session != null && SameLayout(draft, session.Live)) return new TakeResult(TakeOutcome.NothingToTake);
 
                 var taken = draft.Clone();
-                var (result, sent) = await SendAsync(rx, taken);
+                var (result, sent) = await SendAsync(rx, taken, copiedCanvas ?? CopiedCanvasOf(session));
                 if (sent == null) return result;
 
                 if (session == null)
@@ -269,7 +285,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 if (session?.Previous == null) return new TakeResult(TakeOutcome.NothingToTake);
 
                 var previous = session.Previous;
-                var (result, sent) = await SendAsync(rx, previous);
+                var (result, sent) = await SendAsync(rx, previous, CopiedCanvasOf(session));
                 if (sent == null) return result;
 
                 session.Previous = null;
@@ -308,13 +324,19 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             });
         }
 
-        /// <summary>Leaves multiview: the decoder goes back to full-screen genlock, ready for a normal join.</summary>
+        /// <summary>
+        /// Leaves multiview: the multiview's stream-1 subscriptions are left (best effort; index 0 is kept, a Single
+        /// View join reuses it), then the decoder goes back to full-screen genlock, ready for a normal join.
+        /// </summary>
         public Task<bool> ReturnToSingleViewAsync(AvasDevice rx) => ExclusiveAsync(rx, async () =>
         {
             await _gate.WaitAsync();
             try
             {
-                if (Find(rx) == null) return true;
+                var session = Find(rx);
+                if (session == null) return true;
+                foreach (int index in session.Joined.Where(i => i != 0).OrderBy(i => i))
+                    await LeaveAsync(rx, index);
                 return await GenlockAndEndAsync(rx);
             }
             finally
@@ -349,6 +371,16 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// What the target showed just before its last copy, while that copy is less than <see cref="CopyUndoWindow"/>
         /// old (evaluated on read: an expired snapshot is dropped). Null when there is nothing to put back.
         /// </summary>
+        /// <summary>
+        /// Drops the target's copy Undo: the display was changed deliberately since (a route, Off, a Take, a re-read),
+        /// so putting back the picture from before the copy would overwrite that change. Changes no device.
+        /// </summary>
+        public void ForgetPreviousScreen(AvasDevice target)
+        {
+            ArgumentNullException.ThrowIfNull(target);
+            lock (_previousScreens) _previousScreens.Remove(Key(target));
+        }
+
         public ScreenState? PreviousScreen(AvasDevice target)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -393,19 +425,19 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 }
 
                 AppLogger.Warn("COPY", $"Copy to '{target.DeviceName}' failed: {result.Error}");
-                if (touched)
+                if (!touched) return result;
+
+                bool putBack = false;
+                try
                 {
-                    try
-                    {
-                        if (!await RestoreCoreAsync(target, snapshot))
-                            AppLogger.Warn("COPY", $"'{target.DeviceName}' could not be put back to {snapshot.Describe()}.");
-                    }
-                    catch (Exception ex)
-                    {
-                        AppLogger.Warn("COPY", $"Putting '{target.DeviceName}' back failed: {ex.Message}");
-                    }
+                    putBack = await RestoreCoreAsync(target, snapshot);
+                    if (!putBack) AppLogger.Warn("COPY", $"'{target.DeviceName}' could not be put back to {snapshot.Describe()}.");
                 }
-                return result;
+                catch (Exception ex)
+                {
+                    AppLogger.Warn("COPY", $"Putting '{target.DeviceName}' back failed: {ex.Message}");
+                }
+                return result with { LeftAsItWas = putBack };
             });
         }
 
@@ -456,7 +488,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             var session = Find(rx);
             if (session != null)
                 return new ScreenState(ScreenKind.MultiView, session.Canvas.Width, session.Canvas.Height, session.Canvas.Fps,
-                    null, null, session.Live.Clone(), null, none);
+                    null, null, session.Live.Clone(), null, none) { CanvasIsCopy = session.CanvasIsCopy };
             if (_external.ContainsKey(Key(rx)))
                 return new ScreenState(ScreenKind.External, 0, 0, 0, null, null, null, null, none);
             if (!string.IsNullOrEmpty(rx.ActiveSourceId))
@@ -487,9 +519,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                     return (CopyResult.Fail($"'{rx.DeviceName}' did not accept the switch back to Single View."), false);
                 touched = true;
             }
-            else if (_external.ContainsKey(Key(rx)))
+            else if (_external.TryGetValue(Key(rx), out var external))
             {
-                if (!await ExitExternalAsync(rx, Array.Empty<int>()))
+                if (!await ExitExternalAsync(rx, StreamOneJoins(external)))
                     return (CopyResult.Fail($"'{rx.DeviceName}' did not accept the switch back to Single View."), false);
                 touched = true;
             }
@@ -527,20 +559,29 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             await _gate.WaitAsync();
             try
             {
+                // One encoder has one scaler size: a third display using one of these encoders at another size
+                // (possible when the source was adopted as found) refuses the copy before anything is sent.
+                var conflict = DraftValidator.Validate(draft, UsesExcept(rx), _ => true)
+                    .FirstOrDefault(i => i.Kind == BlockIssueKind.SizeConflictOtherDisplay);
+                if (conflict != null) return (CopyResult.Fail(conflict.Message), false);
+
                 var (error, touched, joined) = await LoadAsync(rx, surfaces, draft.Plan, screen);
                 if (error != null) return (CopyResult.Fail(error), touched);
 
                 var dropped = JoinedOn(rx).Except(joined).OrderBy(i => i).ToList();
                 _external.Remove(Key(rx));
                 // A new session: the Composer's Undo does not reach back past a copy (the copy has its own).
-                _sessions[Key(rx)] = new Session(rx.DeviceName, draft.Clone(), canvas) { Joined = joined };
+                _sessions[Key(rx)] = new Session(rx.DeviceName, draft.Clone(), canvas) { Joined = joined, CanvasIsCopy = true };
                 foreach (int index in dropped) await LeaveAsync(rx, index);
                 await RestoreUnusedDividersAsync();
 
                 var subscriptions = surfaces.Sources
                     .Select(s => new RxSubscription(s.Surface, true, "STREAMING", s.Mac, NameOf(draft, s.Mac), s.Stream))
                     .ToList();
-                return (new CopyResult(true, null, screen with { Draft = draft.Clone(), External = null, Subscriptions = subscriptions }), true);
+                return (new CopyResult(true, null, screen with
+                {
+                    Draft = draft.Clone(), External = null, Subscriptions = subscriptions, CanvasIsCopy = true,
+                }), true);
             }
             finally
             {
@@ -607,12 +648,16 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 case ScreenKind.Single:
                     if (string.IsNullOrEmpty(previous.SourceMac)) return false;
                     if (Find(rx) != null && !await ReturnToSingleViewAsync(rx)) return false;
-                    if (_external.ContainsKey(key) && !await ExitExternalAsync(rx, Array.Empty<int>())) return false;
+                    if (_external.TryGetValue(key, out var joinedExternal) && !await ExitExternalAsync(rx, StreamOneJoins(joinedExternal))) return false;
                     return await _routing.RouteSingleViewVideoAsync(SourceDevice(previous), rx);
 
                 case ScreenKind.MultiView:
                     if (previous.Draft == null) return false;
-                    var taken = await TakeAsync(rx, previous.Draft);
+                    // A previous picture that was itself a copy goes back at its copied format (not an EDID re-pick).
+                    var copied = previous.CanvasIsCopy
+                        ? new MultiViewCanvas(previous.Width, previous.Height, previous.Fps, false, $"{previous.Width}x{previous.Height}@{previous.Fps} (copy)")
+                        : null;
+                    var taken = await ExclusiveAsync(rx, () => TakeCoreAsync(rx, previous.Draft, copied));
                     return taken.Outcome is TakeOutcome.Applied or TakeOutcome.NothingToTake;
 
                 case ScreenKind.External:
@@ -624,6 +669,15 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                     return false;
             }
         }
+
+        /// <summary>
+        /// The subscriptions to leave when a display returns to Single View (Ruling R18): every joined index but 0,
+        /// which the Single View join reuses.
+        /// </summary>
+        public static IReadOnlyList<int> StreamOneJoins(IEnumerable<int> joined) => joined.Where(i => i != 0).OrderBy(i => i).ToList();
+
+        /// <summary>The session's canvas when it is a copied format (a Take may keep it), else null.</summary>
+        private static MultiViewCanvas? CopiedCanvasOf(Session? session) => session?.CanvasIsCopy == true ? session.Canvas : null;
 
         /// <summary>The subscription indexes this orchestrator knows are joined on the decoder in multiview.</summary>
         private IReadOnlySet<int> JoinedOn(AvasDevice rx) =>
@@ -671,12 +725,22 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// The hardware part of a Take: EDID check, validation against the other displays, scalers (and dividers),
         /// layout, load. Returns <c>sent</c> only when the draft is now on the screen.
         /// </summary>
-        private async Task<(TakeResult Result, Sent? Sent)> SendAsync(AvasDevice rx, MultiViewDraft draft)
+        /// <param name="copied">
+        /// A copied output format the display runs (or ran) at: a layout drawn at exactly that size keeps it while the
+        /// display's EDID still lists that mode, so a copied picture stays independent and editable afterwards.
+        /// </param>
+        private async Task<(TakeResult Result, Sent? Sent)> SendAsync(AvasDevice rx, MultiViewDraft draft, MultiViewCanvas? copied = null)
         {
             var plan = draft.Plan;
 
             // The display may have been swapped since the layout was drawn: never send a layout for another canvas.
-            var canvas = await ResolveCanvasAsync(rx);
+            var edid = await ReadEdidAsync(rx);
+            var canvas = MultiViewCanvasPolicy.Choose(edid, _fallback);
+            bool drawnForCopy = copied != null && plan.Width == copied.Width && plan.Height == copied.Height;
+            bool keepCopy = drawnForCopy && edid != null && edid.Supports(copied!.Width, copied.Height, copied.Fps);
+            if (keepCopy) canvas = copied!;
+            AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' output: {canvas.Description}");
+
             if (canvas.Width != plan.Width || canvas.Height != plan.Height)
             {
                 AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' display changed: {plan.Width}x{plan.Height} -> {canvas.Description}");
@@ -689,8 +753,10 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 {
                     return (TakeResult.Reject(ex.Message), null);
                 }
-                return (new TakeResult(TakeOutcome.DisplayChanged,
-                    $"The display of '{rx.DeviceName}' changed to {canvas.Description}; the layout was redrawn for it.", redrawn), null);
+                string why = drawnForCopy
+                    ? $"'{rx.DeviceName}' runs a copied {copied!.Width}x{copied.Height} picture; the layout was redrawn for its own {canvas.Width}x{canvas.Height}."
+                    : $"The display of '{rx.DeviceName}' changed to {canvas.Description}; the layout was redrawn for it.";
+                return (new TakeResult(TakeOutcome.DisplayChanged, why, redrawn), null);
             }
 
             var conflict = DraftValidator.Validate(draft, UsesExcept(rx), isOnline: _ => true)
@@ -729,7 +795,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 return (TakeResult.Reject($"'{rx.DeviceName}' rejected layout '{surfaces.LayoutName}'."), null);
 
             AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' now shows {plan.Id} with {subscriptions.Count} source(s) ({canvas.Description})");
-            return (new TakeResult(TakeOutcome.Applied), new Sent(canvas, refused, subscriptions.Select(s => s.SubscriptionIndex).ToHashSet()));
+            return (new TakeResult(TakeOutcome.Applied),
+                new Sent(canvas, refused, subscriptions.Select(s => s.SubscriptionIndex).ToHashSet(), keepCopy));
         }
 
         /// <summary>Switches a source's stream 1 to half rate; false when the device refused.</summary>
@@ -758,6 +825,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             session.DisplayName = rx.DeviceName;
             session.Live = live;
             session.Canvas = sent.Canvas;
+            session.CanvasIsCopy = sent.CanvasIsCopy;
             session.DividerRefused = sent.DividerRefused;
             session.Joined = sent.Joined;
 
@@ -812,6 +880,14 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// <summary>Reads the display's EDID and picks the output format; falls back to the default when it can't.</summary>
         private async Task<MultiViewCanvas> ResolveCanvasAsync(AvasDevice rx)
         {
+            var canvas = MultiViewCanvasPolicy.Choose(await ReadEdidAsync(rx), _fallback);
+            AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' output: {canvas.Description}");
+            return canvas;
+        }
+
+        /// <summary>The display's EDID, or null when there is none or it cannot be read or parsed.</summary>
+        private async Task<EdidInfo?> ReadEdidAsync(AvasDevice rx)
+        {
             string? hex = null;
             try
             {
@@ -821,11 +897,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             {
                 AppLogger.Warn("EDID", $"EDID read for '{rx.DeviceName}' threw: {ex.Message}");
             }
-
-            var edid = EdidInfo.Parse(hex);
-            var canvas = MultiViewCanvasPolicy.Choose(edid, _fallback);
-            AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' output: {canvas.Description}");
-            return canvas;
+            return EdidInfo.Parse(hex);
         }
 
         /// <summary>Same layout and the same encoder in every block.</summary>
