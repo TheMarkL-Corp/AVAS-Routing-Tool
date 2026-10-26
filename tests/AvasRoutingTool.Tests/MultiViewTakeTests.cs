@@ -97,7 +97,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task Take_Rejected_KeepsTheOldLiveState()
+        public async Task Take_Rejected_KeepsTheOldOnScreenState()
         {
             var (o, c) = Create();
             var rx = Rx();
@@ -114,7 +114,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task Take_SameAsLive_IsNothingToTake()
+        public async Task Take_SameAsOnScreen_IsNothingToTake()
         {
             var (o, c) = Create();
             var rx = Rx();
@@ -132,7 +132,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task Undo_TakesThePreviousLiveDraftAgain()
+        public async Task Undo_TakesThePreviousOnScreenDraftAgain()
         {
             var (o, c) = Create();
             var rx = Rx();

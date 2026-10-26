@@ -152,7 +152,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void DiffFrom_Live_ListsOnlyChangedBlocksInBlockOrder()
+        public void DiffFrom_OnScreen_ListsOnlyChangedBlocksInBlockOrder()
         {
             var live = DraftOf("matrix2x2");
             live.Place(0, "tx1", "TX1");
@@ -182,7 +182,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void DiffFrom_NullLive_TreatsEveryPlacementAsNew()
+        public void DiffFrom_NullOnScreen_TreatsEveryPlacementAsNew()
         {
             var draft = DraftOf("matrix2x2");
             draft.Place(1, "tx1", "TX1");

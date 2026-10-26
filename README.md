@@ -51,8 +51,8 @@ cd AVAS-Routing-Tool
 # Build the solution
 dotnet build AvasRoutingTool.sln
 
-# Run all non-live unit & smoke tests
-dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~Live"
+# Run all non-live unit & smoke tests (excludes exactly the two classes that drive real lab hardware)
+dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests"
 
 # Launch the application
 dotnet run --project src/AvasRoutingTool/AvasRoutingTool.csproj

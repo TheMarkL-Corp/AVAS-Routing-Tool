@@ -56,7 +56,7 @@
                         <Style TargetType="Ellipse">
                             <Setter Property="Fill" Value="{StaticResource Brush.Status.Offline}" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
                                     <Setter Property="Fill" Value="{StaticResource Brush.Status.Online}" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -66,7 +66,7 @@
 
                 <!-- Strict BAVM Device Name -->
                 <TextBlock Grid.Column="1"
-                           Text="{Binding DeviceName}"
+                           Text="{Binding DeviceName, Mode=OneWay}"
                            FontWeight="SemiBold"
                            FontSize="13"
                            Foreground="{StaticResource Brush.Text.Primary}"
@@ -82,7 +82,7 @@
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsDualLink}" Value="True">
+                                <DataTrigger Binding="{Binding IsDualLink, Mode=OneWay}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                     <Setter Property="Background" Value="#1E14B8A6" />
                                     <Setter Property="BorderBrush" Value="#4D14B8A6" />
@@ -90,8 +90,8 @@
                                 </DataTrigger>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding IsDualLink}" Value="False" />
-                                        <Condition Binding="{Binding IsPreviewSupported}" Value="True" />
+                                        <Condition Binding="{Binding IsDualLink, Mode=OneWay}" Value="False" />
+                                        <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True" />
                                     </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible" />
                                     <Setter Property="Background" Value="#1E334155" />
@@ -101,14 +101,14 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <TextBlock Text="{Binding LinkMode}"
+                    <TextBlock Text="{Binding LinkMode, Mode=OneWay}"
                                FontSize="10"
                                FontWeight="SemiBold">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="#94A3B8" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsDualLink}" Value="True">
+                                    <DataTrigger Binding="{Binding IsDualLink, Mode=OneWay}" Value="True">
                                         <Setter Property="Foreground" Value="#14B8A6" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -128,7 +128,7 @@
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsStreaming}" Value="True">
+                                <DataTrigger Binding="{Binding IsStreaming, Mode=OneWay}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -155,7 +155,7 @@
                     ClipToBounds="True">
                 <Grid>
                     <!-- Actual Video Image -->
-                    <Image Source="{Binding PreviewBitmap}"
+                    <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
                            Stretch="Uniform"
                            RenderOptions.BitmapScalingMode="LowQuality" />
 
@@ -166,7 +166,7 @@
                             <Style TargetType="StackPanel">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsPreviewSupported}" Value="False">
+                                    <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -201,8 +201,8 @@
                                 <Style.Triggers>
                                     <MultiDataTrigger>
                                         <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsPreviewSupported}" Value="True" />
-                                            <Condition Binding="{Binding IsStreaming}" Value="False" />
+                                            <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True" />
+                                            <Condition Binding="{Binding IsStreaming, Mode=OneWay}" Value="False" />
                                         </MultiDataTrigger.Conditions>
                                         <Setter Property="Visibility" Value="Visible" />
                                     </MultiDataTrigger>
@@ -231,10 +231,10 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="{Binding IpAddress}"
+                    <TextBlock Text="{Binding IpAddress, Mode=OneWay}"
                                FontSize="11"
                                Foreground="{StaticResource Brush.Text.Secondary}" />
-                    <TextBlock Text="{Binding MacAddress}"
+                    <TextBlock Text="{Binding MacAddress, Mode=OneWay}"
                                FontSize="10"
                                Foreground="{StaticResource Brush.Text.Muted}" />
                 </StackPanel>
@@ -259,7 +259,7 @@
                 <!-- Preview Stream Buttons -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <!-- Refresh Button -->
-                    <Button Command="{Binding RefreshPreviewCommand}"
+                    <Button Command="{Binding RefreshPreviewCommand, Mode=OneWay}"
                             ToolTip="Force preview reset &amp; restart"
                             Background="#1E293B"
                             Foreground="{StaticResource Brush.Text.Secondary}"
@@ -274,7 +274,7 @@
                             <Style TargetType="Button">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsPreviewSupported}" Value="True">
+                                    <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -287,7 +287,7 @@
                     </Button>
 
                     <!-- Start Preview Button -->
-                    <Button Command="{Binding StartPreviewCommand}"
+                    <Button Command="{Binding StartPreviewCommand, Mode=OneWay}"
                             ToolTip="Start Preview Stream"
                             Background="#1E293B"
                             Foreground="#10B981"
@@ -304,8 +304,8 @@
                                 <Style.Triggers>
                                     <MultiDataTrigger>
                                         <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsPreviewSupported}" Value="True" />
-                                            <Condition Binding="{Binding IsStreaming}" Value="False" />
+                                            <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True" />
+                                            <Condition Binding="{Binding IsStreaming, Mode=OneWay}" Value="False" />
                                         </MultiDataTrigger.Conditions>
                                         <Setter Property="Visibility" Value="Visible" />
                                     </MultiDataTrigger>
@@ -319,7 +319,7 @@
                     </Button>
 
                     <!-- Stop Preview Button -->
-                    <Button Command="{Binding StopPreviewCommand}"
+                    <Button Command="{Binding StopPreviewCommand, Mode=OneWay}"
                             ToolTip="Stop Preview Stream"
                             Background="#1E293B"
                             Foreground="#EF4444"
@@ -333,7 +333,7 @@
                             <Style TargetType="Button">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsStreaming}" Value="True">
+                                    <DataTrigger Binding="{Binding IsStreaming, Mode=OneWay}" Value="True">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                 </Style.Triggers>

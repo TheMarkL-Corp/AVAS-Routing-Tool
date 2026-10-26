@@ -95,7 +95,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task Take_AfterTheDisplayChanged_TheRedrawnDraftGoesLiveAtTheNewCanvas()
+        public async Task Take_AfterTheDisplayChanged_TheRedrawnDraftGoesOnScreenAtTheNewCanvas()
         {
             var (o, c) = Create();
             c.DisplayEdid = TestEdids.Build((1920, 1080, 60, false));
@@ -350,7 +350,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task UsesExcept_ListsTheBlocksOfEveryOtherLiveDisplay()
+        public async Task UsesExcept_ListsTheBlocksOfEveryOtherDisplayOnScreen()
         {
             var (o, _) = Create();
             var rx1 = Rx("rx1");
@@ -416,7 +416,7 @@ namespace AvasRoutingTool.Tests
         private static string[] ScalerCalls(MockSdvoeClient c) => c.MultiViewCalls.Where(x => x.StartsWith("scaler:")).ToArray();
 
         [Fact]
-        public async Task ALaterScalerRefused_PutsTheEncoderAlreadyResizedBackAtItsLiveSize()
+        public async Task ALaterScalerRefused_PutsTheEncoderAlreadyResizedBackAtItsCurrentSize()
         {
             var (o, c, rx, pip, inset) = await LiveMatrixAndStagedPipAsync();
             c.MultiViewCalls.Clear();
@@ -436,7 +436,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ADisplayThatRejectsTheLayout_GetsTheResizedEncodersBackAtTheirLiveSize()
+        public async Task ADisplayThatRejectsTheLayout_GetsTheResizedEncodersBackAtTheirCurrentSize()
         {
             var (o, c, rx, pip, inset) = await LiveMatrixAndStagedPipAsync();
             c.MultiViewCalls.Clear();
@@ -454,7 +454,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ALayoutThatCannotBeCreated_GetsTheResizedEncodersBackAtTheirLiveSize()
+        public async Task ALayoutThatCannotBeCreated_GetsTheResizedEncodersBackAtTheirCurrentSize()
         {
             var (o, c, rx, pip, _) = await LiveMatrixAndStagedPipAsync();
             c.MultiViewCalls.Clear();
@@ -494,7 +494,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ARefusedTake_LeavesEncodersTheLiveLayoutDoesNotUseAsTheyAre()
+        public async Task ARefusedTake_LeavesEncodersTheCurrentLayoutDoesNotUseAsTheyAre()
         {
             var (o, c, rx, _, _) = await LiveMatrixAndStagedPipAsync();
             var staged = await DraftFor(o, rx, "matrix2x2", (0, "tx2"), (1, "tx3")); // neither encoder is live
@@ -558,7 +558,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task Take_WhenTheEdidCannotBeReadNow_AndTheLayoutWasDrawnAtThe1080pFallback_StillGoesLive()
+        public async Task Take_WhenTheEdidCannotBeReadNow_AndTheLayoutWasDrawnAtThe1080pFallback_StillGoesOnScreen()
         {
             var (o, c) = Create();
             c.DisplayEdid = null;

@@ -23,12 +23,12 @@ All commands run from the repository root: `c:\Users\POC-615\Documents\GitHub\AV
 | Action | Command |
 |---|---|
 | **Build Solution** | `dotnet build AvasRoutingTool.sln` |
-| **Run Unit & Smoke Tests** | `dotnet test AvasRoutingTool.sln` |
+| **Run Unit & Smoke Tests** | `dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests"` (a bare `dotnet test` also runs the `Live*` hardware classes) |
 | **Run Tests (Detailed)** | `dotnet test AvasRoutingTool.sln --logger "console;verbosity=normal"` |
 | **Run Application** | `dotnet run --project src/AvasRoutingTool/AvasRoutingTool.csproj` |
 | **Publish Standalone Binary** | `dotnet publish src/AvasRoutingTool/AvasRoutingTool.csproj -c Release -o publish/AvasRoutingTool` |
 
-> **Current Test Status**: **147 non-live tests passing** (unit, integration, STA view-smoke). The `Live*` tests route/unroute real lab hardware when a Control Server is up, so run them only deliberately: `dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~Live"` for the safe set. If the app is running, add `--artifacts-path <scratch dir>` because the Debug output is locked.
+> **Current Test Status**: **147 non-live tests passing** (unit, integration, STA view-smoke). The `Live*` tests route/unroute real lab hardware when a Control Server is up, so run them only deliberately (the classes `LiveControlServerTests` and `LiveFunctionTests`): `dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests"` for the safe set. (Do not use `!~Live`: it also skips every test whose name merely contains "live".) If the app is running, add `--artifacts-path <scratch dir>` because the Debug output is locked.
 
 ---
 

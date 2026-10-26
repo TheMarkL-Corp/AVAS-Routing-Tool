@@ -34,6 +34,8 @@ namespace AvasRoutingTool.Tests
             {
                 try
                 {
+                    // The input mode is process-wide: every test starts as a pointer user (the start state) and sets what it needs.
+                    InputModality.IsKeyboard = false;
                     var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                     foreach (var name in new[] { "Theme", "Icons" })
                     {
@@ -2526,7 +2528,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void Composer_AutomationNames_AreBound_AndTheBannersAreLiveRegions() =>
+        public void Composer_AutomationNames_AreBound_AndTheBannersAreAnnouncementRegions() =>
             RunSta(() =>
             {
                 var rig = new ComposerRig();
@@ -2646,7 +2648,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void DisplayCard_AutomationNames_AndLiveRegions_AndTheTurnOffRing() =>
+        public void DisplayCard_AutomationNames_AndAnnouncementRegions_AndTheTurnOffRing() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();

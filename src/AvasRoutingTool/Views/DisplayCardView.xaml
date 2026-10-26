@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="AvasRoutingTool.Views.DisplayCardView"
+<UserControl x:Class="AvasRoutingTool.Views.DisplayCardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
@@ -35,14 +35,14 @@
                 <Style TargetType="Border">
                     <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsDragOver}" Value="True">
+                        <DataTrigger Binding="{Binding IsDragOver, Mode=OneWay}" Value="True">
                             <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.DropTarget}" />
                             <Setter Property="BorderThickness" Value="2" />
                         </DataTrigger>
                         <MultiDataTrigger>
                             <MultiDataTrigger.Conditions>
-                                <Condition Binding="{Binding IsRouted}" Value="True" />
-                                <Condition Binding="{Binding IsDragOver}" Value="False" />
+                                <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
+                                <Condition Binding="{Binding IsDragOver, Mode=OneWay}" Value="False" />
                             </MultiDataTrigger.Conditions>
                             <Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Routed}" />
                         </MultiDataTrigger>
@@ -84,7 +84,7 @@
                             <Style TargetType="Ellipse">
                                 <Setter Property="Fill" Value="{StaticResource Brush.Status.Offline}" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                    <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
                                         <Setter Property="Fill" Value="{StaticResource Brush.Status.Online}" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -113,12 +113,12 @@
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="{StaticResource Brush.Border.Default}" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRouted}" Value="True">
+                                        <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
                                             <Setter Property="Background" Value="#263B82F6" />
                                             <Setter Property="BorderBrush" Value="#4D3B82F6" />
                                             <Setter Property="BorderThickness" Value="1" />
                                         </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsMultiView}" Value="True">
+                                        <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
                                             <Setter Property="Background" Value="#263B82F6" />
                                             <Setter Property="BorderBrush" Value="#4D3B82F6" />
                                             <Setter Property="BorderThickness" Value="1" />
@@ -132,10 +132,10 @@
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRouted}" Value="True">
+                                            <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
                                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text.Accent}" />
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsMultiView}" Value="True">
+                                            <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
                                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text.Accent}" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -351,12 +351,12 @@
                         ClipToBounds="True">
                   <Grid>
                     <!-- Multiview: one drop zone + mirrored preview per window -->
-                    <ItemsControl ItemsSource="{Binding Slots}" Focusable="False">
+                    <ItemsControl ItemsSource="{Binding Slots, Mode=OneWay}" Focusable="False">
                         <ItemsControl.Style>
                             <Style TargetType="ItemsControl">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMultiView}" Value="True">
+                                    <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -392,10 +392,10 @@
                                         <Style TargetType="Border">
                                             <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Default}" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsAssigned}" Value="True">
+                                                <DataTrigger Binding="{Binding IsAssigned, Mode=OneWay}" Value="True">
                                                     <Setter Property="BorderBrush" Value="{StaticResource Brush.Status.Routed}" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsDragOver}" Value="True">
+                                                <DataTrigger Binding="{Binding IsDragOver, Mode=OneWay}" Value="True">
                                                     <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.DropTarget}" />
                                                     <Setter Property="BorderThickness" Value="2" />
                                                 </DataTrigger>
@@ -403,7 +403,7 @@
                                         </Style>
                                     </Border.Style>
                                     <Grid>
-                                        <Image Source="{Binding PreviewBitmap}"
+                                        <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
                                                Stretch="Uniform"
                                                RenderOptions.BitmapScalingMode="LowQuality" />
 
@@ -419,7 +419,7 @@
                                                 <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsAssigned}" Value="True">
+                                                        <DataTrigger Binding="{Binding IsAssigned, Mode=OneWay}" Value="True">
                                                             <Setter Property="Visibility" Value="Visible" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
@@ -444,8 +444,8 @@
                                                     <Style.Triggers>
                                                         <MultiDataTrigger>
                                                             <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsAssigned}" Value="True" />
-                                                                <Condition Binding="{Binding IsPreviewSupported}" Value="False" />
+                                                                <Condition Binding="{Binding IsAssigned, Mode=OneWay}" Value="True" />
+                                                                <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False" />
                                                             </MultiDataTrigger.Conditions>
                                                             <Setter Property="Visibility" Value="Visible" />
                                                         </MultiDataTrigger>
@@ -460,7 +460,7 @@
                                                 <Style TargetType="StackPanel">
                                                     <Setter Property="Visibility" Value="Visible" />
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsAssigned}" Value="True">
+                                                        <DataTrigger Binding="{Binding IsAssigned, Mode=OneWay}" Value="True">
                                                             <Setter Property="Visibility" Value="Collapsed" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
@@ -489,14 +489,14 @@
                             <Style TargetType="Grid">
                                 <Setter Property="Visibility" Value="Visible" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMultiView}" Value="True">
+                                    <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Grid.Style>
                         <!-- Actual Mirrored Video Image -->
-                        <Image Source="{Binding PreviewBitmap}"
+                        <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
                                Stretch="Uniform"
                                RenderOptions.BitmapScalingMode="LowQuality" />
 
@@ -514,8 +514,8 @@
                                     <Style.Triggers>
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsRouted}" Value="True" />
-                                                <Condition Binding="{Binding IsPreviewSupported}" Value="True" />
+                                                <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
+                                                <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True" />
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
                                         </MultiDataTrigger>
@@ -524,7 +524,7 @@
                             </Border.Style>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="● " Foreground="#10B981" FontSize="9" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding ActiveSourceName}" Foreground="{StaticResource Brush.Text.Primary}" FontSize="10" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Primary}" FontSize="10" FontWeight="SemiBold" />
                             </StackPanel>
                         </Border>
 
@@ -536,9 +536,9 @@
                                     <Style.Triggers>
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsRouted}" Value="True" />
-                                                <Condition Binding="{Binding IsPreviewSupported}" Value="False" />
-                                                <Condition Binding="{Binding IsExternalLayout}" Value="False" />
+                                                <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
+                                                <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False" />
+                                                <Condition Binding="{Binding IsExternalLayout, Mode=OneWay}" Value="False" />
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
                                         </MultiDataTrigger>
@@ -555,7 +555,7 @@
                                        Foreground="{StaticResource Brush.Text.Muted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,6,0,2" />
-                            <TextBlock Text="{Binding ActiveSourceName}"
+                            <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}"
                                        FontSize="13"
                                        FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text.Primary}"
@@ -575,7 +575,7 @@
                                 <Style TargetType="StackPanel">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsExternalLayout}" Value="True">
+                                        <DataTrigger Binding="{Binding IsExternalLayout, Mode=OneWay}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -605,7 +605,7 @@
                                 <Style TargetType="StackPanel">
                                     <Setter Property="Visibility" Value="Visible" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRouted}" Value="True">
+                                        <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -646,7 +646,7 @@
                             <Style TargetType="Border">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HasError}" Value="True">
+                                    <DataTrigger Binding="{Binding HasError, Mode=OneWay}" Value="True">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -786,7 +786,7 @@
                         Margin="0,4,0,0"
                         MinHeight="22"
                         HorizontalAlignment="Left"
-                        Command="{Binding UnrouteCommand}"
+                        Command="{Binding UnrouteCommand, Mode=OneWay}"
                         ToolTip="Turn off display feed / Unroute video"
                         FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
                         AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
@@ -802,7 +802,7 @@
                         <Style TargetType="Button">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRouted}" Value="True">
+                                <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                             </Style.Triggers>
