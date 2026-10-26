@@ -40,10 +40,12 @@ namespace AvasRoutingTool.Views
             }
         }
 
-        /// <summary>The arm banner's Stop: tapping the armed source again disarms it.</summary>
+        /// <summary>The arm banner's Stop: stops placing the armed source (tapping it again), or stops copying.</summary>
         private void StopPlacing_Click(object sender, RoutedEventArgs e)
         {
-            if (DataContext is MainViewModel { ArmedSource: { } armed } vm) vm.ArmSource(armed);
+            if (DataContext is not MainViewModel vm) return;
+            if (vm.ArmedSource is { } armed) vm.ArmSource(armed);
+            else if (vm.ArmedDisplay != null) vm.DisarmDisplay();
         }
     }
 }

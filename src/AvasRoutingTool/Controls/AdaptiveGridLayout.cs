@@ -22,6 +22,12 @@ namespace AvasRoutingTool.Controls
             HorizontalPadding: 20,
             ChromeHeight: 120,
             VideoAspect: 16.0 / 9.0);
+
+        /// <summary>
+        /// The display card: its header carries the 56 px Layout and Copy layout buttons, so its chrome is taller;
+        /// with it the picture keeps 16:9 (a smoke test measures the real card).
+        /// </summary>
+        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 160, HorizontalPadding = 26 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>

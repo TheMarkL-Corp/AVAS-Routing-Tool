@@ -285,9 +285,11 @@
             <sys:Double x:Key="{x:Static SystemParameters.VerticalScrollBarButtonHeightKey}">48</sys:Double>
             <sys:Double x:Key="{x:Static SystemParameters.HorizontalScrollBarButtonWidthKey}">48</sys:Double>
         </Style.Resources>
-        <!-- The system theme sets MinWidth / MinHeight to the 17 px system bar; the gutter sets the size instead -->
+        <!-- The system theme sizes the bar at 17 px (Width / Height and their minimums); the 16 px gutter sets the size instead -->
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Width" Value="Auto" />
+        <Setter Property="Height" Value="Auto" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Template">
             <Setter.Value>

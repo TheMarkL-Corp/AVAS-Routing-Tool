@@ -146,5 +146,25 @@ namespace AvasRoutingTool.Tests
             Assert.True(displayBitmapChanged);
             Assert.Same(dummyBitmap, rxVm.PreviewBitmap);
         }
+
+        [Fact]
+        public void ExternalLayoutText_ForALayoutCopiedHere_IsFriendly_AndKeepsTheRawNameForTheTooltip()
+        {
+            var vm = new DisplayCardViewModel(new AvasDevice { DeviceId = "74fe4800355a", DeviceName = "PAX355S_SFP A", IsReceiver = true, IsActive = true });
+
+            vm.SetExternalLayout("avas_74fe4800355a_copy_3840x2160", new[] { "TX2", "VEGA_1100" }, "OUT 3840x2160@60");
+
+            Assert.Equal("Copied layout (read-only): TX2, VEGA_1100", vm.ExternalLayoutText);
+            Assert.Equal("avas_74fe4800355a_copy_3840x2160", vm.ExternalLayoutName);
+
+            // A layout made elsewhere keeps its name in the text (the operator may know it from BAVM).
+            vm.SetExternalLayout("compatibility_4k_2x2", new[] { "TX2" }, "OUT 3840x2160@60");
+            Assert.Equal("Running layout 'compatibility_4k_2x2' set elsewhere (read-only): TX2", vm.ExternalLayoutText);
+            Assert.Equal("compatibility_4k_2x2", vm.ExternalLayoutName);
+
+            vm.ClearExternalLayout();
+            Assert.Equal(string.Empty, vm.ExternalLayoutText);
+            Assert.Equal(string.Empty, vm.ExternalLayoutName);
+        }
     }
 }

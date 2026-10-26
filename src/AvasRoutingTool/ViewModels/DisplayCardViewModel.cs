@@ -26,6 +26,7 @@ namespace AvasRoutingTool.ViewModels
         private bool _isExternalLayout;
         private int _externalSourceCount;
         private string _externalLayoutText = string.Empty;
+        private string _externalLayoutName = string.Empty;
         private double _canvasAspect = 16.0 / 9.0;
         private List<int> _logicalOrder = new();
         private bool _isLayoutMenuOpen;
@@ -53,8 +54,14 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The decoder is running a multiview layout this tool did not create (found when restoring state). Read-only.</summary>
         public bool IsExternalLayout => _isExternalLayout;
 
-        /// <summary>What to tell the operator about an external layout.</summary>
+        /// <summary>
+        /// What to tell the operator about an external layout. A layout this tool copied here (<c>avas_&lt;mac&gt;_copy_&lt;W&gt;x&lt;H&gt;</c>)
+        /// reads "Copied layout (read-only)"; its technical name stays in <see cref="ExternalLayoutName"/> (the tooltip).
+        /// </summary>
         public string ExternalLayoutText => _externalLayoutText;
+
+        /// <summary>The external layout's name on the Control Server (shown as a tooltip); empty when there is none.</summary>
+        public string ExternalLayoutName => _externalLayoutName;
 
         /// <summary>Layout currently on this display: <c>single</c> or a multiview preset id.</summary>
         public string LayoutId => _layoutId;
@@ -346,13 +353,17 @@ namespace AvasRoutingTool.ViewModels
 
             _isExternalLayout = true;
             _externalSourceCount = sourceNames.Count;
+            _externalLayoutName = layoutName ?? string.Empty;
             string what = string.IsNullOrEmpty(layoutName)
                 ? "Running a multiview layout set elsewhere (read-only)"
-                : $"Running layout '{layoutName}' set elsewhere (read-only)";
+                : IsCopiedLayoutName(layoutName)
+                    ? "Copied layout (read-only)"
+                    : $"Running layout '{layoutName}' set elsewhere (read-only)";
             _externalLayoutText = sourceNames.Count == 0 ? what : $"{what}: {string.Join(", ", sourceNames)}";
             _canvasInfo = canvasInfo;
             OnPropertyChanged(nameof(IsExternalLayout));
             OnPropertyChanged(nameof(ExternalLayoutText));
+            OnPropertyChanged(nameof(ExternalLayoutName));
             NotifyLayoutChanged();
         }
 
@@ -370,9 +381,15 @@ namespace AvasRoutingTool.ViewModels
             _isExternalLayout = false;
             _externalSourceCount = 0;
             _externalLayoutText = string.Empty;
+            _externalLayoutName = string.Empty;
             OnPropertyChanged(nameof(IsExternalLayout));
             OnPropertyChanged(nameof(ExternalLayoutText));
+            OnPropertyChanged(nameof(ExternalLayoutName));
         }
+
+        /// <summary>A layout this tool copied onto a display (<see cref="MultiViewPresets.CopyLayoutName"/>): <c>avas_..._copy_...</c>.</summary>
+        private static bool IsCopiedLayoutName(string name) =>
+            name.StartsWith("avas_", StringComparison.Ordinal) && name.Contains("_copy_", StringComparison.Ordinal);
 
         public void AssignSlot(int slotIndex, SourceCardViewModel? source)
         {

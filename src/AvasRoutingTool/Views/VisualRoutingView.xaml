@@ -11,35 +11,25 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <!-- Sources: half the screen in the overview; a compact palette strip while the Composer is open (Ruling R21) -->
+            <!--
+                Sources: half the screen in the overview; a compact palette strip while the Composer is open (Ruling R21).
+                No minimum heights: on the real window sizes (1264x755, 1008x615 content) two 330 px minimums pushed
+                the layout bar off the window; each row scrolls its cards instead.
+            -->
             <RowDefinition>
                 <RowDefinition.Style>
                     <Style TargetType="RowDefinition">
                         <Setter Property="Height" Value="*" />
-                        <Setter Property="MinHeight" Value="330" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                                 <Setter Property="Height" Value="Auto" />
-                                <Setter Property="MinHeight" Value="0" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </RowDefinition.Style>
             </RowDefinition>
             <RowDefinition Height="Auto" />
-            <RowDefinition>
-                <RowDefinition.Style>
-                    <Style TargetType="RowDefinition">
-                        <Setter Property="Height" Value="*" />
-                        <Setter Property="MinHeight" Value="330" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                <Setter Property="MinHeight" Value="0" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </RowDefinition.Style>
-            </RowDefinition>
+            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -194,8 +184,12 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- Arm banner (overview only; the Composer shows its own hint): one armed thing, one line -->
+                <!--
+                    Arm banner (overview only; the Composer shows its own hint): one armed thing, one line - a source
+                    being placed (ArmBannerText) or a display being copied (CopyArmBanner); the view model never sets both.
+                -->
                 <Border Grid.Row="0"
+                        x:Name="ArmBanner"
                         Background="#082F3A"
                         BorderBrush="{StaticResource Brush.Border.DropTarget}"
                         BorderThickness="2"
@@ -205,9 +199,13 @@
                     <Border.Style>
                         <Style TargetType="Border">
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding ArmBannerText, Mode=OneWay}" Value="{x:Null}">
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding ArmBannerText, Mode=OneWay}" Value="{x:Null}" />
+                                        <Condition Binding="{Binding CopyArmBanner, Mode=OneWay}" Value="{x:Null}" />
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
+                                </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
@@ -216,12 +214,38 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding ArmBannerText, Mode=OneWay}"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"
-                                   Foreground="#CFFAFE"
-                                   TextWrapping="Wrap"
-                                   VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding ArmBannerText, Mode=OneWay}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="#CFFAFE"
+                                       TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ArmBannerText, Mode=OneWay}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding CopyArmBanner, Mode=OneWay}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="#CFFAFE"
+                                       TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CopyArmBanner, Mode=OneWay}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
                         <Button Grid.Column="1"
                                 x:Name="StopPlacingButton"
                                 Style="{StaticResource Style.Button.Composer}"
@@ -257,11 +281,12 @@
                     </StackPanel>
 
                     <TextBlock Grid.Column="1"
-                               Text="Drop source into a display card to switch video feed"
+                               Text="Layout ▾ picks a layout - Copy layout copies a display's picture onto another display"
                                FontSize="11"
                                Foreground="{StaticResource Brush.Text.Muted}"
+                               TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center"
-                               Margin="12,0,0,0" />
+                               Margin="12,0,8,0" />
 
                     <Border Grid.Column="2"
                             Background="{StaticResource Brush.Surface.Elevated}"
@@ -276,12 +301,14 @@
 
                 <!-- Displays Carousel / Horizontal List -->
                 <ScrollViewer Grid.Row="2"
+                              x:Name="DisplaysScroll"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Displays}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <controls:AdaptiveCardPanel />
+                                <!-- The display card's chrome (56 px Layout header, Copy layout row) is taller than the source card's -->
+                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.DisplayCard}" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
