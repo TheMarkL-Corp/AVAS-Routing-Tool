@@ -335,9 +335,17 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             {
                 var session = Find(rx);
                 if (session == null) return true;
+                var left = new HashSet<int>();
                 foreach (int index in session.Joined.Where(i => i != 0).OrderBy(i => i))
-                    await LeaveAsync(rx, index);
-                return await GenlockAndEndAsync(rx);
+                {
+                    if (await LeaveAsync(rx, index)) left.Add(index);
+                }
+
+                bool ok = await GenlockAndEndAsync(rx);
+                // Refused genlock: the display stays in multiview, but the leaves did happen, so they no longer
+                // count as joined (a later Off or Take does not leave them again).
+                if (!ok && left.Count > 0) session.Joined = session.Joined.Except(left).ToHashSet();
+                return ok;
             }
             finally
             {
@@ -368,10 +376,6 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         // ---- copy a display onto another (spec section 15) ----
 
         /// <summary>
-        /// What the target showed just before its last copy, while that copy is less than <see cref="CopyUndoWindow"/>
-        /// old (evaluated on read: an expired snapshot is dropped). Null when there is nothing to put back.
-        /// </summary>
-        /// <summary>
         /// Drops the target's copy Undo: the display was changed deliberately since (a route, Off, a Take, a re-read),
         /// so putting back the picture from before the copy would overwrite that change. Changes no device.
         /// </summary>
@@ -381,6 +385,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             lock (_previousScreens) _previousScreens.Remove(Key(target));
         }
 
+        /// <summary>
+        /// What the target showed just before its last copy, while that copy is less than <see cref="CopyUndoWindow"/>
+        /// old (evaluated on read: an expired snapshot is dropped). Null when there is nothing to put back. The same
+        /// object is returned for as long as that snapshot is kept, so callers can tell whether it is still current.
+        /// </summary>
         public ScreenState? PreviousScreen(AvasDevice target)
         {
             ArgumentNullException.ThrowIfNull(target);
@@ -833,18 +842,19 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 await LeaveAsync(rx, index);
         }
 
-        /// <summary>Best effort: a leave that is refused or throws is logged, never fatal.</summary>
-        private async Task LeaveAsync(AvasDevice rx, int subscriptionIndex)
+        /// <summary>Best effort: a leave that is refused or throws is logged, never fatal. True when it was accepted.</summary>
+        private async Task<bool> LeaveAsync(AvasDevice rx, int subscriptionIndex)
         {
             try
             {
-                if (!await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", subscriptionIndex))
-                    AppLogger.Warn("MULTIVIEW", $"Leave of subscription {subscriptionIndex} on '{rx.DeviceName}' was not accepted.");
+                if (await _client.LeaveStreamAsync(rx.DeviceId, "HDMI", subscriptionIndex)) return true;
+                AppLogger.Warn("MULTIVIEW", $"Leave of subscription {subscriptionIndex} on '{rx.DeviceName}' was not accepted.");
             }
             catch (Exception ex)
             {
                 AppLogger.Warn("MULTIVIEW", $"Leave of subscription {subscriptionIndex} on '{rx.DeviceName}' failed: {ex.Message}");
             }
+            return false;
         }
 
         private async Task<bool> GenlockAndEndAsync(AvasDevice rx)

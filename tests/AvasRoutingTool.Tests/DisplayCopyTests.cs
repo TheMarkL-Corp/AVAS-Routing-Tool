@@ -320,7 +320,7 @@ namespace AvasRoutingTool.Tests
             var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
 
             var first = rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm);
-            await entered;
+            await Within(entered, "Copy reaching set:multiview");
             var second = rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm); // the double tap
             Assert.True(second.IsCompleted);
             Assert.False(await second);
@@ -570,7 +570,7 @@ namespace AvasRoutingTool.Tests
             var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
 
             var copy = rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm);
-            await entered;
+            await Within(entered, "Copy reaching set:multiview");
             var route = rig.Vm.RouteVideoAsync(rig.VegaVm.Device, rig.Pax);
             await Task.Delay(100);
             Assert.False(route.IsCompleted);
@@ -922,8 +922,11 @@ namespace AvasRoutingTool.Tests
             rig.Client.MultiViewCalls.Clear();
 
             var arm = rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
-            await rig.Vm.TapDisplayAsync(rig.PaxVm);
-            bool dropped = await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm);
+            // Bounded: a regression that waits on the held EDID read must fail here, not hang the suite.
+            await Within(rig.Vm.TapDisplayAsync(rig.PaxVm), "Tap while reading");
+            var drop = rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm);
+            await Within(drop, "Drop while reading");
+            bool dropped = await drop;
 
             Assert.False(dropped);
             Assert.Empty(rig.Client.MultiViewCalls);
@@ -934,6 +937,57 @@ namespace AvasRoutingTool.Tests
             await Within(arm, "Arm");
             Assert.True(rig.PaxVm.IsCopyTargetAllowed);
             Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay);
+        }
+
+        // ---- fix round 2 ----
+
+        [Fact]
+        public async Task UndoQueuedBehindARoute_DoesNothing_WhenTheRouteWithdrewTheSnapshot()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm)); // PAX showed nothing before
+            Assert.NotNull(rig.MultiView.PreviousScreen(rig.Pax));
+            rig.Client.MultiViewCalls.Clear();
+            rig.Client.Leaves.Clear();
+
+            // Something already holds PAX: the Route queues first, the Undo click after it.
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var holder = rig.MultiView.RunExclusiveAsync(rig.Pax, () => gate.Task);
+            var route = rig.Vm.RouteVideoAsync(rig.VegaVm.Device, rig.Pax);
+            var undo = rig.Vm.UndoScreenAsync(rig.PaxVm); // read the snapshot before the Route could withdraw it
+            Assert.False(route.IsCompleted);
+            Assert.False(undo.IsCompleted);
+
+            gate.SetResult(true);
+            await Within(Task.WhenAll(holder, route, undo), "Holder + Route + Undo");
+
+            Assert.True(await route);
+            Assert.False(await undo); // the Route withdrew the snapshot: the late Undo must not overwrite it
+            Assert.Equal(new[] { $"genlock:{PaxMac}" }, rig.Client.MultiViewCalls); // the Route's only
+            Assert.Equal(VegaMac, rig.Client.LastVideoTx);
+            Assert.Equal(VegaMac, rig.PaxVm.ActiveSourceId);
+            Assert.DoesNotContain($"{PaxMac}:0", rig.Client.Leaves);
+        }
+
+        [Fact]
+        public async Task ReturnToSingleView_WhoseGenlockFails_ForgetsTheSubscriptionsItAlreadyLeft()
+        {
+            var rig = new Rig();
+            await rig.RestoreSideBySideOnPaxAsync(); // joined 3 and 4
+            rig.Client.FailMultiViewPrefix = "genlock:";
+
+            Assert.False(await rig.Vm.RouteVideoAsync(rig.Tx2Vm.Device, rig.Pax));
+            Assert.Equal(new[] { $"{PaxMac}:3", $"{PaxMac}:4" }, rig.Client.Leaves); // the leaves did happen
+            Assert.True(rig.MultiView.IsMultiView(rig.Pax)); // still in multiview: the genlock was refused
+
+            rig.Client.FailMultiViewPrefix = null;
+            rig.Client.Leaves.Clear();
+            Assert.True(await rig.Vm.UnrouteVideoAsync(rig.Pax));
+
+            Assert.Empty(rig.Client.Leaves); // nothing left to leave: 3 and 4 are no longer counted as joined
+            Assert.Equal($"genlock:{PaxMac}", rig.Client.MultiViewCalls.Last());
         }
 
         /// <summary>Polls a view-model condition set by a fire-and-forget command.</summary>

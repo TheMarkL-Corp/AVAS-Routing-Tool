@@ -1022,10 +1022,11 @@ namespace AvasRoutingTool.ViewModels
             var toRead = Displays.Where(o => o.IsActive && !ReferenceEquals(o, d)).ToList();
             if (CurrentScreen(d).Kind == ScreenKind.Single) toRead.Add(d);
             _armReading = true; // until the reads are in, a tap or drop is ignored (no false "Can't read" block)
-            var read = await ReadEdidsAsync(toRead);
+            List<(string Key, EdidInfo? Edid)> read;
+            try { read = await ReadEdidsAsync(toRead); }
+            finally { if (token == _armSeq) _armReading = false; } // never left set by a read that threw
             if (token != _armSeq || !ReferenceEquals(_armedDisplay, d)) return; // disarmed (or re-armed) meanwhile
 
-            _armReading = false;
             foreach (var (key, edid) in read) _copyEdids[key] = edid;
             RefreshCopyTargets();
             OnPropertyChanged(nameof(CopyArmBanner));
@@ -1123,6 +1124,13 @@ namespace AvasRoutingTool.ViewModels
                 d.ClearUndoScreen();
                 bool ok = await _multiView.RunExclusiveAsync(d.Device, async () =>
                 {
+                    // A Route, Off or Take queued ahead of this click may have withdrawn (or a copy replaced) the
+                    // snapshot meanwhile: only the snapshot still current is put back, else nothing is sent.
+                    if (!ReferenceEquals(_multiView.PreviousScreen(d.Device), previous))
+                    {
+                        AppLogger.Info("COPY", $"Undo on '{d.DeviceName}' dropped: the display was changed since the copy.");
+                        return false;
+                    }
                     bool done = await _multiView.RestoreScreenAsync(d.Device, previous);
                     if (!Displays.Contains(d)) return done;
                     if (done)
