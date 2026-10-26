@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,11 +30,12 @@ namespace AvasRoutingTool.Tests
             public SourceCardViewModel Tx2Vm { get; } = Source("tx2", "TX2");
             public DateTime Now { get; set; } = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
 
-            public Rig()
+            /// <param name="post">The UI-thread poster for device events; null = the default (inline when there is no dispatcher).</param>
+            public Rig(Action<Action>? post = null)
             {
                 MultiView = new MultiViewOrchestrator(Client);
                 Vm = new MainViewModel(new ConfigService(), Client, new MockRtpReceiver(), new MulticastIpManager(),
-                    new RoutingOrchestrator(Client), MultiView, () => Now);
+                    new RoutingOrchestrator(Client), MultiView, () => Now, post);
                 RxVm = new DisplayCardViewModel(Rx, Vm.UnrouteVideoAsync);
                 Rx2Vm = new DisplayCardViewModel(Rx2, Vm.UnrouteVideoAsync);
                 Vm.Displays.Add(RxVm);
@@ -453,6 +455,200 @@ namespace AvasRoutingTool.Tests
             Assert.Contains("rx1:1", rig.Client.Leaves);
         }
 
+        // ---- carry-overs from the Task 5/6/9 reviews (Task 10-pre) ----
+
+        [Fact]
+        public void DeviceEvent_IsPostedToTheUiThread_BeforeAnythingRuns()
+        {
+            var posted = new List<Action>();
+            var rig = new Rig(posted.Add);
+
+            rig.Client.RaiseDeviceStateChanged("rx1", false); // raised on the client's read loop thread
+
+            Assert.Single(posted);
+            Assert.True(rig.RxVm.IsActive); // nothing ran on the caller's thread
+            posted[0]();
+            Assert.False(rig.RxVm.IsActive);
+            Assert.Equal(1, rig.Vm.OnlineDisplaysCount);
+        }
+
+        [Fact]
+        public void DeviceEvent_ComingBackOnline_ReadsTheReceiverOnlyOnceTheUiThreadRunsIt()
+        {
+            var posted = new List<Action>();
+            var rig = new Rig(posted.Add);
+            rig.RxVm.SetOnlineState(false);
+
+            rig.Client.RaiseDeviceStateChanged("rx1", true);
+
+            Assert.Empty(rig.Client.ReceiverReads);
+            Assert.False(rig.RxVm.IsActive);
+            posted.Single()();
+            Assert.True(rig.RxVm.IsActive);
+            Assert.Contains("rx1", rig.Client.ReceiverReads);
+        }
+
+        [Fact]
+        public void DeviceEvent_WithAnInlinePoster_RunsInline()
+        {
+            // (The default poster is inline too when there is no WPF Application; other tests may create one, so the
+            // default is not asserted here.)
+            var rig = new Rig(action => action());
+
+            rig.Client.RaiseDeviceStateChanged("rx1", false);
+
+            Assert.False(rig.RxVm.IsActive);
+        }
+
+        [Fact]
+        public async Task ArmBannerText_FollowsTheArmedSource_AndNeverShowsWithTheCopyBanner()
+        {
+            var rig = new Rig();
+            var raised = new List<string?>();
+            rig.Vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            Assert.Null(rig.Vm.ArmBannerText);
+            Assert.Null(rig.Vm.CopyArmBanner);
+
+            rig.Vm.ArmSource(rig.Tx2Vm);
+            Assert.Equal("Placing TX2 - tap a display or a block. Tap TX2 again to stop.", rig.Vm.ArmBannerText);
+            Assert.Null(rig.Vm.CopyArmBanner);
+            Assert.Contains(nameof(MainViewModel.ArmBannerText), raised);
+
+            raised.Clear();
+            rig.Vm.ArmSource(rig.Tx2Vm); // tap again: stop
+            Assert.Null(rig.Vm.ArmBannerText);
+            Assert.Contains(nameof(MainViewModel.ArmBannerText), raised);
+
+            // The Composer's own arm is mirrored.
+            await rig.Vm.OpenComposerAsync(rig.RxVm, "matrix2x2");
+            raised.Clear();
+            rig.Composer.Arm(rig.Tx1Vm);
+            Assert.Equal("Placing TX1 - tap a display or a block. Tap TX1 again to stop.", rig.Vm.ArmBannerText);
+            Assert.Contains(nameof(MainViewModel.ArmBannerText), raised);
+            raised.Clear();
+            rig.Composer.Disarm();
+            Assert.Null(rig.Vm.ArmBannerText);
+            Assert.Contains(nameof(MainViewModel.ArmBannerText), raised);
+            rig.Vm.CloseComposer();
+
+            // A display armed for copying shows the copy banner instead.
+            await rig.Vm.RouteVideoAsync(rig.Tx1Vm.Device, rig.Rx);
+            rig.Vm.ArmSource(rig.Tx2Vm);
+            await rig.Vm.ArmDisplayAsync(rig.RxVm);
+            Assert.Null(rig.Vm.ArmBannerText);
+            Assert.StartsWith("Copying RX1", rig.Vm.CopyArmBanner);
+            rig.Vm.ArmSource(rig.Tx2Vm);
+            Assert.NotNull(rig.Vm.ArmBannerText);
+            Assert.Null(rig.Vm.CopyArmBanner);
+        }
+
+        [Fact]
+        public void TakeInFlightWhenTheCardIsRebuilt_UpdatesTheNewCard_AndDropsItsStaleDraftChip() => UiThread.Run(async () =>
+        {
+            var rig = new Rig();
+            await rig.Vm.OpenComposerAsync(rig.RxVm, "matrix2x2");
+            rig.Composer.Arm(rig.Tx1Vm);
+            rig.Composer.TapBlock(0);
+            var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
+            var take = rig.Composer.TakeAsync();
+            await entered;
+            rig.Vm.CloseComposer(); // the Take is still on the wire: the draft is kept
+            Assert.True(rig.RxVm.HasDraft);
+
+            // A device refresh rebuilds the card (the draft chip comes back from the kept draft).
+            rig.Vm.Displays.Remove(rig.RxVm);
+            var fresh = new DisplayCardViewModel(rig.Rx, rig.Vm.UnrouteVideoAsync) { HasDraft = true };
+            rig.Vm.Displays.Add(fresh);
+
+            release();
+            await Within(take, "Take");
+
+            Assert.True(fresh.IsMultiView); // resolved by MAC, not by the old card
+            Assert.False(fresh.HasDraft); // what the draft held is on screen now
+        });
+
+        [Fact]
+        public async Task RestoreThatShowsTheKeptDraft_DropsTheDraftChip()
+        {
+            var rig = new Rig();
+            await rig.Vm.OpenComposerAsync(rig.RxVm, "matrix2x2");
+            rig.Composer.Arm(rig.Tx1Vm);
+            rig.Composer.TapBlock(0);
+            rig.Vm.CloseComposer();
+            Assert.True(rig.RxVm.HasDraft);
+
+            rig.Client.ReceiverStates["rx1"] = MatrixState("rx1", (0, 1, "tx1", "TX1")); // someone put the same picture on screen
+            await rig.Vm.RestoreDisplayAsync(rig.RxVm);
+
+            Assert.True(rig.RxVm.IsMultiView);
+            Assert.False(rig.RxVm.HasDraft);
+        }
+
+        [Fact]
+        public async Task RouteAndOff_ReCheckTheKeptDraft_SoAStaleChipGoes()
+        {
+            var rig = new Rig();
+            rig.RxVm.HasDraft = true; // a chip with no kept draft behind it (a rebuilt card)
+            rig.RxVm.DraftNotice = "old";
+
+            await rig.Vm.RouteVideoAsync(rig.Tx1Vm.Device, rig.Rx);
+
+            Assert.False(rig.RxVm.HasDraft);
+            Assert.Null(rig.RxVm.DraftNotice);
+
+            rig.RxVm.HasDraft = true;
+            await rig.Vm.UnrouteVideoAsync(rig.Rx);
+
+            Assert.False(rig.RxVm.HasDraft);
+        }
+
+        [Fact]
+        public void SecondComposer_IsToldAboutAClosedComposersTake() => UiThread.Run(async () =>
+        {
+            var rig = new Rig();
+            await rig.Vm.OpenComposerAsync(rig.RxVm, "matrix2x2");
+            rig.Composer.Arm(rig.Tx1Vm);
+            rig.Composer.TapBlock(0);
+            var (entered, release) = HoldFirstCall(rig.Client, "multiview:");
+            var take = rig.Composer.TakeAsync();
+            await entered;
+            rig.Vm.CloseComposer(); // keeps the draft; the Take is still in flight
+            await rig.Vm.OpenComposerAsync(rig.RxVm); // the second Composer resumes it
+            var second = rig.Composer;
+            Assert.Empty(second.LiveBlocks);
+            Assert.Single(second.Changes);
+
+            release();
+            await Within(take, "Take");
+
+            Assert.Single(second.LiveBlocks, b => b.IsPlaced); // ON SCREEN NOW follows
+            Assert.Empty(second.Changes); // and the change list is refreshed
+        });
+
+        [Fact]
+        public async Task OpeningAComposer_ClosesEveryOpenDropChoice()
+        {
+            var rig = new Rig();
+            rig.Vm.OpenDropChoice(rig.Rx2Vm, rig.Tx2Vm);
+            Assert.True(rig.Rx2Vm.IsDropChoiceOpen);
+
+            await rig.Vm.OpenComposerAsync(rig.RxVm, "matrix2x2");
+
+            Assert.False(rig.Rx2Vm.IsDropChoiceOpen);
+            Assert.Null(rig.Rx2Vm.DropChoiceSource);
+        }
+
+        [Fact]
+        public void UiThreadHelper_ThrowsAtItsDeadline_InsteadOfHanging()
+        {
+            var started = DateTime.UtcNow;
+
+            Assert.Throws<TimeoutException>(() =>
+                UiThread.Run(() => new TaskCompletionSource().Task, TimeSpan.FromMilliseconds(200)));
+
+            Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
+        }
+
         // ---- more of the overview ----
 
         [Fact]
@@ -628,7 +824,11 @@ namespace AvasRoutingTool.Tests
     /// </summary>
     internal static class UiThread
     {
-        public static void Run(Func<Task> body)
+        /// <summary>How long a test body may take before the pump gives up (a deadlocked test fails instead of hanging the run).</summary>
+        public static readonly TimeSpan DefaultDeadline = TimeSpan.FromSeconds(60);
+
+        /// <param name="deadline">Overall limit for the body; a <see cref="TimeoutException"/> is thrown when it is exceeded.</param>
+        public static void Run(Func<Task> body, TimeSpan? deadline = null)
         {
             var previous = SynchronizationContext.Current;
             var context = new PumpContext();
@@ -637,7 +837,7 @@ namespace AvasRoutingTool.Tests
             {
                 var task = body();
                 task.ContinueWith(_ => context.Complete(), TaskScheduler.Default);
-                context.RunUntilComplete();
+                context.RunUntilComplete(deadline ?? DefaultDeadline);
                 task.GetAwaiter().GetResult();
             }
             finally
@@ -664,9 +864,20 @@ namespace AvasRoutingTool.Tests
 
             public override void Send(SendOrPostCallback d, object? state) => throw new NotSupportedException();
 
-            public void RunUntilComplete()
+            public void RunUntilComplete(TimeSpan deadline)
             {
-                foreach (var (callback, state) in _queue.GetConsumingEnumerable()) callback(state);
+                var stop = DateTime.UtcNow + deadline;
+                while (true)
+                {
+                    var left = stop - DateTime.UtcNow;
+                    if (left > TimeSpan.Zero && _queue.TryTake(out var item, left))
+                    {
+                        item.Callback(item.State);
+                        continue;
+                    }
+                    if (_queue.IsCompleted) return; // the body finished and everything it posted has run
+                    throw new TimeoutException($"The test body did not finish within {deadline.TotalSeconds:0.##} s: deadlock?");
+                }
             }
 
             public void Complete() => _queue.CompleteAdding();

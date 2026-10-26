@@ -31,6 +31,10 @@ namespace AvasRoutingTool.ViewModels
 
         private const string NothingPlacedText = "Place at least one source (Step 2).";
         private const string NothingToChangeText = "Nothing to change since what is on screen.";
+        private const string DisplayChangedText = "The display changed - review the new layout, then take.";
+
+        /// <summary>How long a Success banner ("On screen") stays; <see cref="Tick"/> clears it after this.</summary>
+        public static readonly TimeSpan SuccessBannerLifetime = TimeSpan.FromSeconds(4);
 
         private readonly DisplayCardViewModel _display;
         private readonly MultiViewOrchestrator _mv;
@@ -53,6 +57,7 @@ namespace AvasRoutingTool.ViewModels
         private bool _busy;
         private ComposerBanner _banner = ComposerBanner.None;
         private DateTime? _takenAt;
+        private DateTime? _successShownAt;
         private bool _lastCanUndo;
         private int _selectSeq;
         private bool _selecting;
@@ -153,7 +158,15 @@ namespace AvasRoutingTool.ViewModels
 
         public bool IsBusy { get => _busy; private set { if (Set(ref _busy, value)) RaiseDerived(); } }
 
-        public ComposerBanner Banner { get => _banner; private set => Set(ref _banner, value); }
+        public ComposerBanner Banner
+        {
+            get => _banner;
+            private set
+            {
+                _successShownAt = value.Kind == BannerKind.Success ? _clock() : null; // restarts for every Success shown
+                Set(ref _banner, value);
+            }
+        }
 
         /// <summary>Sources a layout change left without a block, one per encoder, minus any placed again since.</summary>
         public IReadOnlyList<DraftPlacement> UnplacedSources
@@ -426,6 +439,7 @@ namespace AvasRoutingTool.ViewModels
         {
             if (_busy || _draft == null) return;
             _draft.Clear(i);
+            ClearSuccessBanner();
             if (_selectedBlock == i) _selectedBlock = null;
             if (_movingFrom == i)
             {
@@ -439,6 +453,7 @@ namespace AvasRoutingTool.ViewModels
         {
             if (_busy || _draft == null) return;
             _draft.ClearAll();
+            ClearSuccessBanner();
             _selectedBlock = null;
             if (_movingFrom != null)
             {
@@ -480,7 +495,9 @@ namespace AvasRoutingTool.ViewModels
 
                     case TakeOutcome.DisplayChanged:
                         await AdoptRedrawnLayoutAsync(result.NewPlan!);
-                        Banner = new ComposerBanner("The display changed - review the new layout, then take.", BannerKind.Warning);
+                        // The orchestrator says which display changed to what; the fixed line is the fallback.
+                        Banner = new ComposerBanner(
+                            string.IsNullOrWhiteSpace(result.Error) ? DisplayChangedText : result.Error, BannerKind.Warning);
                         break;
 
                     default:
@@ -612,6 +629,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Re-evaluates the time-limited Undo; the view calls it from a timer so the offer is withdrawn on time.</summary>
         public void Tick()
         {
+            if (_successShownAt is DateTime shown && _clock() - shown >= SuccessBannerLifetime)
+                ClearSuccessBanner();
+
             bool now = CanUndo;
             if (now == _lastCanUndo) return;
             _lastCanUndo = now;
@@ -669,6 +689,7 @@ namespace AvasRoutingTool.ViewModels
             if (!keepPicker) _pickerBlock = null;
             _selectedBlock = null;
             if (Banner.Kind == BannerKind.Warning) Banner = ComposerBanner.None;
+            ClearSuccessBanner();
             Refresh();
             return true;
         }
@@ -679,6 +700,7 @@ namespace AvasRoutingTool.ViewModels
             if (result.Ok)
             {
                 if (Banner.Kind == BannerKind.Warning) Banner = ComposerBanner.None;
+                ClearSuccessBanner();
             }
             else
             {
@@ -748,6 +770,12 @@ namespace AvasRoutingTool.ViewModels
         {
             _hintText = text;
             Banner = new ComposerBanner(text, BannerKind.Info);
+        }
+
+        /// <summary>Withdraws the "On screen" line (it expires, or the first edit after it makes it stale); any other banner stays.</summary>
+        private void ClearSuccessBanner()
+        {
+            if (Banner.Kind == BannerKind.Success) Banner = ComposerBanner.None;
         }
 
         /// <summary>Withdraws the "Placing..." / "Moving..." line once its mode has ended; any other banner stays.</summary>

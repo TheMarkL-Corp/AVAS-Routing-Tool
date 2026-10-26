@@ -32,6 +32,7 @@ namespace AvasRoutingTool.ViewModels
         private readonly RoutingOrchestrator _orchestrator;
         private readonly MultiViewOrchestrator _multiView;
         private readonly Func<DateTime> _clock;
+        private readonly Action<Action> _post;
 
         /// <summary>The notice on a draft whose screen was replaced by a copy (spec 15, "After the drop").</summary>
         public const string StaleDraftNotice = "Screen changed - draft is based on an older picture";
@@ -126,11 +127,23 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The display whose "Copy layout" is armed (tap a display to copy onto it), or null. One armed thing at a time.</summary>
         public DisplayCardViewModel? ArmedDisplay => _armedDisplay;
 
-        /// <summary>The arm banner while a display is armed: "Copying RX1 - Matrix 2x2. Tap a display. Tap Copy layout again to stop."</summary>
-        public string CopyArmBanner =>
+        /// <summary>
+        /// The arm banner while a display is armed for copying: "Copying RX1 - Matrix 2x2. Tap a display. Tap Copy layout again to stop."
+        /// Null when no display is armed. Never non-null together with <see cref="ArmBannerText"/> (one armed thing at a time).
+        /// </summary>
+        public string? CopyArmBanner =>
             _armedDisplay == null
-                ? string.Empty
+                ? null
                 : $"Copying {_armedDisplay.DeviceName} - {CurrentScreen(_armedDisplay).Title()}. Tap a display. Tap Copy layout again to stop.";
+
+        /// <summary>
+        /// The arm banner while a source is armed (spec 5.1): "Placing TX2 - tap a display or a block. Tap TX2 again to stop."
+        /// Follows the overview's arm and the open Composer's arm (they are one state). Null when no source is armed.
+        /// </summary>
+        public string? ArmBannerText =>
+            _armed == null
+                ? null
+                : $"Placing {_armed.DeviceName} - tap a display or a block. Tap {_armed.DeviceName} again to stop.";
 
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
@@ -140,6 +153,11 @@ namespace AvasRoutingTool.ViewModels
         public Action? RequestOpenSettings { get; set; }
 
         /// <param name="clock">Time source for the arm idle timeout, the drop choice timeout and the Composer's Undo window; tests inject one.</param>
+        /// <param name="post">
+        /// Runs an action on the UI thread. Device events arrive on the client's read loop thread and go through it
+        /// before they touch any view model. Default: the WPF dispatcher (begin-invoke) when there is one, else inline;
+        /// tests inject an inline or a recording poster.
+        /// </param>
         public MainViewModel(
             IConfigService configService,
             ISdvoeClient sdvoeClient,
@@ -147,7 +165,8 @@ namespace AvasRoutingTool.ViewModels
             MulticastIpManager ipManager,
             RoutingOrchestrator orchestrator,
             MultiViewOrchestrator? multiView = null,
-            Func<DateTime>? clock = null)
+            Func<DateTime>? clock = null,
+            Action<Action>? post = null)
         {
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
@@ -156,6 +175,7 @@ namespace AvasRoutingTool.ViewModels
             _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
             _multiView = multiView ?? new MultiViewOrchestrator(sdvoeClient);
             _clock = clock ?? (() => DateTime.UtcNow);
+            _post = post ?? PostToDispatcher;
             _multiView.Clock = _clock; // one time source: the copy Undo window runs on this view model's clock
 
             // Every card shown gets the copy commands (cards are added by discovery, or directly by tests).
@@ -390,6 +410,7 @@ namespace AvasRoutingTool.ViewModels
                     AppLogger.Info("RESTORE", $"'{rx.DeviceName}' is routed to '{rx.ActiveSourceName}'.");
                 }
                 display.NotifyRoutingChanged();
+                RefreshKeptDraft(display);
                 AnnounceScreen(display);
                 return;
             }
@@ -416,6 +437,7 @@ namespace AvasRoutingTool.ViewModels
                 AppLogger.Info("RESTORE", $"'{rx.DeviceName}' runs an external multiview layout '{restored.LayoutName}'.");
             }
             display.NotifyRoutingChanged();
+            RefreshKeptDraft(display); // a kept draft that now equals the screen drops its chip; a rebuilt card keeps no stale one
             AnnounceScreen(display);
         }
 
@@ -474,6 +496,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 AppLogger.Warn("ROUTING", $"Failed to route video feed to '{displayRx.DeviceName}'.");
             }
+            if (displayVm != null) RefreshKeptDraft(displayVm);
             AnnounceScreen(displayVm);
             return ok;
         }
@@ -514,6 +537,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 AppLogger.Warn("ROUTING", $"Failed to unroute '{displayRx.DeviceName}'.");
             }
+            if (displayVm != null) RefreshKeptDraft(displayVm);
             AnnounceScreen(displayVm);
             return ok;
         }
@@ -612,6 +636,8 @@ namespace AvasRoutingTool.ViewModels
             // The source armed in the overview carries over; one armed in another display's Composer does not
             // (closing a Composer stops placing).
             var toArm = armed ?? (_composer == null ? _armed : null);
+            foreach (var other in Displays.ToList()) CloseDropChoice(other); // the Composer replaces the row: no card keeps a prompt
+            foreach (var other in _dropChoiceOpenedAt.Keys.ToList()) CloseDropChoice(other);
             CloseDropChoice(d);
             DisarmDisplay(); // the Composer replaces the displays row: no copy target is left to tap
 
@@ -702,10 +728,14 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>A Take or Undo from the Composer put a new picture on screen: the card shows it (one way: never fed back).</summary>
         private void OnComposerTook(DisplayCardViewModel d)
         {
-            WithdrawScreenUndo(d.Device, d); // a deliberate change: a copy's Undo must not overwrite it
-            if (!Displays.Contains(d)) return;
-            ShowScreen(d);
-            RefreshKeptDraft(d);
+            // The card is resolved by MAC: a device refresh may have rebuilt it while the Take was in flight (a Composer
+            // closed meanwhile still reports here), and the card the Composer was opened on is then a stale object.
+            var card = FindDisplay(d.Device);
+            WithdrawScreenUndo(d.Device, card); // a deliberate change: a copy's Undo must not overwrite it
+            if (card == null) return;
+            ShowScreen(card);
+            RefreshKeptDraft(card); // always: a kept draft that now equals the screen is no draft
+            AnnounceScreen(card); // a second Composer opened for it meanwhile follows (idempotent for the one that took)
         }
 
         /// <summary>
@@ -949,7 +979,11 @@ namespace AvasRoutingTool.ViewModels
             if (previous != null && !ReferenceEquals(previous, s)) previous.IsArmed = false;
             foreach (var source in Sources) source.IsArmed = ReferenceEquals(source, s);
             if (s != null) s.IsArmed = true;
-            if (!ReferenceEquals(previous, s)) OnPropertyChanged(nameof(ArmedSource));
+            if (!ReferenceEquals(previous, s))
+            {
+                OnPropertyChanged(nameof(ArmedSource));
+                OnPropertyChanged(nameof(ArmBannerText));
+            }
         }
 
         // ---- copy a display onto another (spec 15) ----
@@ -1363,10 +1397,23 @@ namespace AvasRoutingTool.ViewModels
         private string LayoutTitle(string layoutId) =>
             (Layouts.FirstOrDefault(l => l.Id == layoutId)?.Title ?? layoutId).ToUpperInvariant();
 
+        /// <summary>The default <c>post</c>: the WPF dispatcher when there is one (begin-invoke, or inline when already on it), else inline.</summary>
+        private static void PostToDispatcher(Action action)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess()) action();
+            else dispatcher.BeginInvoke(action);
+        }
+
+        /// <summary>Raised from the client's read loop thread: hops to the UI thread before any view model is touched.</summary>
         private void OnDeviceStateChanged(string mac, bool isOnline)
         {
             AppLogger.Info("DEVICE-STATUS", $"Device {mac} changed status: {(isOnline ? "ONLINE" : "OFFLINE")}");
+            _post(() => ApplyDeviceState(mac, isOnline));
+        }
 
+        private void ApplyDeviceState(string mac, bool isOnline)
+        {
             var source = Sources.FirstOrDefault(s => s.MacAddress == mac);
             if (source != null)
             {

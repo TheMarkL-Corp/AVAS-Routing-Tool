@@ -13,6 +13,9 @@ namespace AvasRoutingTool.Tests
 
         public event System.Action<string, bool>? DeviceStateChanged;
 
+        /// <summary>Raises <see cref="DeviceStateChanged"/> as the real client does from its read loop.</summary>
+        public void RaiseDeviceStateChanged(string mac, bool online) => DeviceStateChanged?.Invoke(mac, online);
+
         public Task<bool> ConnectAsync(string host, int telnetPort = 6970, int restPort = 8080)
         {
             return Task.FromResult(true);

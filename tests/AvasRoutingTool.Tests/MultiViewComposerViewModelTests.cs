@@ -420,7 +420,9 @@ namespace AvasRoutingTool.Tests
             rig.Client.DisplayEdid = TestEdids.ViewSonic4k; // a 4K panel was plugged in meanwhile
             await vm.TakeAsync();
 
-            Assert.Equal("The display changed - review the new layout, then take.", vm.Banner.Text);
+            // The orchestrator's own reason is shown (it names the display and the new format).
+            Assert.StartsWith("The display of 'RX1' changed to", vm.Banner.Text);
+            Assert.Contains("the layout was redrawn for it", vm.Banner.Text);
             Assert.Equal(BannerKind.Warning, vm.Banner.Kind);
             Assert.Empty(rig.Client.MultiViewCalls);
             Assert.Equal(3840, vm.Draft!.Plan.Width);
@@ -429,6 +431,73 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("OUT 3840x2160@60 (VP3268-4K)", vm.OutputText);
             Assert.True(vm.CanTake);
             Assert.False(vm.IsBusy);
+        }
+
+        [Fact]
+        public async Task SuccessBanner_ExpiresAfterFourSeconds_OnTick()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            Assert.Equal(BannerKind.Success, vm.Banner.Kind);
+
+            rig.Now += TimeSpan.FromSeconds(3.9);
+            vm.Tick();
+            Assert.Equal(BannerKind.Success, vm.Banner.Kind);
+
+            rig.Now += TimeSpan.FromSeconds(0.1);
+            vm.Tick();
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+            Assert.Equal(string.Empty, vm.Banner.Text);
+        }
+
+        [Fact]
+        public async Task SuccessBanner_ExpiryDoesNotTouchAnotherBanner()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            vm.Arm(rig.Tx2); // the "Placing..." hint replaces the success line
+            Assert.Equal(BannerKind.Info, vm.Banner.Kind);
+
+            rig.Now += TimeSpan.FromSeconds(5);
+            vm.Tick();
+
+            Assert.Equal(BannerKind.Info, vm.Banner.Kind);
+        }
+
+        [Fact]
+        public async Task SuccessBanner_ClearsOnTheFirstDraftEdit()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            Assert.Equal(BannerKind.Success, vm.Banner.Kind);
+
+            vm.Clear(0);
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+        }
+
+        [Fact]
+        public async Task SuccessBanner_ClearsWhenASourceIsPickedAfterIt()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            Assert.Equal(BannerKind.Success, vm.Banner.Kind);
+
+            vm.OpenPicker(1);
+            vm.Pick(1, rig.Tx2);
+
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
         }
 
         [Fact]

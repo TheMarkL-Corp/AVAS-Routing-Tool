@@ -381,6 +381,7 @@ namespace AvasRoutingTool.Tests
             Assert.True(ok);
             Assert.Equal(new[] { "genlock:rx1" }, rig.Client.MultiViewCalls);
             Assert.False(rig.RxVm.IsMultiView);
+            Assert.Empty(rig.RxVm.CanvasInfo); // the multiview's output format is gone with it
         }
 
         [Fact]
