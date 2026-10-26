@@ -12,7 +12,8 @@
              PreviewMouseLeftButtonDown="Card_PreviewMouseLeftButtonDown"
              PreviewMouseMove="Card_PreviewMouseMove"
              PreviewMouseLeftButtonUp="Card_PreviewMouseLeftButtonUp"
-             MouseLeftButtonUp="Card_MouseLeftButtonUp">
+             MouseLeftButtonUp="Card_MouseLeftButtonUp"
+             KeyDown="Card_KeyDown">
 
     <UserControl.Resources>
         <!-- A dark panel over the card body that states a choice or a copy target state in words -->
@@ -160,6 +161,7 @@
                             Grid.Column="0"
                             AutomationProperties.Name="Layout"
                             ToolTip="Choose a layout for this display"
+                            PreviewKeyDown="LayoutButton_PreviewKeyDown"
                             PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
                             PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
                             Click="LayoutButton_Click">
@@ -203,7 +205,7 @@
                     <Button x:Name="CopyLayoutHandle"
                             Grid.Column="2"
                             IsEnabled="{Binding CanCopyFrom, Mode=OneWay}"
-                            AutomationProperties.Name="Copy layout"
+                            AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
                             ToolTip="Drag onto another display to copy this picture there - or tap, then tap a display"
                             ToolTipService.ShowOnDisabled="True"
                             Click="CopyHandle_Click"
@@ -338,9 +340,9 @@
                         Grid.Row="3"
                         Margin="0,6,0,0"
                         Focusable="True"
-                        FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
+                        FocusVisualStyle="{x:Null}"
                         KeyDown="PreviewSurface_KeyDown"
-                        AutomationProperties.Name="Picture on screen"
+                        AutomationProperties.Name="{Binding PictureAutomationName, Mode=OneWay}"
                         Background="#070A0F"
                         BorderBrush="{StaticResource Brush.Border.Default}"
                         BorderThickness="1"
@@ -650,6 +652,7 @@
                             </Style>
                         </Border.Style>
                         <TextBlock x:Name="ErrorBannerText"
+                                   AutomationProperties.LiveSetting="Assertive"
                                    Text="{Binding LastError, Mode=OneWay}"
                                    Foreground="#FCA5A5"
                                    FontSize="10"
@@ -784,6 +787,8 @@
                         HorizontalAlignment="Left"
                         Command="{Binding UnrouteCommand}"
                         ToolTip="Turn off display feed / Unroute video"
+                        FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
+                        AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
                         Background="#26EF4444"
                         Foreground="#EF4444"
                         BorderBrush="#4DEF4444"
@@ -973,6 +978,7 @@
                                 AutomationProperties.Name="Undo the copy"
                                 Click="UndoScreen_Click" />
                         <TextBlock x:Name="UndoToastLabel"
+                                   AutomationProperties.LiveSetting="Polite"
                                    Text="{Binding UndoToastText, Mode=OneWay}"
                                    FontSize="14"
                                    FontWeight="SemiBold"
@@ -980,6 +986,29 @@
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center" />
                     </DockPanel>
+                </Border>
+
+                <!--
+                    Keyboard focus on the picture: a 2 px ring over the picture and over any state panel lying on it. It is drawn
+                    here rather than as a focus adorner so it also renders (and so a copy target reads as focused).
+                -->
+                <Border x:Name="PictureFocusRing"
+                        Grid.Row="3"
+                        Margin="0,6,0,0"
+                        BorderBrush="{StaticResource Brush.Focus.Ring}"
+                        BorderThickness="2"
+                        CornerRadius="6"
+                        IsHitTestVisible="False">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=PreviewSurface, Mode=OneWay}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                 </Border>
             </Grid>
         </Border>
@@ -1009,6 +1038,7 @@
                StaysOpen="False"
                AllowsTransparency="True"
                IsOpen="{Binding IsLayoutMenuOpen, Mode=TwoWay}"
+               Opened="LayoutMenu_Opened"
                Closed="LayoutMenu_Closed">
             <Border x:Name="LayoutMenuFrame"
                     Width="336"
@@ -1016,7 +1046,10 @@
                     BorderBrush="{StaticResource Brush.Border.Control}"
                     BorderThickness="1"
                     CornerRadius="10"
-                    Padding="10">
+                    Padding="10"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    KeyboardNavigation.DirectionalNavigation="Contained"
+                    PreviewKeyDown="LayoutMenuFrame_PreviewKeyDown">
                 <StackPanel>
                     <TextBlock Text="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
                                FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.Text.Primary}" TextTrimming="CharacterEllipsis" />

@@ -4,6 +4,11 @@
              Width="292"
              Height="96"
              Cursor="Hand"
+             Focusable="True"
+             IsTabStop="True"
+             FocusVisualStyle="{x:Null}"
+             AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
+             KeyDown="Card_KeyDown"
              PreviewMouseLeftButtonDown="Card_PreviewMouseLeftButtonDown"
              MouseMove="Card_MouseMove"
              MouseLeftButtonUp="Card_MouseLeftButtonUp">
@@ -118,6 +123,25 @@
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+        </Border>
+
+        <!-- Keyboard focus: a 2 px ring just inside the edge (inside the armed ring), drawn here so it also renders -->
+        <Border x:Name="FocusRing"
+                Margin="3"
+                BorderBrush="{StaticResource Brush.Focus.Ring}"
+                BorderThickness="2"
+                CornerRadius="6"
+                IsHitTestVisible="False">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsKeyboardFocused, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>

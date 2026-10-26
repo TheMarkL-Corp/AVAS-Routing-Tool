@@ -1095,5 +1095,155 @@ namespace AvasRoutingTool.Tests
         {
             while (!condition()) await Task.Delay(10);
         }
+
+        // ---- Task 11: keyboard path, automation names, reduced motion ----
+
+        [Fact]
+        public async Task Keyboard_CopyLayout_EnterArms_EnterOnTargetCopies_EscStops()
+        {
+            var rig = new Rig(more: true);
+            await rig.RestoreMatrixOnRx1Async();
+
+            // Enter (or Space) on the focused Copy layout handle is its click: the toggle the tap uses.
+            await rig.Vm.ToggleCopyArmAsync(rig.Rx1Vm);
+            Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay);
+            Assert.True(rig.PaxVm.IsCopyTargetAllowed);
+            rig.Client.MultiViewCalls.Clear();
+
+            // Esc stops: nothing was sent, every card is a plain card again.
+            Assert.True(rig.Vm.Escape());
+            Assert.Null(rig.Vm.ArmedDisplay);
+            Assert.False(rig.Rx1Vm.IsCopySource);
+            Assert.All(rig.Vm.Displays, d => Assert.False(d.IsCopyTargetAllowed || d.IsCopyTargetBlocked));
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.False(rig.Vm.Escape()); // nothing armed: nothing to stop
+
+            // Arm again, Tab to the target card, Enter on its picture copies - the entry a tap uses.
+            await rig.Vm.ToggleCopyArmAsync(rig.Rx1Vm);
+            await rig.Vm.TapPictureAsync(rig.PaxVm);
+
+            Assert.Contains($"multiview:{PaxMac}:{MatrixLayout(PaxMac)}:{Tx2Mac}@1,{VegaMac}@2", rig.Client.MultiViewCalls);
+            Assert.Null(rig.Vm.ArmedDisplay);
+            Assert.True(rig.PaxVm.CanUndoScreen);
+        }
+
+        [Fact]
+        public async Task Keyboard_EnterOnABlockedCopyTarget_DoesNothing_AndKeepsItsReason()
+        {
+            var rig = new Rig(more: true);
+            await rig.RestoreMatrixOnRx1Async();
+            await rig.Vm.ToggleCopyArmAsync(rig.Rx1Vm);
+            rig.Client.MultiViewCalls.Clear();
+
+            await rig.Vm.TapPictureAsync(rig.Rx3Vm); // Enter on RX3, which is only 1920x1080
+            await rig.Vm.TapPictureAsync(rig.Rx1Vm); // and on the source itself
+
+            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay); // still armed: Tab on to a target that works
+            Assert.True(rig.Rx3Vm.IsCopyTargetBlocked);
+            Assert.Contains("RX3 is 1920x1080", rig.Rx3Vm.PictureAutomationName); // the reason is what a screen reader hears
+        }
+
+        [Fact]
+        public async Task CopyTargets_AnnounceAllowedOrBlocked()
+        {
+            var rig = new Rig(more: true);
+            await rig.RestoreMatrixOnRx1Async();
+            rig.Rx4Vm.SetOnlineState(false);
+            Assert.Equal($"{Rx1Name}, picture on screen, MATRIX 2X2 · 3/4", rig.Rx1Vm.PictureAutomationName);
+            Assert.Equal("RX3, picture on screen, UNROUTED", rig.Rx3Vm.PictureAutomationName);
+
+            var raised = new List<string?>();
+            rig.PaxVm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+
+            // Allowed: the target says what will be copied (CopyTargetText); blocked: the reason.
+            Assert.NotEqual(string.Empty, rig.PaxVm.CopyTargetText);
+            Assert.Contains(rig.PaxVm.CopyTargetText, rig.PaxVm.PictureAutomationName);
+            Assert.StartsWith($"{PaxName}, copy target", rig.PaxVm.PictureAutomationName);
+            Assert.Contains(nameof(DisplayCardViewModel.PictureAutomationName), raised);
+
+            Assert.Contains(rig.Rx3Vm.CopyTargetText, rig.Rx3Vm.PictureAutomationName);
+            Assert.StartsWith("RX3, cannot copy here", rig.Rx3Vm.PictureAutomationName);
+            Assert.Contains("RX4 is offline", rig.Rx4Vm.PictureAutomationName);
+
+            // The source itself says so.
+            Assert.Equal($"{Rx1Name}, copying from here", rig.Rx1Vm.PictureAutomationName);
+
+            rig.Vm.DisarmDisplay();
+            Assert.DoesNotContain("copy target", rig.PaxVm.PictureAutomationName);
+            Assert.Equal($"{PaxName}, picture on screen, UNROUTED", rig.PaxVm.PictureAutomationName);
+        }
+
+        [Fact]
+        public async Task CopyHandle_AutomationName_SaysWhatItCopies_OrWhyItCannot()
+        {
+            var rig = new Rig();
+            Assert.Equal($"Copy layout from {Rx1Name}. {Rx1Name} shows nothing to copy", rig.Rx1Vm.CopyHandleAutomationName);
+
+            await rig.RestoreMatrixOnRx1Async();
+            Assert.Equal($"Copy layout from {Rx1Name}", rig.Rx1Vm.CopyHandleAutomationName);
+
+            await rig.Vm.ToggleCopyArmAsync(rig.Rx1Vm);
+            Assert.Equal($"Copy layout from {Rx1Name}, armed. Press again to stop.", rig.Rx1Vm.CopyHandleAutomationName);
+        }
+
+        [Fact]
+        public async Task Escape_InTheOverview_StopsWhatIsArmed_OneThingAtATime()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            Assert.False(rig.Vm.Escape()); // nothing armed
+
+            rig.Vm.ArmSource(rig.Tx2Vm);
+            Assert.True(rig.Vm.Escape());
+            Assert.Null(rig.Vm.ArmedSource);
+
+            rig.Vm.OpenDropChoice(rig.Rx1Vm, rig.Tx2Vm);
+            Assert.True(rig.Vm.Escape());
+            Assert.False(rig.Rx1Vm.IsDropChoiceOpen);
+            Assert.False(rig.Vm.Escape());
+        }
+
+        [Fact]
+        public async Task Escape_WithTheComposerOpen_IsTheComposersLadder_AndNeverClosesIt()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            await rig.Vm.OpenComposerAsync(rig.Rx1Vm);
+            var composer = rig.Vm.ActiveComposer!;
+            composer.Arm(rig.Tx2Vm);
+
+            Assert.True(rig.Vm.Escape());
+            Assert.Null(composer.ArmedSource);
+            Assert.Null(rig.Vm.ArmedSource);
+
+            Assert.False(rig.Vm.Escape()); // a second Esc does nothing
+            Assert.Same(composer, rig.Vm.ActiveComposer); // and the Composer stays open
+        }
+
+        [Fact]
+        public async Task Transitions_FollowTheWindowsSetting_InTheOverviewAndItsComposers()
+        {
+            bool animations = false;
+            var client = new MockSdvoeClient();
+            var vm = new MainViewModel(new ConfigService(), client, new MockRtpReceiver(), new MulticastIpManager(),
+                new RoutingOrchestrator(client), new MultiViewOrchestrator(client), animationsEnabled: () => animations);
+            var rx = new DisplayCardViewModel(new AvasDevice { DeviceId = Rx1Mac, DeviceName = Rx1Name, IsReceiver = true, IsActive = true }, vm.UnrouteVideoAsync);
+            vm.Displays.Add(rx);
+
+            Assert.False(vm.AnimationsEnabled);
+            Assert.Equal(TimeSpan.Zero, vm.FadeDuration);
+
+            await vm.OpenComposerAsync(rx, "matrix2x2");
+            Assert.False(vm.ActiveComposer!.AnimationsEnabled);
+            Assert.Equal(TimeSpan.Zero, vm.ActiveComposer.FrameTransitionDuration);
+
+            animations = true; // read when needed, not captured
+            Assert.True(vm.AnimationsEnabled);
+            Assert.Equal(TimeSpan.FromMilliseconds(150), vm.FadeDuration);
+            Assert.True(vm.ActiveComposer.AnimationsEnabled);
+            Assert.Equal(TimeSpan.FromMilliseconds(400), vm.ActiveComposer.FrameTransitionDuration);
+        }
     }
 }

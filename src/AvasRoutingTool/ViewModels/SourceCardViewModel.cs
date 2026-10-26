@@ -33,6 +33,18 @@ namespace AvasRoutingTool.ViewModels
         public bool IsActive => _device.IsActive;
 
         public string LinkMode => _device.LinkMode;
+
+        /// <summary>What a screen reader says for the source: its name and state ("TX2, online, placing - press Enter to stop, in 2 blocks").</summary>
+        public string AutomationName
+        {
+            get
+            {
+                string name = $"{DeviceName}, {(IsActive ? "online" : "offline")}";
+                if (_isArmed) name += ", placing - press Enter to stop";
+                if (_usedInBlocks > 0) name += $", in {_usedInBlocks} block{(_usedInBlocks == 1 ? string.Empty : "s")}";
+                return name;
+            }
+        }
         public bool IsDualLink => string.Equals(_device.LinkMode, "Dual Link", StringComparison.OrdinalIgnoreCase);
         public bool IsPreviewSupported => _device.IsPreviewSupported;
         public string PreviewMulticastIp => !string.IsNullOrEmpty(_device.MulticastIp)
@@ -70,14 +82,14 @@ namespace AvasRoutingTool.ViewModels
         public bool IsArmed
         {
             get => _isArmed;
-            set { if (_isArmed == value) return; _isArmed = value; OnPropertyChanged(); }
+            set { if (_isArmed == value) return; _isArmed = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutomationName)); }
         }
 
         /// <summary>How many blocks of the Composer's staged picture show this encoder ("in 2 blocks"); 0 outside the Composer.</summary>
         public int UsedInBlocks
         {
             get => _usedInBlocks;
-            set { if (_usedInBlocks == value) return; _usedInBlocks = value; OnPropertyChanged(); }
+            set { if (_usedInBlocks == value) return; _usedInBlocks = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutomationName)); }
         }
 
         public ICommand RefreshPreviewCommand { get; }
@@ -201,6 +213,7 @@ namespace AvasRoutingTool.ViewModels
         {
             _device.IsActive = isOnline;
             OnPropertyChanged(nameof(IsActive));
+            OnPropertyChanged(nameof(AutomationName));
             if (!isOnline && IsStreaming)
             {
                 _ = StopPreviewAsync();

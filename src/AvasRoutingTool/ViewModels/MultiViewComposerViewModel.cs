@@ -13,6 +13,9 @@ namespace AvasRoutingTool.ViewModels
 {
     public enum BannerKind { None, Info, Success, Warning, Error }
 
+    /// <summary>An arrow key on the canvas: the keyboard moves from block to block by where they lie on the screen.</summary>
+    public enum FocusDirection { Left, Right, Up, Down }
+
     /// <summary>One line of feedback under the Composer header or the Take button.</summary>
     public sealed record ComposerBanner(string Text, BannerKind Kind)
     {
@@ -64,6 +67,8 @@ namespace AvasRoutingTool.ViewModels
         private string? _pendingLayoutId;
         private bool _disposed;
         private string? _hintText;
+        private int? _focusedBlock;
+        private readonly MotionPolicy _motion;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -72,15 +77,18 @@ namespace AvasRoutingTool.ViewModels
 
         /// <param name="resumeDraft">An unsent, copied or restored draft to start from (starts past Step 1); null starts at Step 1.</param>
         /// <param name="clock">Time source for the Undo window; tests inject one.</param>
+        /// <param name="animationsEnabled">Whether Windows animations are on (default <see cref="System.Windows.SystemParameters.ClientAreaAnimation"/>); off skips every transition.</param>
         public MultiViewComposerViewModel(
             DisplayCardViewModel display,
             MultiViewOrchestrator mv,
             Func<IEnumerable<SourceCardViewModel>> sources,
             IReadOnlyList<LayoutItemViewModel> layouts,
             MultiViewDraft? resumeDraft,
-            Func<DateTime>? clock = null)
+            Func<DateTime>? clock = null,
+            Func<bool>? animationsEnabled = null)
         {
             _display = display ?? throw new ArgumentNullException(nameof(display));
+            _motion = new MotionPolicy(animationsEnabled);
             _mv = mv ?? throw new ArgumentNullException(nameof(mv));
             _sources = sources ?? throw new ArgumentNullException(nameof(sources));
             _clock = clock ?? (() => DateTime.UtcNow);
@@ -144,6 +152,26 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>The block being moved: the next tap on a block is its destination.</summary>
         public int? MovingFromIndex => _movingFrom;
+
+        /// <summary>
+        /// The block the keyboard is on, by API window index (<see cref="ComposerBlockViewModel.Index"/>, never Number);
+        /// null until an arrow key or a focus puts it on one. Arrow keys move it, Enter places, Delete clears.
+        /// </summary>
+        public int? FocusedBlockIndex => _focusedBlock;
+
+        // ---- reduced motion ----
+
+        /// <summary>Windows animations are on. Off (Show animations unchecked): every transition is skipped.</summary>
+        public bool AnimationsEnabled => _motion.AnimationsEnabled;
+
+        /// <summary>How long the staged frame takes to turn into the live frame after a Take (400 ms; zero when animations are off).</summary>
+        public TimeSpan FrameTransitionDuration => _motion.FrameTransition;
+
+        /// <summary>How long a banner or toast fades in (150 ms; zero when animations are off).</summary>
+        public TimeSpan FadeDuration => _motion.Fade;
+
+        /// <summary><paramref name="normal"/> when animations are on, <see cref="TimeSpan.Zero"/> when they are off.</summary>
+        public TimeSpan TransitionDuration(TimeSpan normal) => _motion.Resolve(normal);
 
         /// <summary>Blocks that differ from the screen. <see cref="DraftChange.SlotIndex"/> is the API window index; see <see cref="ChangeLines"/> for display numbers.</summary>
         public IReadOnlyList<DraftChange> Changes => _changes;
@@ -263,6 +291,10 @@ namespace AvasRoutingTool.ViewModels
                 return HasChanges ? null : NothingToChangeText;
             }
         }
+
+        /// <summary>The Take button's name for a screen reader: its label, plus why it is disabled while it is.</summary>
+        public string TakeAutomationName =>
+            !CanTake && TakeBlockedReason is { Length: > 0 } reason ? $"{TakeLabel}. {reason}" : TakeLabel;
 
         /// <summary>Undo is offered for <see cref="UndoWindow"/> after a Take, and only while the orchestrator still holds the previous picture.</summary>
         public bool CanUndo =>
@@ -470,6 +502,148 @@ namespace AvasRoutingTool.ViewModels
                 ClearHint();
             }
             Refresh();
+        }
+
+        // ---- keyboard (spec 10): every drag and tap has a keyboard path; no WPF here, the view only maps keys ----
+
+        /// <summary>
+        /// Puts the keyboard on a block (a click or Tab landed there). <paramref name="index"/> is the API window index
+        /// (<see cref="ComposerBlockViewModel.Index"/>), never Number / Label. An index that is not a block is ignored.
+        /// </summary>
+        public void FocusBlock(int index)
+        {
+            if (_disposed || _draft == null || Blocks.All(b => b.Index != index) || _focusedBlock == index) return;
+            _focusedBlock = index;
+            ApplyFocus();
+            Raise(nameof(FocusedBlockIndex));
+        }
+
+        /// <summary>
+        /// An arrow key: the keyboard moves to the nearest block that lies in that direction on the screen (it must
+        /// overlap the current block's rows, or columns, so 2x2 and 1+3 walk like a grid and a PIP inset to its
+        /// background and back). It never wraps: at an edge it stays. With no block focused yet the first press focuses
+        /// the lowest block (it does not move).
+        /// </summary>
+        public void MoveFocus(FocusDirection direction)
+        {
+            if (_disposed || _draft == null || Blocks.Count == 0) return;
+            var from = Blocks.FirstOrDefault(b => b.Index == _focusedBlock);
+            if (from == null)
+            {
+                FocusBlock(Blocks.Min(b => b.Index));
+                return;
+            }
+
+            const double eps = 1e-6; // blocks that only touch (2x2 neighbours on the diagonal) do not overlap
+            ComposerBlockViewModel? best = null;
+            double bestPrimary = 0, bestSide = 0;
+            foreach (var b in Blocks)
+            {
+                if (b.Index == from.Index) continue;
+
+                bool horizontal = direction is FocusDirection.Left or FocusDirection.Right;
+                double dx = Centre(b.NormalizedX, b.NormalizedWidth) - Centre(from.NormalizedX, from.NormalizedWidth);
+                double dy = Centre(b.NormalizedY, b.NormalizedHeight) - Centre(from.NormalizedY, from.NormalizedHeight);
+                double primary = direction switch
+                {
+                    FocusDirection.Right => dx,
+                    FocusDirection.Left => -dx,
+                    FocusDirection.Down => dy,
+                    _ => -dy,
+                };
+                if (primary <= eps) continue; // not in that direction
+
+                double overlap = horizontal
+                    ? Overlap(from.NormalizedY, from.NormalizedHeight, b.NormalizedY, b.NormalizedHeight)
+                    : Overlap(from.NormalizedX, from.NormalizedWidth, b.NormalizedX, b.NormalizedWidth);
+                if (overlap <= eps) continue; // beside, not across, from it
+
+                double side = Math.Abs(horizontal ? dy : dx);
+                bool better = best == null || primary < bestPrimary - eps ||
+                              (Math.Abs(primary - bestPrimary) <= eps && (side < bestSide - eps || (Math.Abs(side - bestSide) <= eps && b.Index < best.Index)));
+                if (!better) continue;
+                best = b;
+                bestPrimary = primary;
+                bestSide = side;
+            }
+
+            if (best != null) FocusBlock(best.Index);
+        }
+
+        private static double Centre(double start, double length) => start + length / 2;
+
+        private static double Overlap(double aStart, double aLength, double bStart, double bLength) =>
+            Math.Min(aStart + aLength, bStart + bLength) - Math.Max(aStart, bStart);
+
+        /// <summary>
+        /// "Arm" on the focused block: with no source armed it opens the block's source picker (Esc closes it, the
+        /// tiles are reached by keyboard). A source already armed (Enter on its card) makes this a no-op: Enter places it.
+        /// </summary>
+        public void ArmFocused()
+        {
+            if (_busy || _draft == null || _armed != null || _focusedBlock is not int i) return;
+            OpenPicker(i);
+        }
+
+        /// <summary>
+        /// Enter on the focused block, as a tap on it: an armed source is placed (and stays armed), a move ends here,
+        /// an empty block opens its picker, a placed one opens its Replace / Move strip. Does nothing with no block focused.
+        /// </summary>
+        public void PlaceAtFocus()
+        {
+            if (_focusedBlock is int i) TapBlock(i);
+        }
+
+        /// <summary>Delete on the focused block: the corner clear (staged only). Does nothing with no block focused, never "the first block".</summary>
+        public void ClearAtFocus()
+        {
+            if (_draft != null && _focusedBlock is int i && _draft.Placements.ContainsKey(i)) Clear(i);
+        }
+
+        /// <summary>
+        /// Esc, one step at a time: close the picker, else cancel a move, else disarm the source, else close an open
+        /// Replace / Move strip, else nothing. Never closes the Composer or discards the draft. True when it did something.
+        /// </summary>
+        public bool Escape()
+        {
+            if (_disposed || _busy) return false;
+
+            if (_pickerBlock != null)
+            {
+                _pickerBlock = null;
+            }
+            else if (_movingFrom != null)
+            {
+                _movingFrom = null;
+                ClearHint();
+            }
+            else if (_armed != null)
+            {
+                Disarm();
+                return true;
+            }
+            else if (_selectedBlock != null)
+            {
+                _selectedBlock = null;
+            }
+            else
+            {
+                return false;
+            }
+
+            Refresh();
+            return true;
+        }
+
+        /// <summary>The keyboard block and the one Tab stop follow the blocks that exist (roving focus).</summary>
+        private void ApplyFocus()
+        {
+            int? tabStop = _focusedBlock ?? (Blocks.Count == 0 ? null : Blocks.Min(b => b.Index));
+            foreach (var b in Blocks)
+            {
+                b.IsFocusedBlock = _focusedBlock == b.Index;
+                b.IsTabStop = tabStop == b.Index;
+            }
         }
 
         // ---- Take / Undo / Discard ----
@@ -846,6 +1020,11 @@ namespace AvasRoutingTool.ViewModels
             if (_pickerBlock is int p && BlockAt(p) == null) _pickerBlock = null;
             if (_movingFrom is int m && BlockAt(m) == null) _movingFrom = null;
             if (_selectedBlock is int s && BlockAt(s) == null) _selectedBlock = null;
+            if (_focusedBlock is int f && BlockAt(f) == null)
+            {
+                _focusedBlock = null; // the layout has no such block now: the keyboard starts over at the first one
+                Raise(nameof(FocusedBlockIndex));
+            }
         }
 
         private void UpdateBlocks()
@@ -874,10 +1053,15 @@ namespace AvasRoutingTool.ViewModels
                 else state = onScreen != null ? BlockState.Staged : BlockState.Live; // cleared = goes black; else already black
 
                 string sameAs = string.Empty;
+                int sameAsBlock = 0;
                 if (placement != null)
                 {
                     int first = draft.Plan.Slots.TakeWhile(s => !SameSource(draft.Placements.GetValueOrDefault(s.Index), placement)).Count() + 1;
-                    if (first < block.Number) sameAs = $"Same as {first}";
+                    if (first < block.Number)
+                    {
+                        sameAs = $"Same as {first}";
+                        sameAsBlock = first;
+                    }
                 }
 
                 bool available = true;
@@ -889,10 +1073,11 @@ namespace AvasRoutingTool.ViewModels
                     reason = check.Ok ? null : check.Reason;
                 }
 
-                block.SetStatus(state, issueText, sameAs, available, reason);
+                block.SetStatus(state, issueText, sameAs, available, reason, sameAsBlock);
                 block.IsSelected = _selectedBlock == block.Index;
                 block.IsMoveSource = _movingFrom == block.Index;
             }
+            ApplyFocus();
         }
 
         private static bool SameSource(DraftPlacement? a, DraftPlacement b) =>
@@ -946,7 +1131,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes), nameof(ChangeLines),
                 nameof(ChangeCount), nameof(IsStaged), nameof(IsOnScreen),
-                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason),
+                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
                 nameof(CanUndo), nameof(UnplacedSources), nameof(OutputText), nameof(RateNote), nameof(HeaderNotice),
             })
                 Raise(name);

@@ -196,6 +196,27 @@ namespace AvasRoutingTool.ViewModels
             : _copyTarget.Allowed ? _copyTarget.Note ?? _copyTarget.Summary
             : _copyTarget.Reason ?? string.Empty;
 
+        /// <summary>
+        /// What a screen reader says for the card's picture. While a copy is armed the card is a target and says so with
+        /// <see cref="CopyTargetText"/> (what will be copied, or why it cannot be); otherwise the display and what it shows.
+        /// </summary>
+        public string PictureAutomationName
+        {
+            get
+            {
+                if (IsCopyTargetAllowed) return $"{DeviceName}, copy target. {CopyTargetText}";
+                if (IsCopyTargetBlocked) return $"{DeviceName}, cannot copy here. {CopyTargetText}";
+                if (_isCopySource) return $"{DeviceName}, copying from here";
+                return $"{DeviceName}, picture on screen, {ModeBadge}";
+            }
+        }
+
+        /// <summary>What a screen reader says for the Copy layout handle: what it copies from, why it is off, or that it is armed.</summary>
+        public string CopyHandleAutomationName =>
+            !CanCopyFrom ? $"Copy layout from {DeviceName}. {CopyFromBlockedText}"
+            : _isCopySource ? $"Copy layout from {DeviceName}, armed. Press again to stop."
+            : $"Copy layout from {DeviceName}";
+
         /// <summary>"PAX355S now shows RX1's Matrix 2x2" for 10 s after a copy onto this display; null otherwise.</summary>
         public string? UndoToastText => _undoToastText;
 
@@ -231,6 +252,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(IsCopyTargetAllowed));
             OnPropertyChanged(nameof(IsCopyTargetBlocked));
             OnPropertyChanged(nameof(CopyTargetText));
+            OnPropertyChanged(nameof(PictureAutomationName));
         }
 
         public void SetCopySource(bool isSource)
@@ -238,6 +260,8 @@ namespace AvasRoutingTool.ViewModels
             if (_isCopySource == isSource) return;
             _isCopySource = isSource;
             OnPropertyChanged(nameof(IsCopySource));
+            OnPropertyChanged(nameof(PictureAutomationName));
+            OnPropertyChanged(nameof(CopyHandleAutomationName));
         }
 
         public void ShowUndoScreen(string text)
@@ -259,6 +283,8 @@ namespace AvasRoutingTool.ViewModels
         {
             OnPropertyChanged(nameof(CanCopyFrom));
             OnPropertyChanged(nameof(CopyFromBlockedText));
+            OnPropertyChanged(nameof(CopyHandleAutomationName));
+            OnPropertyChanged(nameof(PictureAutomationName));
         }
 
         public DisplayCardViewModel(AvasDevice device, Func<AvasDevice, System.Threading.Tasks.Task>? unrouteAction = null)

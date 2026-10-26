@@ -63,6 +63,17 @@ namespace AvasRoutingTool.Views
         /// A tap arms the source (MainViewModel.ArmSource toggles it; inside the Composer it arms it there). The card's
         /// own buttons handle their release, so they never arm. Offline sources cannot be placed, as they cannot be dragged.
         /// </summary>
+        /// <summary>
+        /// Enter or Space on the focused card arms the source, as a tap does (and again stops it). Only the card itself
+        /// handles this: Enter on one of its own buttons is that button's.
+        /// </summary>
+        public static void KeyDown(FrameworkElement card, KeyEventArgs e)
+        {
+            if (e.Key is not (Key.Enter or Key.Space) || !ReferenceEquals(e.OriginalSource, card)) return;
+            e.Handled = true;
+            if (card.DataContext is SourceCardViewModel { IsActive: true } vm) ViewLookup.FindMainViewModel(card)?.ArmSource(vm);
+        }
+
         public static void Up(TapGesture gesture, FrameworkElement card)
         {
             if (!gesture.Release() || card.DataContext is not SourceCardViewModel vm || !vm.IsActive) return;

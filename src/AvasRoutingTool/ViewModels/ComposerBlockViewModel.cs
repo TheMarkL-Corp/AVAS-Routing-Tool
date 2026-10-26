@@ -29,6 +29,9 @@ namespace AvasRoutingTool.ViewModels
         private bool _isSelected;
         private bool _isMoveSource;
         private string? _issueText;
+        private int _sameAsBlock;
+        private bool _isFocusedBlock;
+        private bool _isTabStop;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -99,22 +102,53 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The corner clear control: one tap, enabled only while a source is placed.</summary>
         public ICommand ClearCommand { get; }
 
+        /// <summary>This is the block the keyboard is on (arrow keys move it). Shown as a 2 px focus ring while the canvas has keyboard focus.</summary>
+        public bool IsFocusedBlock { get => _isFocusedBlock; internal set => Set(ref _isFocusedBlock, value); }
+
+        /// <summary>
+        /// The one Tab stop of the canvas (roving focus): the keyboard block, else the first block. Arrow keys move
+        /// inside the canvas, Tab leaves it.
+        /// </summary>
+        public bool IsTabStop { get => _isTabStop; internal set => Set(ref _isTabStop, value); }
+
+        /// <summary>
+        /// What a screen reader says for the block: "Block 2, 960 by 540, empty". A placed block names its source (and
+        /// the block it repeats), then "staged" when the change is not on screen; a problem or the reason the armed
+        /// source cannot go here follows. <see cref="Number"/> is the display number, never the API <see cref="Index"/>.
+        /// </summary>
+        public string AutomationName
+        {
+            get
+            {
+                var parts = new List<string> { $"Block {Number}", $"{Width} by {Height}", IsPlaced ? SourceName : "empty" };
+                if (IsPlaced && _sameAsBlock > 0) parts.Add($"same as block {_sameAsBlock}");
+                if (_state == BlockState.Issue && !string.IsNullOrEmpty(_issueText)) parts.Add(_issueText);
+                else if (_state == BlockState.Staged) parts.Add("staged");
+                if (!_isAvailableForArmed && !string.IsNullOrEmpty(_unavailableReason)) parts.Add(_unavailableReason);
+                return string.Join(", ", parts);
+            }
+        }
+
         internal void SetSource(string? mac, string? name, SourceCardViewModel? card)
         {
             SourceMac = mac ?? string.Empty;
             SourceName = name ?? string.Empty;
             Bind(card);
             OnPropertyChanged(nameof(IsPlaced));
+            OnPropertyChanged(nameof(AutomationName));
             CommandManager.InvalidateRequerySuggested();
         }
 
-        internal void SetStatus(BlockState state, string? issueText, string sameAsText, bool availableForArmed, string? unavailableReason)
+        /// <param name="sameAsBlock">The display number of the lower block that holds the same encoder; 0 when none.</param>
+        internal void SetStatus(BlockState state, string? issueText, string sameAsText, bool availableForArmed, string? unavailableReason, int sameAsBlock = 0)
         {
             State = state;
             IssueText = issueText;
             SameAsText = sameAsText;
             IsAvailableForArmed = availableForArmed;
             UnavailableReason = unavailableReason;
+            _sameAsBlock = sameAsBlock;
+            OnPropertyChanged(nameof(AutomationName));
         }
 
         private void Bind(SourceCardViewModel? card)

@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:AvasRoutingTool.Views"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
-             Background="{StaticResource Brush.Background.Dark}">
+             Background="{StaticResource Brush.Background.Dark}"
+             KeyDown="Root_KeyDown">
 
     <UserControl.Resources>
         <views:IsNullConverter x:Key="IsNull" />
@@ -231,6 +232,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{Binding ArmBannerText, Mode=OneWay}"
+                                       AutomationProperties.LiveSetting="Polite"
                                        FontSize="16"
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource Brush.Text.OnCopyTarget}"
@@ -246,6 +248,7 @@
                                 </TextBlock.Style>
                             </TextBlock>
                             <TextBlock Text="{Binding CopyArmBanner, Mode=OneWay}"
+                                       AutomationProperties.LiveSetting="Polite"
                                        FontSize="16"
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource Brush.Text.OnCopyTarget}"

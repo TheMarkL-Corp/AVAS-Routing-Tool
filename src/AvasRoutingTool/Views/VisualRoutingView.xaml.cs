@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using AvasRoutingTool.Logging;
 using AvasRoutingTool.ViewModels;
@@ -38,6 +39,16 @@ namespace AvasRoutingTool.Views
             {
                 AppLogger.Error("UI", "Tick failed", ex);
             }
+        }
+
+        /// <summary>
+        /// Esc, from anywhere in the overview or the Composer, stops what is armed one step at a time (the Composer's
+        /// ladder while it is open) and never closes the Composer. Keys a control already used arrive handled.
+        /// </summary>
+        private void Root_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Handled || e.Key != Key.Escape || DataContext is not MainViewModel vm) return;
+            if (vm.Escape()) e.Handled = true;
         }
 
         /// <summary>The arm banner's Stop: stops placing the armed source (tapping it again), or stops copying.</summary>

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
@@ -39,6 +40,9 @@ namespace AvasRoutingTool.Views
 
         /// <summary>The press on the Layout button is the one that closed (or closes) the menu: its Click must not reopen it.</summary>
         private bool _pressClosesMenu;
+
+        /// <summary>The Layout menu was opened with the keyboard (or a key was pressed in it): the keyboard goes in and comes back to the Layout button.</summary>
+        private bool _menuKeyboard;
 
         /// <summary>One reveal per dispatcher turn: when a copy is armed every card turns into a target at once; the first (in display order) is scrolled to.</summary>
         [ThreadStatic]
@@ -107,6 +111,14 @@ namespace AvasRoutingTool.Views
                 RecordMenuClosed();
                 return;
             }
+
+            // A change a screen reader should hear, and the toast fading in (skipped when Windows animations are off).
+            if (e.PropertyName == nameof(DisplayCardViewModel.CanUndoScreen) && vm.CanUndoScreen)
+                Motion.FadeIn(UndoToast, Main?.FadeDuration ?? TimeSpan.Zero);
+            else if (e.PropertyName == nameof(DisplayCardViewModel.UndoToastText) && vm.UndoToastText != null)
+                Motion.Announce(UndoToastLabel);
+            else if (e.PropertyName == nameof(DisplayCardViewModel.LastError) && vm.HasError)
+                Motion.Announce(ErrorBannerText);
 
             bool turnedOn = e.PropertyName switch
             {
@@ -178,12 +190,22 @@ namespace AvasRoutingTool.Views
                 await Run(() => main.TapDisplayAsync(vm), "Tap");
         }
 
-        /// <summary>Enter on the focused picture: as a tap on it (keyboard path; Task 11 adds the rest).</summary>
+        /// <summary>
+        /// Enter or Space on the focused picture: as a tap on it - opens the Composer on a MultiView card, or, while a
+        /// copy is armed, copies onto this display (a blocked target does nothing; its name says why).
+        /// </summary>
         private async void PreviewSurface_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key != Key.Enter || Card is not { } vm || Main is not { } main) return;
+            if (e.Key is not (Key.Enter or Key.Space) || Card is not { } vm || Main is not { } main) return;
             e.Handled = true;
             await Run(() => main.TapPictureAsync(vm), "Enter on the picture");
+        }
+
+        /// <summary>Esc anywhere on the card stops what is armed (a copy first), as the arm banner's Stop does.</summary>
+        private void Card_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Handled || e.Key != Key.Escape || Main is not { } main) return;
+            if (main.Escape()) e.Handled = true;
         }
 
         private static DependencyObject? ParentOf(DependencyObject d) =>
@@ -224,6 +246,52 @@ namespace AvasRoutingTool.Views
         private void LayoutButton_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
             Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => _pressClosesMenu = false));
 
+        /// <summary>Enter or Space on the Layout button opens the menu with the keyboard: the keyboard then goes into the menu.</summary>
+        private void LayoutButton_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key is Key.Enter or Key.Space) _menuKeyboard = true;
+        }
+
+        private void LayoutMenu_Opened(object? sender, EventArgs e)
+        {
+            if (!_menuKeyboard) return;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+            {
+                if (!LayoutMenuPopup.IsOpen) return;
+                var tile = FindDescendants<Button>(LayoutMenuItems).FirstOrDefault(b => b.Name == "LayoutMenuTile" && b.IsEnabled && b.IsVisible);
+                if (tile != null) tile.Focus();
+                else LayoutMenuFrame.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+            }));
+        }
+
+        /// <summary>Esc closes the menu and the keyboard goes back to the Layout button; any other key marks the menu as keyboard-driven.</summary>
+        private void LayoutMenuFrame_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            _menuKeyboard = true;
+            if (e.Key != Key.Escape || Card is not { } vm) return;
+            e.Handled = true;
+            vm.IsLayoutMenuOpen = false;
+            ReturnToLayoutButton();
+        }
+
+        private void ReturnToLayoutButton()
+        {
+            if (!_menuKeyboard) return;
+            _menuKeyboard = false;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => LayoutButton.Focus()));
+        }
+
+        private static System.Collections.Generic.IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+        {
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match) yield return match;
+                foreach (var nested in FindDescendants<T>(child)) yield return nested;
+            }
+        }
+
         private void LayoutButton_Click(object sender, RoutedEventArgs e)
         {
             if (Card is not { } vm) return;
@@ -257,6 +325,7 @@ namespace AvasRoutingTool.Views
                 await Run(() => main.ChooseLayoutFromCardAsync(vm, item.Id), "Layout choice"); // closes the menu
             else
                 vm.IsLayoutMenuOpen = false;
+            ReturnToLayoutButton();
         }
 
         // ---- the drop choice, the draft chip, the Undo toast ----

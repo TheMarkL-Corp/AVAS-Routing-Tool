@@ -29,6 +29,9 @@ namespace AvasRoutingTool.Views
         public SourceCardViewModel Source { get; }
         public bool IsEnabled { get; }
         public string Note { get; }
+
+        /// <summary>What a screen reader says for the tile: the source, and why it is not available when it is not.</summary>
+        public string AutomationName => IsEnabled ? Source.DeviceName : $"{Source.DeviceName}, not available: {Note}";
     }
 
     /// <summary>
@@ -55,6 +58,14 @@ namespace AvasRoutingTool.Views
         private MultiViewComposerViewModel? _watched;
         private bool _closingPicker;
 
+        /// <summary>The picker was opened with the keyboard (or a key was pressed in it): the keyboard goes in, and returns to its block when it closes.</summary>
+        private bool _pickerKeyboard;
+
+        /// <summary>The block the open picker belongs to (API window index): where the keyboard returns.</summary>
+        private int? _pickerBlock;
+
+        private bool _wasOnScreen;
+
         public MultiViewComposerView()
         {
             InitializeComponent();
@@ -63,6 +74,7 @@ namespace AvasRoutingTool.Views
             Loaded += (_, _) => SchedulePicker();
             Unloaded += (_, _) => ClosePicker();
             IsVisibleChanged += (_, _) => SchedulePicker();
+            PreviewKeyDown += OnPreviewKeyDown;
         }
 
         public IEnumerable<SourceCardViewModel>? Sources
@@ -126,6 +138,113 @@ namespace AvasRoutingTool.Views
             // PickerBlockIndex is the API window index the picker was opened on.
             if (sender is FrameworkElement { DataContext: PickerTile tile } && Composer is { PickerBlockIndex: int block } c)
                 c.Pick(block, tile.Source);
+        }
+
+        // ---- keyboard (spec 10): the view maps keys to view-model calls and keeps the WPF focus on the block the view model names ----
+
+        private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Handled) return;
+            // Alt+key arrives as Key.System: the real key is SystemKey (menus and Alt combinations stay the window's).
+            if (HandleKey(e.Key == Key.System ? e.SystemKey : e.Key, Keyboard.Modifiers, e.OriginalSource as DependencyObject))
+                e.Handled = true;
+        }
+
+        /// <summary>
+        /// Maps one key to the view model; true when the key was used (it is then not passed on). Arrows, Enter, Space,
+        /// Delete and P act on the block the key was pressed on; Esc and Ctrl+Enter work from anywhere in the Composer.
+        /// Tab is never touched, and nothing is taken while a text box is being typed in. Internal for tests (the real
+        /// modifier state cannot be faked).
+        /// </summary>
+        internal bool HandleKey(Key key, ModifierKeys modifiers, DependencyObject? source)
+        {
+            if (Composer is not { } c || source is TextBoxBase || (modifiers & ModifierKeys.Alt) != 0) return false;
+
+            if (key == Key.Enter && modifiers == ModifierKeys.Control)
+            {
+                _ = Run(c.TakeAsync, "Take (Ctrl+Enter)");
+                return true;
+            }
+            if (key == Key.Escape && modifiers == ModifierKeys.None)
+            {
+                if (c.PickerBlockIndex != null) _pickerKeyboard = true; // the keyboard returns to the block
+                return c.Escape();
+            }
+            if (modifiers != ModifierKeys.None || source is not Button { Name: "BlockSurface", DataContext: ComposerBlockViewModel block }) return false;
+
+            // API window index, never Number / Label.
+            c.FocusBlock(block.Index);
+            switch (key)
+            {
+                case Key.Left: c.MoveFocus(FocusDirection.Left); return true;
+                case Key.Right: c.MoveFocus(FocusDirection.Right); return true;
+                case Key.Up: c.MoveFocus(FocusDirection.Up); return true;
+                case Key.Down: c.MoveFocus(FocusDirection.Down); return true;
+                case Key.Enter:
+                case Key.Space:
+                    OpenPickerFromKeyboard(() => c.PlaceAtFocus());
+                    return true;
+                case Key.P: // "pick": the source picker for this block, also on a placed one (Replace)
+                    OpenPickerFromKeyboard(() => c.ArmFocused());
+                    return true;
+                case Key.Delete:
+                case Key.Back:
+                    c.ClearAtFocus();
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>Runs the view-model call; if it opened the picker, the keyboard goes into it.</summary>
+        private void OpenPickerFromKeyboard(Action action)
+        {
+            _pickerKeyboard = true;
+            action();
+            if (Composer?.PickerBlockIndex == null) _pickerKeyboard = false;
+        }
+
+        private void BlockSurface_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            // The keyboard (Tab, a click) is on this block: arrow keys start from here.
+            if (sender is FrameworkElement { DataContext: ComposerBlockViewModel block }) Composer?.FocusBlock(block.Index);
+        }
+
+        /// <summary>Puts the WPF keyboard focus on a block's surface (the view model named the block).</summary>
+        private void FocusBlockSurface(int index)
+        {
+            var block = Composer?.Blocks.FirstOrDefault(b => b.Index == index);
+            if (block == null) return;
+            if (BlocksHost.ItemContainerGenerator.ContainerFromItem(block) is ContentPresenter presenter &&
+                presenter.ContentTemplate?.FindName("BlockSurface", presenter) is Button surface)
+                surface.Focus();
+        }
+
+        private void PickerFrame_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Handled) return;
+            _pickerKeyboard = true; // a key pressed in the picker: the keyboard returns to the block when it closes
+            if (HandleKey(e.Key == Key.System ? e.SystemKey : e.Key, Keyboard.Modifiers, e.OriginalSource as DependencyObject)) e.Handled = true;
+        }
+
+        /// <summary>The keyboard goes to the first tile that can take a source (else the first control), so Enter / arrows work at once.</summary>
+        private void FocusFirstPickerTile()
+        {
+            if (!PickerPopup.IsOpen) return;
+            var tile = FindDescendants<Button>(PickerItems).FirstOrDefault(b => b.Name == "PickerTile" && b.IsEnabled && b.IsVisible);
+            if (tile != null) tile.Focus();
+            else PickerFrame.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+        }
+
+        private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+        {
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match) yield return match;
+                foreach (var nested in FindDescendants<T>(child)) yield return nested;
+            }
         }
 
         private void Unplaced_Click(object sender, RoutedEventArgs e)
@@ -302,13 +421,40 @@ namespace AvasRoutingTool.Views
             if (_watched != null) _watched.PropertyChanged -= OnComposerChanged;
             _watched = composer;
             if (_watched != null) _watched.PropertyChanged += OnComposerChanged;
+            _wasOnScreen = _watched?.IsOnScreen ?? false;
             SchedulePicker();
         }
 
         private void OnComposerChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName is nameof(MultiViewComposerViewModel.PickerBlockIndex) or nameof(MultiViewComposerViewModel.Draft))
-                SchedulePicker();
+            if (sender is not MultiViewComposerViewModel c) return;
+
+            switch (e.PropertyName)
+            {
+                case nameof(MultiViewComposerViewModel.PickerBlockIndex):
+                case nameof(MultiViewComposerViewModel.Draft):
+                    SchedulePicker();
+                    break;
+
+                case nameof(MultiViewComposerViewModel.FocusedBlockIndex):
+                    // The keyboard follows the view model while it is in the canvas (an arrow key moved the block).
+                    if (c.FocusedBlockIndex is int focused && BlocksHost.IsKeyboardFocusWithin) FocusBlockSurface(focused);
+                    break;
+
+                case nameof(MultiViewComposerViewModel.IsOnScreen):
+                    // The staged frame turns into the live frame: one transition, skipped when Windows animations are off.
+                    if (c.IsOnScreen && !_wasOnScreen) Motion.FadeIn(CanvasFrame, c.FrameTransitionDuration, 0.35);
+                    _wasOnScreen = c.IsOnScreen;
+                    break;
+
+                case nameof(MultiViewComposerViewModel.Banner):
+                    if (c.Banner.Kind != BannerKind.None)
+                    {
+                        Motion.FadeIn(BannerHost, c.FadeDuration);
+                        Motion.Announce(BannerText);
+                    }
+                    break;
+            }
         }
 
         /// <summary>After layout, so the block's container exists to anchor to.</summary>
@@ -340,15 +486,29 @@ namespace AvasRoutingTool.Views
             PickerEmpty.Visibility = tiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             PickerFrame.MaxHeight = PickerMaxHeight;
             PickerPopup.PlacementTarget = BlocksHost.ItemContainerGenerator.ContainerFromItem(block) as UIElement ?? CanvasHost;
+            bool wasOpen = PickerPopup.IsOpen;
+            _pickerBlock = block.Index;
             PickerPopup.IsOpen = true;
+
+            // Opened with the keyboard: the keyboard goes into the picker, after its tiles exist.
+            if (!wasOpen && _pickerKeyboard)
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusFirstPickerTile));
         }
 
         private void ClosePicker()
         {
             if (!PickerPopup.IsOpen) return;
+
+            // Closed from the keyboard: the keyboard returns to the block that opened the picker, never to the window.
+            int? returnTo = _pickerKeyboard ? _pickerBlock : null;
+            _pickerKeyboard = false;
+            _pickerBlock = null;
+
             _closingPicker = true;
             try { PickerPopup.IsOpen = false; }
             finally { _closingPicker = false; }
+
+            if (returnTo is int block) Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => FocusBlockSurface(block)));
         }
 
         /// <summary>A tap outside closed the picker: the view model closes it too.</summary>

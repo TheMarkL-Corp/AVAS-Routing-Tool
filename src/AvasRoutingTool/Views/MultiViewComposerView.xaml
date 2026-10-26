@@ -184,7 +184,7 @@
                                         Margin="0,0,0,8"
                                         HorizontalContentAlignment="Stretch"
                                         Cursor="Hand"
-                                        AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                                        AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
                                         Click="LayoutTile_Click">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
@@ -315,6 +315,7 @@
                                             BorderBrush="{StaticResource Brush.Status.Staged}"
                                             Foreground="{StaticResource Brush.Status.StagedChipText}"
                                             Content="{Binding SourceName, Mode=OneWay}"
+                                            AutomationProperties.Name="{Binding SourceName, Mode=OneWay, StringFormat='Place {0} again - it has no block in this layout'}"
                                             Click="Unplaced_Click" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -509,7 +510,10 @@
                                             PreviewMouseMove="BlockSurface_PreviewMouseMove"
                                             LostMouseCapture="BlockSurface_LostMouseCapture"
                                             Cursor="Hand"
-                                            AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Block {0}'}">
+                                            FocusVisualStyle="{x:Null}"
+                                            IsTabStop="{Binding IsTabStop, Mode=OneWay}"
+                                            GotKeyboardFocus="BlockSurface_GotKeyboardFocus"
+                                            AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <Border Background="#070A0F" CornerRadius="6" ClipToBounds="True">
@@ -785,6 +789,7 @@
                                             HorizontalAlignment="Right" VerticalAlignment="Top"
                                             Margin="0,2,2,0"
                                             Cursor="Hand"
+                                            IsTabStop="False"
                                             Command="{Binding ClearCommand, Mode=OneWay}"
                                             ToolTip="Clear this block (staged only)"
                                             AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Clear block {0}'}"
@@ -814,6 +819,21 @@
                                         </Button.Template>
                                     </Button>
 
+                                    <!-- 8b. Keyboard focus: a 2 px ring in the block's margin (drawn here, not as an adorner, so it also renders), on the block the keyboard is on -->
+                                    <Rectangle x:Name="BlockFocusRing" Margin="-3" RadiusX="8" RadiusY="8"
+                                               Stroke="{StaticResource Brush.Focus.Ring}" StrokeThickness="2" IsHitTestVisible="False">
+                                        <Rectangle.Style>
+                                            <Style TargetType="Rectangle">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=BlockSurface, Mode=OneWay}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Rectangle.Style>
+                                    </Rectangle>
+
                                     <!--
                                         9. Replace / Move strip (a tap on a placed block opens it; no hover anywhere). Centred on
                                         the block from a zero-size Canvas, so on a small block (a PIP inset) it may overhang the
@@ -826,8 +846,10 @@
                                                 Background="#F20F1626" BorderBrush="#475569" BorderThickness="1" CornerRadius="10" Padding="6"
                                                 Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                             <StackPanel Orientation="Horizontal">
-                                                <Button x:Name="ReplaceButton" Style="{StaticResource Style.Button.Composer}" Content="Replace" MinWidth="104" Margin="0,0,12,0" Click="Replace_Click" />
-                                                <Button x:Name="MoveButton" Style="{StaticResource Style.Button.Composer}" Content="Move" MinWidth="104" Click="Move_Click" />
+                                                <Button x:Name="ReplaceButton" Style="{StaticResource Style.Button.Composer}" Content="Replace" MinWidth="104" Margin="0,0,12,0"
+                                                        AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Replace the source of block {0}'}" Click="Replace_Click" />
+                                                <Button x:Name="MoveButton" Style="{StaticResource Style.Button.Composer}" Content="Move" MinWidth="104"
+                                                        AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Move block {0} to another block'}" Click="Move_Click" />
                                             </StackPanel>
                                         </Border>
                                     </Canvas>
@@ -1039,7 +1061,19 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Grid.Column="1" Text="{Binding Banner.Text, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <!-- A live region: hints, refusals and the Take result are read out when they appear; an error interrupts -->
+                            <TextBlock x:Name="BannerText" Grid.Column="1" Text="{Binding Banner.Text, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="AutomationProperties.LiveSetting" Value="Polite" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                                                <Setter Property="AutomationProperties.LiveSetting" Value="Assertive" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </Grid>
                     </Border>
 
@@ -1047,7 +1081,8 @@
                             Style="{StaticResource Style.Button.Take}"
                             Content="{Binding TakeLabel, Mode=OneWay}"
                             IsEnabled="{Binding CanTake, Mode=OneWay}"
-                            AutomationProperties.Name="{Binding TakeLabel, Mode=OneWay}"
+                            KeyboardNavigation.TabIndex="3"
+                            AutomationProperties.Name="{Binding TakeAutomationName, Mode=OneWay}"
                             Click="Take_Click" />
                     <TextBlock x:Name="TakeBlockedReasonText"
                                Text="{Binding TakeBlockedReason, Mode=OneWay}"
@@ -1067,6 +1102,7 @@
                     <Button x:Name="UndoButton"
                             Margin="0,8,0,0"
                             HorizontalAlignment="Stretch"
+                            KeyboardNavigation.TabIndex="1"
                             AutomationProperties.Name="Undo - back to the previous picture"
                             Click="Undo_Click">
                         <Button.Style>
@@ -1084,7 +1120,8 @@
                         <TextBlock Text="Undo - back to the previous picture" TextWrapping="Wrap" TextAlignment="Center" />
                     </Button>
 
-                    <Grid Margin="0,8,0,0">
+                    <!-- Tab order of the right rail: Undo, Discard, Clear all, and Take last (review the changes, then take) -->
+                    <Grid Margin="0,8,0,0" KeyboardNavigation.TabIndex="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="12" />
@@ -1140,7 +1177,10 @@
                     BorderThickness="1"
                     CornerRadius="12"
                     Padding="16"
-                    MaxWidth="760">
+                    MaxWidth="760"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    KeyboardNavigation.DirectionalNavigation="Contained"
+                    PreviewKeyDown="PickerFrame_PreviewKeyDown">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -1168,7 +1208,7 @@
                                             Margin="0,0,12,12"
                                             Cursor="Hand"
                                             IsEnabled="{Binding IsEnabled, Mode=OneWay}"
-                                            AutomationProperties.Name="{Binding Source.DeviceName, Mode=OneWay}"
+                                            AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
                                             Click="PickerTile_Click">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">

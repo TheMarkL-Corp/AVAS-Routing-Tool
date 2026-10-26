@@ -33,6 +33,7 @@ namespace AvasRoutingTool.ViewModels
         private readonly MultiViewOrchestrator _multiView;
         private readonly Func<DateTime> _clock;
         private readonly Action<Action> _post;
+        private readonly MotionPolicy _motion;
 
         /// <summary>The notice on a draft whose screen was replaced by a copy (spec 15, "After the drop").</summary>
         public const string StaleDraftNotice = "Screen changed - draft is based on an older picture";
@@ -161,6 +162,17 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(IsCopyOrChoiceActive));
         }
 
+        // ---- reduced motion ----
+
+        /// <summary>Windows animations are on. Off (Show animations unchecked): every transition is skipped.</summary>
+        public bool AnimationsEnabled => _motion.AnimationsEnabled;
+
+        /// <summary>How long a toast or banner fades in (150 ms; zero when animations are off).</summary>
+        public TimeSpan FadeDuration => _motion.Fade;
+
+        /// <summary><paramref name="normal"/> when animations are on, <see cref="TimeSpan.Zero"/> when they are off.</summary>
+        public TimeSpan TransitionDuration(TimeSpan normal) => _motion.Resolve(normal);
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand ClearLogsCommand { get; }
@@ -169,6 +181,7 @@ namespace AvasRoutingTool.ViewModels
         public Action? RequestOpenSettings { get; set; }
 
         /// <param name="clock">Time source for the arm idle timeout, the drop choice timeout and the Composer's Undo window; tests inject one.</param>
+        /// <param name="animationsEnabled">Whether Windows animations are on (default <see cref="SystemParameters.ClientAreaAnimation"/>); off skips every transition, in the overview and in its Composers.</param>
         /// <param name="post">
         /// Runs an action on the UI thread. Device events arrive on the client's read loop thread and go through it
         /// before they touch any view model. Default: the WPF dispatcher (begin-invoke) when there is one, else inline;
@@ -182,8 +195,10 @@ namespace AvasRoutingTool.ViewModels
             RoutingOrchestrator orchestrator,
             MultiViewOrchestrator? multiView = null,
             Func<DateTime>? clock = null,
-            Action<Action>? post = null)
+            Action<Action>? post = null,
+            Func<bool>? animationsEnabled = null)
         {
+            _motion = new MotionPolicy(animationsEnabled);
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
             _rtpReceiver = rtpReceiver ?? throw new ArgumentNullException(nameof(rtpReceiver));
@@ -679,7 +694,7 @@ namespace AvasRoutingTool.ViewModels
                 resume = live != null && (layoutId == null || live.Plan.Id == layoutId) ? live : null;
             }
 
-            var composer = new MultiViewComposerViewModel(d, _multiView, () => Sources, Layouts, resume, _clock);
+            var composer = new MultiViewComposerViewModel(d, _multiView, () => Sources, Layouts, resume, _clock, () => AnimationsEnabled);
             _composer = composer;
             _composerDisplay = d;
             d.HasDraft = false;
@@ -1236,6 +1251,33 @@ namespace AvasRoutingTool.ViewModels
             {
                 _copiesInFlight.Remove(key);
             }
+        }
+
+        /// <summary>
+        /// Esc, one step at a time. With the Composer open it is the Composer's ladder (and never closes it). Otherwise:
+        /// stop copying, else put down the armed source, else close a drop choice. True when it did something.
+        /// </summary>
+        public bool Escape()
+        {
+            if (_composer != null) return _composer.Escape();
+
+            if (_armedDisplay != null)
+            {
+                DisarmDisplay();
+                return true;
+            }
+            if (_armed != null)
+            {
+                SetArmed(null);
+                return true;
+            }
+            var choice = Displays.FirstOrDefault(d => d.IsDropChoiceOpen);
+            if (choice != null)
+            {
+                CloseDropChoice(choice);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>The card's "Copy layout" handle: arms the display, or stops when it is the armed one.</summary>

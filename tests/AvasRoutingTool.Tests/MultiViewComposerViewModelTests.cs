@@ -1185,5 +1185,366 @@ namespace AvasRoutingTool.Tests
             Assert.False(vm.CanTake);
             Assert.Equal("TX9 is offline - clear or replace block 1", vm.TakeBlockedReason);
         }
+
+        // ---- Task 11: keyboard path, automation names, reduced motion ----
+
+        private static int?[] FocusWalk(MultiViewComposerViewModel vm, params FocusDirection[] steps)
+        {
+            var path = new List<int?>();
+            foreach (var step in steps)
+            {
+                vm.MoveFocus(step);
+                path.Add(vm.FocusedBlockIndex);
+            }
+            return path.ToArray();
+        }
+
+        [Fact]
+        public async Task Keyboard_ArmMovePlaceClearTake()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            Assert.Null(vm.FocusedBlockIndex);
+
+            // The first arrow focuses the lowest block; arrows then walk the 2x2 and stay put at an edge.
+            Assert.Equal(new int?[] { 0, 1, 3, 2, 0, 0 },
+                FocusWalk(vm, FocusDirection.Right, FocusDirection.Right, FocusDirection.Down, FocusDirection.Left, FocusDirection.Up, FocusDirection.Left));
+
+            // Arm: nothing is armed, so arming the focused block opens its picker; a source is picked from it.
+            vm.ArmFocused();
+            Assert.Equal(0, vm.PickerBlockIndex);
+            vm.Pick(0, rig.Tx1);
+            Assert.Null(vm.PickerBlockIndex);
+            Assert.Equal(new[] { "0:tx1" }, Placed(vm.Draft));
+
+            // A source armed (Enter on its card): arrows walk the blocks, Enter places and it stays armed.
+            vm.Arm(rig.Tx2);
+            vm.ArmFocused(); // already armed: a no-op
+            Assert.Same(rig.Tx2, vm.ArmedSource);
+            Assert.Null(vm.PickerBlockIndex);
+            vm.MoveFocus(FocusDirection.Right);
+            vm.PlaceAtFocus();
+            vm.MoveFocus(FocusDirection.Down);
+            vm.PlaceAtFocus();
+            Assert.Equal(new[] { "0:tx1", "1:tx2", "3:tx2" }, Placed(vm.Draft));
+            Assert.Same(rig.Tx2, vm.ArmedSource);
+
+            // Delete clears the focused block, staged only.
+            vm.Disarm();
+            vm.ClearAtFocus();
+            Assert.Equal(new[] { "0:tx1", "1:tx2" }, Placed(vm.Draft));
+            Assert.Empty(rig.Client.MultiViewCalls);
+
+            // Ctrl+Enter is Take.
+            Assert.True(vm.CanTake);
+            await vm.TakeAsync();
+            Assert.Equal(BannerKind.Success, vm.Banner.Kind);
+            Assert.Equal(new[] { "0:tx1", "1:tx2" }, Placed(rig.Mv.GetLive(rig.Rx)));
+        }
+
+        [Fact]
+        public async Task Keyboard_PlaceAtFocus_FollowsATap_OnEmptyPlacedAndMovingBlocks()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.FocusBlock(2);
+
+            vm.PlaceAtFocus(); // nothing armed, empty block: the picker opens
+            Assert.Equal(2, vm.PickerBlockIndex);
+            vm.Pick(2, rig.Tx1);
+
+            vm.PlaceAtFocus(); // a placed block, nothing armed: its Replace / Move strip opens
+            Assert.True(vm.Blocks[2].IsSelected);
+            vm.BeginMove(2); // the strip's Move
+            vm.FocusBlock(3);
+            vm.PlaceAtFocus(); // moving: the focused block is the destination
+            Assert.Equal(new[] { "3:tx1" }, Placed(vm.Draft));
+            Assert.Null(vm.MovingFromIndex);
+        }
+
+        [Fact]
+        public async Task Keyboard_ActionsWithNothingFocused_DoNothing()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.Disarm();
+
+            vm.PlaceAtFocus();
+            vm.ClearAtFocus();
+            vm.ArmFocused();
+
+            Assert.Equal(new[] { "0:tx1" }, Placed(vm.Draft)); // Delete with no focus never clears a block
+            Assert.Null(vm.PickerBlockIndex);
+            Assert.Null(vm.FocusedBlockIndex);
+        }
+
+        [Theory]
+        [InlineData("matrix2x2", "Right Down Left Up Up Left", new[] { 1, 3, 2, 0, 0, 0 })]
+        [InlineData("side_by_side", "Right Right Left Down Up", new[] { 1, 1, 0, 0, 0 })]
+        // PIP: API index 0 is the inset (bottom right), 1 the background.
+        [InlineData("pip", "Right Left Down Left Up Right", new[] { 0, 1, 0, 1, 1, 0 })]
+        // 1+3: index 0 is the large block, 1 to 3 the small column. Up from the large block has nothing above it.
+        [InlineData("quad_1_3", "Right Down Down Down Left Up Up Up Up", new[] { 2, 3, 3, 3, 0, 0, 0, 0, 0 })]
+        public async Task MoveFocus_WalksTheLayoutByItsGeometry_AndStaysPutAtAnEdge(string layout, string steps, int[] expected)
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            await vm.SelectLayoutAsync(layout);
+            vm.FocusBlock(0); // the walk starts on the lowest block
+
+            var directions = steps.Split(' ').Select(Enum.Parse<FocusDirection>).ToArray();
+
+            Assert.Equal(expected.Cast<int?>(), FocusWalk(vm, directions));
+        }
+
+        [Fact]
+        public void MoveFocus_OnAnEmptyComposer_DoesNothing()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer(); // Step 1 not done: no blocks
+
+            vm.MoveFocus(FocusDirection.Right);
+
+            Assert.Null(vm.FocusedBlockIndex);
+        }
+
+        [Fact]
+        public async Task FocusedBlock_IsFlagged_AndOnlyItIsTheTabStop()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+
+            // Before any focus the first block is the one Tab stop (roving: one stop for the whole canvas).
+            Assert.Equal(new[] { true, false, false, false }, vm.Blocks.Select(b => b.IsTabStop));
+            Assert.All(vm.Blocks, b => Assert.False(b.IsFocusedBlock));
+
+            vm.FocusBlock(3);
+
+            Assert.Equal(new[] { false, false, false, true }, vm.Blocks.Select(b => b.IsTabStop));
+            Assert.Equal(new[] { false, false, false, true }, vm.Blocks.Select(b => b.IsFocusedBlock));
+            Assert.Equal(3, vm.FocusedBlockIndex);
+        }
+
+        [Fact]
+        public async Task FocusedBlock_FollowsTheLayout_AndIsForgottenWhenItsBlockIsGone()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            await vm.SelectLayoutAsync("quad_1_3");
+            vm.FocusBlock(3);
+
+            await vm.SelectLayoutAsync("pip"); // two blocks: index 3 no longer exists
+
+            Assert.Null(vm.FocusedBlockIndex);
+            Assert.Equal(new[] { true, false }, vm.Blocks.Select(b => b.IsTabStop));
+        }
+
+        [Fact]
+        public async Task Escape_ClimbsTheLadder_PickerThenMoveThenArmedThenNothing()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.Disarm();
+
+            // 1. the picker closes, nothing else
+            vm.OpenPicker(1);
+            Assert.True(vm.Escape());
+            Assert.Null(vm.PickerBlockIndex);
+
+            // 2. a move is cancelled
+            vm.BeginMove(0);
+            Assert.True(vm.Escape());
+            Assert.Null(vm.MovingFromIndex);
+            Assert.Equal(new[] { "0:tx1" }, Placed(vm.Draft));
+
+            // 3. an armed source is disarmed, the draft is kept
+            vm.Arm(rig.Tx2);
+            Assert.True(vm.Escape());
+            Assert.Null(vm.ArmedSource);
+            Assert.Equal(new[] { "0:tx1" }, Placed(vm.Draft));
+
+            // 4. an open Replace / Move strip closes
+            vm.TapBlock(0);
+            Assert.True(vm.Blocks[0].IsSelected);
+            Assert.True(vm.Escape());
+            Assert.False(vm.Blocks[0].IsSelected);
+
+            // 5. nothing left to cancel: Esc does nothing, and the draft and Composer stay as they are
+            Assert.False(vm.Escape());
+            Assert.Equal(new[] { "0:tx1" }, Placed(vm.Draft));
+            Assert.Equal("matrix2x2", vm.SelectedLayoutId);
+        }
+
+        [Fact]
+        public async Task PickerAndArmedSource_NeverCoexist_SoEscapeHasOneRungToClimb()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.OpenPicker(1);
+            vm.Arm(rig.Tx1); // arming closes the picker: the two never coexist
+            Assert.Null(vm.PickerBlockIndex);
+
+            vm.OpenPicker(2); // opening the picker puts the armed source down
+            Assert.Null(vm.ArmedSource);
+            Assert.True(vm.Escape());
+            Assert.Null(vm.PickerBlockIndex);
+            Assert.False(vm.Escape());
+        }
+
+        [Fact]
+        public async Task Blocks_HaveAutomationNames()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+
+            // The brief's example, exactly.
+            Assert.Equal("Block 2, 960 by 540, empty", vm.Blocks[1].AutomationName);
+            Assert.Equal(new[]
+            {
+                "Block 1, 960 by 540, empty", "Block 2, 960 by 540, empty", "Block 3, 960 by 540, empty", "Block 4, 960 by 540, empty",
+            }, vm.Blocks.Select(b => b.AutomationName));
+
+            // Placed (staged): the source and "staged"; a duplicate says which block it repeats.
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.TapBlock(2);
+            vm.Disarm();
+            Assert.Equal("Block 1, 960 by 540, TX1, staged", vm.Blocks[0].AutomationName);
+            Assert.Equal("Block 3, 960 by 540, TX1, same as block 1, staged", vm.Blocks[2].AutomationName);
+
+            // On screen: no "staged".
+            await vm.TakeAsync();
+            Assert.Equal("Block 1, 960 by 540, TX1", vm.Blocks[0].AutomationName);
+            Assert.Equal("Block 3, 960 by 540, TX1, same as block 1", vm.Blocks[2].AutomationName);
+            Assert.Equal("Block 2, 960 by 540, empty", vm.Blocks[1].AutomationName);
+
+            // Cleared on a block that is on screen: empty, and the change is staged.
+            vm.Clear(0);
+            Assert.Equal("Block 1, 960 by 540, empty, staged", vm.Blocks[0].AutomationName);
+        }
+
+        [Fact]
+        public async Task Blocks_AutomationNames_SayWhyABlockCannotTakeTheArmedSource_OrWhatBlocksTake()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            await vm.SelectLayoutAsync("quad_1_3"); // block 1 is large, blocks 2-4 are small
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+
+            string reason = vm.Blocks[1].UnavailableReason!;
+            Assert.Equal($"Block 2, {vm.Blocks[1].Width} by {vm.Blocks[1].Height}, empty, {reason}", vm.Blocks[1].AutomationName);
+            Assert.StartsWith("Block 1, ", vm.Blocks[0].AutomationName);
+            Assert.DoesNotContain("TX1 is in block 1", vm.Blocks[0].AutomationName);
+
+            // An offline encoder in a block: the problem is in the name.
+            vm.Disarm();
+            rig.Tx1.SetOnlineState(false);
+            Assert.Equal($"Block 1, {vm.Blocks[0].Width} by {vm.Blocks[0].Height}, TX1, TX1 is offline", vm.Blocks[0].AutomationName);
+        }
+
+        [Fact]
+        public async Task Blocks_AutomationName_IsRaised_WhenTheBlockChanges()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            var raised = new List<string?>();
+            vm.Blocks[0].PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+
+            Assert.Contains(nameof(ComposerBlockViewModel.AutomationName), raised);
+        }
+
+        [Fact]
+        public async Task LayoutTiles_HaveAutomationNames_WithTheirSelectedState()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            Assert.Equal("Matrix 2x2, not selected", vm.LayoutOptions[0].AutomationName);
+
+            var raised = new List<string?>();
+            vm.LayoutOptions[0].PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            await vm.SelectLayoutAsync("matrix2x2");
+
+            Assert.Equal("Matrix 2x2, selected", vm.LayoutOptions[0].AutomationName);
+            Assert.Equal("PIP, not selected", vm.LayoutOptions[1].AutomationName);
+            Assert.Contains(nameof(ComposerLayoutOptionViewModel.AutomationName), raised);
+        }
+
+        [Fact]
+        public void SourceCards_HaveAutomationNames_WithTheirState()
+        {
+            var rig = new Rig();
+            var raised = new List<string?>();
+            rig.Tx1.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            Assert.Equal("TX1, online", rig.Tx1.AutomationName);
+
+            rig.Tx1.IsArmed = true;
+            Assert.Equal("TX1, online, placing - press Enter to stop", rig.Tx1.AutomationName);
+            rig.Tx1.UsedInBlocks = 1;
+            Assert.Equal("TX1, online, placing - press Enter to stop, in 1 block", rig.Tx1.AutomationName);
+            rig.Tx1.IsArmed = false;
+            rig.Tx1.UsedInBlocks = 3;
+            Assert.Equal("TX1, online, in 3 blocks", rig.Tx1.AutomationName);
+            rig.Tx1.SetOnlineState(false);
+            Assert.Equal("TX1, offline, in 3 blocks", rig.Tx1.AutomationName);
+            Assert.Contains(nameof(SourceCardViewModel.AutomationName), raised);
+        }
+
+        [Fact]
+        public async Task TakeButton_AutomationName_AddsTheReasonWhileItIsDisabled()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            Assert.Equal("TAKE 0 CHANGES TO SCREEN. Place at least one source (Step 2).", vm.TakeAutomationName);
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            Assert.Equal("TAKE 1 CHANGE TO SCREEN", vm.TakeAutomationName);
+
+            vm.Disarm();
+            rig.Tx1.SetOnlineState(false);
+            Assert.Equal("TAKE 1 CHANGE TO SCREEN. TX1 is offline - clear or replace block 1", vm.TakeAutomationName);
+
+            var raised = new List<string?>();
+            vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            rig.Tx1.SetOnlineState(true);
+            Assert.Contains(nameof(MultiViewComposerViewModel.TakeAutomationName), raised);
+        }
+
+        [Fact]
+        public void Transitions_AreSkipped_WhenWindowsAnimationsAreOff()
+        {
+            var rig = new Rig();
+            bool animations = false;
+            var off = new MultiViewComposerViewModel(rig.RxVm, rig.Mv, () => rig.Sources, rig.Layouts, null, () => rig.Now, () => animations);
+
+            Assert.False(off.AnimationsEnabled);
+            Assert.Equal(TimeSpan.Zero, off.FrameTransitionDuration);
+            Assert.Equal(TimeSpan.Zero, off.FadeDuration);
+            Assert.Equal(TimeSpan.Zero, off.TransitionDuration(TimeSpan.FromMilliseconds(123)));
+
+            // The setting is read when it is needed: turning animations on later takes effect at once.
+            animations = true;
+            Assert.True(off.AnimationsEnabled);
+            Assert.Equal(TimeSpan.FromMilliseconds(400), off.FrameTransitionDuration); // staged frame -> live frame (spec 8)
+            Assert.Equal(TimeSpan.FromMilliseconds(150), off.FadeDuration); // fades (spec 9)
+            Assert.Equal(TimeSpan.FromMilliseconds(123), off.TransitionDuration(TimeSpan.FromMilliseconds(123)));
+        }
+
+        [Fact]
+        public void Transitions_DefaultToTheWindowsSetting_WhenNoSourceIsInjected()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+
+            Assert.Equal(System.Windows.SystemParameters.ClientAreaAnimation, vm.AnimationsEnabled);
+        }
     }
 }

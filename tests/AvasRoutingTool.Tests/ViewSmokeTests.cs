@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
@@ -338,9 +339,9 @@ namespace AvasRoutingTool.Tests
                 Sources = new List<SourceCardViewModel> { Tx1, Tx2, Vega };
             }
 
-            public MultiViewComposerViewModel Composer(string? layoutId = null)
+            public MultiViewComposerViewModel Composer(string? layoutId = null, Func<bool>? animationsEnabled = null)
             {
-                var c = new MultiViewComposerViewModel(Rx, Mv, () => Sources, LayoutItemViewModel.CreateCatalog(), null);
+                var c = new MultiViewComposerViewModel(Rx, Mv, () => Sources, LayoutItemViewModel.CreateCatalog(), null, null, animationsEnabled);
                 if (layoutId != null) Pump(() => c.SelectLayoutAsync(layoutId));
                 return c;
             }
@@ -1127,12 +1128,12 @@ namespace AvasRoutingTool.Tests
             public SourceCardViewModel Vega { get; } = new(new AvasDevice { DeviceId = VegaMac, DeviceName = "VEGA_1100", VendorId = 192, IsTransmitter = true, IsActive = true });
 
             /// <summary>RX1 (4K) runs a Matrix 2x2 this tool made (TX2 in blocks 1 and 3, VEGA in 2: "3/4"); PAX355S is 4K; RX3 is 1080p and unrouted.</summary>
-            public CopyRig()
+            public CopyRig(Func<bool>? animationsEnabled = null)
             {
                 // Click handlers are async: their continuations come back to this STA thread.
                 SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
                 Vm = new MainViewModel(new Configuration.ConfigService(), Client, new MockRtpReceiver(), new MulticastIpManager(),
-                    new RoutingOrchestrator(Client), new MultiViewOrchestrator(Client), post: a => a());
+                    new RoutingOrchestrator(Client), new MultiViewOrchestrator(Client), post: a => a(), animationsEnabled: animationsEnabled);
                 Rx1 = Card(Rx1Mac, "RX1_c059e_SFPA");
                 Pax = Card(PaxMac, "PAX355S_SFP A");
                 Rx3 = Card(Rx3Mac, "RX3_1080P_SFPA");
@@ -2143,20 +2144,649 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var picture = (FrameworkElement)Named(view, "PreviewSurface").Single();
+                    var ring = (Border)Named(view, "PictureFocusRing").Single();
                     Assert.True(picture.Focusable);
-                    // Keyboard focus in the STA window: the style the focus adorner would use resolves to the theme ring.
-                    // (An adorner cannot be rendered here, so this is a style-resolution check, not a pixel check.)
+                    Assert.False(ring.IsVisible, "the ring shows without focus");
+
+                    // The ring is drawn by the card itself (an adorner would not render, nor show over the state panels).
                     Assert.True(picture.Focus(), "the picture did not take focus");
                     Assert.True(picture.IsKeyboardFocused, "the picture is not keyboard focused");
-                    Assert.Same(Application.Current.FindResource("Style.FocusVisual.Ring"), picture.FocusVisualStyle);
-                    var template = (ControlTemplate)picture.FocusVisualStyle.Setters.OfType<Setter>().Single(s => s.Property == Control.TemplateProperty).Value;
-                    var probe = new Control { Template = template };
-                    probe.ApplyTemplate();
-                    var ring = (System.Windows.Shapes.Rectangle)VisualTreeHelper.GetChild(probe, 0);
-                    Assert.Equal(2, ring.StrokeThickness);
-                    Assert.Equal(((SolidColorBrush)Application.Current.FindResource("Brush.Focus.Ring")).Color, ((SolidColorBrush)ring.Stroke).Color);
+                    Idle();
+                    Assert.True(ring.IsVisible, "the picture shows no focus ring");
+                    Assert.Equal(new Thickness(2), ring.BorderThickness);
+                    Assert.Equal(((SolidColorBrush)Application.Current.FindResource("Brush.Focus.Ring")).Color, ((SolidColorBrush)ring.BorderBrush).Color);
+                    Assert.Null(picture.FocusVisualStyle); // no second, dotted ring
+                    Assert.False(BoundsIn(ring, view).IntersectsWith(BoundsIn((FrameworkElement)Named(view, "LayoutButton").Single(), view)), "the ring lies on the header buttons");
                 });
             });
 
+        // ---- Task 11: keyboard path, automation names, reduced motion ----
+
+        /// <summary>What the element draws now. A visual brush, so the picture does not depend on where the element lies in its parent.</summary>
+        private static byte[] Pixels(FrameworkElement el)
+        {
+            int w = Math.Max(1, (int)Math.Ceiling(el.ActualWidth)), h = Math.Max(1, (int)Math.Ceiling(el.ActualHeight));
+            var visual = new DrawingVisual();
+            using (var dc = visual.RenderOpen()) dc.DrawRectangle(new VisualBrush(el), null, new Rect(0, 0, w, h));
+            var bitmap = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            var buffer = new byte[w * h * 4];
+            bitmap.CopyPixels(buffer, w * 4, 0);
+            return buffer;
+        }
+
+        /// <summary>
+        /// Giving <paramref name="control"/> keyboard focus changes what <paramref name="paint"/> draws: a focus ring the
+        /// operator can see. (Adorner rings do not render here; the controls draw theirs themselves.)
+        /// </summary>
+        private static void AssertShowsFocus(FrameworkElement control, FrameworkElement paint, string what)
+        {
+            Keyboard.ClearFocus();
+            paint.UpdateLayout();
+            byte[] before = Pixels(paint);
+            Assert.True(control.Focus() && control.IsKeyboardFocused, $"{what} did not take keyboard focus");
+            paint.UpdateLayout();
+            Idle();
+            byte[] after = Pixels(paint);
+            Assert.False(before.SequenceEqual(after), $"{what} shows no focus ring");
+        }
+
+        /// <summary>
+        /// The blocks' surfaces in block order. The visual tree lists them in paint order (the panel sorts by Z), so
+        /// the list is rebuilt by API window index.
+        /// </summary>
+        private static List<Button> Surfaces(DependencyObject view) =>
+            Named(view, "BlockSurface").Cast<Button>().OrderBy(b => ((ComposerBlockViewModel)b.DataContext).Index).ToList();
+
+        /// <summary>The named element of the block with this API window index.</summary>
+        private static FrameworkElement InBlock(DependencyObject view, string name, int index) =>
+            Named(view, name).Single(e => ((ComposerBlockViewModel)e.DataContext).Index == index);
+
+        private static T? Ancestor<T>(DependencyObject d) where T : DependencyObject
+        {
+            for (d = VisualTreeHelper.GetParent(d); d != null; d = VisualTreeHelper.GetParent(d))
+                if (d is T found) return found;
+            return null;
+        }
+
+        /// <summary>A key press on the element: the tunnelling PreviewKeyDown, then the bubbling KeyDown unless something handled the first, as real input does.</summary>
+        private static void RaiseKey(UIElement target, Key key)
+        {
+            var preview = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(target)!, 0, key)
+            {
+                RoutedEvent = Keyboard.PreviewKeyDownEvent,
+                Source = target,
+            };
+            target.RaiseEvent(preview);
+            if (preview.Handled) return;
+            target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(target)!, 0, key)
+            {
+                RoutedEvent = Keyboard.KeyDownEvent,
+                Source = target,
+            });
+        }
+
+        [Fact]
+        public void Composer_Keyboard_BlocksAreOneTabStop_ArrowsMove_EnterPlaces_DeleteClears_CtrlEnterTakes() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var surfaces = Surfaces(view);
+                    Assert.Equal(4, surfaces.Count);
+
+                    // Roving focus: the canvas is one Tab stop, the first block until the keyboard has been on another.
+                    Assert.Equal(new[] { true, false, false, false }, surfaces.Select(s => s.IsTabStop));
+                    Assert.True(surfaces[0].Focus() && surfaces[0].IsKeyboardFocused);
+                    Assert.Equal(0, c.FocusedBlockIndex);
+
+                    // An arrow key moves the view model's block and the keyboard with it; the Tab stop follows.
+                    Assert.True(view.HandleKey(Key.Right, ModifierKeys.None, surfaces[0]));
+                    Until(() => surfaces[1].IsKeyboardFocused, "the arrow key did not move the keyboard to block 2");
+                    Assert.Equal(1, c.FocusedBlockIndex);
+                    Assert.Equal(new[] { false, true, false, false }, surfaces.Select(s => s.IsTabStop));
+
+                    // The ring marks the block the keyboard is on, and only that one.
+                    var rings = Enumerable.Range(0, 4).Select(i => (System.Windows.Shapes.Rectangle)InBlock(view, "BlockFocusRing", i)).ToList();
+                    Assert.Equal(new[] { false, true, false, false }, rings.Select(r => r.IsVisible));
+                    Assert.Equal(2, rings[1].StrokeThickness);
+
+                    // Enter places the armed source (and it stays armed); Space does the same.
+                    c.Arm(rig.Tx1);
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[1]));
+                    Assert.True(view.HandleKey(Key.Down, ModifierKeys.None, surfaces[1]));
+                    Until(() => surfaces[3].IsKeyboardFocused, "Down did not reach block 4");
+                    Assert.True(view.HandleKey(Key.Space, ModifierKeys.None, surfaces[3]));
+                    Assert.Equal(new[] { "1:74fe488b07bb", "3:74fe488b07bb" }, c.Draft!.Placements.OrderBy(p => p.Key).Select(p => $"{p.Key}:{p.Value.SourceMac}"));
+                    Assert.Same(rig.Tx1, c.ArmedSource);
+                    Assert.Empty(rig.Client.MultiViewCalls);
+
+                    // Delete (and Backspace) clear the block the keyboard is on - staged only.
+                    c.Disarm();
+                    Assert.True(view.HandleKey(Key.Delete, ModifierKeys.None, surfaces[3]));
+                    Assert.Equal(new[] { 1 }, c.Draft.Placements.Keys.OrderBy(k => k));
+                    Assert.True(view.HandleKey(Key.Left, ModifierKeys.None, surfaces[3]));
+                    Until(() => surfaces[2].IsKeyboardFocused, "Left did not reach block 3");
+                    Assert.True(view.HandleKey(Key.Back, ModifierKeys.None, surfaces[2])); // empty block: nothing to clear, still consumed
+                    Assert.Equal(new[] { 1 }, c.Draft.Placements.Keys.OrderBy(k => k));
+
+                    // A key nobody maps is left alone (Tab above all), and so are keys on the strip's own buttons.
+                    Assert.False(view.HandleKey(Key.Tab, ModifierKeys.None, surfaces[2]));
+                    Assert.False(view.HandleKey(Key.A, ModifierKeys.None, surfaces[2]));
+
+                    // Ctrl+Enter is Take, from anywhere in the Composer.
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.Control, take));
+                    Until(() => c.Banner.Kind == BannerKind.Success, "Ctrl+Enter did not take");
+                    Assert.Equal(new[] { 1 }, rig.Mv.GetLive(rig.Rx.Device)!.Placements.Keys.OrderBy(k => k));
+
+                    // Plain Enter on Take is the button's own click, not a second Take.
+                    Assert.False(view.HandleKey(Key.Enter, ModifierKeys.None, take));
+                });
+            });
+
+        [Fact]
+        public void Composer_Keyboard_ArrowsOnAPip_UseTheApiIndex_NotTheDisplayNumber() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("pip");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var surfaces = Surfaces(view);
+                    Assert.Equal(new[] { 0, 1 }, c.Blocks.Select(b => b.Index));
+                    Assert.True(surfaces[0].Focus()); // the inset: API index 0, "Block 1"
+                    Assert.True(view.HandleKey(Key.Left, ModifierKeys.None, surfaces[0]));
+                    Until(() => surfaces[1].IsKeyboardFocused, "Left from the inset did not reach the background");
+                    Assert.Equal(1, c.FocusedBlockIndex);
+
+                    c.Arm(rig.Tx1);
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[1]));
+                    Assert.Equal(new[] { 1 }, c.Draft!.Placements.Keys.ToArray()); // the background, "Block 2"
+                });
+            });
+
+        [Fact]
+        public void Composer_Esc_ClimbsTheLadder_FromAnywhereInTheComposer_AndNeverClosesIt() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    c.Arm(rig.Tx1);
+                    Assert.True(view.HandleKey(Key.Escape, ModifierKeys.None, take));
+                    Assert.Null(c.ArmedSource);
+
+                    Assert.False(view.HandleKey(Key.Escape, ModifierKeys.None, take)); // nothing left: not handled, nothing closes
+                    Assert.Equal("matrix2x2", c.SelectedLayoutId);
+                });
+            });
+
+        [Fact]
+        public void Composer_Picker_IsOperableByKeyboard_ArrowsMoveEnterPicks_EscCloses_FocusReturnsToTheBlock() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var surfaces = Surfaces(view);
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Assert.True(surfaces[1].Focus());
+
+                    // Enter on an empty block (nothing armed) opens its picker, and the keyboard goes into it.
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[1]));
+                    Until(() => popup.IsOpen, "the picker did not open");
+                    var content = (FrameworkElement)popup.Child;
+                    Until(() => content.IsKeyboardFocusWithin, "the keyboard did not go into the picker");
+                    var first = (Button)Keyboard.FocusedElement;
+                    Assert.Equal("PickerTile", first.Name);
+                    Assert.Equal("TX1", ((PickerTile)first.DataContext).Source.DeviceName);
+
+                    // Arrows move between the tiles (directional navigation stays inside the popup).
+                    Assert.True(first.MoveFocus(new TraversalRequest(FocusNavigationDirection.Right)));
+                    var second = (Button)Keyboard.FocusedElement;
+                    Assert.Equal("TX2", ((PickerTile)second.DataContext).Source.DeviceName);
+
+                    // Enter picks: placed in the block the picker was opened on, the picker closes, the keyboard is back on that block.
+                    RaiseKey(second, Key.Enter);
+                    Assert.Equal("74fe488b07bc", c.Draft!.Placements[1].SourceMac);
+                    Until(() => !popup.IsOpen, "the picker stayed open after Enter on a tile");
+                    Until(() => surfaces[1].IsKeyboardFocused, "the keyboard did not return to the block");
+
+                    // Esc closes it without placing anything, and the keyboard returns again.
+                    Assert.True(surfaces[2].Focus());
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[2]));
+                    Until(() => popup.IsOpen && content.IsKeyboardFocusWithin, "the picker did not open on block 3");
+                    Assert.True(view.HandleKey(Key.Escape, ModifierKeys.None, (DependencyObject)Keyboard.FocusedElement));
+                    Until(() => !popup.IsOpen, "Esc did not close the picker");
+                    Until(() => surfaces[2].IsKeyboardFocused, "the keyboard did not return to block 3 after Esc");
+                    Assert.False(c.Draft.Placements.ContainsKey(2));
+                    Assert.Equal("matrix2x2", c.SelectedLayoutId);
+                });
+            });
+
+        [Fact]
+        public void Composer_TabOrder_LeftRail_ThenTheCanvas_ThenTheRightRailWithTakeLast() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var start = (Button)Named(view, "CloseComposerButton").Single();
+                    Assert.True(start.Focus());
+
+                    var order = new List<string>();
+                    for (int i = 0; i < 20; i++)
+                    {
+                        var current = (FrameworkElement)Keyboard.FocusedElement;
+                        order.Add(current.Name);
+                        if (!current.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)) || ReferenceEquals(Keyboard.FocusedElement, start)) break;
+                    }
+
+                    // Back to displays, the four layout tiles (left rail), ONE block (the canvas), then Discard, Clear all and Take last (right rail).
+                    Assert.Equal(new[]
+                    {
+                        "CloseComposerButton", "LayoutTile", "LayoutTile", "LayoutTile", "LayoutTile",
+                        "BlockSurface", "DiscardButton", "ClearAllButton", "TakeButton",
+                    }, order);
+                });
+            });
+
+        [Fact]
+        public void Composer_TabOrder_AnOpenStrip_IsReachedRightAfterItsBlock_AndTheCornerClearIsNotAStop() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var surfaces = Surfaces(view);
+                    Assert.True(surfaces[0].Focus());
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[0])); // a placed block: its Replace / Move strip opens
+                    Relayout(view);
+                    Assert.True(c.Blocks[0].IsSelected);
+
+                    var order = new List<string>();
+                    for (int i = 0; i < 3; i++)
+                    {
+                        Assert.True(((FrameworkElement)Keyboard.FocusedElement).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+                        order.Add(((FrameworkElement)Keyboard.FocusedElement).Name);
+                    }
+                    Assert.Equal(new[] { "ReplaceButton", "MoveButton", "DiscardButton" }, order);
+                    Assert.All(Named(view, "CornerClear"), e => Assert.False(((Button)e).IsTabStop));
+                });
+            });
+
+        [Fact]
+        public void Composer_FocusRing_ShowsOnEveryControlThatTakesFocus() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Arm(rig.Tx2);
+                c.TapBlock(3);
+                c.Disarm();
+                Pump(() => c.SelectLayoutAsync("side_by_side")); // two blocks: TX2 has none and waits as an unplaced chip
+                c.TapBlock(0); // the Replace / Move strip opens on the placed block
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    Relayout(view);
+                    var surface = Surfaces(view)[0];
+                    var cell = Ancestor<ContentPresenter>(surface)!; // the ring lies in the block's margin: render the whole cell
+
+                    AssertShowsFocus(surface, cell, "a block");
+                    AssertShowsFocus(Named(view, "LayoutTile").First(), Named(view, "LayoutTile").First(), "a layout tile");
+                    AssertShowsFocus(Named(view, "CloseComposerButton").Single(), Named(view, "CloseComposerButton").Single(), "Back to displays");
+                    AssertShowsFocus(Named(view, "TakeButton").Single(), Named(view, "TakeButton").Single(), "Take");
+                    AssertShowsFocus(Named(view, "DiscardButton").Single(), Named(view, "DiscardButton").Single(), "Discard");
+                    AssertShowsFocus(Named(view, "ClearAllButton").Single(), Named(view, "ClearAllButton").Single(), "Clear all");
+                    AssertShowsFocus(InBlock(view, "ReplaceButton", 0), InBlock(view, "ReplaceButton", 0), "Replace");
+                    AssertShowsFocus(InBlock(view, "MoveButton", 0), InBlock(view, "MoveButton", 0), "Move");
+                    AssertShowsFocus(Named(view, "UnplacedChip").First(), Named(view, "UnplacedChip").First(), "an unplaced chip");
+
+                    c.Arm(rig.Tx2);
+                    Relayout(view);
+                    AssertShowsFocus(Named(view, "DoneButton").Single(), Named(view, "DoneButton").Single(), "Done placing");
+                    c.Disarm();
+
+                    // The picker: its tiles and Cancel.
+                    c.TapBlock(1); // empty
+                    Relayout(view);
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Until(() => popup.IsOpen, "the picker did not open");
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    var tile = Named(content, "PickerTile").First();
+                    AssertShowsFocus(tile, tile, "a picker tile");
+                });
+            });
+
+        [Fact]
+        public void SourceCards_Keyboard_EnterAndSpaceArm_AShowFocusRing_AndHaveNames() =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                var full = new SourceCardView { DataContext = sources[0], Width = 340, Height = 260 };
+                var compact = new CompactSourceCardView { DataContext = sources[1] };
+                var offline = new SourceCardView { DataContext = sources[3], Width = 340, Height = 260 };
+                var host = new StackPanel { DataContext = vm, Children = { full, compact, offline } };
+                Showing(host, () =>
+                {
+                    Assert.All(new FrameworkElement[] { full, compact }, card => Assert.True(card.Focusable && ((Control)card).IsTabStop));
+
+                    Assert.True(full.Focus() && full.IsKeyboardFocused);
+                    RaiseKey(full, Key.Enter);
+                    Assert.Same(sources[0], vm.ArmedSource);
+                    RaiseKey(full, Key.Space); // arms again = stops
+                    Assert.Null(vm.ArmedSource);
+
+                    Assert.True(compact.Focus());
+                    RaiseKey(compact, Key.Space);
+                    Assert.Same(sources[1], vm.ArmedSource);
+                    RaiseKey(compact, Key.Enter);
+                    Assert.Null(vm.ArmedSource);
+
+                    Assert.True(offline.Focus());
+                    RaiseKey(offline, Key.Enter); // an offline source cannot be placed, as it cannot be dragged
+                    Assert.Null(vm.ArmedSource);
+
+                    AssertShowsFocus(full, full, "a source card");
+                    AssertShowsFocus(compact, compact, "a compact source card");
+
+                    vm.ArmSource(sources[0]);
+                    Relayout(host);
+                    Assert.Equal("TX1_c07bb_SFPA, online, placing - press Enter to stop", AutomationProperties.GetName(full));
+                    Assert.Equal("TX2_DUAL LINK_SFPA, online", AutomationProperties.GetName(compact));
+                    Assert.Equal("TX3_c07bd_SFPA, offline", AutomationProperties.GetName(offline));
+                });
+            });
+
+        [Fact]
+        public void Composer_AutomationNames_AreBound_AndTheBannersAreLiveRegions() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var surfaces = Surfaces(view);
+                    Assert.Equal("Block 2, 960 by 540, empty", AutomationProperties.GetName(surfaces[1]));
+
+                    var tiles = Named(view, "LayoutTile").ToList();
+                    Assert.Equal("Matrix 2x2, selected", AutomationProperties.GetName(tiles[0]));
+                    Assert.Equal("PIP, not selected", AutomationProperties.GetName(tiles[1]));
+
+                    var take = Named(view, "TakeButton").Single();
+                    Assert.Equal("TAKE 0 CHANGES TO SCREEN. Place at least one source (Step 2).", AutomationProperties.GetName(take));
+
+                    c.Arm(rig.Tx1);
+                    c.TapBlock(0);
+                    Relayout(view);
+                    Assert.Equal("Block 1, 960 by 540, TX1, staged", AutomationProperties.GetName(Surfaces(view)[0]));
+                    Assert.Equal("TAKE 1 CHANGE TO SCREEN", AutomationProperties.GetName(take));
+                    Assert.Equal("Clear block 1", AutomationProperties.GetName(Named(view, "CornerClear").First(e => e.IsVisible)));
+                    Assert.Equal("Back to displays", AutomationProperties.GetName(Named(view, "CloseComposerButton").Single()));
+
+                    // The banner is a polite live region (the hint, the Take result); an error is assertive.
+                    var banner = Named(view, "BannerText").Single();
+                    Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(banner));
+                    c.Disarm();
+                    Pump(c.TakeAsync);
+                    Relayout(view);
+                    Assert.Equal(BannerKind.Success, c.Banner.Kind);
+                    Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(banner));
+
+                    rig.Client.DuringCall = _ => throw new InvalidOperationException("boom");
+                    c.Clear(0);
+                    c.Arm(rig.Tx2);
+                    c.TapBlock(1);
+                    c.Disarm();
+                    Pump(c.TakeAsync);
+                    Relayout(view);
+                    Assert.Equal(BannerKind.Error, c.Banner.Kind);
+                    Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(banner));
+
+                    // Picker tiles say which source they are, and why one is not available.
+                    c.TapBlock(2);
+                    Relayout(view);
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Until(() => popup.IsOpen, "the picker did not open");
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    Assert.Equal(new[] { "TX1", "TX2", "VEGA_1100" },
+                        Named(content, "PickerTile").Select(t => AutomationProperties.GetName(t).Split(',')[0]));
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_Keyboard_EnterArmsCopy_TabReachesTargets_EnterOrSpaceCopies_BlockedDoesNothing_EscStops() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                var pax = rig.View(rig.Pax, out var h2);
+                var rx3 = rig.View(rig.Rx3, out var h3);
+                Showing(new StackPanel { Children = { h1, h2, h3 } }, () =>
+                {
+                    var handle = (Button)Named(rx1, "CopyLayoutHandle").Single();
+                    var paxPicture = (UIElement)Named(pax, "PreviewSurface").Single();
+                    var rx3Picture = (UIElement)Named(rx3, "PreviewSurface").Single();
+
+                    // Enter on the focused handle arms it (the button's own click).
+                    Assert.True(handle.Focus() && handle.IsKeyboardFocused);
+                    RaiseKey(handle, Key.Enter);
+                    Until(() => rig.Vm.ArmedDisplay == rig.Rx1 && rig.Pax.IsCopyTargetAllowed, "Enter on the Copy layout handle did not arm");
+
+                    // Tab walks to the target cards' pictures as ordinary tab stops.
+                    var reached = new List<IInputElement>();
+                    for (int i = 0; i < 30; i++)
+                    {
+                        Assert.True(((FrameworkElement)Keyboard.FocusedElement).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+                        reached.Add(Keyboard.FocusedElement);
+                        if (reached.Contains(paxPicture) && reached.Contains(rx3Picture)) break;
+                    }
+                    Assert.Contains(paxPicture, reached);
+                    Assert.Contains(rx3Picture, reached);
+
+                    // A blocked target says why (its automation name) and does nothing on Enter.
+                    Assert.Contains("RX3_1080P_SFPA is 1920x1080", AutomationProperties.GetName(rx3Picture));
+                    Assert.True(rx3Picture.Focus());
+                    rig.Client.MultiViewCalls.Clear();
+                    RaiseKey(rx3Picture, Key.Enter);
+                    RaiseKey(rx3Picture, Key.Space);
+                    Idle();
+                    Assert.Empty(rig.Client.MultiViewCalls);
+                    Assert.Same(rig.Rx1, rig.Vm.ArmedDisplay);
+
+                    // An allowed target announces what it receives, and Space copies (Enter does too, below).
+                    Assert.StartsWith("PAX355S_SFP A, copy target", AutomationProperties.GetName(paxPicture));
+                    Assert.True(paxPicture.Focus());
+                    RaiseKey(paxPicture, Key.Space);
+                    Until(() => rig.Pax.CanUndoScreen, "Space on the target did not copy");
+                    Assert.Null(rig.Vm.ArmedDisplay);
+                    Assert.Contains(rig.Client.MultiViewCalls, call => call.StartsWith("multiview:" + CopyRig.PaxMac));
+
+                    // Esc stops an armed copy, from the handle or from a target.
+                    Assert.True(handle.Focus());
+                    RaiseKey(handle, Key.Enter);
+                    Until(() => rig.Vm.ArmedDisplay == rig.Rx1, "the copy was not armed again");
+                    RaiseKey(handle, Key.Escape);
+                    Assert.Null(rig.Vm.ArmedDisplay);
+                    RaiseKey(handle, Key.Enter);
+                    Until(() => rig.Vm.ArmedDisplay == rig.Rx1, "the copy was not armed a third time");
+                    RaiseKey(rx3Picture, Key.Escape);
+                    Assert.Null(rig.Vm.ArmedDisplay);
+                    Assert.False(rig.Pax.IsCopyTargetAllowed);
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_AutomationNames_AndLiveRegions_AndTheTurnOffRing() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                var pax = rig.View(rig.Pax, out var h2);
+                Showing(new StackPanel { Children = { h1, h2 } }, () =>
+                {
+                    Assert.Equal("RX1_c059e_SFPA, picture on screen, MATRIX 2X2 · 3/4", AutomationProperties.GetName(Named(rx1, "PreviewSurface").Single()));
+                    Assert.Equal("Copy layout from RX1_c059e_SFPA", AutomationProperties.GetName(Named(rx1, "CopyLayoutHandle").Single()));
+                    Assert.Equal("Copy layout from PAX355S_SFP A. PAX355S_SFP A shows nothing to copy", AutomationProperties.GetName(Named(pax, "CopyLayoutHandle").Single()));
+
+                    // The toast and the error banner are live regions: the toast polite, the error assertive.
+                    Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(Named(rx1, "UndoToastLabel").Single()));
+                    Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(Named(rx1, "ErrorBannerText").Single()));
+
+                    // The Turn Off button (Phase 1 default template) gets the theme ring and a name.
+                    var turnOff = FindAll<Button>(rx1).Single(b => b.Command == rig.Rx1.UnrouteCommand);
+                    Assert.Same(Application.Current.FindResource("Style.FocusVisual.Ring"), turnOff.FocusVisualStyle);
+                    Assert.Equal("Turn off RX1_c059e_SFPA", AutomationProperties.GetName(turnOff));
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_FocusRing_ShowsOnTheHeaderControls() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                rig.Rx1.HasDraft = true;
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                Showing(h1, () =>
+                {
+                    foreach (var name in new[] { "LayoutButton", "CopyLayoutHandle", "DraftChip" })
+                    {
+                        var button = Named(rx1, name).Single();
+                        AssertShowsFocus(button, button, name);
+                    }
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_LayoutMenu_KeyboardGoesIn_EscCloses_AndFocusReturnsToTheButton() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                Showing(h1, () =>
+                {
+                    var button = (Button)Named(rx1, "LayoutButton").Single();
+                    var popup = (Popup)Named(rx1, "LayoutMenuPopup").Single();
+                    Assert.True(button.Focus());
+                    RaiseKey(button, Key.Enter);
+                    Until(() => popup.IsOpen, "Enter on Layout did not open the menu");
+                    var content = (FrameworkElement)popup.Child;
+                    Until(() => content.IsKeyboardFocusWithin, "the keyboard did not go into the menu");
+                    var tile = (Button)Keyboard.FocusedElement;
+                    Assert.Equal("LayoutMenuTile", tile.Name);
+                    Assert.Equal("Single View", AutomationProperties.GetName(tile));
+
+                    RaiseKey(tile, Key.Escape);
+                    Until(() => !popup.IsOpen, "Esc did not close the Layout menu");
+                    Until(() => button.IsKeyboardFocused, "the keyboard did not return to the Layout button");
+                    Assert.False(rig.Rx1.IsLayoutMenuOpen);
+                });
+            });
+
+        [Fact]
+        public void VisualRoutingView_Esc_StopsWhatIsArmed_AndNeverClosesTheComposer() =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                var view = new VisualRoutingView { DataContext = vm };
+                Showing(view, () =>
+                {
+                    vm.ArmSource(sources[0]);
+                    Relayout(view);
+                    RaiseKey(view, Key.Escape);
+                    Relayout(view);
+                    Assert.Null(vm.ArmedSource);
+                    Assert.Empty(VisibleTexts(view, "Placing TX1"));
+
+                    Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                    Relayout(view);
+                    var composer = vm.ActiveComposer!;
+                    composer.Arm(sources[0]);
+                    RaiseKey(view, Key.Escape);
+                    Assert.Null(composer.ArmedSource);
+                    Assert.Null(vm.ArmedSource);
+                    RaiseKey(view, Key.Escape); // a second Esc: nothing, and the Composer stays open
+                    Assert.Same(composer, vm.ActiveComposer);
+                });
+            });
+
+        [Fact]
+        public void Composer_Take_RunsTheFrameTransition_OnlyWhenWindowsAnimationsAreOn() =>
+            RunSta(() =>
+            {
+                foreach (bool animations in new[] { true, false })
+                {
+                    var rig = new ComposerRig();
+                    var c = rig.Composer("matrix2x2", () => animations);
+                    var view = rig.View(c);
+                    Showing(view, () =>
+                    {
+                        var frame = Named(view, "CanvasFrame").Single();
+                        var banner = Named(view, "BannerHost").Single();
+                        c.Arm(rig.Tx1);
+                        c.TapBlock(0);
+                        c.Disarm();
+                        Relayout(view);
+                        Assert.False(frame.HasAnimatedProperties);
+
+                        Pump(c.TakeAsync); // staged frame -> live frame
+                        Relayout(view);
+
+                        Assert.Equal(BannerKind.Success, c.Banner.Kind);
+                        Assert.Equal(animations, frame.HasAnimatedProperties); // 400 ms transition, skipped when Windows animations are off
+                        Assert.Equal(animations, banner.HasAnimatedProperties); // 150 ms fade of "On screen"
+                        if (!animations) Assert.Equal(1.0, frame.Opacity);      // off: straight to the end state
+                    });
+                }
+            });
+
+        [Fact]
+        public void DisplayCard_UndoToast_FadesIn_OnlyWhenWindowsAnimationsAreOn() =>
+            RunSta(() =>
+            {
+                foreach (bool animations in new[] { true, false })
+                {
+                    var rig = new CopyRig(() => animations);
+                    var pax = rig.View(rig.Pax, out var host);
+                    Showing(host, () =>
+                    {
+                        var toast = Named(pax, "UndoToast").Single();
+                        Assert.False(toast.HasAnimatedProperties);
+
+                        rig.Pax.ShowUndoScreen("PAX355S now shows RX1's Matrix 2x2");
+                        Idle();
+
+                        Assert.True(toast.IsVisible);
+                        Assert.Equal(animations, toast.HasAnimatedProperties);
+                        if (!animations) Assert.Equal(1.0, toast.Opacity); // off: shown at once, in full
+                    });
+                }
+            });
     }
 }
