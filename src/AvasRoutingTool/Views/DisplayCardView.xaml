@@ -243,6 +243,7 @@
                         Grid.Row="3"
                         Margin="0,6,0,0"
                         Focusable="True"
+                        FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
                         KeyDown="PreviewSurface_KeyDown"
                         AutomationProperties.Name="Picture on screen"
                         Background="#070A0F"
@@ -560,24 +561,34 @@
                   </Grid>
                 </Border>
 
-                <!-- Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15) -->
+                <!--
+                    Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15). A narrow
+                    corner chip at the bottom right of the picture (touch height 56, about 150 px wide): it never covers
+                    the top row of a MultiView and leaves most of the picture readable. The stale-draft notice reads on
+                    a line of its own under the picture. It steps aside while the Undo toast shows (same corner).
+                -->
                 <Button x:Name="DraftChip"
                         Grid.Row="3"
-                        Margin="6,12,6,0"
-                        VerticalAlignment="Top"
+                        Margin="0,0,7,7"
+                        Width="150"
                         MinHeight="56"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
                         Cursor="Hand"
-                        HorizontalContentAlignment="Stretch"
                         AutomationProperties.Name="Draft, not on screen. Resume"
-                        ToolTip="Open the Composer with the draft"
+                        ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
                         Click="DraftChip_Click">
                     <Button.Style>
                         <Style TargetType="Button">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding HasDraft, Mode=OneWay}" Value="True" />
+                                        <Condition Binding="{Binding CanUndoScreen, Mode=OneWay}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
+                                </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
@@ -590,7 +601,7 @@
                                            StrokeThickness="1.5"
                                            StrokeDashArray="4 3"
                                            RadiusX="8" RadiusY="8" />
-                                <ContentPresenter Margin="10,6" />
+                                <ContentPresenter Margin="8,4" HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
@@ -603,83 +614,97 @@
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
-                    <DockPanel>
-                        <Border DockPanel.Dock="Right"
-                                BorderBrush="{StaticResource Brush.Status.Staged}"
-                                BorderThickness="1"
-                                CornerRadius="6"
-                                Padding="12,5"
-                                Margin="8,0,0,0"
-                                VerticalAlignment="Center">
-                            <TextBlock Text="Resume" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.Status.StagedChipText}" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="DRAFT - not on screen"
-                                       FontSize="14"
-                                       FontWeight="Bold"
-                                       Foreground="{StaticResource Brush.Status.StagedChipText}"
-                                       TextWrapping="Wrap" />
-                            <!-- A copy replaced the screen the draft was made on -->
-                            <TextBlock x:Name="DraftNoticeText"
-                                       Text="{Binding DraftNotice, Mode=OneWay}"
-                                       FontSize="12"
-                                       Foreground="{StaticResource Brush.Status.StagedText}"
-                                       TextWrapping="Wrap"
-                                       Margin="0,2,0,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                    </DockPanel>
+                    <TextBlock Text="DRAFT &#183; Resume"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Status.StagedChipText}" />
                 </Button>
-
-                <!-- Card Telemetry Row (one line; the output format line only in MultiView) -->
+                <!--
+                    Card Telemetry: line 1 IP / MAC and SOURCE - or, while a kept draft is based on an older picture, that
+                    notice (one line, outside the picture, same height); line 2 the output format (always reserved).
+                -->
                 <Grid Grid.Row="4" Margin="0,6,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Column="0">
-                        <TextBlock FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextTrimming="CharacterEllipsis">
-                            <Run Text="{Binding IpAddress, Mode=OneWay}" />
-                            <Run Text=" · " Foreground="{StaticResource Brush.Text.Muted}" />
-                            <Run Text="{Binding MacAddress, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Muted}" />
-                        </TextBlock>
-                        <!-- Decoder output format from the display's EDID (multiview only) -->
-                        <TextBlock Text="{Binding CanvasInfo, Mode=OneWay}"
-                                   ToolTip="{Binding CanvasInfo, Mode=OneWay}"
-                                   FontSize="10"
-                                   Foreground="{StaticResource Brush.Text.Accent}"
-                                   TextTrimming="CharacterEllipsis">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <!-- Hidden, not collapsed: the line keeps its height so every card has the same chrome -->
-                                        <DataTrigger Binding="{Binding CanvasInfo, Mode=OneWay}" Value="">
-                                            <Setter Property="Visibility" Value="Hidden" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
+                    <TextBlock Grid.Row="0" Grid.Column="0" FontSize="11" Foreground="{StaticResource Brush.Text.Secondary}" TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Hidden" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                        <Run Text="{Binding IpAddress, Mode=OneWay}" />
+                        <Run Text=" &#183; " Foreground="{StaticResource Brush.Text.Muted}" />
+                        <Run Text="{Binding MacAddress, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Muted}" />
+                    </TextBlock>
 
                     <!-- Active Source Label / Status -->
-                    <TextBlock Grid.Column="1" FontSize="10" Foreground="{StaticResource Brush.Text.Muted}"
+                    <TextBlock Grid.Row="0" Grid.Column="1" FontSize="10" Foreground="{StaticResource Brush.Text.Muted}"
                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,1,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Hidden" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
                         <Run Text="SOURCE: " />
                         <Run Text="{Binding SourceLabel, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Secondary}" FontWeight="Medium" />
                     </TextBlock>
-                </Grid>
 
+                    <!-- A copy replaced the screen the kept draft was made on -->
+                    <TextBlock x:Name="DraftNoticeLine"
+                               Grid.Row="0" Grid.ColumnSpan="2"
+                               Text="{Binding DraftNotice, Mode=OneWay}"
+                               ToolTip="{Binding DraftNotice, Mode=OneWay}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Status.StagedText}"
+                               TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- Decoder output format from the display's EDID (multiview only) -->
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                               Text="{Binding CanvasInfo, Mode=OneWay}"
+                               ToolTip="{Binding CanvasInfo, Mode=OneWay}"
+                               FontSize="10"
+                               Foreground="{StaticResource Brush.Text.Accent}"
+                               TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <!-- Hidden, not collapsed: the line keeps its height so every card has the same chrome -->
+                                    <DataTrigger Binding="{Binding CanvasInfo, Mode=OneWay}" Value="">
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
                 <!-- Turn Off / Disconnect Button (Phase 1; the Layout menu's Off does the same) -->
                 <Button Grid.Row="5"
                         Margin="0,4,0,0"
@@ -833,11 +858,11 @@
                     </StackPanel>
                 </Border>
 
-                <!-- This display is the copy source (armed by a tap, or being dragged); bottom left, clear of the draft chip -->
+                <!-- This display is the copy source (armed by a tap, or being dragged); top right, clear of the draft chip -->
                 <Border x:Name="CopySourceChip"
                         Grid.Row="3"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Bottom"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
                         Margin="6"
                         Background="{StaticResource Brush.Border.DropTarget}"
                         CornerRadius="4"
@@ -870,10 +895,20 @@
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <!-- CanUndoScreen, not the command's CanExecute -->
-                                <DataTrigger Binding="{Binding CanUndoScreen, Mode=OneWay}" Value="True">
+                                <!--
+                                    CanUndoScreen (not the command's CanExecute), and only while the card shows no drop
+                                    choice and no copy-target state: those win, and the toast's Undo never lies over a
+                                    choice button. It comes back when they go, while its 10 s last.
+                                -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding CanUndoScreen, Mode=OneWay}" Value="True" />
+                                        <Condition Binding="{Binding IsDropChoiceOpen, Mode=OneWay}" Value="False" />
+                                        <Condition Binding="{Binding IsCopyTargetAllowed, Mode=OneWay}" Value="False" />
+                                        <Condition Binding="{Binding IsCopyTargetBlocked, Mode=OneWay}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
+                                </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Border.Style>

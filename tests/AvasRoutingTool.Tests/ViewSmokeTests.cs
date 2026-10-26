@@ -1292,16 +1292,21 @@ namespace AvasRoutingTool.Tests
                     Assert.False(panel.IsVisible);
                     rig.Vm.CloseComposer();
 
-                    // The draft chip: "DRAFT - not on screen" with Resume, the stale notice under it; a tap resumes.
+                    // The draft chip: a corner chip "DRAFT · Resume" (its tooltip says "not on screen"); the stale notice
+                    // reads on a line of its own outside the picture; a tap resumes.
                     Assert.False(Named(view, "DraftChip").Single().IsVisible);
                     rig.Rx1.HasDraft = true;
                     rig.Rx1.DraftNotice = MainViewModel.StaleDraftNotice;
                     Relayout(view);
                     var chip = (Button)Named(view, "DraftChip").Single();
                     Assert.True(chip.IsVisible && chip.ActualHeight >= 56, $"draft chip is {chip.ActualHeight} high");
-                    AssertVisibleText(chip, "DRAFT - not on screen");
-                    AssertVisibleText(chip, "Resume");
+                    AssertVisibleText(chip, "DRAFT · Resume");
+                    Assert.Contains("not on screen", chip.ToolTip as string ?? string.Empty);
+                    var notice = (FrameworkElement)Named(view, "DraftNoticeLine").Single();
+                    Assert.True(notice.IsVisible);
                     AssertVisibleText(view, MainViewModel.StaleDraftNotice);
+                    var noticeBounds = BoundsIn(notice, view);
+                    Assert.False(noticeBounds.IntersectsWith(BoundsIn((FrameworkElement)Named(view, "PreviewSurface").Single(), view)), "the notice lies over the picture");
                     Click(chip);
                     Until(() => rig.Vm.ActiveComposer != null, "the draft chip did not open the Composer");
                     Assert.False(rig.Rx1.HasDraft);
@@ -1671,18 +1676,13 @@ namespace AvasRoutingTool.Tests
                     AssertInside(chip, rx1Frame);
                     AssertVisibleText(rx1, "COPYING FROM HERE");
 
-                    // PAX: an allowed target that also shows the Undo toast of the copy before.
+                    // PAX: an allowed target; the Undo toast of the copy before steps aside while it is a target.
                     var pax = cards.Single(c => c.DataContext == rig.Pax);
                     var paxPreview = (FrameworkElement)Named(pax, "PreviewSurface").Single();
                     Assert.True(paxPreview.ActualHeight >= 120, $"PAX's picture is only {paxPreview.ActualHeight} high");
                     var toast = (FrameworkElement)Named(pax, "UndoToast").Single();
-                    Assert.True(toast.IsVisible);
-                    AssertInside(toast, (FrameworkElement)Named(pax, "CardFrame").Single());
-                    var tb = BoundsIn(toast, view);
-                    var pb = BoundsIn(paxPreview, view);
-                    Assert.True(tb.Top >= pb.Top - 0.5 && tb.Bottom <= pb.Bottom + 0.5, $"the toast {tb} leaves the picture {pb}");
-                    AssertTextFits((TextBlock)Named(pax, "UndoToastLabel").Single());
-                    AssertInside((FrameworkElement)Named(pax, "UndoScreenButton").Single(), toast);
+                    Assert.True(rig.Pax.CanUndoScreen);
+                    Assert.False(toast.IsVisible, "the Undo toast lies over PAX's copy-target words");
                     AssertVisibleText(pax, "Release to copy here");
 
                     var rx3 = cards.Single(c => c.DataContext == rig.Rx3);
@@ -1720,6 +1720,15 @@ namespace AvasRoutingTool.Tests
                     Relayout(view);
                     Assert.False(rig.Vm.IsCopyOrChoiceActive);
                     AssertInside(FindAll<LayoutsBarView>(view).Single(), view);
+
+                    // ... and PAX's Undo toast is back, inside its picture, whole.
+                    Assert.True(toast.IsVisible, "the Undo toast did not come back");
+                    AssertInside(toast, (FrameworkElement)Named(pax, "CardFrame").Single());
+                    var tb = BoundsIn(toast, view);
+                    var pb = BoundsIn(paxPreview, view);
+                    Assert.True(tb.Top >= pb.Top - 0.5 && tb.Bottom <= pb.Bottom + 0.5, $"the toast {tb} leaves the picture {pb}");
+                    AssertTextFits((TextBlock)Named(pax, "UndoToastLabel").Single());
+                    AssertInside((FrameworkElement)Named(pax, "UndoScreenButton").Single(), toast);
                 });
             });
 
@@ -1761,10 +1770,11 @@ namespace AvasRoutingTool.Tests
                     Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
                     Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
 
-                    // The first target was scrolled to by itself: its words and its toast read without touching anything.
+                    // The first target was scrolled to by itself: its words read without touching anything. Its Undo
+                    // toast steps aside while it is a target (the target state wins; nothing lies over its words).
                     var pax = CardOf(rig.Pax);
                     AssertReadable(Part(pax, "CopyTargetAllowedContent"), scroll, "PAX: Release to copy here + the summary");
-                    AssertReadable(Part(pax, "UndoToast"), scroll, "PAX: the Undo toast");
+                    Assert.False(Part(pax, "UndoToast").IsVisible, "the Undo toast lies over PAX's copy-target words");
 
                     // Every target reads when it is the one scrolled to.
                     var rx3 = CardOf(rig.Rx3);
@@ -1774,10 +1784,15 @@ namespace AvasRoutingTool.Tests
                     pax.RevealState();
                     Relayout(view);
                     AssertReadable(Part(pax, "CopyTargetAllowedContent"), scroll, "PAX: Release to copy here + the summary");
+
+                    // Copy stopped: PAX's Undo toast is back (its 10 s are not over) and reads.
+                    rig.Vm.DisarmDisplay();
+                    Relayout(view);
+                    pax.RevealState();
+                    Relayout(view);
                     AssertReadable(Part(pax, "UndoToast"), scroll, "PAX: the Undo toast");
 
-                    // Copy stopped; a source armed and tapped onto the MultiView card: the drop choice reads by itself.
-                    rig.Vm.DisarmDisplay();
+                    // A source armed and tapped onto the MultiView card: the drop choice reads by itself.
                     rig.Vm.ArmSource(rig.Tx2);
                     Relayout(view);
                     Pump(() => rig.Vm.TapDisplayAsync(rig.Rx1));
@@ -1907,6 +1922,126 @@ namespace AvasRoutingTool.Tests
                     TapCard(rx1, releasedOn: picture);
                     Idle();
                     Assert.Null(rig.Vm.ActiveComposer);
+                });
+            });
+
+        // ---- Task 10b fix round 2 ----
+
+        /// <summary>The deepest element at <paramref name="point"/> (in <paramref name="from"/>'s coordinates) lies inside <paramref name="expected"/>.</summary>
+        private static bool HitsInside(FrameworkElement from, Point point, DependencyObject expected)
+        {
+            var window = Window.GetWindow(from)!;
+            var hit = window.InputHitTest(from.TranslatePoint(point, window)) as DependencyObject;
+            for (var d = hit; d != null; d = VisualTreeHelper.GetParent(d))
+            {
+                if (ReferenceEquals(d, expected)) return true;
+            }
+            return false;
+        }
+
+        [Theory]
+        [InlineData(1264, 755)]
+        [InlineData(1008, 615)]
+        public void DisplayCard_DropChoiceOnACardWithAnUndoToast_TheChoiceWins_NothingLiesOverIt(int width, int height) =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                Pump(() => rig.Vm.CopyDisplayAsync(rig.Rx1, rig.Pax)); // PAX: a MultiView now, with its 10 s Undo toast
+                rig.Vm.DisarmDisplay();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var pax = FindAll<DisplayCardView>(view).Single(c => c.DataContext == rig.Pax);
+                    var undo = (FrameworkElement)Named(pax, "UndoScreenButton").Single();
+                    Assert.True(undo.IsVisible);
+
+                    // A source armed and tapped onto PAX (a MultiView): the drop choice opens on the card with the toast.
+                    rig.Vm.ArmSource(rig.Tx2);
+                    Pump(() => rig.Vm.TapDisplayAsync(rig.Pax));
+                    Relayout(view);
+                    Assert.True(rig.Pax.IsDropChoiceOpen);
+                    Assert.True(rig.Pax.CanUndoScreen);
+
+                    foreach (var name in new[] { "FullScreenButton", "IntoBlockButton" })
+                    {
+                        var choice = (FrameworkElement)Named(pax, name).Single();
+                        Assert.True(choice.IsVisible);
+                        Assert.True(!undo.IsVisible || !BoundsIn(undo, pax).IntersectsWith(BoundsIn(choice, pax)), $"Undo lies over {name}");
+                        foreach (var t in FindAll<TextBlock>(choice)) AssertTextFits(t);
+                        // The lower half of the choice is the choice's, never the toast's Undo.
+                        Assert.True(HitsInside(choice, new Point(choice.ActualWidth / 2, choice.ActualHeight * 0.8), choice), $"the lower half of {name} is not {name}");
+                        Assert.True(HitsInside(choice, new Point(choice.ActualWidth / 2, choice.ActualHeight * 0.2), choice), $"the upper half of {name} is not {name}");
+                    }
+
+                    // The choice gone (its 10 s, or chosen): the toast is back while its Undo window lasts.
+                    rig.Pax.CloseDropChoice();
+                    Relayout(view);
+                    Assert.True(undo.IsVisible, "the Undo toast did not come back after the drop choice");
+                });
+            });
+
+        [Theory]
+        [InlineData(1264, 755)]
+        [InlineData(1008, 615)]
+        [InlineData(1920, 1014)]
+        public void DisplayCard_DraftChip_IsACornerChip_ClearOfTheTopRow_AndSmall(int width, int height) =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                rig.Rx1.HasDraft = true; // RX1 runs a Matrix 2x2
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var rx1 = FindAll<DisplayCardView>(view).Single(c => c.DataContext == rig.Rx1);
+                    var picture = (FrameworkElement)Named(rx1, "PreviewSurface").Single();
+                    var chip = (FrameworkElement)Named(rx1, "DraftChip").Single();
+                    Assert.True(chip.IsVisible && chip.ActualHeight >= 56, $"draft chip is {chip.ActualHeight} high");
+                    AssertTextFits(FindAll<TextBlock>(chip).Single(t => t.Text.StartsWith("DRAFT", StringComparison.Ordinal)));
+
+                    var c = chip.TransformToVisual(picture).TransformBounds(new Rect(chip.RenderSize)); // the chip lies on the picture (a sibling)
+                    var p = new Rect(picture.RenderSize);
+                    Assert.True(p.Contains(c.TopLeft) && p.Contains(c.BottomRight), $"the chip {c} leaves the picture {p}");
+                    Assert.False(c.IntersectsWith(new Rect(0, 0, p.Width / 2, p.Height / 2)), $"the chip {c} covers the top-left block of the Matrix");
+                    Assert.True(c.Top >= p.Height / 2 - 0.5, $"the chip {c} reaches into the top row");
+                    double share = c.Width * c.Height / (p.Width * p.Height);
+                    Assert.True(share < 0.20, $"the chip covers {share:P0} of the picture");
+
+                    // The picture keeps 16:9 with the chip on it.
+                    double aspect = p.Width / p.Height;
+                    Assert.True(aspect >= 16.0 / 9 * 0.96 && aspect <= 16.0 / 9 * 1.04, $"picture {p.Width:F1}x{p.Height:F1}");
+
+                    // With the stale notice: one line outside the picture, the 16:9 picture unchanged.
+                    rig.Rx1.DraftNotice = MainViewModel.StaleDraftNotice;
+                    Relayout(view);
+                    var notice = (TextBlock)Named(rx1, "DraftNoticeLine").Single();
+                    Assert.True(notice.IsVisible);
+                    Assert.False(BoundsIn(notice, rx1).IntersectsWith(BoundsIn(picture, rx1)));
+                    Assert.True(notice.ActualHeight < 20, $"the notice is {notice.ActualHeight} high (one line)");
+                    double aspectWithNotice = picture.ActualWidth / picture.ActualHeight;
+                    Assert.True(aspectWithNotice >= 16.0 / 9 * 0.96 && aspectWithNotice <= 16.0 / 9 * 1.04, $"picture with the notice {picture.ActualWidth:F1}x{picture.ActualHeight:F1}");
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_Picture_HasThe2pxThemeFocusRing() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host);
+                Showing(host, () =>
+                {
+                    var picture = (FrameworkElement)Named(view, "PreviewSurface").Single();
+                    Assert.True(picture.Focusable);
+                    Assert.Same(Application.Current.FindResource("Style.FocusVisual.Ring"), picture.FocusVisualStyle);
+                    var template = (ControlTemplate)picture.FocusVisualStyle.Setters.OfType<Setter>().Single(s => s.Property == Control.TemplateProperty).Value;
+                    var probe = new Control { Template = template };
+                    probe.ApplyTemplate();
+                    var ring = (System.Windows.Shapes.Rectangle)VisualTreeHelper.GetChild(probe, 0);
+                    Assert.Equal(2, ring.StrokeThickness);
+                    Assert.Equal(((SolidColorBrush)Application.Current.FindResource("Brush.Focus.Ring")).Color, ((SolidColorBrush)ring.Stroke).Color);
                 });
             });
     }

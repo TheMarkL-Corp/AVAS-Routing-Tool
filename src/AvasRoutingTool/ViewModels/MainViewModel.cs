@@ -989,6 +989,13 @@ namespace AvasRoutingTool.ViewModels
                 SetArmed(null);
             }
 
+            // A display armed for copying (by a tap) stops after the same idle time; a drag keeps it alive (CopyDecisionFor).
+            if (_armedDisplay != null && now - _lastCopyActivity >= ArmIdleTimeout)
+            {
+                AppLogger.Info("COPY", $"'{_armedDisplay.DeviceName}' copy disarmed after {ArmIdleTimeout.TotalSeconds:0} s idle.");
+                DisarmDisplay();
+            }
+
             foreach (var (d, openedAt) in _dropChoiceOpenedAt.ToList())
             {
                 if (!d.IsDropChoiceOpen) _dropChoiceOpenedAt.Remove(d);
@@ -1006,6 +1013,9 @@ namespace AvasRoutingTool.ViewModels
         }
 
         private void TouchArm() => _lastArmActivity = _clock();
+
+        /// <summary>When the copy arm last saw activity (armed, a target asked about by a drag or a tap).</summary>
+        private DateTime _lastCopyActivity;
 
         /// <summary>Exactly one source card (or none) shows as armed.</summary>
         private void SetArmed(SourceCardViewModel? s)
@@ -1084,6 +1094,7 @@ namespace AvasRoutingTool.ViewModels
             DisarmDisplay();
             SetArmed(null);
             _armedDisplay = d;
+            _lastCopyActivity = _clock();
             int token = _armSeq;
             d.SetCopySource(true);
             OnPropertyChanged(nameof(ArmedDisplay));
@@ -1132,9 +1143,9 @@ namespace AvasRoutingTool.ViewModels
         {
             ArgumentNullException.ThrowIfNull(target);
             var source = _armedDisplay;
-            return source == null
-                ? new CopyDecision(false, string.Empty, null, "Tap Copy layout on a display first")
-                : Decide(source, target);
+            if (source == null) return new CopyDecision(false, string.Empty, null, "Tap Copy layout on a display first");
+            _lastCopyActivity = _clock(); // a drag over a card, or a tap on one: the copy is in use
+            return Decide(source, target);
         }
 
         /// <summary>

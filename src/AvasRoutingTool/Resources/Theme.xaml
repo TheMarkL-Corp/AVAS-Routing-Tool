@@ -97,6 +97,17 @@
     <SolidColorBrush x:Key="Brush.Surface.Staged" Color="{StaticResource Color.Surface.Staged}" />
     <SolidColorBrush x:Key="Brush.Surface.StagedHover" Color="{StaticResource Color.Surface.StagedHover}" />
 
+    <!-- Keyboard focus on a non-button element (e.g. a display card's picture): the 2 px ring, not the dotted default -->
+    <Style x:Key="Style.FocusVisual.Ring">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Stroke="{StaticResource Brush.Focus.Ring}" StrokeThickness="2" RadiusX="6" RadiusY="6" SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Button Styles -->
     <Style x:Key="Style.Button.Primary" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource Brush.Accent.Primary}" />

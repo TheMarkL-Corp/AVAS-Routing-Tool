@@ -1054,6 +1054,32 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task CopyArm_DisarmsAfterTheIdleTimeout_ButATargetCheckCountsAsActivity()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+
+            rig.Now += MainViewModel.ArmIdleTimeout - TimeSpan.FromSeconds(1);
+            rig.Vm.Tick();
+            Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay);
+
+            // A drag over a card (or a tap on one) asks for its decision: that is activity.
+            rig.Vm.CopyDecisionFor(rig.PaxVm);
+            rig.Now += TimeSpan.FromSeconds(2);
+            rig.Vm.Tick();
+            Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay);
+
+            rig.Now += MainViewModel.ArmIdleTimeout;
+            rig.Vm.Tick();
+            Assert.Null(rig.Vm.ArmedDisplay);
+            Assert.Null(rig.Vm.CopyArmBanner);
+            Assert.False(rig.Vm.IsCopyOrChoiceActive);
+            Assert.False(rig.PaxVm.IsCopyTargetAllowed);
+            Assert.False(rig.Rx1Vm.IsCopySource);
+        }
+
+        [Fact]
         public async Task ToggleCopyArm_ArmsThenStops()
         {
             var rig = new Rig();
