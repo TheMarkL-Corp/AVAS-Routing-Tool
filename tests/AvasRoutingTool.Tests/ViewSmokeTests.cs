@@ -1913,6 +1913,10 @@ namespace AvasRoutingTool.Tests
 
                     // Enter on the focused picture does the same.
                     Assert.True(picture.Focusable);
+                    // Keyboard focus in the STA window: the style the focus adorner would use resolves to the theme ring.
+                    // (An adorner cannot be rendered here, so this is a style-resolution check, not a pixel check.)
+                    Assert.True(picture.Focus(), "the picture did not take focus");
+                    Assert.True(picture.IsKeyboardFocused, "the picture is not keyboard focused");
                     picture.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(picture)!, 0, Key.Enter) { RoutedEvent = UIElement.KeyDownEvent });
                     Until(() => rig.Vm.ActiveComposer != null, "Enter on the picture did not open the Composer");
                     rig.Vm.CloseComposer();
@@ -1982,11 +1986,17 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        private static void AssertSixteenByNine(FrameworkElement picture, string what)
+        {
+            double aspect = picture.ActualWidth / picture.ActualHeight;
+            Assert.True(aspect >= 16.0 / 9 * 0.96 && aspect <= 16.0 / 9 * 1.04, $"{what}: picture {picture.ActualWidth:F1}x{picture.ActualHeight:F1}");
+        }
+
         [Theory]
         [InlineData(1264, 755)]
         [InlineData(1008, 615)]
         [InlineData(1920, 1014)]
-        public void DisplayCard_DraftChip_IsACornerChip_ClearOfTheTopRow_AndSmall(int width, int height) =>
+        public void DisplayCard_DraftChip_LiesInTheHeader_NeverOnThePicture_NorOnTheErrorBanner(int width, int height) =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -1996,22 +2006,54 @@ namespace AvasRoutingTool.Tests
                 ShowingAt(view, width, height, () =>
                 {
                     var rx1 = FindAll<DisplayCardView>(view).Single(c => c.DataContext == rig.Rx1);
+                    var frame = (FrameworkElement)Named(rx1, "CardFrame").Single();
                     var picture = (FrameworkElement)Named(rx1, "PreviewSurface").Single();
-                    var chip = (FrameworkElement)Named(rx1, "DraftChip").Single();
+                    var chip = (Button)Named(rx1, "DraftChip").Single();
                     Assert.True(chip.IsVisible && chip.ActualHeight >= 56, $"draft chip is {chip.ActualHeight} high");
-                    AssertTextFits(FindAll<TextBlock>(chip).Single(t => t.Text.StartsWith("DRAFT", StringComparison.Ordinal)));
+                    Assert.Contains("not on screen", chip.ToolTip as string ?? string.Empty);
+                    Assert.Contains("not on screen", System.Windows.Automation.AutomationProperties.GetName(chip));
+                    var chipText = FindAll<TextBlock>(chip).Single(t => t.Text.StartsWith("DRAFT", StringComparison.Ordinal));
+                    Assert.Equal("DRAFT \u00B7 Resume", chipText.Text);
+                    AssertTextFits(chipText);
 
-                    var c = chip.TransformToVisual(picture).TransformBounds(new Rect(chip.RenderSize)); // the chip lies on the picture (a sibling)
-                    var p = new Rect(picture.RenderSize);
-                    Assert.True(p.Contains(c.TopLeft) && p.Contains(c.BottomRight), $"the chip {c} leaves the picture {p}");
-                    Assert.False(c.IntersectsWith(new Rect(0, 0, p.Width / 2, p.Height / 2)), $"the chip {c} covers the top-left block of the Matrix");
-                    Assert.True(c.Top >= p.Height / 2 - 0.5, $"the chip {c} reaches into the top row");
-                    double share = c.Width * c.Height / (p.Width * p.Height);
-                    Assert.True(share < 0.20, $"the chip covers {share:P0} of the picture");
+                    // The chip is not on the picture at all: nothing of the Matrix is covered.
+                    var c = BoundsIn(chip, rx1);
+                    var p = BoundsIn(picture, rx1);
+                    Assert.False(c.IntersectsWith(p), $"the draft chip {c} lies on the picture {p}");
 
-                    // The picture keeps 16:9 with the chip on it.
-                    double aspect = p.Width / p.Height;
-                    Assert.True(aspect >= 16.0 / 9 * 0.96 && aspect <= 16.0 / 9 * 1.04, $"picture {p.Width:F1}x{p.Height:F1}");
+                    // The header holds everything: name, badge, Layout, Copy layout and the chip, inside the card, none over another.
+                    var parts = new[] { "DeviceNameText", "ModeBadgeText", "LayoutButton", "CopyLayoutHandle", "DraftChip" }
+                        .Select(n => (Name: n, El: (FrameworkElement)Named(rx1, n).Single())).ToList();
+                    foreach (var (name, el) in parts)
+                    {
+                        Assert.True(el.IsVisible, $"{name} is not visible");
+                        AssertInside(el, frame);
+                    }
+                    AssertTextFits((TextBlock)parts[0].El);
+                    AssertTextFits((TextBlock)parts[1].El);
+                    AssertTextFits(FindAll<TextBlock>(parts[2].El).Single(t => t.Text.StartsWith("Layout", StringComparison.Ordinal)));
+                    AssertTextFits(FindAll<TextBlock>(parts[3].El).Single(t => t.Text.StartsWith("Copy", StringComparison.Ordinal)));
+                    for (int i = 2; i < parts.Count; i++)
+                    {
+                        for (int j = i + 1; j < parts.Count; j++)
+                        {
+                            Assert.False(BoundsIn(parts[i].El, rx1).IntersectsWith(BoundsIn(parts[j].El, rx1)), $"{parts[i].Name} and {parts[j].Name} overlap");
+                        }
+                        Assert.True(parts[i].El.ActualHeight >= 56, $"{parts[i].Name} is {parts[i].El.ActualHeight} high");
+                    }
+                    AssertSixteenByNine(picture, "draft chip");
+
+                    // A card error with the draft: the whole message reads, nothing lies over the banner.
+                    rig.Rx1.LastError = "The decoder did not answer in time; the layout was not changed.";
+                    Relayout(view);
+                    var banner = (FrameworkElement)Named(rx1, "ErrorBanner").Single();
+                    var bannerText = (TextBlock)Named(rx1, "ErrorBannerText").Single();
+                    Assert.True(banner.IsVisible);
+                    AssertTextFits(bannerText);
+                    AssertInside(banner, picture);
+                    Assert.False(BoundsIn(chip, rx1).IntersectsWith(BoundsIn(banner, rx1)), "the draft chip lies over the error banner");
+                    AssertVisibleText(rx1, "The decoder did not answer in time; the layout was not changed.");
+                    AssertSixteenByNine(picture, "draft chip and error");
 
                     // With the stale notice: one line outside the picture, the 16:9 picture unchanged.
                     rig.Rx1.DraftNotice = MainViewModel.StaleDraftNotice;
@@ -2020,11 +2062,78 @@ namespace AvasRoutingTool.Tests
                     Assert.True(notice.IsVisible);
                     Assert.False(BoundsIn(notice, rx1).IntersectsWith(BoundsIn(picture, rx1)));
                     Assert.True(notice.ActualHeight < 20, $"the notice is {notice.ActualHeight} high (one line)");
-                    double aspectWithNotice = picture.ActualWidth / picture.ActualHeight;
-                    Assert.True(aspectWithNotice >= 16.0 / 9 * 0.96 && aspectWithNotice <= 16.0 / 9 * 1.04, $"picture with the notice {picture.ActualWidth:F1}x{picture.ActualHeight:F1}");
+                    AssertSixteenByNine(picture, "draft chip with the notice");
+
+                    // The chip keeps its click: it opens the Composer with the draft.
+                    Click(chip);
+                    Until(() => rig.Vm.ActiveComposer != null, "the draft chip did not open the Composer");
                 });
             });
 
+        [Theory]
+        [InlineData(1264, 755)]
+        [InlineData(1008, 615)]
+        public void DisplayCard_DraftChip_BesideTheUndoToast_BothShow_NoneOverThePicture(int width, int height) =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                Pump(() => rig.Vm.CopyDisplayAsync(rig.Rx1, rig.Pax)); // PAX: a MultiView now, with its Undo toast
+                rig.Vm.DisarmDisplay();
+                rig.Pax.HasDraft = true;
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var pax = FindAll<DisplayCardView>(view).Single(c => c.DataContext == rig.Pax);
+                    var picture = (FrameworkElement)Named(pax, "PreviewSurface").Single();
+                    var chip = (FrameworkElement)Named(pax, "DraftChip").Single();
+                    var toast = (FrameworkElement)Named(pax, "UndoToast").Single();
+                    Assert.True(chip.IsVisible && toast.IsVisible, "the chip and the toast do not both show");
+                    Assert.True(chip.ActualHeight >= 56);
+                    Assert.False(BoundsIn(chip, pax).IntersectsWith(BoundsIn(picture, pax)));
+                    AssertInside(chip, (FrameworkElement)Named(pax, "CardFrame").Single());
+                    AssertInside((FrameworkElement)Named(pax, "UndoScreenButton").Single(), toast);
+                    AssertSixteenByNine(picture, "chip beside the toast");
+                });
+            });
+
+        [Theory]
+        [InlineData(1264, 755)]
+        [InlineData(1008, 615)]
+        [InlineData(1920, 1014)]
+        public void DisplayCard_CopySourceTag_LiesOutsideThePicture(int width, int height) =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1)); // RX1 (Matrix 2x2) is the copy source
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var rx1 = FindAll<DisplayCardView>(view).Single(c => c.DataContext == rig.Rx1);
+                    var picture = (FrameworkElement)Named(rx1, "PreviewSurface").Single();
+                    var tag = (FrameworkElement)Named(rx1, "CopySourceChip").Single();
+                    Assert.True(tag.IsVisible, "the copy tag does not show");
+                    AssertVisibleText(rx1, "COPYING FROM HERE");
+                    AssertTextFits(FindAll<TextBlock>(tag).Single());
+                    AssertInside(tag, (FrameworkElement)Named(rx1, "CardFrame").Single());
+                    Assert.False(BoundsIn(tag, rx1).IntersectsWith(BoundsIn(picture, rx1)), "the copy tag lies on the picture");
+                    AssertSixteenByNine(picture, "copy source");
+
+                    // With a draft too: the tag, the chip and the picture stay apart.
+                    rig.Rx1.HasDraft = true;
+                    rig.Rx1.DraftNotice = MainViewModel.StaleDraftNotice;
+                    Relayout(view);
+                    var chip = (FrameworkElement)Named(rx1, "DraftChip").Single();
+                    var notice = (FrameworkElement)Named(rx1, "DraftNoticeLine").Single();
+                    Assert.True(tag.IsVisible && chip.IsVisible);
+                    Assert.False(notice.IsVisible, "the stale notice lies under the copy tag");
+                    Assert.False(BoundsIn(tag, rx1).IntersectsWith(BoundsIn(picture, rx1)));
+                    Assert.False(BoundsIn(chip, rx1).IntersectsWith(BoundsIn(picture, rx1)));
+                    AssertSixteenByNine(picture, "copy source with a draft");
+                });
+            });
         [Fact]
         public void DisplayCard_Picture_HasThe2pxThemeFocusRing() =>
             RunSta(() =>
@@ -2035,6 +2144,10 @@ namespace AvasRoutingTool.Tests
                 {
                     var picture = (FrameworkElement)Named(view, "PreviewSurface").Single();
                     Assert.True(picture.Focusable);
+                    // Keyboard focus in the STA window: the style the focus adorner would use resolves to the theme ring.
+                    // (An adorner cannot be rendered here, so this is a style-resolution check, not a pixel check.)
+                    Assert.True(picture.Focus(), "the picture did not take focus");
+                    Assert.True(picture.IsKeyboardFocused, "the picture is not keyboard focused");
                     Assert.Same(Application.Current.FindResource("Style.FocusVisual.Ring"), picture.FocusVisualStyle);
                     var template = (ControlTemplate)picture.FocusVisualStyle.Setters.OfType<Setter>().Single(s => s.Property == Control.TemplateProperty).Value;
                     var probe = new Control { Template = template };
@@ -2044,5 +2157,6 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(((SolidColorBrush)Application.Current.FindResource("Brush.Focus.Ring")).Color, ((SolidColorBrush)ring.Stroke).Color);
                 });
             });
+
     }
 }
