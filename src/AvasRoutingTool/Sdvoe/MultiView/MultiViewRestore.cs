@@ -26,6 +26,23 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     /// <summary>Turns a receiver's hardware state into what the cards need to show (pure).</summary>
     public static class MultiViewRestore
     {
+        /// <summary>
+        /// The encoders an external layout's windows show, at their window sizes: a window shows the routed
+        /// subscription whose index is its surface. Windows without a known size (read back as 0) or without a routed
+        /// subscription are left out (they constrain no scaler).
+        /// </summary>
+        public static IReadOnlyList<OtherDisplayUse> ExternalUses(string displayName, RxLayout? layout, IEnumerable<RxSubscription> subscriptions)
+        {
+            if (layout == null) return Array.Empty<OtherDisplayUse>();
+
+            var routed = subscriptions.Where(s => s.IsRouted).GroupBy(s => s.Index).ToDictionary(g => g.Key, g => g.First());
+            return layout.Windows
+                .OrderBy(w => w.WindowIndex)
+                .Where(w => w.Width > 0 && w.Height > 0 && routed.ContainsKey(w.Surface))
+                .Select(w => new OtherDisplayUse(displayName, routed[w.Surface].SourceMac, w.Width, w.Height))
+                .ToList();
+        }
+
         /// <summary>Returns null when the receiver is not in multiview.</summary>
         public static RestoredMultiView? Analyze(RxState state)
         {

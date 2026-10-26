@@ -461,7 +461,8 @@ namespace AvasRoutingTool.ViewModels
             }
             else
             {
-                _multiView.AdoptExternal(rx, restored.SubscriptionIndexes);
+                _multiView.AdoptExternal(rx, restored.SubscriptionIndexes,
+                    MultiViewRestore.ExternalUses(rx.DeviceName, state.Layout, state.Subscriptions)); // its encoders' window sizes count for the other displays
                 _externalSubscriptions[key] = restored.SubscriptionIndexes;
                 _externalScreens[key] = (state.Layout, state.Subscriptions, restored.Canvas); // what a copy of it sends
                 display.SetExternalLayout(restored.LayoutName, restored.Sources.Select(s => s.Name).ToList(), $"OUT {restored.Canvas.Description}");
@@ -613,7 +614,8 @@ namespace AvasRoutingTool.ViewModels
             WithdrawScreenUndo(rx, display); // a deliberate change: a copy's Undo must not overwrite it
             if (_externalSubscriptions.TryGetValue(rxKey, out var externalIndexes))
             {
-                if (!await _multiView.ExitExternalAsync(rx, MultiViewOrchestrator.StreamOneJoins(externalIndexes)))
+                // The card says UNROUTED afterwards and no source follows to reuse subscription 0: leave it too.
+                if (!await _multiView.ExitExternalAsync(rx, MultiViewOrchestrator.StreamOneJoins(externalIndexes), leaveIndexZero: true))
                 {
                     display.LastError = $"'{rx.DeviceName}' did not accept the switch back to Single View.";
                     return false;
@@ -629,7 +631,7 @@ namespace AvasRoutingTool.ViewModels
             // Nothing on screen in multiview: no device to change.
             if (_multiView.IsMultiView(rx))
             {
-                if (!await _multiView.ReturnToSingleViewAsync(rx))
+                if (!await _multiView.ReturnToSingleViewAsync(rx, leaveIndexZero: true))
                 {
                     display.LastError = $"'{rx.DeviceName}' did not accept the switch back to Single View.";
                     return false;

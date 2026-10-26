@@ -392,8 +392,265 @@ namespace AvasRoutingTool.Tests
             var result = await TakeAsync(o, rx, "matrix2x2", (0, "tx1"));
 
             Assert.Equal(TakeOutcome.Rejected, result.Outcome);
-            Assert.Single(c.MultiViewCalls);
+            Assert.Single(c.MultiViewCalls); // nothing is live on this display, so there is no scaler to put back
             Assert.Null(o.GetLive(rx));
+        }
+
+        // ---- a Take that fails after resizing scalers puts them back ------------------------------
+
+        /// <summary>RX1 shows a Matrix on a 4K display with TX1 in block 1 (a 1920x1080 window); the staged PIP puts TX1 in the small inset and TX2 in the 4K main block.</summary>
+        private static async Task<(MultiViewOrchestrator o, MockSdvoeClient c, AvasDevice rx, MultiViewDraft pip, WindowSlot inset)> LiveMatrixAndStagedPipAsync()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+            var rx = Rx();
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"));
+            var pip = await DraftFor(o, rx, "pip");
+            var inset = pip.Plan.Slots.Single(s => s.Label == "Inset");
+            var main = pip.Plan.Slots.Single(s => s.Label == "Main");
+            Assert.True(pip.Place(inset.Index, "tx1", "TX1").Ok);
+            Assert.True(pip.Place(main.Index, "tx2", "TX2").Ok);
+            return (o, c, rx, pip, inset);
+        }
+
+        private static string[] ScalerCalls(MockSdvoeClient c) => c.MultiViewCalls.Where(x => x.StartsWith("scaler:")).ToArray();
+
+        [Fact]
+        public async Task ALaterScalerRefused_PutsTheEncoderAlreadyResizedBackAtItsLiveSize()
+        {
+            var (o, c, rx, pip, inset) = await LiveMatrixAndStagedPipAsync();
+            c.MultiViewCalls.Clear();
+            c.FailMultiViewPrefix = "scaler:tx2:";
+
+            var result = await o.TakeAsync(rx, pip);
+
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Equal(new[]
+            {
+                $"scaler:tx1:{inset.Width}x{inset.Height}", // the staged size
+                "scaler:tx2:3840x2160",                       // refused
+                "scaler:tx1:1920x1080",                       // TX1 back at what the live Matrix needs; TX2 is not live: left alone
+            }, ScalerCalls(c));
+            Assert.DoesNotContain(c.MultiViewCalls, x => x.StartsWith("layout:") || x.StartsWith("multiview:"));
+            Assert.Equal("matrix2x2", o.GetLive(rx)!.Plan.Id);
+        }
+
+        [Fact]
+        public async Task ADisplayThatRejectsTheLayout_GetsTheResizedEncodersBackAtTheirLiveSize()
+        {
+            var (o, c, rx, pip, inset) = await LiveMatrixAndStagedPipAsync();
+            c.MultiViewCalls.Clear();
+            c.FailMultiViewPrefix = "multiview:";
+
+            var result = await o.TakeAsync(rx, pip);
+
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Equal(new[]
+            {
+                $"scaler:tx1:{inset.Width}x{inset.Height}",
+                "scaler:tx2:3840x2160",
+                "scaler:tx1:1920x1080",
+            }, ScalerCalls(c));
+        }
+
+        [Fact]
+        public async Task ALayoutThatCannotBeCreated_GetsTheResizedEncodersBackAtTheirLiveSize()
+        {
+            var (o, c, rx, pip, _) = await LiveMatrixAndStagedPipAsync();
+            c.MultiViewCalls.Clear();
+            c.FailMultiViewPrefix = "layout:";
+
+            await o.TakeAsync(rx, pip);
+
+            Assert.Equal("scaler:tx1:1920x1080", ScalerCalls(c).Last());
+        }
+
+        [Fact]
+        public async Task ADisplayCallThatThrows_StillPutsTheScalersBack_AndTheExceptionPropagates()
+        {
+            var (o, c, rx, pip, _) = await LiveMatrixAndStagedPipAsync();
+            c.MultiViewCalls.Clear();
+            c.DuringCall = entry => entry.StartsWith("multiview:")
+                ? throw new System.InvalidOperationException("link dropped")
+                : Task.CompletedTask;
+
+            await Assert.ThrowsAsync<System.InvalidOperationException>(() => o.TakeAsync(rx, pip));
+
+            Assert.Equal("scaler:tx1:1920x1080", ScalerCalls(c).Last());
+            c.DuringCall = null;
+            Assert.Equal(TakeOutcome.Applied, (await TakeAsync(o, Rx("rx2"), "matrix2x2", (0, "tx3"))).Outcome); // the gate was released
+        }
+
+        [Fact]
+        public async Task APutBackThatIsRefusedToo_IsLoggedAndNeverThrown()
+        {
+            var (o, c, rx, pip, _) = await LiveMatrixAndStagedPipAsync();
+            c.FailMultiViewPrefix = "scaler:"; // refuses the staged sizes and the put-back alike
+
+            var result = await o.TakeAsync(rx, pip);
+
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Equal("matrix2x2", o.GetLive(rx)!.Plan.Id);
+        }
+
+        [Fact]
+        public async Task ARefusedTake_LeavesEncodersTheLiveLayoutDoesNotUseAsTheyAre()
+        {
+            var (o, c, rx, _, _) = await LiveMatrixAndStagedPipAsync();
+            var staged = await DraftFor(o, rx, "matrix2x2", (0, "tx2"), (1, "tx3")); // neither encoder is live
+            c.MultiViewCalls.Clear();
+            c.FailMultiViewPrefix = "multiview:";
+
+            await o.TakeAsync(rx, staged);
+
+            Assert.Equal(new[] { "scaler:tx2:1920x1080", "scaler:tx3:1920x1080" }, ScalerCalls(c));
+        }
+
+        // ---- Undo after a Take that left a copied format -----------------------------------------
+
+        private static ScreenState Matrix1080Copy(MultiViewDraft draft) =>
+            new(ScreenKind.MultiView, 1920, 1080, 60, null, null, draft, null, new System.Collections.Generic.List<RxSubscription>());
+
+        [Fact]
+        public async Task Undo_AfterATakeThatLeftACopiedFormat_PutsTheCopiedPictureBackAtTheCopiedFormat()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+            var rx = Rx();
+            var sourceDraft = new MultiViewDraft(MultiViewPresets.Build("matrix2x2", 1920, 1080));
+            Assert.True(sourceDraft.Place(0, "tx1", "TX1").Ok);
+            Assert.True((await o.CopyAsync(rx, Matrix1080Copy(sourceDraft))).Ok);
+            Assert.True(o.CanvasIsCopy(rx)); // a 1080p picture on a 4K display
+            var native = await DraftFor(o, rx, "matrix2x2", (0, "tx1"), (1, "tx2")); // drawn for the display's own 4K
+            Assert.Equal(3840, native.Plan.Width);
+            Assert.Equal(TakeOutcome.Applied, (await o.TakeAsync(rx, native)).Outcome);
+            Assert.False(o.CanvasIsCopy(rx));
+            Assert.True(o.CanUndo(rx));
+
+            var undone = await o.UndoAsync(rx);
+
+            Assert.Equal(TakeOutcome.Applied, undone.Outcome);
+            Assert.True(o.CanvasIsCopy(rx));
+            Assert.Equal((1920, 1080), (o.GetCanvas(rx)!.Width, o.GetCanvas(rx)!.Height));
+            Assert.False(o.CanUndo(rx));
+            Assert.Single(o.GetLive(rx)!.Placements);
+        }
+
+        // ---- an unreadable EDID is not a 1080p display -------------------------------------------
+
+        [Fact]
+        public async Task Take_WhenTheEdidCannotBeReadNow_AndTheLayoutWasDrawnForAnotherSize_IsRejectedAndChangesNothing()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+            var rx = Rx();
+            var draft = await DraftFor(o, rx, "matrix2x2", (0, "tx1"));
+            c.DisplayEdid = null; // a transient read failure
+            c.MultiViewCalls.Clear();
+
+            var result = await o.TakeAsync(rx, draft);
+
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Null(result.NewPlan); // the staged draft is not replaced
+            Assert.Equal("Can't read RX rx1's resolution - nothing changed on RX rx1", result.Error);
+            Assert.Empty(c.MultiViewCalls);
+            Assert.Null(o.GetLive(rx));
+        }
+
+        [Fact]
+        public async Task Take_WhenTheEdidCannotBeReadNow_AndTheLayoutWasDrawnAtThe1080pFallback_StillGoesLive()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = null;
+            var rx = Rx();
+            var draft = await DraftFor(o, rx, "matrix2x2", (0, "tx1")); // drawn at the fallback
+
+            var result = await o.TakeAsync(rx, draft);
+
+            Assert.Equal(TakeOutcome.Applied, result.Outcome);
+        }
+
+        [Fact]
+        public async Task Undo_WhenTheEdidCannotBeReadNow_IsRejected_AndTheUndoIsKept()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+            var rx = Rx();
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"));
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1"), (1, "tx2"));
+            c.DisplayEdid = null;
+            c.MultiViewCalls.Clear();
+
+            var result = await o.UndoAsync(rx);
+
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Equal("Can't read RX rx1's resolution - nothing changed on RX rx1", result.Error);
+            Assert.Empty(c.MultiViewCalls);
+            Assert.True(o.CanUndo(rx));
+            Assert.Equal(2, o.GetLive(rx)!.Placements.Count);
+        }
+
+        // ---- layouts running elsewhere count as uses --------------------------------------------
+
+        [Fact]
+        public async Task AnAdoptedExternalLayout_CountsAsUsesOfItsEncoders_UntilForgottenOrLeft()
+        {
+            var (o, c) = Create();
+            var rx1 = Rx("rx1");
+            var rx2 = Rx("rx2");
+            o.AdoptExternal(rx1, new[] { 1 }, new[] { new OtherDisplayUse("RX rx1", "tx2", 960, 540) });
+
+            var uses = o.UsesExcept(rx2).ToList();
+            Assert.Equal(new OtherDisplayUse("RX rx1", "tx2", 960, 540), Assert.Single(uses));
+            Assert.Empty(o.UsesExcept(rx1)); // never a conflict with itself
+
+            // a Take of a 1920x1080 block of TX2 on another display is refused before any hardware call
+            var pip = await DraftFor(o, rx2, "pip");
+            pip.Place(pip.Plan.Slots.Single(s => s.Label == "Main").Index, "tx2", "TX2");
+            var result = await o.TakeAsync(rx2, pip);
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Contains("960x540", result.Error);
+            Assert.Empty(c.MultiViewCalls);
+
+            await o.ExitExternalAsync(rx1, new[] { 1 });
+            Assert.Empty(o.UsesExcept(rx2));
+            o.AdoptExternal(rx1, new[] { 1 }, new[] { new OtherDisplayUse("RX rx1", "tx2", 960, 540) });
+            o.Forget(rx1);
+            Assert.Empty(o.UsesExcept(rx2));
+        }
+
+        [Fact]
+        public async Task ATakeOverAnExternalLayout_ForgetsItsUses()
+        {
+            var (o, _) = Create();
+            var rx1 = Rx("rx1");
+            o.AdoptExternal(rx1, new[] { 1 }, new[] { new OtherDisplayUse("RX rx1", "tx2", 960, 540) });
+
+            await TakeAsync(o, rx1, "matrix2x2", (0, "tx1"));
+
+            var only = Assert.Single(o.UsesExcept(Rx("rx2"))); // the new Matrix block of TX1; the old layout's TX2 is gone
+            Assert.Equal("tx1", only.SourceMac);
+        }
+
+        // ---- a restore that throws must not block every later Take ---------------------------------
+
+        [Fact]
+        public async Task ADividerRestoreThatThrows_DoesNotKeepTheGateLocked()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+            var rx = Rx();
+            await TakeAsync(o, rx, "matrix2x2", (0, "tx1")); // halves TX1
+            c.DuringCall = entry => entry == "divider:tx1:full"
+                ? throw new System.InvalidOperationException("link dropped")
+                : Task.CompletedTask;
+
+            var replaced = await TakeAsync(o, rx, "matrix2x2", (0, "tx2")); // TX1 leaves the layout: its restore throws
+
+            Assert.Equal(TakeOutcome.Applied, replaced.Outcome);
+            c.DuringCall = null;
+            var other = TakeAsync(o, Rx("rx2"), "matrix2x2", (0, "tx3"));
+            Assert.Same(other, await Task.WhenAny(other, Task.Delay(5000))); // finished: the gate is free
         }
 
         [Fact]

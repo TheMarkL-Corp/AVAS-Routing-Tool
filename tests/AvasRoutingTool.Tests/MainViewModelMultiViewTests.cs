@@ -384,6 +384,45 @@ namespace AvasRoutingTool.Tests
             Assert.Empty(rig.RxVm.CanvasInfo); // the multiview's output format is gone with it
         }
 
+        /// <summary>A PIP on a 4K display: TX1 in the big Main block reads surface 0, TX2 in the Inset reads surface 1.</summary>
+        private static async Task TakePipWithSurfaceZeroAsync(Rig rig)
+        {
+            rig.Client.DisplayEdid = TestEdids.ViewSonic4k;
+            await rig.Compose("pip");
+            var plan = rig.Composer.Draft!.Plan;
+            rig.Place(plan.Slots.Single(s => s.Label == "Main").Index, rig.Tx1Vm);
+            rig.Place(plan.Slots.Single(s => s.Label == "Inset").Index, rig.Tx2Vm);
+            await rig.Composer.TakeAsync();
+            rig.Vm.CloseComposer();
+            Assert.Contains(0, rig.Client.LastSubscriptions!.Select(s => s.SubscriptionIndex));
+            rig.Client.MultiViewCalls.Clear();
+        }
+
+        [Fact]
+        public async Task SingleViewFromTheCard_WithNoSourceToFollow_AlsoLeavesSubscriptionZero()
+        {
+            var rig = new Rig();
+            await TakePipWithSurfaceZeroAsync(rig);
+
+            bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "single");
+
+            Assert.True(ok);
+            Assert.Equal(new[] { "rx1:0", "rx1:1" }, rig.Client.Leaves.OrderBy(x => x).ToArray());
+            Assert.False(rig.RxVm.IsRouted);
+        }
+
+        [Fact]
+        public async Task ARouteAfterAMultiView_KeepsSubscriptionZeroForTheJoin()
+        {
+            var rig = new Rig();
+            await TakePipWithSurfaceZeroAsync(rig);
+
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx));
+
+            Assert.DoesNotContain("rx1:0", rig.Client.Leaves);
+            Assert.Contains("rx1:1", rig.Client.Leaves);
+        }
+
         [Fact]
         public async Task SingleViewFromTheCard_WhenGenlockIsRefused_ReportsItOnTheCard()
         {

@@ -58,6 +58,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             /// <summary>What was on the screen before the last Take, for Undo.</summary>
             public MultiViewDraft? Previous { get; set; }
 
+            /// <summary>The output format <see cref="Previous"/> ran at, and whether it was a copied display's (Undo goes back to it).</summary>
+            public MultiViewCanvas? PreviousCanvas { get; set; }
+
+            public bool PreviousCanvasIsCopy { get; set; }
+
             public MultiViewCanvas Canvas { get; set; }
 
             /// <summary>
@@ -95,6 +100,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// receiver key). The first Take on that display leaves those its new layout does not subscribe again.
         /// </summary>
         private readonly Dictionary<string, IReadOnlySet<int>> _external = new();
+
+        /// <summary>Which encoder each externally adopted layout shows at what window size (by receiver key): one scaler size per encoder holds for these too.</summary>
+        private readonly Dictionary<string, IReadOnlyList<OtherDisplayUse>> _externalUses = new();
 
         /// <summary>
         /// One operation at a time per display (by receiver key): a Take, Undo, Off, return to Single View, or a
@@ -163,13 +171,16 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         public IEnumerable<OtherDisplayUse> UsesExcept(AvasDevice rx)
         {
             string key = Key(rx);
-            return _sessions
+            var sessionUses = _sessions
                 .Where(pair => pair.Key != key)
                 .SelectMany(pair => pair.Value.Live.Plan.Slots
                     .Where(slot => pair.Value.Live.Placements.ContainsKey(slot.Index))
                     .Select(slot => new OtherDisplayUse(
-                        pair.Value.DisplayName, pair.Value.Live.Placements[slot.Index].SourceMac, slot.Width, slot.Height)))
-                .ToList();
+                        pair.Value.DisplayName, pair.Value.Live.Placements[slot.Index].SourceMac, slot.Width, slot.Height)));
+            var externalUses = _externalUses
+                .Where(pair => pair.Key != key)
+                .SelectMany(pair => pair.Value);
+            return sessionUses.Concat(externalUses).ToList();
         }
 
         /// <summary>
@@ -179,7 +190,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// <param name="joinedSubscriptions">The HDMI subscription indexes read back as routed on the decoder.</param>
         public void Adopt(AvasDevice rx, MultiViewDraft live, MultiViewCanvas canvas, IEnumerable<int> joinedSubscriptions)
         {
-            _external.Remove(Key(rx));
+            DropExternal(rx);
             _sessions[Key(rx)] = new Session(rx.DeviceName, live.Clone(), canvas) { Joined = joinedSubscriptions.ToHashSet() };
         }
 
@@ -188,17 +199,36 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// live draft to drive). Changes no device. The first Take on the display leaves the given subscriptions that
         /// its own layout does not subscribe again, so no stream of the old layout stays joined.
         /// </summary>
-        public void AdoptExternal(AvasDevice rx, IEnumerable<int> joinedSubscriptions)
+        /// <param name="uses">
+        /// The encoders its windows show, at the window sizes (<see cref="MultiViewRestore.ExternalUses"/>): they count
+        /// for the other displays like a live layout's blocks do (one scaler size per encoder).
+        /// </param>
+        public void AdoptExternal(AvasDevice rx, IEnumerable<int> joinedSubscriptions, IEnumerable<OtherDisplayUse>? uses = null)
         {
             _sessions.Remove(Key(rx));
             _external[Key(rx)] = joinedSubscriptions.ToHashSet();
+            SetExternalUses(rx, uses);
         }
 
         /// <summary>Drops what we believe about a decoder (the hardware says otherwise). Changes no device.</summary>
         public void Forget(AvasDevice rx)
         {
             _sessions.Remove(Key(rx));
+            DropExternal(rx);
+        }
+
+        /// <summary>Forgets the external layout recorded for the display: its subscriptions and its encoder uses.</summary>
+        private void DropExternal(AvasDevice rx)
+        {
             _external.Remove(Key(rx));
+            _externalUses.Remove(Key(rx));
+        }
+
+        private void SetExternalUses(AvasDevice rx, IEnumerable<OtherDisplayUse>? uses)
+        {
+            var list = uses?.ToList();
+            if (list == null || list.Count == 0) _externalUses.Remove(Key(rx));
+            else _externalUses[Key(rx)] = list;
         }
 
         /// <summary>
@@ -257,18 +287,39 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                         Joined = _external.TryGetValue(Key(rx), out var external) ? external : new HashSet<int>()
                     };
                     _sessions[Key(rx)] = session;
-                    _external.Remove(Key(rx));
+                    DropExternal(rx);
                 }
                 else
                 {
                     session.Previous = session.Live;
+                    session.PreviousCanvas = session.Canvas;
+                    session.PreviousCanvasIsCopy = session.CanvasIsCopy;
                 }
                 await CommitAsync(session, rx, taken, sent);
                 return result;
             }
             finally
             {
+                await ReleaseGateAsync();
+            }
+        }
+
+        /// <summary>
+        /// Ends an operation under <see cref="_gate"/>: switches unused frame dividers back, then releases the gate. The
+        /// release always happens, whatever the restore does (a stuck gate would block every later Take).
+        /// </summary>
+        private async Task ReleaseGateAsync()
+        {
+            try
+            {
                 await RestoreUnusedDividersAsync();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn("MULTIVIEW", $"Restoring frame dividers failed: {ex.Message}");
+            }
+            finally
+            {
                 _gate.Release();
             }
         }
@@ -285,17 +336,20 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 if (session?.Previous == null) return new TakeResult(TakeOutcome.NothingToTake);
 
                 var previous = session.Previous;
-                var (result, sent) = await SendAsync(rx, previous, CopiedCanvasOf(session));
+                // The picture before the last Take may have run at a copied format that the Take left behind.
+                var copied = session.PreviousCanvasIsCopy ? session.PreviousCanvas : null;
+                var (result, sent) = await SendAsync(rx, previous, copied);
                 if (sent == null) return result;
 
                 session.Previous = null;
+                session.PreviousCanvas = null;
+                session.PreviousCanvasIsCopy = false;
                 await CommitAsync(session, rx, previous, sent);
                 return result;
             }
             finally
             {
-                await RestoreUnusedDividersAsync();
-                _gate.Release();
+                await ReleaseGateAsync();
             }
         }
 
@@ -303,7 +357,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// Leaves a multiview this tool did not start (an external layout): optionally leaves the given
         /// subscriptions, then returns the decoder to full-screen genlock.
         /// </summary>
-        public Task<bool> ExitExternalAsync(AvasDevice rx, IEnumerable<int> subscriptionIndexesToLeave)
+        /// <param name="leaveIndexZero">
+        /// Also leaves subscription 0 when the external layout had it joined (no Single View source follows to reuse
+        /// it). Default false: the subscriptions given are all that are left.
+        /// </param>
+        public Task<bool> ExitExternalAsync(AvasDevice rx, IEnumerable<int> subscriptionIndexesToLeave, bool leaveIndexZero = false)
         {
             var toLeave = subscriptionIndexesToLeave.ToList();
             return ExclusiveAsync(rx, async () =>
@@ -311,10 +369,12 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 await _gate.WaitAsync();
                 try
                 {
+                    if (leaveIndexZero && !toLeave.Contains(0) && _external.TryGetValue(Key(rx), out var joined) && joined.Contains(0))
+                        toLeave.Insert(0, 0);
                     foreach (int index in toLeave)
                         await LeaveAsync(rx, index);
                     bool ok = await _client.SetGenlockedAsync(rx.DeviceId);
-                    if (ok) _external.Remove(Key(rx));
+                    if (ok) DropExternal(rx);
                     return ok;
                 }
                 finally
@@ -328,7 +388,10 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// Leaves multiview: the multiview's stream-1 subscriptions are left (best effort; index 0 is kept, a Single
         /// View join reuses it), then the decoder goes back to full-screen genlock, ready for a normal join.
         /// </summary>
-        public Task<bool> ReturnToSingleViewAsync(AvasDevice rx) => ExclusiveAsync(rx, async () =>
+        /// <param name="leaveIndexZero">
+        /// Leaves subscription 0 as well, for a return to Single View with no source to follow (nothing reuses it).
+        /// </param>
+        public Task<bool> ReturnToSingleViewAsync(AvasDevice rx, bool leaveIndexZero = false) => ExclusiveAsync(rx, async () =>
         {
             await _gate.WaitAsync();
             try
@@ -336,7 +399,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 var session = Find(rx);
                 if (session == null) return true;
                 var left = new HashSet<int>();
-                foreach (int index in session.Joined.Where(i => i != 0).OrderBy(i => i))
+                foreach (int index in session.Joined.Where(i => leaveIndexZero || i != 0).OrderBy(i => i))
                 {
                     if (await LeaveAsync(rx, index)) left.Add(index);
                 }
@@ -578,7 +641,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 if (error != null) return (CopyResult.Fail(error), touched);
 
                 var dropped = JoinedOn(rx).Except(joined).OrderBy(i => i).ToList();
-                _external.Remove(Key(rx));
+                DropExternal(rx);
                 // A new session: the Composer's Undo does not reach back past a copy (the copy has its own).
                 _sessions[Key(rx)] = new Session(rx.DeviceName, draft.Clone(), canvas) { Joined = joined, CanvasIsCopy = true };
                 foreach (int index in dropped) await LeaveAsync(rx, index);
@@ -616,6 +679,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 // Recorded like an adopted external layout: read-only here, and Off / a Take leave what it joined.
                 _sessions.Remove(Key(rx));
                 _external[Key(rx)] = joined;
+                SetExternalUses(rx, MultiViewRestore.ExternalUses(rx.DeviceName, screen.External!, screen.Subscriptions));
                 foreach (int index in dropped) await LeaveAsync(rx, index);
                 await RestoreUnusedDividersAsync();
 
@@ -750,6 +814,14 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             if (keepCopy) canvas = copied!;
             AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' output: {canvas.Description}");
 
+            // An unreadable EDID is not a 1920x1080 display: a layout drawn for another size must not be redrawn
+            // for the fallback (and the operator's staged draft replaced) because of a transient read failure.
+            if (edid == null && (canvas.Width != plan.Width || canvas.Height != plan.Height))
+            {
+                AppLogger.Warn("MULTIVIEW", $"'{rx.DeviceName}': EDID could not be read; the {plan.Width}x{plan.Height} layout is not sent.");
+                return (TakeResult.Reject($"Can't read {rx.DeviceName}'s resolution - nothing changed on {rx.DeviceName}"), null);
+            }
+
             if (canvas.Width != plan.Width || canvas.Height != plan.Height)
             {
                 AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' display changed: {plan.Width}x{plan.Height} -> {canvas.Description}");
@@ -786,26 +858,102 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             // A source without the divider simply keeps running at full rate; that is not fatal.
             bool halve = MultiViewCanvasPolicy.NeedsFrameDivider(plan, canvas.Fps);
             var refused = new HashSet<string>();
-            foreach (var source in surfaces.Sources)
-            {
-                string name = draft.Placements.Values.First(p => SdvoeClient.NormalizeMac(p.SourceMac) == source.Mac).SourceName;
-                if (!await _client.PrepareSourceScalerAsync(source.Mac, source.Width, source.Height))
-                    return (TakeResult.Reject($"Could not prepare '{name}' for a {source.Width}x{source.Height} window."), null);
 
-                if (halve && !await HalveAsync(source.Mac, name))
-                    refused.Add(name);
+            // Every scaler this attempt resizes: a refused or failed Take must put them back (the live picture would
+            // otherwise run cropped or stretched while the card says nothing changed).
+            var scalers = new List<ScalerAttempt>();
+            try
+            {
+                foreach (var source in surfaces.Sources)
+                {
+                    string name = draft.Placements.Values.First(p => SdvoeClient.NormalizeMac(p.SourceMac) == source.Mac).SourceName;
+                    var attempt = new ScalerAttempt(source.Mac, source.Width, source.Height);
+                    scalers.Add(attempt);
+                    attempt.Accepted = await _client.PrepareSourceScalerAsync(source.Mac, source.Width, source.Height);
+                    if (!attempt.Accepted)
+                    {
+                        await RestoreScalersAsync(rx, scalers);
+                        return (TakeResult.Reject($"Could not prepare '{name}' for a {source.Width}x{source.Height} window."), null);
+                    }
+
+                    if (halve && !await HalveAsync(source.Mac, name))
+                        refused.Add(name);
+                }
+
+                if (!await _client.CreateMultiViewLayoutAsync(surfaces, plan))
+                {
+                    await RestoreScalersAsync(rx, scalers);
+                    return (TakeResult.Reject($"Could not create layout '{surfaces.LayoutName}'."), null);
+                }
+
+                var subscriptions = surfaces.Sources.Select(s => new MultiViewSubscription(s.Mac, s.Surface)).ToList();
+                if (!await _client.SetMultiViewAsync(rx.DeviceId, surfaces.LayoutName, plan.Width, plan.Height, canvas.Fps, subscriptions))
+                {
+                    await RestoreScalersAsync(rx, scalers);
+                    return (TakeResult.Reject($"'{rx.DeviceName}' rejected layout '{surfaces.LayoutName}'."), null);
+                }
+
+                AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' now shows {plan.Id} with {subscriptions.Count} source(s) ({canvas.Description})");
+                return (new TakeResult(TakeOutcome.Applied),
+                    new Sent(canvas, refused, subscriptions.Select(s => s.SubscriptionIndex).ToHashSet(), keepCopy));
+            }
+            catch
+            {
+                await RestoreScalersAsync(rx, scalers);
+                throw;
+            }
+        }
+
+        /// <summary>One scaler resize a Take attempt made (or tried to; a refused one may have changed the encoder in part).</summary>
+        private sealed class ScalerAttempt
+        {
+            public ScalerAttempt(string mac, int width, int height)
+            {
+                Mac = mac;
+                Width = width;
+                Height = height;
             }
 
-            if (!await _client.CreateMultiViewLayoutAsync(surfaces, plan))
-                return (TakeResult.Reject($"Could not create layout '{surfaces.LayoutName}'."), null);
+            public string Mac { get; }
+            public int Width { get; }
+            public int Height { get; }
+            public bool Accepted { get; set; }
+        }
 
-            var subscriptions = surfaces.Sources.Select(s => new MultiViewSubscription(s.Mac, s.Surface)).ToList();
-            if (!await _client.SetMultiViewAsync(rx.DeviceId, surfaces.LayoutName, plan.Width, plan.Height, canvas.Fps, subscriptions))
-                return (TakeResult.Reject($"'{rx.DeviceName}' rejected layout '{surfaces.LayoutName}'."), null);
+        /// <summary>
+        /// Best effort, never throws: puts each encoder this attempt resized, and the display's live picture still
+        /// uses, back at the size that picture needs. Encoders the live picture does not use are left as they are.
+        /// </summary>
+        private async Task RestoreScalersAsync(AvasDevice rx, IReadOnlyList<ScalerAttempt> attempts)
+        {
+            try
+            {
+                var session = Find(rx);
+                if (session == null || attempts.Count == 0) return;
 
-            AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' now shows {plan.Id} with {subscriptions.Count} source(s) ({canvas.Description})");
-            return (new TakeResult(TakeOutcome.Applied),
-                new Sent(canvas, refused, subscriptions.Select(s => s.SubscriptionIndex).ToHashSet(), keepCopy));
+                foreach (var live in SurfacePlanner.Plan(session.Live, rx.DeviceId).Sources)
+                {
+                    var last = attempts.LastOrDefault(a => a.Mac == live.Mac);
+                    if (last == null) continue;
+                    if (last.Accepted && last.Width == live.Width && last.Height == live.Height) continue; // already there
+
+                    try
+                    {
+                        bool ok = await _client.PrepareSourceScalerAsync(live.Mac, live.Width, live.Height);
+                        AppLogger.Warn("MULTIVIEW", ok
+                            ? $"Take refused: {live.Mac} stream 1 put back at {live.Width}x{live.Height} for '{rx.DeviceName}'."
+                            : $"Take refused: {live.Mac} stream 1 could not be put back at {live.Width}x{live.Height}; '{rx.DeviceName}' may show it cropped.");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Warn("MULTIVIEW", $"Putting {live.Mac} back at {live.Width}x{live.Height} failed: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn("MULTIVIEW", $"Putting the scalers back for '{rx.DeviceName}' failed: {ex.Message}");
+            }
         }
 
         /// <summary>Switches a source's stream 1 to half rate; false when the device refused.</summary>
@@ -880,10 +1028,17 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                     s.NeedsHalfRate && s.Live.Placements.Values.Any(p => SdvoeClient.NormalizeMac(p.SourceMac) == mac));
                 if (stillNeeded) continue;
 
-                if (await _client.SetStream1FrameDividerAsync(mac, false))
-                    _halvedByUs.Remove(mac);
-                else
-                    AppLogger.Warn("MULTIVIEW", $"Could not restore full frame rate on {mac}; will retry later.");
+                try
+                {
+                    if (await _client.SetStream1FrameDividerAsync(mac, false))
+                        _halvedByUs.Remove(mac);
+                    else
+                        AppLogger.Warn("MULTIVIEW", $"Could not restore full frame rate on {mac}; will retry later.");
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn("MULTIVIEW", $"Restoring full frame rate on {mac} failed ({ex.Message}); will retry later.");
+                }
             }
         }
 

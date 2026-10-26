@@ -352,5 +352,84 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(4, rig.Rx1Vm.Slots.Count);
             Assert.Contains($"{Rx1Mac}:2", rig.Client.Leaves); // the external layout's other subscription was left
         }
+
+        // ---- subscription 0, and the external layout's encoders -----------------------------------
+
+        /// <summary>RX1 runs a layout from elsewhere: TX2 (subscription 0) in a 960x540 window, VEGA (subscription 1) in another.</summary>
+        private static RxState ExternalWithSubscriptionZero() =>
+            Rig.ExternalMultiView() with
+            {
+                Subscriptions = new[]
+                {
+                    new RxSubscription(0, true, "STREAMING", Tx2Mac, "TX2_DUAL LINK_SFPA", 1),
+                    new RxSubscription(1, true, "STREAMING", VegaMac, "VEGA_1100", 1),
+                },
+                Layout = new RxLayout("compatibility_4k_2x2", 3840, 2160, new[]
+                {
+                    new RxWindow(0, 0, 0, 0, 960, 540),
+                    new RxWindow(1, 1, 960, 0, 960, 540),
+                }),
+            };
+
+        private static int MainBlock(MainViewModel vm) =>
+            vm.ActiveComposer!.Draft!.Plan.Slots.Single(s => s.Label == "Main").Index;
+
+        [Fact]
+        public async Task SingleViewFromTheCardMenu_OnAnExternalLayout_LeavesSubscriptionZeroToo_WhenNoSourceFollows()
+        {
+            var rig = new Rig();
+            rig.Client.ReceiverStates[Rx1Mac] = ExternalWithSubscriptionZero();
+            await rig.Vm.RestoreStateAsync();
+
+            Assert.True(await rig.Vm.ChooseLayoutFromCardAsync(rig.Rx1Vm, "single"));
+
+            Assert.Equal(new[] { $"{Rx1Mac}:0", $"{Rx1Mac}:1" }, rig.Client.Leaves.OrderBy(x => x).ToArray());
+            Assert.False(rig.Rx1Vm.IsRouted);
+        }
+
+        [Fact]
+        public async Task ARouteOverAnExternalLayout_StillKeepsSubscriptionZeroForTheJoin()
+        {
+            var rig = new Rig();
+            rig.Client.ReceiverStates[Rx1Mac] = ExternalWithSubscriptionZero();
+            await rig.Vm.RestoreStateAsync();
+
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx1));
+
+            Assert.Equal(new[] { $"{Rx1Mac}:1" }, rig.Client.Leaves);
+        }
+
+        [Fact]
+        public async Task AnExternalLayoutOnOneDisplay_BlocksAnotherDisplayFromScalingItsEncoderToAnotherSize()
+        {
+            var rig = new Rig();
+            rig.Client.ReceiverStates[Rx1Mac] = ExternalWithSubscriptionZero();
+            await rig.Vm.RestoreStateAsync();
+
+            await rig.Vm.OpenComposerAsync(rig.PaxVm, "pip");
+            var composer = rig.Vm.ActiveComposer!;
+            int main = MainBlock(rig.Vm);
+
+            var check = composer.CheckPlace(main, rig.Tx2Vm); // TX2 is read at 960x540 by RX1's layout
+
+            Assert.False(check.Ok);
+            Assert.Contains("TX2_DUAL LINK_SFPA runs at 960x540 on RX1_c059e_SFPA", check.Reason);
+            composer.Arm(rig.Tx2Vm);
+            composer.TapBlock(main);
+            Assert.False(composer.Blocks.Single(b => b.Index == main).IsPlaced);
+        }
+
+        [Fact]
+        public async Task WhenTheExternalLayoutIsLeft_ItsEncodersAreFreeAgain()
+        {
+            var rig = new Rig();
+            rig.Client.ReceiverStates[Rx1Mac] = ExternalWithSubscriptionZero();
+            await rig.Vm.RestoreStateAsync();
+            await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx1);
+
+            await rig.Vm.OpenComposerAsync(rig.PaxVm, "pip");
+
+            Assert.True(rig.Vm.ActiveComposer!.CheckPlace(MainBlock(rig.Vm), rig.Tx2Vm).Ok);
+        }
     }
 }
