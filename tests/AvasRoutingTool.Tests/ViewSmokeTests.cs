@@ -3408,5 +3408,181 @@ namespace AvasRoutingTool.Tests
                     Motion.AnnounceObserver = null;
                 }
             });
+
+        // ---- Final fix round: keyboard entry, compact palette while armed, announcements and names ----
+
+        [Theory]
+        [InlineData("layout menu tile")]
+        [InlineData("draft chip")]
+        [InlineData("picture")]
+        public void Composer_OpenedFromTheKeyboard_TheKeyboardIsInsideIt(string how) =>
+            RunSta(() =>
+            {
+                SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+                var (vm, rx, sources) = Overview();
+                if (how != "layout menu tile")
+                {
+                    Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                    var staged = vm.ActiveComposer!;
+                    staged.Arm(sources[0]);
+                    staged.TapBlock(0);
+                    staged.Disarm();
+                    if (how == "picture") Pump(staged.TakeAsync); // on screen: the picture opens the Composer
+                    vm.CloseComposer();                           // otherwise a draft is kept: the chip resumes it
+                }
+                var view = new VisualRoutingView { DataContext = vm };
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var card = FindAll<DisplayCardView>(view).Single();
+                    FrameworkElement opener;
+                    if (how == "layout menu tile")
+                    {
+                        var layout = (Button)Named(card, "LayoutButton").Single();
+                        var popup = (Popup)Named(card, "LayoutMenuPopup").Single();
+                        Assert.True(layout.Focus());
+                        RaiseKey(layout, Key.Enter);
+                        Until(() => popup.IsOpen && ((FrameworkElement)popup.Child).IsKeyboardFocusWithin, "the keyboard did not go into the Layout menu");
+                        opener = FindAll<Button>(popup.Child).Single(b => b.Name == "LayoutMenuTile" && b.DataContext is LayoutItemViewModel { Id: "matrix2x2" });
+                    }
+                    else
+                    {
+                        opener = (FrameworkElement)Named(card, how == "draft chip" ? "DraftChip" : "PreviewSurface").Single();
+                    }
+                    Assert.True(opener.Focus(), $"{how} did not take the keyboard");
+
+                    RaiseKey(opener, Key.Enter);
+
+                    Until(() => vm.ActiveComposer != null, $"Enter on the {how} did not open the Composer");
+                    var composer = FindAll<MultiViewComposerView>(view).Single();
+                    Until(() => composer.IsKeyboardFocusWithin && Keyboard.FocusedElement is not Window,
+                        $"Enter on the {how} left the keyboard outside the Composer (it is on {FocusedName()})");
+                });
+            });
+
+        [Theory]
+        [InlineData(1264, 755)]
+        [InlineData(1008, 615)]
+        public void VisualRoutingView_WithASourceArmed_TheSourcesGoCompact_AndTheCardPictureIsInTheDisplaysView(int width, int height) =>
+            RunSta(() =>
+            {
+                var (vm, _, sources) = Overview();
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
+                    var picture = (FrameworkElement)Named(FindAll<DisplayCardView>(view).Single(), "PreviewSurface").Single();
+                    Assert.NotEmpty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
+                    double room = scroll.ViewportHeight;
+
+                    vm.ArmSource(sources[0]);
+                    Relayout(view);
+
+                    Assert.True(Named(view, "CompactSourcePalette").Single().IsVisible);
+                    Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
+                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                    Assert.True(scroll.ViewportHeight > room, $"the displays have {scroll.ViewportHeight} px armed, {room} px otherwise");
+                    AssertReadable(picture, scroll, "the card's picture while a source is armed");
+
+                    vm.ArmSource(sources[0]); // tap again: stopped, the full cards and the layout bar are back
+                    Relayout(view);
+                    Assert.NotEmpty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
+                    Assert.True(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                });
+            });
+
+        [Fact]
+        public void VisualRoutingView_ArmBanners_AreAnnouncedWhenTheirTextChanges() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+                var announced = new List<string>();
+                Motion.AnnounceObserver = element => announced.Add(((FrameworkElement)element).Name);
+                try
+                {
+                    Showing(view, () =>
+                    {
+                        rig.Vm.ArmSource(rig.Tx2);
+                        Assert.Equal(new[] { "ArmBannerLabel" }, announced);
+
+                        rig.Vm.ArmSource(rig.Vega); // another source: the text changes again
+                        Assert.Equal(new[] { "ArmBannerLabel", "ArmBannerLabel" }, announced);
+
+                        rig.Vm.ArmSource(rig.Vega); // stopped: nothing to read out
+                        Assert.Equal(2, announced.Count);
+
+                        announced.Clear();
+                        Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                        Assert.Equal(new[] { "CopyArmBannerLabel" }, announced);
+                    });
+                }
+                finally
+                {
+                    Motion.AnnounceObserver = null;
+                }
+            });
+
+        [Fact]
+        public void DisplayCard_AutomationNames_NameTheDisplayAndTheSource_SoTwoCardsAreNeverTheSame() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                var pax = rig.View(rig.Pax, out var h2);
+                rig.Rx1.HasDraft = true;
+                rig.Pax.HasDraft = true;
+                rig.Rx1.OpenDropChoice(rig.Tx2);
+                Showing(new StackPanel { Children = { h1, h2 } }, () =>
+                {
+                    string Name(DisplayCardView card, string part) => AutomationProperties.GetName(Named(card, part).Single());
+
+                    Assert.Equal("Layout for RX1_c059e_SFPA", Name(rx1, "LayoutButton"));
+                    Assert.Equal("Layout for PAX355S_SFP A", Name(pax, "LayoutButton"));
+                    Assert.Equal("Resume draft for RX1_c059e_SFPA, not on screen", Name(rx1, "DraftChip"));
+                    Assert.Equal("Resume draft for PAX355S_SFP A, not on screen", Name(pax, "DraftChip"));
+
+                    // The drop choice is about one source: its buttons say which.
+                    Assert.Contains("TX2_DUAL LINK_SFPA", Name(rx1, "FullScreenButton"));
+                    Assert.Contains("TX2_DUAL LINK_SFPA", Name(rx1, "IntoBlockButton"));
+                    Assert.Contains("goes on screen now", Name(rx1, "FullScreenButton"));
+                    Assert.Contains("opens the Composer", Name(rx1, "IntoBlockButton"));
+
+                    // An unrouted display has no picture on screen.
+                    Assert.Equal("PAX355S_SFP A, nothing on screen", Name(pax, "PreviewSurface"));
+                    Assert.DoesNotContain("picture on screen", Name(pax, "PreviewSurface"));
+                });
+            });
+
+        [Fact]
+        public void Composer_AtThePipInset_TheEmptyHintStepsAside_SoItNeverWrapsOverTheNumberChip() =>
+            RunSta(() =>
+            {
+                var (vm, rx, _) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "pip"));
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var roots = Named(view, "BlockRoot").Where(r => r.IsVisible).ToList();
+                    Assert.Equal(2, roots.Count);
+                    Assert.Contains(roots, r => r.ActualWidth < 240); // the inset is the small block
+                    foreach (var root in roots)
+                    {
+                        var hint = Named(root, "EmptyHint").Single();
+                        var chip = Named(root, "NumberChip").Single();
+                        if (root.ActualWidth < 240)
+                        {
+                            Assert.False(hint.IsVisible, $"the hint shows in a {root.ActualWidth:F0} px block");
+                        }
+                        else
+                        {
+                            Assert.True(hint.IsVisible);
+                            Assert.False(BoundsIn(hint, view).IntersectsWith(BoundsIn(chip, view)), "the hint overlaps the number chip");
+                        }
+                    }
+                });
+            });
     }
 }

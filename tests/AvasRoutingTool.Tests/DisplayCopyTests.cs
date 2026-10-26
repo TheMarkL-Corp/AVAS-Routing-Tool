@@ -1151,7 +1151,7 @@ namespace AvasRoutingTool.Tests
             await rig.RestoreMatrixOnRx1Async();
             rig.Rx4Vm.SetOnlineState(false);
             Assert.Equal($"{Rx1Name}, picture on screen, MATRIX 2X2 · 3/4", rig.Rx1Vm.PictureAutomationName);
-            Assert.Equal("RX3, picture on screen, UNROUTED", rig.Rx3Vm.PictureAutomationName);
+            Assert.Equal("RX3, nothing on screen", rig.Rx3Vm.PictureAutomationName);
 
             var raised = new List<string?>();
             rig.PaxVm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
@@ -1172,7 +1172,7 @@ namespace AvasRoutingTool.Tests
 
             rig.Vm.DisarmDisplay();
             Assert.DoesNotContain("copy target", rig.PaxVm.PictureAutomationName);
-            Assert.Equal($"{PaxName}, picture on screen, UNROUTED", rig.PaxVm.PictureAutomationName);
+            Assert.Equal($"{PaxName}, nothing on screen", rig.PaxVm.PictureAutomationName);
         }
 
         [Fact]

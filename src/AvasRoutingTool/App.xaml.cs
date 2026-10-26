@@ -22,6 +22,8 @@ public partial class App : Application
             AppLogger.Error("CRASH", "Unobserved task exception", args.Exception);
             args.SetObserved();
         };
+        // The keyboard/pointer hooks exist before the first window is built, not whenever a style first reads the type.
+        Views.InputModality.Initialize();
         base.OnStartup(e);
     }
 

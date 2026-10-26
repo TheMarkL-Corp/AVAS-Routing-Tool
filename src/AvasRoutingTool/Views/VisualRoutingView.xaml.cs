@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -24,6 +25,38 @@ namespace AvasRoutingTool.Views
             _timer.Tick += OnTick;
             Loaded += (_, _) => _timer.Start();
             Unloaded += (_, _) => _timer.Stop();
+            DataContextChanged += (_, e) => Watch(e.OldValue as MainViewModel, e.NewValue as MainViewModel);
+        }
+
+        /// <summary>
+        /// The arm banners are polite live regions, but WPF does not raise a live-region change when a bound text
+        /// changes: a screen reader hears them only when they are announced here.
+        /// </summary>
+        private void Watch(MainViewModel? old, MainViewModel? main)
+        {
+            if (old != null) old.PropertyChanged -= OnMainChanged;
+            if (main != null) main.PropertyChanged += OnMainChanged;
+        }
+
+        /// <summary>What each banner said when it was last announced: a change notification with the same text (a copy arm raises it twice) is not read out again.</summary>
+        private string? _announcedArm;
+        private string? _announcedCopy;
+
+        private void OnMainChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not MainViewModel main) return;
+            if (e.PropertyName == nameof(MainViewModel.ArmBannerText))
+            {
+                string? text = main.ArmBannerText;
+                if (text != null && text != _announcedArm) Motion.Announce(ArmBannerLabel);
+                _announcedArm = text;
+            }
+            else if (e.PropertyName == nameof(MainViewModel.CopyArmBanner))
+            {
+                string? text = main.CopyArmBanner;
+                if (text != null && text != _announcedCopy) Motion.Announce(CopyArmBannerLabel);
+                _announcedCopy = text;
+            }
         }
 
         /// <summary>The Tick timer runs while the view is loaded (tests).</summary>

@@ -31,6 +31,10 @@
                             <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
                                 <Setter Property="Height" Value="Auto" />
                             </DataTrigger>
+                            <!-- A source armed: the displays get the room too, the targets are what is tapped next -->
+                            <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                <Setter Property="Height" Value="Auto" />
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </RowDefinition.Style>
@@ -50,6 +54,9 @@
                             <Setter Property="Margin" Value="16,8,16,2" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
+                            <Setter Property="Margin" Value="16,8,16,2" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                             <Setter Property="Margin" Value="16,8,16,2" />
                         </DataTrigger>
                     </Style.Triggers>
@@ -130,6 +137,9 @@
                                 <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </ScrollViewer.Style>
@@ -158,6 +168,9 @@
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -231,7 +244,8 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding ArmBannerText, Mode=OneWay}"
+                            <TextBlock x:Name="ArmBannerLabel"
+                                       Text="{Binding ArmBannerText, Mode=OneWay}"
                                        AutomationProperties.LiveSetting="Polite"
                                        FontSize="16"
                                        FontWeight="SemiBold"
@@ -247,7 +261,8 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Text="{Binding CopyArmBanner, Mode=OneWay}"
+                            <TextBlock x:Name="CopyArmBannerLabel"
+                                       Text="{Binding CopyArmBanner, Mode=OneWay}"
                                        AutomationProperties.LiveSetting="Polite"
                                        FontSize="16"
                                        FontWeight="SemiBold"
@@ -366,6 +381,10 @@
                         </DataTrigger>
                         <!-- Nothing on the bar applies while copying or choosing; its height goes to the displays -->
                         <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <!-- A source armed: the bar steps aside too (the displays are what is tapped next) -->
+                        <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                     </Style.Triggers>

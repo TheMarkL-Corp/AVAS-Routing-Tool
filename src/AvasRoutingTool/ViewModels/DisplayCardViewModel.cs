@@ -106,6 +106,8 @@ namespace AvasRoutingTool.ViewModels
         {
             _dropChoiceSource = source ?? throw new ArgumentNullException(nameof(source));
             OnPropertyChanged(nameof(DropChoiceSource));
+            OnPropertyChanged(nameof(FullScreenAutomationName));
+            OnPropertyChanged(nameof(IntoBlockAutomationName));
             OnPropertyChanged(nameof(IsDropChoiceOpen));
         }
 
@@ -114,6 +116,8 @@ namespace AvasRoutingTool.ViewModels
             if (_dropChoiceSource == null) return;
             _dropChoiceSource = null;
             OnPropertyChanged(nameof(DropChoiceSource));
+            OnPropertyChanged(nameof(FullScreenAutomationName));
+            OnPropertyChanged(nameof(IntoBlockAutomationName));
             OnPropertyChanged(nameof(IsDropChoiceOpen));
         }
 
@@ -207,9 +211,21 @@ namespace AvasRoutingTool.ViewModels
                 if (IsCopyTargetAllowed) return $"{DeviceName}, copy target. {CopyTargetText}";
                 if (IsCopyTargetBlocked) return $"{DeviceName}, cannot copy here. {CopyTargetText}";
                 if (_isCopySource) return $"{DeviceName}, copying from here";
-                return $"{DeviceName}, picture on screen, {ModeBadge}";
+                return IsRouted ? $"{DeviceName}, picture on screen, {ModeBadge}" : $"{DeviceName}, nothing on screen";
             }
         }
+
+        /// <summary>What a screen reader says for the drop choice's "Full screen" button: which source it puts on screen.</summary>
+        public string FullScreenAutomationName =>
+            _dropChoiceSource == null
+                ? "Full screen, Single View, goes on screen now"
+                : $"Full screen: {_dropChoiceSource.DeviceName}, Single View, goes on screen now";
+
+        /// <summary>What a screen reader says for the drop choice's "Into a block" button: which source it will place.</summary>
+        public string IntoBlockAutomationName =>
+            _dropChoiceSource == null
+                ? "Into a block, opens the Composer"
+                : $"Into a block: {_dropChoiceSource.DeviceName}, opens the Composer";
 
         /// <summary>What a screen reader says for the Copy layout handle: what it copies from, why it is off, or that it is armed.</summary>
         public string CopyHandleAutomationName =>

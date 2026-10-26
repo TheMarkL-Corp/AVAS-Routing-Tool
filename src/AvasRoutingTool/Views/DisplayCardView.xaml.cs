@@ -289,7 +289,12 @@ namespace AvasRoutingTool.Views
         {
             if (!_menuKeyboard) return;
             _menuKeyboard = false;
-            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => LayoutButton.Focus()));
+            // The choice opened the Composer, which has taken the displays' place (and the keyboard): this button is gone.
+            if (Main?.ActiveComposer != null) return;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+            {
+                if (Main?.ActiveComposer == null) LayoutButton.Focus();
+            }));
         }
 
         private static System.Collections.Generic.IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject

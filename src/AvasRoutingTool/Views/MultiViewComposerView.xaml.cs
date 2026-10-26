@@ -74,6 +74,12 @@ namespace AvasRoutingTool.Views
         private bool _restoreQueued;
         private int _restoreTries;
 
+        /// <summary>
+        /// The Composer was just opened by the keyboard: the keyboard goes in even though it is still on a control outside
+        /// (the draft chip, the picture) that did not go away. Without this, only a keyboard that fell would be put back.
+        /// </summary>
+        private bool _enterPending;
+
         /// <summary>Tests: stands in for "the window is the active one" (the real answer cannot be changed from a test).</summary>
         internal Func<bool>? WindowActiveProbe { get; set; }
 
@@ -87,7 +93,11 @@ namespace AvasRoutingTool.Views
             DataContextChanged += (_, _) => Watch(DataContext as MultiViewComposerViewModel);
             Loaded += (_, _) => SchedulePicker();
             Unloaded += (_, _) => ClosePicker();
-            IsVisibleChanged += (_, _) => SchedulePicker();
+            IsVisibleChanged += (_, _) =>
+            {
+                SchedulePicker();
+                EnterIfOpenedByKeyboard();
+            };
             PreviewKeyDown += OnPreviewKeyDown;
             LostKeyboardFocus += View_LostKeyboardFocus;
             PickerFrame.LostKeyboardFocus += View_LostKeyboardFocus;
@@ -301,10 +311,22 @@ namespace AvasRoutingTool.Views
             if (InputModality.IsKeyboard) ScheduleRestore(null);
         }
 
+        /// <summary>
+        /// The Composer is shown with a view model (it was opened, or opened for another display) by someone using the
+        /// keyboard, and the keyboard is not inside it: it goes in, on the roving block or the first layout tile.
+        /// </summary>
+        private void EnterIfOpenedByKeyboard()
+        {
+            if (Composer == null || !IsVisible || !InputModality.IsKeyboard) return;
+            if (IsInside(Keyboard.FocusedElement as DependencyObject)) return;
+            ScheduleRestore(null, enter: true);
+        }
+
         /// <summary>Asks for the keyboard to be checked at the next Input turn. Nothing is scheduled while the window is not the active one.</summary>
-        private void ScheduleRestore(string? from)
+        private void ScheduleRestore(string? from, bool enter = false)
         {
             if (!WindowActive) return;
+            if (enter) _enterPending = true;
             _restoreFrom = from;
             _restorePending = true;
             if (_restoreQueued) return;
@@ -332,14 +354,20 @@ namespace AvasRoutingTool.Views
             if (!_restorePending || Composer is not { } c) return;
 
             // Not for a pointer user, not while the window is in the background, not for a Composer that is not shown.
-            if (!InputModality.IsKeyboard || !WindowActive || !IsLoaded || !IsVisible || !FocusIsGone(Keyboard.FocusedElement))
+            // Entering: anywhere outside the Composer is wrong; otherwise only a keyboard that fell to nothing is put back.
+            bool misplaced = _enterPending
+                ? !IsInside(Keyboard.FocusedElement as DependencyObject)
+                : FocusIsGone(Keyboard.FocusedElement);
+            if (!InputModality.IsKeyboard || !WindowActive || !IsLoaded || !IsVisible || !misplaced)
             {
                 _restorePending = false; // it is somewhere valid already, or somewhere else on purpose
+                _enterPending = false;
                 return;
             }
             if (c.PickerBlockIndex != null) // the picker opens in keyboard mode and takes it itself
             {
                 _restorePending = false;
+                _enterPending = false;
                 return;
             }
 
@@ -356,12 +384,17 @@ namespace AvasRoutingTool.Views
                 done = tile != null && tile.Focus();
             }
             _restorePending = !done;
+            if (done) _enterPending = false;
 
             // The new blocks may not be laid out yet: try again a few times (not while a Take runs: IsBusy ends it).
             if (!done && !c.IsBusy && _restoreTries++ < 3)
             {
                 _restoreQueued = true;
                 Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(RestoreFocus));
+            }
+            else if (!done && !c.IsBusy)
+            {
+                _enterPending = false; // gave up: a later restore is only for a keyboard that fell
             }
         }
 
@@ -600,6 +633,7 @@ namespace AvasRoutingTool.Views
                 _watched.Blocks.CollectionChanged += OnBlocksChanged;
             }
             SchedulePicker();
+            EnterIfOpenedByKeyboard(); // shown already, now for another display's Composer
         }
 
         private void OnComposerChanged(object? sender, PropertyChangedEventArgs e)

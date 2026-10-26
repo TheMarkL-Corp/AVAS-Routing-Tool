@@ -877,7 +877,8 @@
                                         <Setter TargetName="PlaceText" Property="FontSize" Value="14" />
                                         <Setter TargetName="MovePill" Property="Padding" Value="8,4" />
                                         <Setter TargetName="MoveText" Property="FontSize" Value="14" />
-                                        <Setter TargetName="EmptyHint" Property="FontSize" Value="14" />
+                                        <!-- the hint wrapped over the number chip here (PIP inset at 1008x615): the "+ Place" pill and the tap say it -->
+                                        <Setter TargetName="EmptyHint" Property="Visibility" Value="Collapsed" />
                                         <!-- the name is already in the pill: the centre says only what is missing -->
                                         <Setter TargetName="NoPreviewName" Property="Visibility" Value="Collapsed" />
                                         <Setter TargetName="NoPreviewLabel" Property="Text" Value="NO PREVIEW" />

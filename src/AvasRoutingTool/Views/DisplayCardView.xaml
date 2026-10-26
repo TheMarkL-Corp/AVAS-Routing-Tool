@@ -160,7 +160,7 @@
                     -->
                     <Button x:Name="LayoutButton"
                             Grid.Column="0"
-                            AutomationProperties.Name="Layout"
+                            AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
                             ToolTip="Choose a layout for this display"
                             PreviewKeyDown="LayoutButton_PreviewKeyDown"
                             PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
@@ -268,7 +268,7 @@
                             Width="84"
                             MinHeight="56"
                             Cursor="Hand"
-                            AutomationProperties.Name="Draft, not on screen. Resume"
+                            AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
                             ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
                             Click="DraftChip_Click">
                         <Button.Style>
@@ -849,7 +849,7 @@
                                     Foreground="{StaticResource Brush.Text.OnAction}"
                                     Padding="8,6"
                                     Margin="0,0,5,0"
-                                    AutomationProperties.Name="Full screen, Single View, goes on screen now"
+                                    AutomationProperties.Name="{Binding FullScreenAutomationName, Mode=OneWay}"
                                     Click="FullScreen_Click">
                                 <TextBlock Text="Full screen (Single View)" TextWrapping="Wrap" TextAlignment="Center" />
                             </Button>
@@ -860,7 +860,7 @@
                                     Foreground="{StaticResource Brush.Text.CopyAccent}"
                                     Padding="8,6"
                                     Margin="5,0,0,0"
-                                    AutomationProperties.Name="Into a block, opens the Composer"
+                                    AutomationProperties.Name="{Binding IntoBlockAutomationName, Mode=OneWay}"
                                     Click="IntoBlock_Click">
                                 <TextBlock Text="Into a block…" TextWrapping="Wrap" TextAlignment="Center" />
                             </Button>

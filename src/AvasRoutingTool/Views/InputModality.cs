@@ -33,7 +33,7 @@ namespace AvasRoutingTool.Views
             EventManager.RegisterClassHandler(typeof(UIElement), Keyboard.LostKeyboardFocusEvent, new KeyboardFocusChangedEventHandler(OnLostFocus), true);
         }
 
-        /// <summary>Makes sure the input hooks exist (touching the type is enough; the theme does it when it loads).</summary>
+        /// <summary>Makes sure the input hooks exist (touching the type runs its static constructor); <c>App.OnStartup</c> calls it before the first window is built.</summary>
         public static void Initialize()
         {
         }
