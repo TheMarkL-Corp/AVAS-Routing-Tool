@@ -3075,7 +3075,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Empty(rig.Client.MultiViewCalls);
 
                     // A held arrow key keeps walking.
-                    Assert.True(view.HandleKey(Key.Right, ModifierKeys.None, surfaces[0], isRepeat: false));
+                    Assert.True(view.HandleKey(Key.Right, ModifierKeys.None, surfaces[0], isRepeat: true));
                     Assert.Equal(1, c.FocusedBlockIndex);
                 });
             });
@@ -3113,7 +3113,7 @@ namespace AvasRoutingTool.Tests
                     Assert.True(full.Focus());
                     RaiseKey(full, Key.Enter);
                     Assert.Same(sources[0], vm.ArmedSource);
-                    for (int i = 0; i < 4; i++) RaiseRepeatedKey(full, i % 2 == 0 ? Key.Enter : Key.Space);
+                    for (int i = 0; i < 5; i++) RaiseRepeatedKey(full, i % 2 == 0 ? Key.Enter : Key.Space); // an odd number: a toggle per repeat would end disarmed
                     Assert.Same(sources[0], vm.ArmedSource); // still armed: the repeats did not toggle it
 
                     Assert.True(compact.Focus());
@@ -3121,6 +3121,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Same(sources[1], vm.ArmedSource);
                     RaiseRepeatedKey(compact, Key.Space);
                     RaiseRepeatedKey(compact, Key.Enter);
+                    RaiseRepeatedKey(compact, Key.Space);
                     Assert.Same(sources[1], vm.ArmedSource);
                 });
             });
@@ -3245,6 +3246,166 @@ namespace AvasRoutingTool.Tests
                         Assert.Equal(animations, frame.HasAnimatedProperties);
                         if (!animations) Assert.Equal(1.0, frame.Opacity);
                     });
+                }
+            });
+
+        // ---- Task 11 fix round 2: the guard covers removed elements and window deactivation; Ctrl+Enter is re-announced ----
+
+        [Fact]
+        public void Composer_EnterOnAnUnplacedChip_ArmsTheSource_AndTheKeyboardGoesToABlock_ArrowAndEnterPlace() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Arm(rig.Tx2);
+                c.TapBlock(3);
+                c.Disarm();
+                Pump(() => c.SelectLayoutAsync("side_by_side")); // two blocks: TX2 waits as an unplaced chip
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var chip = (Button)Named(view, "UnplacedChip").Single();
+                    Assert.True(chip.Focus());
+
+                    RaiseKey(chip, Key.Enter); // arms TX2; the chip leaves the tree under the keyboard
+
+                    Assert.Same(rig.Tx2, c.ArmedSource);
+                    Until(() => FocusedName() == "BlockSurface", $"the keyboard did not go to a block (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+
+                    // Arrow, Enter: placed.
+                    var surfaces = Surfaces(view);
+                    var onBlock = surfaces.Single(s => s.IsKeyboardFocused);
+                    int from = ((ComposerBlockViewModel)onBlock.DataContext).Index;
+                    int to = 1 - from;
+                    Assert.True(view.HandleKey(to == 1 ? Key.Right : Key.Left, ModifierKeys.None, onBlock));
+                    Until(() => surfaces[to].IsKeyboardFocused, "the arrow key did not move to the other block");
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[to]));
+                    Assert.Equal(rig.Tx2.MacAddress, c.Draft!.Placements[to].SourceMac);
+                });
+            });
+
+        [Fact]
+        public void Composer_LayoutChange_UnderTheKeyboard_KeepsItInsideTheComposer() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    Assert.True(Surfaces(view)[3].Focus());
+                    Assert.Equal(3, c.FocusedBlockIndex);
+
+                    Pump(() => c.SelectLayoutAsync("pip")); // the blocks are rebuilt under the focus
+
+                    // (The element that had the keyboard is removed from the tree: it is not "inside" any more, whatever it is called.)
+                    Until(() => FocusIsIn(view) && Surfaces(view).Any(s => s.IsKeyboardFocused), $"the keyboard fell out of the Composer (it is on {FocusedName()})");
+                    Assert.Equal(2, Surfaces(view).Count);
+                    var focused = Surfaces(view).Where(s => s.IsKeyboardFocused).ToList();
+                    Assert.True(focused.Count == 1, $"{focused.Count} blocks have the keyboard");
+                    Assert.True(focused[0].IsTabStop, "the keyboard is not on the roving block"); // the roving block follows the keyboard
+                });
+            });
+
+        [Theory]
+        [InlineData("UndoButton")]
+        [InlineData("LayoutTile")]
+        [InlineData("DiscardButton")]
+        [InlineData("ClearAllButton")]
+        [InlineData("DoneButton")]
+        public void Composer_EnterOnTheRailButtons_NeverLeavesTheKeyboardOutsideTheComposer(string name) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                c.Arm(rig.Tx2);
+                c.TapBlock(1);
+                c.Disarm();
+                Pump(c.TakeAsync); // Undo is offered
+                c.Arm(rig.Tx1);
+                c.TapBlock(2); // a staged change: Discard and Clear all are on
+                if (name != "DoneButton") c.Disarm();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var button = (Button)Named(view, name).First(e => e.IsVisible && e.IsEnabled);
+                    Assert.True(button.Focus());
+
+                    RaiseKey(button, Key.Enter);
+                    Idle();
+
+                    Until(() => FocusIsIn(view) && Keyboard.FocusedElement is not Window, $"Enter on {name} left the keyboard outside the Composer (it is on {FocusedName()})");
+                });
+            });
+
+        [Fact]
+        public void Composer_WindowDeactivated_TheGuardDoesNothing() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var done = (Button)Named(view, "DoneButton").Single();
+                    Assert.True(done.Focus());
+
+                    // The window is not the active one (Alt-Tab): a Focus() of ours would activate it again and steal the user's place.
+                    view.WindowActiveProbe = () => false;
+                    c.Disarm(); // Done placing collapses under the focus
+                    Idle();
+                    Idle();
+                    Assert.False(FocusIsIn(view), $"the guard moved the keyboard while the window was inactive (it is on {FocusedName()})");
+                    Assert.False(Surfaces(view).Any(s => s.IsKeyboardFocused));
+
+                    // The restore that was waiting is dropped, not kept for when the window comes back.
+                    view.WindowActiveProbe = null;
+                    Idle();
+                    Idle();
+                    Assert.False(FocusIsIn(view), "a restore that was pending when the window deactivated ran afterwards");
+                });
+            });
+
+        [Fact]
+        public void Composer_CtrlEnter_OnADisabledTake_IsAnnouncedEveryTime() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                var announced = new List<string>();
+                Motion.AnnounceObserver = element => announced.Add(((FrameworkElement)element).Name);
+                try
+                {
+                    Showing(view, () =>
+                    {
+                        var take = (Button)Named(view, "TakeButton").Single();
+                        Assert.True(view.HandleKey(Key.Enter, ModifierKeys.Control, take));
+                        int afterFirst = announced.Count(n => n == "BannerText");
+                        Assert.True(afterFirst >= 1);
+
+                        // The banner text is the same record again, so nothing in the view model changes: the view announces it itself.
+                        Assert.True(view.HandleKey(Key.Enter, ModifierKeys.Control, take));
+                        Assert.Equal(afterFirst + 1, announced.Count(n => n == "BannerText"));
+                        Assert.True(view.HandleKey(Key.Enter, ModifierKeys.Control, take));
+                        Assert.Equal(afterFirst + 2, announced.Count(n => n == "BannerText"));
+                    });
+                }
+                finally
+                {
+                    Motion.AnnounceObserver = null;
                 }
             });
     }

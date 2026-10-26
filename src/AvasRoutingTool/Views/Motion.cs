@@ -27,12 +27,16 @@ namespace AvasRoutingTool.Views
                 new DoubleAnimation(from, 1, new Duration(duration)) { FillBehavior = FillBehavior.Stop });
         }
 
+        /// <summary>Sees every announcement asked for, listener or not (tests).</summary>
+        internal static Action<UIElement>? AnnounceObserver { get; set; }
+
         /// <summary>
         /// Tells assistive technology that a live region's text changed (WPF does not raise this by itself when a
         /// bound text changes). Does nothing while no screen reader listens.
         /// </summary>
         public static void Announce(UIElement element)
         {
+            AnnounceObserver?.Invoke(element);
             if (!AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged)) return;
 
             // After the binding has put the new text in: the screen reader reads the region when it is told.

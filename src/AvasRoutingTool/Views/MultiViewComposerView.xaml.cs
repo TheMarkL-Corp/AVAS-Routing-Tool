@@ -70,6 +70,16 @@ namespace AvasRoutingTool.Views
         /// <summary>The name of the control that had the keyboard when it fell.</summary>
         private string? _restoreFrom;
 
+        /// <summary>A restore is queued on the dispatcher (one at a time) and how often it has been retried.</summary>
+        private bool _restoreQueued;
+        private int _restoreTries;
+
+        /// <summary>Tests: stands in for "the window is the active one" (the real answer cannot be changed from a test).</summary>
+        internal Func<bool>? WindowActiveProbe { get; set; }
+
+        /// <summary>The window is the foreground window. While it is not (Alt-Tab), the keyboard is not ours to move: a Focus() would activate it again.</summary>
+        private bool WindowActive => WindowActiveProbe?.Invoke() ?? Window.GetWindow(this)?.IsActive == true;
+
         public MultiViewComposerView()
         {
             InitializeComponent();
@@ -81,6 +91,9 @@ namespace AvasRoutingTool.Views
             PreviewKeyDown += OnPreviewKeyDown;
             LostKeyboardFocus += View_LostKeyboardFocus;
             PickerFrame.LostKeyboardFocus += View_LostKeyboardFocus;
+            // A click made with the keyboard may remove or disable the control that had it (a chip, Done placing, Clear all):
+            // such a control raises no LostKeyboardFocus, so the click itself asks for the check.
+            AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler(OnAnyClick), true);
         }
 
         public IEnumerable<SourceCardViewModel>? Sources
@@ -188,7 +201,11 @@ namespace AvasRoutingTool.Views
             {
                 if (isRepeat) return true; // one press, one Take
                 if (c.CanTake) _ = Run(c.TakeAsync, "Take (Ctrl+Enter)");
-                else c.ExplainTake(); // never silent: the banner says why Take is off
+                else
+                {
+                    c.ExplainTake(); // never silent: the banner says why Take is off
+                    Motion.Announce(BannerText); // and says it again on every press (the text itself may not have changed)
+                }
                 return true;
             }
             if (key == Key.Escape && modifiers == ModifierKeys.None)
@@ -270,10 +287,40 @@ namespace AvasRoutingTool.Views
         private void View_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
             if (!InputModality.IsKeyboard || !IsInside(e.OldFocus as DependencyObject) || IsInside(e.NewFocus as DependencyObject)) return;
-            _restoreFrom = (e.OldFocus as FrameworkElement)?.Name;
+            ScheduleRestore((e.OldFocus as FrameworkElement)?.Name);
+        }
+
+        private void OnAnyClick(object sender, RoutedEventArgs e)
+        {
+            if (InputModality.IsKeyboard) ScheduleRestore((e.OriginalSource as FrameworkElement)?.Name);
+        }
+
+        private void OnBlocksChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            // The blocks were rebuilt (a layout change, a replaced draft): a block that had the keyboard is gone with no event.
+            if (InputModality.IsKeyboard) ScheduleRestore(null);
+        }
+
+        /// <summary>Asks for the keyboard to be checked at the next Input turn. Nothing is scheduled while the window is not the active one.</summary>
+        private void ScheduleRestore(string? from)
+        {
+            if (!WindowActive) return;
+            _restoreFrom = from;
             _restorePending = true;
+            if (_restoreQueued) return;
+            _restoreQueued = true;
+            _restoreTries = 0;
             Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(RestoreFocus));
         }
+
+        /// <summary>
+        /// The focused element is no longer a place for the keyboard: nothing, the window, an element that was removed from
+        /// the tree, or one that is collapsed or disabled (WPF moves the focus off those a moment later, or never).
+        /// </summary>
+        private static bool FocusIsGone(IInputElement? focused) =>
+            focused == null || focused is Window ||
+            (focused is UIElement element && (!element.IsVisible || !element.IsEnabled)) ||
+            (focused is DependencyObject d && PresentationSource.FromDependencyObject(d) == null);
 
         /// <summary>
         /// Puts the keyboard on the block that is the canvas' Tab stop; after a Take, on Undo when it is offered; failing
@@ -281,13 +328,13 @@ namespace AvasRoutingTool.Views
         /// </summary>
         private void RestoreFocus()
         {
+            _restoreQueued = false;
             if (!_restorePending || Composer is not { } c) return;
 
-            var now = Keyboard.FocusedElement;
-            bool gone = now == null || now is Window;
-            if (!gone || !InputModality.IsKeyboard || !IsLoaded || !IsVisible || IsInside(now as DependencyObject))
+            // Not for a pointer user, not while the window is in the background, not for a Composer that is not shown.
+            if (!InputModality.IsKeyboard || !WindowActive || !IsLoaded || !IsVisible || !FocusIsGone(Keyboard.FocusedElement))
             {
-                _restorePending = false; // it is somewhere inside already, or somewhere else on purpose
+                _restorePending = false; // it is somewhere valid already, or somewhere else on purpose
                 return;
             }
             if (c.PickerBlockIndex != null) // the picker opens in keyboard mode and takes it itself
@@ -309,6 +356,20 @@ namespace AvasRoutingTool.Views
                 done = tile != null && tile.Focus();
             }
             _restorePending = !done;
+
+            // The new blocks may not be laid out yet: try again a few times (not while a Take runs: IsBusy ends it).
+            if (!done && !c.IsBusy && _restoreTries++ < 3)
+            {
+                _restoreQueued = true;
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(RestoreFocus));
+            }
+        }
+
+        /// <summary>The keyboard goes to the block that is the canvas' Tab stop.</summary>
+        private void FocusRovingBlock()
+        {
+            var stop = Composer?.Blocks.FirstOrDefault(b => b.IsTabStop);
+            if (stop != null) FocusBlockSurface(stop.Index);
         }
 
         private void OnLiveChanged(MultiViewDraft? live)
@@ -352,7 +413,11 @@ namespace AvasRoutingTool.Views
 
         private void Unplaced_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is FrameworkElement { DataContext: DraftPlacement unplaced }) Composer?.ArmUnplaced(unplaced);
+            if (sender is not FrameworkElement { DataContext: DraftPlacement unplaced } || Composer is not { } c) return;
+            c.ArmUnplaced(unplaced);
+
+            // Tab to a source, Enter arms, an arrow key and Enter place it: the chip may be gone, the keyboard goes to the blocks.
+            if (InputModality.IsKeyboard) Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusRovingBlock));
         }
 
         private void Disarm_Click(object sender, RoutedEventArgs e) => Composer?.Disarm();
@@ -525,12 +590,14 @@ namespace AvasRoutingTool.Views
             {
                 _watched.PropertyChanged -= OnComposerChanged;
                 _watched.LiveChanged -= OnLiveChanged;
+                _watched.Blocks.CollectionChanged -= OnBlocksChanged;
             }
             _watched = composer;
             if (_watched != null)
             {
                 _watched.PropertyChanged += OnComposerChanged;
                 _watched.LiveChanged += OnLiveChanged;
+                _watched.Blocks.CollectionChanged += OnBlocksChanged;
             }
             SchedulePicker();
         }
