@@ -14,7 +14,9 @@
             <!--
                 Sources: half the screen in the overview; a compact palette strip while the Composer is open (Ruling R21).
                 No minimum heights: on the real window sizes (1264x755, 1008x615 content) two 330 px minimums pushed
-                the layout bar off the window; each row scrolls its cards instead.
+                the layout bar off the window; each row scrolls its cards instead. While a copy is armed (or dragged) or
+                a drop choice is open, the sources shrink to the compact palette and the layout bar steps aside, so the
+                targets' words fit in the displays' view (Ruling R22).
             -->
             <RowDefinition>
                 <RowDefinition.Style>
@@ -22,6 +24,10 @@
                         <Setter Property="Height" Value="*" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                <Setter Property="Height" Value="Auto" />
+                            </DataTrigger>
+                            <!-- A copy armed / dragged or a drop choice open: the displays get the room (Ruling R22) -->
+                            <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
                                 <Setter Property="Height" Value="Auto" />
                             </DataTrigger>
                         </Style.Triggers>
@@ -40,6 +46,9 @@
                     <Setter Property="Margin" Value="16,12,16,6" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                            <Setter Property="Margin" Value="16,8,16,2" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
                             <Setter Property="Margin" Value="16,8,16,2" />
                         </DataTrigger>
                     </Style.Triggers>
@@ -117,6 +126,9 @@
                                 <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </ScrollViewer.Style>
@@ -142,6 +154,9 @@
                         <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -190,7 +205,7 @@
                 -->
                 <Border Grid.Row="0"
                         x:Name="ArmBanner"
-                        Background="#082F3A"
+                        Background="{StaticResource Brush.Surface.CopyTarget}"
                         BorderBrush="{StaticResource Brush.Border.DropTarget}"
                         BorderThickness="2"
                         CornerRadius="10"
@@ -218,7 +233,7 @@
                             <TextBlock Text="{Binding ArmBannerText, Mode=OneWay}"
                                        FontSize="16"
                                        FontWeight="SemiBold"
-                                       Foreground="#CFFAFE"
+                                       Foreground="{StaticResource Brush.Text.OnCopyTarget}"
                                        TextWrapping="Wrap">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -233,7 +248,7 @@
                             <TextBlock Text="{Binding CopyArmBanner, Mode=OneWay}"
                                        FontSize="16"
                                        FontWeight="SemiBold"
-                                       Foreground="#CFFAFE"
+                                       Foreground="{StaticResource Brush.Text.OnCopyTarget}"
                                        TextWrapping="Wrap">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -251,7 +266,7 @@
                                 Style="{StaticResource Style.Button.Composer}"
                                 Background="{StaticResource Brush.Border.DropTarget}"
                                 BorderBrush="{StaticResource Brush.Border.DropTarget}"
-                                Foreground="#04232B"
+                                Foreground="{StaticResource Brush.Text.OnDropTarget}"
                                 Content="Stop"
                                 Margin="12,0,0,0"
                                 Click="StopPlacing_Click" />
@@ -344,6 +359,10 @@
                 <Style TargetType="views:LayoutsBarView">
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <!-- Nothing on the bar applies while copying or choosing; its height goes to the displays -->
+                        <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                     </Style.Triggers>

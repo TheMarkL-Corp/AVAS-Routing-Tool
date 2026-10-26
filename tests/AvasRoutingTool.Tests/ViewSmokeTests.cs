@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -1176,12 +1177,16 @@ namespace AvasRoutingTool.Tests
             Assert.True(condition(), what);
         }
 
-        /// <summary>A press and release on the card (the release tunnels, then bubbles, as real input).</summary>
+        /// <summary>
+        /// A press and release on the card, the release on <paramref name="releasedOn"/>: raised as the routed mouse
+        /// events (tunnel, then bubble), from which WPF derives the direct left-button events on each element of the
+        /// route, as with real input.
+        /// </summary>
         private static void TapCard(DisplayCardView card, UIElement? releasedOn = null)
         {
-            Tap(card, UIElement.PreviewMouseLeftButtonDownEvent);
-            Tap(releasedOn ?? card, UIElement.PreviewMouseLeftButtonUpEvent);
-            Tap(releasedOn ?? card, UIElement.MouseLeftButtonUpEvent);
+            Tap(card, Mouse.PreviewMouseDownEvent);
+            Tap(releasedOn ?? card, Mouse.PreviewMouseUpEvent);
+            Tap(releasedOn ?? card, Mouse.MouseUpEvent);
         }
 
         /// <summary>The text is shown whole: its natural size fits the space it got (nothing clipped, no ellipsis).</summary>
@@ -1354,8 +1359,9 @@ namespace AvasRoutingTool.Tests
                 var target = rig.View(rig.Pax, out var h2);
                 Showing(new StackPanel { Children = { h1, h2 } }, () =>
                 {
-                    var ghost = (Popup)Named(source, "CopyGhost").Single();
-                    bool ghostShown = false, armedDuringDrag = false;
+                    bool ghostShown = false, ghostHitTestable = true, ghostCoversTarget = false, targetUnderPointer = false, armedDuringDrag = false;
+                    Point ghostAt = default;
+                    UIElement? ghostRoot = null;
                     var overTarget = DragDropEffects.None;
                     var allowedEffects = DragDropEffects.None;
                     source.IsPointerDown = () => true;
@@ -1363,7 +1369,29 @@ namespace AvasRoutingTool.Tests
                     {
                         allowedEffects = allowed;
                         armedDuringDrag = ReferenceEquals(rig.Vm.ArmedDisplay, rig.Rx1) && rig.Pax.IsCopyTargetAllowed;
-                        ghostShown = ghost.IsOpen;
+
+                        // The ghost is an adorner in the window's own layer (no window of its own), and it is not hit-testable.
+                        var ghost = source.Ghost!;
+                        ghostRoot = source.GhostRoot!;
+                        var layer = AdornerLayer.GetAdornerLayer(ghostRoot)!;
+                        ghostShown = layer.GetAdorners(ghostRoot)?.Contains(ghost) == true;
+                        ghostHitTestable = ghost.IsHitTestVisible;
+
+                        // Put the pointer on the target with the ghost lying right over that point: the target, never
+                        // the ghost, is what the pointer is over (a ghost window here would take the drop).
+                        var window = Window.GetWindow(source)!;
+                        var pointer = target.TranslatePoint(new Point(target.ActualWidth / 2, target.ActualHeight / 2), ghostRoot);
+                        source.PlaceGhostAt(new Point(pointer.X - 40, pointer.Y - 40));
+                        ghostRoot.UpdateLayout();
+                        layer.UpdateLayout();
+                        ghostAt = ghost.Position;
+                        ghostCoversTarget = ghost.Bounds.Contains(pointer);
+                        var hit = window.InputHitTest(ghostRoot.TranslatePoint(pointer, window)) as DependencyObject;
+                        for (var d = hit; d != null; d = VisualTreeHelper.GetParent(d))
+                        {
+                            if (ReferenceEquals(d, target)) targetUnderPointer = true;
+                        }
+
                         overTarget = target.DragOverCard(data);
                         Pump(() => target.DropOnCardAsync(data));
                         return DragDropEffects.Copy;
@@ -1374,11 +1402,16 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(DragDropEffects.Copy, allowedEffects);
                     Assert.True(armedDuringDrag, "the targets were not shown while dragging");
                     Assert.True(ghostShown, "no ghost of the source's picture followed the drag");
+                    Assert.False(ghostHitTestable, "the ghost can be hit: it could become the drop target");
+                    Assert.True(ghostCoversTarget, $"the ghost at {ghostAt} does not cover the probe point");
+                    Assert.True(targetUnderPointer, "the ghost, not the target card, is under the pointer");
                     Assert.Equal(DragDropEffects.Copy, overTarget);
                     Assert.True(rig.Pax.IsMultiView, "the drop did not copy");
                     Assert.True(rig.Pax.CanUndoScreen);
                     Assert.Null(rig.Vm.ArmedDisplay); // disarmed after the drag, whatever happened
-                    Assert.False(ghost.IsOpen);
+                    Assert.Null(source.Ghost);
+                    var after = AdornerLayer.GetAdornerLayer(ghostRoot!)!.GetAdorners(ghostRoot!);
+                    Assert.True(after == null || !after.OfType<CopyGhostAdorner>().Any(), "the ghost was left in the adorner layer");
                     Assert.False(rig.Pax.IsCopyTargetAllowed);
                 });
             });
@@ -1656,9 +1689,9 @@ namespace AvasRoutingTool.Tests
                     Assert.True(Named(rx3, "CopyTargetLock").Single().IsVisible);
                     AssertTextFits((TextBlock)Named(rx3, "CopyFromBlockedLabel").Single());
 
-                    // The overview fits the window: the layout bar is whole, and the first row's Layout and Copy layout
+                    // Copying / choosing: the layout bar steps aside (Ruling R22); the first row's Layout and Copy layout
                     // buttons are in view without scrolling (they sit at the top of the card).
-                    AssertInside(FindAll<LayoutsBarView>(view).Single(), view);
+                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
                     // The displays hold drag sources (Copy layout, drops): touch never pans them (the 16 px bar does).
                     Assert.Equal(PanningMode.None, scroll.PanningMode);
@@ -1671,9 +1704,209 @@ namespace AvasRoutingTool.Tests
                         }
                     }
 
-                    // An unrouted card's picture keeps 16:9: the card panel's chrome matches the card.
-                    var rx3Preview = (FrameworkElement)Named(rx3, "PreviewSurface").Single();
-                    Assert.InRange(rx3Preview.ActualWidth / rx3Preview.ActualHeight, 16.0 / 9 * 0.96, 16.0 / 9 * 1.04);
+                    // Every card's picture keeps 16:9 - unrouted (RX3), MultiView (PAX), MultiView with a draft chip (RX1):
+                    // the card panel's chrome matches the card in every state.
+                    foreach (var card in cards)
+                    {
+                        var preview = (FrameworkElement)Named(card, "PreviewSurface").Single();
+                        double aspect = preview.ActualWidth / preview.ActualHeight;
+                        Assert.True(aspect >= 16.0 / 9 * 0.96 && aspect <= 16.0 / 9 * 1.04,
+                            $"{((DisplayCardViewModel)card.DataContext).DeviceName}: picture {preview.ActualWidth:F1}x{preview.ActualHeight:F1} ({aspect:F3})");
+                    }
+
+                    // Back to the plain overview: the layout bar is whole again.
+                    rig.Rx1.CloseDropChoice();
+                    rig.Vm.DisarmDisplay();
+                    Relayout(view);
+                    Assert.False(rig.Vm.IsCopyOrChoiceActive);
+                    AssertInside(FindAll<LayoutsBarView>(view).Single(), view);
+                });
+            });
+
+        // ---- Task 10b fix round 1 ----
+
+
+        private static void AssertReadable(FrameworkElement el, ScrollViewer scroll, string what)
+        {
+            Assert.True(el.IsVisible, $"{what} is not shown");
+            var r = BoundsIn(el, scroll);
+            Assert.True(r.Top >= -0.5 && r.Left >= -0.5 && r.Bottom <= scroll.ViewportHeight + 0.5 && r.Right <= scroll.ViewportWidth + 0.5,
+                $"{what} at {r}; the displays show {scroll.ViewportWidth:F0}x{scroll.ViewportHeight:F0}");
+        }
+
+        [Theory]
+        [InlineData(1264, 755)]
+        [InlineData(1008, 615)]
+        public void DisplayCard_CopyAndChoiceStates_ReadInsideTheDisplaysView_AtRealWindowSizes(int width, int height) =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                Pump(() => rig.Vm.CopyDisplayAsync(rig.Rx1, rig.Pax)); // PAX shows the copy and its Undo toast
+                rig.Vm.DisarmDisplay();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
+                    DisplayCardView CardOf(DisplayCardViewModel d) => FindAll<DisplayCardView>(view).Single(c => c.DataContext == d);
+                    FrameworkElement Part(DisplayCardView card, string name) => (FrameworkElement)Named(card, name).Single();
+                    Assert.True(FindAll<LayoutsBarView>(view).Single().IsVisible);
+
+                    // Copy armed (with the banner): the sources shrink to the compact palette, the layout bar steps aside.
+                    Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                    Relayout(view);
+                    AssertVisibleText(view, "Copying RX1_c059e_SFPA - ");
+                    Assert.True(Named(view, "CompactSourcePalette").Single().IsVisible);
+                    Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
+                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
+
+                    // The first target was scrolled to by itself: its words and its toast read without touching anything.
+                    var pax = CardOf(rig.Pax);
+                    AssertReadable(Part(pax, "CopyTargetAllowedContent"), scroll, "PAX: Release to copy here + the summary");
+                    AssertReadable(Part(pax, "UndoToast"), scroll, "PAX: the Undo toast");
+
+                    // Every target reads when it is the one scrolled to.
+                    var rx3 = CardOf(rig.Rx3);
+                    rx3.RevealState();
+                    Relayout(view);
+                    AssertReadable(Part(rx3, "CopyTargetBlockedContent"), scroll, "RX3: the lock and the blocked reason");
+                    pax.RevealState();
+                    Relayout(view);
+                    AssertReadable(Part(pax, "CopyTargetAllowedContent"), scroll, "PAX: Release to copy here + the summary");
+                    AssertReadable(Part(pax, "UndoToast"), scroll, "PAX: the Undo toast");
+
+                    // Copy stopped; a source armed and tapped onto the MultiView card: the drop choice reads by itself.
+                    rig.Vm.DisarmDisplay();
+                    rig.Vm.ArmSource(rig.Tx2);
+                    Relayout(view);
+                    Pump(() => rig.Vm.TapDisplayAsync(rig.Rx1));
+                    Relayout(view);
+                    Assert.True(rig.Rx1.IsDropChoiceOpen);
+                    AssertVisibleText(view, "Placing TX2_DUAL LINK_SFPA - ");
+                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                    var rx1 = CardOf(rig.Rx1);
+                    AssertReadable(Part(rx1, "DropChoiceTitle"), scroll, "RX1: the drop choice question");
+                    AssertReadable(Part(rx1, "FullScreenButton"), scroll, "RX1: Full screen");
+                    AssertReadable(Part(rx1, "IntoBlockButton"), scroll, "RX1: Into a block");
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_LayoutMenu_OnAnUnroutedDisplay_MarksNoTile_ARoutedOneMarksSingleView() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx3, out var host);
+                Showing(host, () =>
+                {
+                    Click((Button)Named(view, "LayoutButton").Single());
+                    var menu = (FrameworkElement)((Popup)Named(view, "LayoutMenuPopup").Single()).Child;
+                    Relayout(menu);
+                    var accent = ((SolidColorBrush)Application.Current.FindResource("Brush.Accent.Primary")).Color;
+                    Color Edge(Button tile) => ((SolidColorBrush)((Border)tile.Template.FindName("bd", tile)).BorderBrush).Color;
+                    var tiles = Named(menu, "LayoutMenuTile").Cast<Button>().ToList();
+
+                    Assert.All(tiles, t => Assert.NotEqual(accent, Edge(t)));
+                    Assert.All(tiles, t => Assert.Empty(VisibleTexts(t, "✓")));
+
+                    // Routed in Single View: the Single View tile is marked (highlight and words).
+                    Pump(() => rig.Vm.RouteVideoAsync(rig.Tx2.Device, rig.Rx3.Device));
+                    Relayout(menu);
+                    var single = tiles.Single(t => ((LayoutItemViewModel)t.DataContext).Id == "single");
+                    Assert.Equal(accent, Edge(single));
+                    AssertVisibleText(single, "✓ On screen");
+                    Assert.All(tiles.Where(t => t != single), t => Assert.NotEqual(accent, Edge(t)));
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_LayoutButton_APressThatClosesTheMenu_DoesNotReopenIt_HoweverSlowTheRelease() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host);
+                Showing(host, () =>
+                {
+                    var button = (Button)Named(view, "LayoutButton").Single();
+                    var popup = (Popup)Named(view, "LayoutMenuPopup").Single();
+                    void Press(int timestamp) =>
+                        button.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, timestamp, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent, Source = button });
+                    void ReleaseAndClick()
+                    {
+                        button.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent, Source = button });
+                        Click(button);
+                    }
+
+                    // 1. The press reaches the button while the menu is open (the press closes it); a gloved release 0.6 s later.
+                    Click(button);
+                    Assert.True(popup.IsOpen);
+                    Press(Environment.TickCount);
+                    popup.IsOpen = false;
+                    Wait(TimeSpan.FromMilliseconds(600));
+                    ReleaseAndClick();
+                    Assert.False(rig.Rx1.IsLayoutMenuOpen, "the slow press that closed the menu opened it again");
+                    Idle();
+
+                    // 2. The popup takes the press first and closes; the button sees that press after the close.
+                    Click(button);
+                    Assert.True(popup.IsOpen);
+                    int down = Environment.TickCount;
+                    Wait(TimeSpan.FromMilliseconds(20));
+                    popup.IsOpen = false;
+                    Assert.True(unchecked(view.MenuClosedTick - down) >= 0);
+                    Press(down);
+                    Wait(TimeSpan.FromMilliseconds(600));
+                    ReleaseAndClick();
+                    Assert.False(rig.Rx1.IsLayoutMenuOpen, "the press that closed the menu (popup first) opened it again");
+                    Idle();
+
+                    // 3. A new press after the menu closed opens it.
+                    Wait(TimeSpan.FromMilliseconds(20));
+                    Press(Environment.TickCount);
+                    ReleaseAndClick();
+                    Assert.True(rig.Rx1.IsLayoutMenuOpen);
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_TapOnTheMultiViewPicture_OpensTheComposer_AndEnterOnItToo() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                var pax = rig.View(rig.Pax, out var h2);
+                Showing(new StackPanel { Children = { h1, h2 } }, () =>
+                {
+                    var picture = (UIElement)Named(rx1, "PreviewSurface").Single();
+
+                    // An unrouted card's picture, nothing armed: nothing happens.
+                    TapCard(pax, releasedOn: (UIElement)Named(pax, "PreviewSurface").Single());
+                    Idle();
+                    Assert.Null(rig.Vm.ActiveComposer);
+
+                    // Beside the picture (the name) is a plain card tap: nothing armed, nothing happens.
+                    TapCard(rx1, releasedOn: (UIElement)Named(rx1, "DeviceNameText").Single());
+                    Idle();
+                    Assert.Null(rig.Vm.ActiveComposer);
+
+                    // The MultiView picture: the Composer opens on what is on screen.
+                    TapCard(rx1, releasedOn: picture);
+                    Until(() => rig.Vm.ActiveComposer != null, "a tap on the MultiView picture did not open the Composer");
+                    Assert.Equal("matrix2x2", rig.Vm.ActiveComposer!.Draft!.Plan.Id);
+                    rig.Vm.CloseComposer();
+
+                    // Enter on the focused picture does the same.
+                    Assert.True(picture.Focusable);
+                    picture.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(picture)!, 0, Key.Enter) { RoutedEvent = UIElement.KeyDownEvent });
+                    Until(() => rig.Vm.ActiveComposer != null, "Enter on the picture did not open the Composer");
+                    rig.Vm.CloseComposer();
+
+                    // While a copy is armed the picture tap is a copy-target tap, never the Composer.
+                    Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                    TapCard(rx1, releasedOn: picture);
+                    Idle();
+                    Assert.Null(rig.Vm.ActiveComposer);
                 });
             });
     }

@@ -1,11 +1,15 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
+using System.Windows.Threading;
 using AvasRoutingTool.Logging;
 using AvasRoutingTool.Sdvoe;
 using AvasRoutingTool.ViewModels;
@@ -15,18 +19,30 @@ namespace AvasRoutingTool.Views
     /// <summary>
     /// A display card of the overview (spec 5.1, 15). DataContext = <see cref="DisplayCardViewModel"/>. Every handler
     /// forwards one tap, drop or drag to one <see cref="MainViewModel"/> / card call; the code-behind otherwise only
-    /// places the Layout menu, runs the copy drag (ghost, cursor, tooltip) and tells a tap from a drag.
+    /// places the Layout menu, runs the copy drag (ghost, cursor, tooltip), tells a tap from a drag and scrolls a
+    /// state that needs reading (drop choice, copy target, Undo toast) into view.
     /// </summary>
     public partial class DisplayCardView : UserControl
     {
-        /// <summary>A Layout button tap that also closed the menu (StaysOpen=False) must not open it again.</summary>
-        private const long MenuReopenGuardMs = 300;
-
         private readonly TapGesture _cardTap = new();
         private readonly TapGesture _copyGesture = new();
-        private long _menuClosedAt = long.MinValue / 2;
         private bool _tapPending;
         private ToolTip? _copyTip;
+        private CopyGhostAdorner? _ghost;
+        private AdornerLayer? _ghostLayer;
+        private UIElement? _ghostRoot;
+        private DisplayCardViewModel? _watched;
+
+        /// <summary>When the Layout menu last closed (Environment.TickCount, the clock of input timestamps).</summary>
+        private int _menuClosedTick;
+        private bool _menuEverClosed;
+
+        /// <summary>The press on the Layout button is the one that closed (or closes) the menu: its Click must not reopen it.</summary>
+        private bool _pressClosesMenu;
+
+        /// <summary>One reveal per dispatcher turn: when a copy is armed every card turns into a target at once; the first (in display order) is scrolled to.</summary>
+        [ThreadStatic]
+        private static bool s_revealQueued;
 
         public DisplayCardView()
         {
@@ -38,8 +54,11 @@ namespace AvasRoutingTool.Views
                 new CustomPopupPlacement(new Point(target.Width - popup.Width, target.Height + 6), PopupPrimaryAxis.Horizontal),
                 new CustomPopupPlacement(new Point(target.Width - popup.Width, -popup.Height - 6), PopupPrimaryAxis.Horizontal),
             };
+            DataContextChanged += (_, _) => Watch(IsLoaded ? DataContext as DisplayCardViewModel : null);
+            Loaded += (_, _) => Watch(DataContext as DisplayCardViewModel);
             Unloaded += (_, _) =>
             {
+                Watch(null);
                 HideCopyTip();
                 HideGhost();
             };
@@ -68,9 +87,69 @@ namespace AvasRoutingTool.Views
             }
         }
 
-        // ---- tap on the card: MainViewModel.TapDisplayAsync (route an armed source, copy an armed display) ----
+        // ---- a state that must be read is scrolled into view (spec 15: the target says it in words) ----
 
-        private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => _cardTap.Press(e.GetPosition(this));
+        private void Watch(DisplayCardViewModel? card)
+        {
+            if (ReferenceEquals(card, _watched)) return;
+            if (_watched != null) _watched.PropertyChanged -= OnCardChanged;
+            _watched = card;
+            if (_watched != null) _watched.PropertyChanged += OnCardChanged;
+        }
+
+        private void OnCardChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not DisplayCardViewModel vm) return;
+
+            // The menu closed (StaysOpen=False pushes it through the TwoWay binding at once; Popup.Closed comes later).
+            if (e.PropertyName == nameof(DisplayCardViewModel.IsLayoutMenuOpen) && !vm.IsLayoutMenuOpen)
+            {
+                RecordMenuClosed();
+                return;
+            }
+
+            bool turnedOn = e.PropertyName switch
+            {
+                nameof(DisplayCardViewModel.IsDropChoiceOpen) => vm.IsDropChoiceOpen,
+                nameof(DisplayCardViewModel.IsCopyTargetAllowed) => vm.IsCopyTargetAllowed,
+                nameof(DisplayCardViewModel.IsCopyTargetBlocked) => vm.IsCopyTargetBlocked,
+                nameof(DisplayCardViewModel.CanUndoScreen) => vm.CanUndoScreen,
+                _ => false,
+            };
+            if (!turnedOn || s_revealQueued) return;
+            s_revealQueued = true;
+            // After layout (the overview gives the displays more room as the state turns on).
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+            {
+                s_revealQueued = false;
+                RevealState();
+            }));
+        }
+
+        /// <summary>
+        /// Scrolls the card's text-bearing state into the displays' view: the drop choice, the copy target's words,
+        /// the Undo toast (together when shown together).
+        /// </summary>
+        internal void RevealState()
+        {
+            if (!IsLoaded) return;
+            Rect? area = null;
+            foreach (FrameworkElement part in new FrameworkElement[] { DropChoiceContent, CopyTargetAllowedContent, CopyTargetBlockedContent, UndoToast })
+            {
+                if (!part.IsVisible) continue;
+                var r = part.TransformToAncestor(this).TransformBounds(new Rect(part.RenderSize));
+                area = area is { } a ? Rect.Union(a, r) : r;
+            }
+            if (area is { } show) BringIntoView(show);
+        }
+
+        // ---- tap on the card: MainViewModel.TapDisplayAsync / TapPictureAsync ----
+
+        private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _tapPending = false;
+            _cardTap.Press(e.GetPosition(this));
+        }
 
         /// <summary>Movement past the 8 px threshold makes the press a drag (e.g. a scroll), never a tap.</summary>
         private void Card_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -80,22 +159,49 @@ namespace AvasRoutingTool.Views
 
         /// <summary>
         /// Every release over the card ends its press here (it tunnels through the card even when a button handles the
-        /// release), so a stale press can never turn a later release into a tap.
+        /// release), so a stale press can never turn a later release into a tap. A release on one of the card's buttons
+        /// is the button's (it handles the bubbling release, so this is where it is decided).
         /// </summary>
-        private void Card_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) => _tapPending = _cardTap.Release();
+        private void Card_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+            _tapPending = _cardTap.Release() && !IsOnAControl(e.OriginalSource as DependencyObject);
 
+        /// <summary>A tap on the picture may open the Composer (MultiView, nothing armed); anywhere else it is a card tap.</summary>
         private async void Card_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             bool tap = _tapPending;
             _tapPending = false;
-            if (!tap || IsOnAControl(e.OriginalSource as DependencyObject)) return;
-            if (Card is { } vm && Main is { } main) await Run(() => main.TapDisplayAsync(vm), "Tap");
+            var on = e.OriginalSource as DependencyObject;
+            if (!tap || IsOnAControl(on) || Card is not { } vm || Main is not { } main) return;
+            if (IsInside(on, PreviewSurface))
+                await Run(() => main.TapPictureAsync(vm), "Tap on the picture");
+            else
+                await Run(() => main.TapDisplayAsync(vm), "Tap");
+        }
+
+        /// <summary>Enter on the focused picture: as a tap on it (keyboard path; Task 11 adds the rest).</summary>
+        private async void PreviewSurface_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter || Card is not { } vm || Main is not { } main) return;
+            e.Handled = true;
+            await Run(() => main.TapPictureAsync(vm), "Enter on the picture");
+        }
+
+        private static DependencyObject? ParentOf(DependencyObject d) =>
+            d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+
+        private static bool IsInside(DependencyObject? d, DependencyObject container)
+        {
+            for (; d != null; d = ParentOf(d))
+            {
+                if (ReferenceEquals(d, container)) return true;
+            }
+            return false;
         }
 
         /// <summary>A tap on one of the card's buttons (Layout, Copy layout, Turn Off, a choice, Undo) is the button's.</summary>
         private bool IsOnAControl(DependencyObject? d)
         {
-            for (; d != null; d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            for (; d != null; d = ParentOf(d))
             {
                 if (ReferenceEquals(d, this)) return false;
                 if (d is ButtonBase or ScrollBar or Thumb) return true;
@@ -105,14 +211,44 @@ namespace AvasRoutingTool.Views
 
         // ---- the header's Layout menu ----
 
+        /// <summary>
+        /// The press decides, not the time to the release (a slow gloved press): it closes the menu when the menu is open
+        /// now, or when the menu closed at or after this press went down (the popup handled the press first).
+        /// </summary>
+        private void LayoutButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _pressClosesMenu = LayoutMenuPopup.IsOpen || (_menuEverClosed && unchecked(e.Timestamp - _menuClosedTick) <= 0);
+        }
+
+        /// <summary>The flag lives for one press: it is dropped after this release and its Click (the button holds the capture, so the release comes here).</summary>
+        private void LayoutButton_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => _pressClosesMenu = false));
+
         private void LayoutButton_Click(object sender, RoutedEventArgs e)
         {
             if (Card is not { } vm) return;
-            if (Environment.TickCount64 - _menuClosedAt < MenuReopenGuardMs) return; // this tap just closed it
+            if (_pressClosesMenu)
+            {
+                _pressClosesMenu = false; // this press closed the menu: it does not open it again
+                return;
+            }
             vm.IsLayoutMenuOpen = true;
         }
 
-        private void LayoutMenu_Closed(object? sender, EventArgs e) => _menuClosedAt = Environment.TickCount64;
+        /// <summary>Fallback only: the close is normally recorded when IsLayoutMenuOpen turns false (Closed is raised later).</summary>
+        private void LayoutMenu_Closed(object? sender, EventArgs e)
+        {
+            if (_watched == null) RecordMenuClosed();
+        }
+
+        private void RecordMenuClosed()
+        {
+            _menuClosedTick = Environment.TickCount;
+            _menuEverClosed = true;
+        }
+
+        /// <summary>When the menu last closed (tests).</summary>
+        internal int MenuClosedTick => _menuClosedTick;
 
         private async void LayoutMenuTile_Click(object sender, RoutedEventArgs e)
         {
@@ -140,13 +276,16 @@ namespace AvasRoutingTool.Views
             if (Card is { } vm && Main is { } main) await Run(() => main.OpenComposerAsync(vm), "Resume draft");
         }
 
-        private void UndoScreen_Click(object sender, RoutedEventArgs e) => Card?.UndoScreenCommand.Execute(null);
+        private async void UndoScreen_Click(object sender, RoutedEventArgs e)
+        {
+            if (Card is { } vm && Main is { } main) await Run(() => main.UndoScreenAsync(vm), "Undo");
+        }
 
         // ---- Copy layout: a tap arms (tap again to stop); a drag from this handle only (8 px) copies on release ----
 
-        private void CopyHandle_Click(object sender, RoutedEventArgs e)
+        private async void CopyHandle_Click(object sender, RoutedEventArgs e)
         {
-            if (Card is { } vm && vm.CopyLayoutCommand.CanExecute(null)) vm.CopyLayoutCommand.Execute(null);
+            if (Card is { CanCopyFrom: true } vm && Main is { } main) await Run(() => main.ToggleCopyArmAsync(vm), "Copy layout");
         }
 
         private void CopyHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => _copyGesture.Press(e.GetPosition(this));
@@ -173,7 +312,7 @@ namespace AvasRoutingTool.Views
                 await main.ArmDisplayAsync(vm);
                 if (!ReferenceEquals(main.ArmedDisplay, vm) || !IsPointerDown()) return; // nothing to copy, or released meanwhile
 
-                ShowGhost();
+                ShowGhost(vm);
                 handle.GiveFeedback += Handle_GiveFeedback;
                 try
                 {
@@ -199,31 +338,79 @@ namespace AvasRoutingTool.Views
         private void Handle_GiveFeedback(object sender, GiveFeedbackEventArgs e)
         {
             e.UseDefaultCursors = true; // Copy on an allowed target, no-drop on a blocked one (the targets' DragOver)
-            MoveGhost();
+            if (_ghostRoot != null && PresentationSource.FromVisual(_ghostRoot) != null && GetCursorPos(out var cursor))
+                PlaceGhostAt(_ghostRoot.PointFromScreen(new Point(cursor.X, cursor.Y)));
         }
 
-        // ---- the drag ghost (a VisualBrush of this card's picture; released when the drag ends) ----
+        // ---- the drag ghost: an adorner in the window's adorner layer, never hit-testable, removed when the drag ends ----
 
-        private void ShowGhost()
+        /// <summary>The ghost while a copy is dragged (tests).</summary>
+        internal CopyGhostAdorner? Ghost => _ghost;
+
+        /// <summary>The element the ghost's coordinates refer to: the window's content (tests).</summary>
+        internal UIElement? GhostRoot => _ghostRoot;
+
+        /// <summary>Places the ghost beside the pointer, given in <see cref="GhostRoot"/> coordinates.</summary>
+        internal void PlaceGhostAt(Point pointer) => _ghost?.MoveTo(pointer);
+
+        private void ShowGhost(DisplayCardViewModel vm)
         {
-            GhostPicture.Fill = new VisualBrush(PreviewSurface) { Stretch = Stretch.Uniform };
-            MoveGhost();
-            CopyGhost.IsOpen = true;
+            HideGhost();
+            // The window's own layer (not the displays ScrollViewer's), so the ghost can follow the pointer anywhere in it.
+            _ghostRoot = Window.GetWindow(this)?.Content as UIElement ?? this;
+            _ghostLayer = AdornerLayer.GetAdornerLayer(_ghostRoot) ?? AdornerLayer.GetAdornerLayer(this);
+            if (_ghostLayer == null) return;
+
+            var picture = new Rectangle
+            {
+                Height = 90,
+                RadiusX = 4,
+                RadiusY = 4,
+                Fill = new VisualBrush(PreviewSurface) { Stretch = Stretch.Uniform },
+            };
+            var title = new TextBlock
+            {
+                Text = $"Copying {vm.DeviceName}",
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = (Brush)FindResource("Brush.Text.CopyAccent"),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 4, 0, 0),
+            };
+            var badge = new TextBlock
+            {
+                Text = vm.ModeBadge,
+                FontSize = 11,
+                Foreground = (Brush)FindResource("Brush.Text.OnCopyTarget"),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            };
+            var frame = new Border
+            {
+                Width = 184,
+                Background = (Brush)FindResource("Brush.Surface.Popup"),
+                BorderBrush = (Brush)FindResource("Brush.Border.DropTarget"),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(6),
+                Child = new StackPanel { Children = { picture, title, badge } },
+            };
+
+            _ghost = new CopyGhostAdorner(_ghostRoot, frame);
+            _ghostLayer.Add(_ghost);
+            if (GetCursorPos(out var cursor) && PresentationSource.FromVisual(_ghostRoot) != null)
+                PlaceGhostAt(_ghostRoot.PointFromScreen(new Point(cursor.X, cursor.Y)));
         }
 
         private void HideGhost()
         {
-            CopyGhost.IsOpen = false;
-            GhostPicture.Fill = null;
-        }
-
-        private void MoveGhost()
-        {
-            if (PresentationSource.FromVisual(CardFrame) == null || !GetCursorPos(out var cursor)) return;
-            var at = CardFrame.PointFromScreen(new Point(cursor.X, cursor.Y));
-            // Beside the pointer, never under it: the window under the pointer is the drop target.
-            CopyGhost.HorizontalOffset = at.X + 18;
-            CopyGhost.VerticalOffset = at.Y + 18;
+            if (_ghost != null)
+            {
+                _ghostLayer?.Remove(_ghost);
+                _ghost.Detach();
+            }
+            _ghost = null;
+            _ghostLayer = null;
+            _ghostRoot = null;
         }
 
         [StructLayout(LayoutKind.Sequential)]

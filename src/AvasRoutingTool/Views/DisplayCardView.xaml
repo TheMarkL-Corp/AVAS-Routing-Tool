@@ -50,9 +50,10 @@
 
             <!--
                 Rows: 0 name + badge, 1 the header's buttons (Layout, Copy layout: at the top, so they stay in view
-                when a short window shows only the top of the card), 2 why Copy layout is off, 3 the picture,
-                4 the draft chip, 5 telemetry, 6 Turn Off. Rows 2 and 6 are the same height and (almost) never shown
-                together, so the picture keeps 16:9 with GridSpec.DisplayCard.
+                when a short window shows only the top of the card), 2 why Copy layout is off, 3 the picture (the draft
+                chip, the toast and the copy-source chip lie on it), 4 telemetry (always two lines), 5 Turn Off. Rows 2
+                and 5 are the same height and (almost) never shown together, so the picture keeps 16:9 with
+                GridSpec.DisplayCard in every state.
             -->
             <Grid>
                 <Grid.RowDefinitions>
@@ -60,7 +61,6 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -109,7 +109,7 @@
                                 Padding="6,2">
                             <Border.Style>
                                 <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#223049" />
+                                    <Setter Property="Background" Value="{StaticResource Brush.Border.Default}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsRouted}" Value="True">
                                             <Setter Property="Background" Value="#263B82F6" />
@@ -158,6 +158,8 @@
                             Padding="8,6"
                             AutomationProperties.Name="Layout"
                             ToolTip="Choose a layout for this display"
+                            PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
+                            PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
                             Click="LayoutButton_Click">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Grid}"
@@ -187,13 +189,13 @@
                             PreviewMouseLeftButtonUp="CopyHandle_PreviewMouseLeftButtonUp">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
-                                <Setter Property="Background" Value="#082F3A" />
+                                <Setter Property="Background" Value="{StaticResource Brush.Surface.CopyTarget}" />
                                 <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.DropTarget}" />
-                                <Setter Property="Foreground" Value="#A5F3FC" />
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.CopyAccent}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
                                         <Setter Property="Background" Value="{StaticResource Brush.Border.DropTarget}" />
-                                        <Setter Property="Foreground" Value="#04232B" />
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Text.OnDropTarget}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -233,10 +235,16 @@
                     </TextBlock.Style>
                 </TextBlock>
 
-                <!-- Live Video Preview Surface -->
+                <!--
+                    Live Video Preview Surface. On a MultiView card a tap (or Enter when focused) opens the Composer on
+                    what is on screen (MainViewModel.TapPictureAsync, spec 5.1); otherwise it is a tap on the card.
+                -->
                 <Border x:Name="PreviewSurface"
                         Grid.Row="3"
                         Margin="0,6,0,0"
+                        Focusable="True"
+                        KeyDown="PreviewSurface_KeyDown"
+                        AutomationProperties.Name="Picture on screen"
                         Background="#070A0F"
                         BorderBrush="{StaticResource Brush.Border.Default}"
                         BorderThickness="1"
@@ -554,8 +562,9 @@
 
                 <!-- Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15) -->
                 <Button x:Name="DraftChip"
-                        Grid.Row="4"
-                        Margin="0,6,0,0"
+                        Grid.Row="3"
+                        Margin="6,12,6,0"
+                        VerticalAlignment="Top"
                         MinHeight="56"
                         Cursor="Hand"
                         HorizontalContentAlignment="Stretch"
@@ -576,7 +585,7 @@
                         <ControlTemplate TargetType="Button">
                             <Grid>
                                 <Rectangle x:Name="DraftFrame"
-                                           Fill="#2A1F08"
+                                           Fill="{StaticResource Brush.Surface.Staged}"
                                            Stroke="{StaticResource Brush.Status.Staged}"
                                            StrokeThickness="1.5"
                                            StrokeDashArray="4 3"
@@ -585,7 +594,7 @@
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="DraftFrame" Property="Fill" Value="#3A2B0B" />
+                                    <Setter TargetName="DraftFrame" Property="Fill" Value="{StaticResource Brush.Surface.StagedHover}" />
                                 </Trigger>
                                 <Trigger Property="IsKeyboardFocused" Value="True">
                                     <Setter TargetName="DraftFrame" Property="Stroke" Value="{StaticResource Brush.Focus.Ring}" />
@@ -632,7 +641,7 @@
                 </Button>
 
                 <!-- Card Telemetry Row (one line; the output format line only in MultiView) -->
-                <Grid Grid.Row="5" Margin="0,6,0,0">
+                <Grid Grid.Row="4" Margin="0,6,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -653,8 +662,9 @@
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Style.Triggers>
+                                        <!-- Hidden, not collapsed: the line keeps its height so every card has the same chrome -->
                                         <DataTrigger Binding="{Binding CanvasInfo, Mode=OneWay}" Value="">
-                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Setter Property="Visibility" Value="Hidden" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -671,7 +681,7 @@
                 </Grid>
 
                 <!-- Turn Off / Disconnect Button (Phase 1; the Layout menu's Off does the same) -->
-                <Button Grid.Row="6"
+                <Button Grid.Row="5"
                         Margin="0,4,0,0"
                         MinHeight="22"
                         HorizontalAlignment="Left"
@@ -707,8 +717,8 @@
 
                 <!-- A source dropped / tapped on a MultiView card: it asks; nothing is replaced silently -->
                 <Border x:Name="DropChoicePanel"
-                        Grid.Row="3" Grid.RowSpan="3"
-                        Background="#0A0E16"
+                        Grid.Row="3" Grid.RowSpan="2"
+                        Background="{StaticResource Brush.Surface.Overlay}"
                         BorderBrush="{StaticResource Brush.Border.DropTarget}"
                         BorderThickness="1">
                     <Border.Style>
@@ -720,7 +730,7 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <StackPanel VerticalAlignment="Center" Margin="10,8">
+                    <StackPanel x:Name="DropChoiceContent" VerticalAlignment="Center" Margin="10,8">
                         <TextBlock x:Name="DropChoiceTitle"
                                    Text="{Binding DropChoiceSource.DeviceName, Mode=OneWay, StringFormat='Where should {0} go?'}"
                                    FontSize="15"
@@ -744,7 +754,7 @@
                                     Style="{StaticResource Style.Button.Composer}"
                                     Background="Transparent"
                                     BorderBrush="{StaticResource Brush.Border.DropTarget}"
-                                    Foreground="#A5F3FC"
+                                    Foreground="{StaticResource Brush.Text.CopyAccent}"
                                     Padding="8,6"
                                     Margin="5,0,0,0"
                                     AutomationProperties.Name="Into a block, opens the Composer"
@@ -763,8 +773,8 @@
 
                 <!-- Copy target, allowed: "Release to copy here" + what will be copied (the view model's text) -->
                 <Border x:Name="CopyTargetAllowedPanel"
-                        Grid.Row="3" Grid.RowSpan="3"
-                        Background="#082F3A">
+                        Grid.Row="3" Grid.RowSpan="2"
+                        Background="{StaticResource Brush.Surface.CopyTarget}">
                     <Border.Style>
                         <Style TargetType="Border" BasedOn="{StaticResource BodyOverlay}">
                             <Style.Triggers>
@@ -774,17 +784,17 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <StackPanel VerticalAlignment="Top" Margin="12,14,12,8">
+                    <StackPanel x:Name="CopyTargetAllowedContent" VerticalAlignment="Top" Margin="12,14,12,8">
                         <TextBlock Text="Release to copy here"
                                    FontSize="17"
                                    FontWeight="Bold"
-                                   Foreground="#A5F3FC"
+                                   Foreground="{StaticResource Brush.Text.CopyAccent}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center" />
                         <TextBlock x:Name="CopyTargetAllowedText"
                                    Text="{Binding CopyTargetText, Mode=OneWay}"
                                    FontSize="14"
-                                   Foreground="#CFFAFE"
+                                   Foreground="{StaticResource Brush.Text.OnCopyTarget}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center"
                                    Margin="0,6,0,0" />
@@ -793,8 +803,8 @@
 
                 <!-- Copy target, blocked: lock + the reason; no ring -->
                 <Border x:Name="CopyTargetBlockedPanel"
-                        Grid.Row="3" Grid.RowSpan="3"
-                        Background="#0A0E16">
+                        Grid.Row="3" Grid.RowSpan="2"
+                        Background="{StaticResource Brush.Surface.Overlay}">
                     <Border.Style>
                         <Style TargetType="Border" BasedOn="{StaticResource BodyOverlay}">
                             <Style.Triggers>
@@ -804,10 +814,10 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <StackPanel VerticalAlignment="Top" Margin="12,14,12,8">
+                    <StackPanel x:Name="CopyTargetBlockedContent" VerticalAlignment="Top" Margin="12,14,12,8">
                         <Path x:Name="CopyTargetLock"
                               Data="{StaticResource Icon.Lock}"
-                              Stroke="#E2E8F0"
+                              Stroke="{StaticResource Brush.Text.OnOverlay}"
                               StrokeThickness="2"
                               StrokeLineJoin="Round"
                               Width="26" Height="26"
@@ -816,18 +826,18 @@
                         <TextBlock x:Name="CopyTargetBlockedText"
                                    Text="{Binding CopyTargetText, Mode=OneWay}"
                                    FontSize="14"
-                                   Foreground="#F1F5F9"
+                                   Foreground="{StaticResource Brush.Text.OnOverlay}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center"
                                    Margin="0,6,0,0" />
                     </StackPanel>
                 </Border>
 
-                <!-- This display is the copy source (armed by a tap, or being dragged) -->
+                <!-- This display is the copy source (armed by a tap, or being dragged); bottom left, clear of the draft chip -->
                 <Border x:Name="CopySourceChip"
                         Grid.Row="3"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Top"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom"
                         Margin="6"
                         Background="{StaticResource Brush.Border.DropTarget}"
                         CornerRadius="4"
@@ -843,7 +853,7 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <TextBlock Text="COPYING FROM HERE" FontSize="12" FontWeight="Bold" Foreground="#04232B" />
+                    <TextBlock Text="COPYING FROM HERE" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Brush.Text.OnDropTarget}" />
                 </Border>
 
                 <!-- After a copy onto this display: what it shows now, and Undo for 10 s (on top: Undo stays reachable) -->
@@ -851,7 +861,7 @@
                         Grid.Row="3"
                         VerticalAlignment="Bottom"
                         Margin="6"
-                        Background="#F20B2A1E"
+                        Background="{StaticResource Brush.Surface.UndoToast}"
                         BorderBrush="{StaticResource Brush.Status.Online}"
                         BorderThickness="2"
                         CornerRadius="8"
@@ -873,7 +883,7 @@
                                 Style="{StaticResource Style.Button.Composer}"
                                 Background="Transparent"
                                 BorderBrush="{StaticResource Brush.Status.Online}"
-                                Foreground="#A7F3D0"
+                                Foreground="{StaticResource Brush.Text.UndoToast}"
                                 Content="Undo"
                                 Margin="8,0,0,0"
                                 AutomationProperties.Name="Undo the copy"
@@ -882,7 +892,7 @@
                                    Text="{Binding UndoToastText, Mode=OneWay}"
                                    FontSize="14"
                                    FontWeight="SemiBold"
-                                   Foreground="#A7F3D0"
+                                   Foreground="{StaticResource Brush.Text.UndoToast}"
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center" />
                     </DockPanel>
@@ -918,8 +928,8 @@
                Closed="LayoutMenu_Closed">
             <Border x:Name="LayoutMenuFrame"
                     Width="336"
-                    Background="#0F1626"
-                    BorderBrush="#334155"
+                    Background="{StaticResource Brush.Surface.Popup}"
+                    BorderBrush="{StaticResource Brush.Border.Control}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="10">
@@ -951,7 +961,7 @@
                                         <ControlTemplate TargetType="Button">
                                             <Border x:Name="bd"
                                                     Background="{StaticResource Brush.Surface.Card}"
-                                                    BorderBrush="#334155"
+                                                    BorderBrush="{StaticResource Brush.Border.Control}"
                                                     BorderThickness="2"
                                                     CornerRadius="8"
                                                     Padding="8,6">
@@ -962,13 +972,18 @@
                                                     <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Surface.Hover}" />
                                                 </Trigger>
                                                 <DataTrigger Binding="{Binding Id, Mode=OneWay}" Value="off">
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="#7F1D1D" />
-                                                    <Setter TargetName="bd" Property="Background" Value="#1A0B0B" />
+                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Border.Danger}" />
+                                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Surface.Danger}" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+                                                <!-- Selected only when the display shows it: an unrouted display marks no tile -->
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsSelected, Mode=OneWay}" Value="True" />
+                                                        <Condition Binding="{Binding DataContext.IsRouted, Mode=OneWay, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
-                                                    <Setter TargetName="bd" Property="Background" Value="#172554" />
-                                                </DataTrigger>
+                                                    <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Surface.Selected}" />
+                                                </MultiDataTrigger>
                                                 <Trigger Property="IsKeyboardFocused" Value="True">
                                                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Focus.Ring}" />
                                                 </Trigger>
@@ -1014,27 +1029,6 @@
             </Border>
         </Popup>
 
-        <!-- The drag ghost: the source's mini picture follows the pointer while a copy is dragged -->
-        <Popup x:Name="CopyGhost"
-               PlacementTarget="{Binding ElementName=CardFrame}"
-               Placement="Relative"
-               AllowsTransparency="True"
-               IsHitTestVisible="False"
-               Focusable="False">
-            <Border Width="184"
-                    Background="#0F1626"
-                    BorderBrush="{StaticResource Brush.Border.DropTarget}"
-                    BorderThickness="2"
-                    CornerRadius="8"
-                    Padding="6"
-                    IsHitTestVisible="False">
-                <StackPanel>
-                    <Rectangle x:Name="GhostPicture" Height="90" RadiusX="4" RadiusY="4" />
-                    <TextBlock Text="{Binding DeviceName, Mode=OneWay, StringFormat='Copying {0}'}"
-                               FontSize="12" FontWeight="Bold" Foreground="#A5F3FC" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
-                    <TextBlock Text="{Binding ModeBadge, Mode=OneWay}" FontSize="11" Foreground="#CFFAFE" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-        </Popup>
+        <!-- The drag ghost is a CopyGhostAdorner in the window's adorner layer (code-behind), never a separate window -->
     </Grid>
 </UserControl>

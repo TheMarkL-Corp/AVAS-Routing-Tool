@@ -145,6 +145,22 @@ namespace AvasRoutingTool.ViewModels
                 ? null
                 : $"Placing {_armed.DeviceName} - tap a display or a block. Tap {_armed.DeviceName} again to stop.";
 
+        /// <summary>
+        /// A display is armed for copying (or a copy drag runs), or a drop choice is open on a card: the overview gives
+        /// the displays the room (compact sources, no layout bar) so every target can say its state in words.
+        /// </summary>
+        public bool IsCopyOrChoiceActive => _armedDisplay != null || Displays.Any(d => d.IsDropChoiceOpen);
+
+        private bool _copyOrChoiceActive;
+
+        private void RaiseCopyOrChoice()
+        {
+            bool now = IsCopyOrChoiceActive;
+            if (now == _copyOrChoiceActive) return;
+            _copyOrChoiceActive = now;
+            OnPropertyChanged(nameof(IsCopyOrChoiceActive));
+        }
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand ClearLogsCommand { get; }
@@ -905,6 +921,7 @@ namespace AvasRoutingTool.ViewModels
             d.OpenDropChoice(s);
             _dropChoiceOpenedAt[d] = _clock();
             TouchArm();
+            RaiseCopyOrChoice();
         }
 
         /// <summary>The drop choice's "Full screen (Single View)": leaves MultiView and routes the source now.</summary>
@@ -932,6 +949,24 @@ namespace AvasRoutingTool.ViewModels
         {
             _dropChoiceOpenedAt.Remove(d);
             d.CloseDropChoice();
+            RaiseCopyOrChoice();
+        }
+
+        /// <summary>
+        /// A tap on a card's picture (spec 5.1: "tapping the composite opens the Composer"). With nothing armed and no
+        /// drop choice open, a MultiView card opens the Composer on what is on screen (or its kept draft); otherwise it
+        /// is a plain card tap (<see cref="TapDisplayAsync"/>: route an armed source, copy an armed display).
+        /// </summary>
+        public async Task TapPictureAsync(DisplayCardViewModel d)
+        {
+            if (d == null) return;
+            if (_composer == null && _armed == null && _armedDisplay == null && !d.IsDropChoiceOpen && d.IsMultiView)
+            {
+                await OpenComposerAsync(d);
+                return;
+            }
+            if (d.IsDropChoiceOpen) return; // the choice decides; a tap beside its buttons does not ask again
+            await TapDisplayAsync(d);
         }
 
         /// <summary>
@@ -959,6 +994,7 @@ namespace AvasRoutingTool.ViewModels
                 if (!d.IsDropChoiceOpen) _dropChoiceOpenedAt.Remove(d);
                 else if (now - openedAt >= DropChoiceTimeout) CloseDropChoice(d);
             }
+            RaiseCopyOrChoice();
 
             // A copy's Undo toast goes when the target's previous picture is no longer kept (10 s).
             foreach (var d in Displays.Where(x => x.CanUndoScreen).ToList())
@@ -1052,6 +1088,7 @@ namespace AvasRoutingTool.ViewModels
             d.SetCopySource(true);
             OnPropertyChanged(nameof(ArmedDisplay));
             OnPropertyChanged(nameof(CopyArmBanner));
+            RaiseCopyOrChoice();
 
             var toRead = Displays.Where(o => o.IsActive && !ReferenceEquals(o, d)).ToList();
             if (CurrentScreen(d).Kind == ScreenKind.Single) toRead.Add(d);
@@ -1084,6 +1121,7 @@ namespace AvasRoutingTool.ViewModels
             if (was == null) return;
             OnPropertyChanged(nameof(ArmedDisplay));
             OnPropertyChanged(nameof(CopyArmBanner));
+            RaiseCopyOrChoice();
         }
 
         /// <summary>
@@ -1190,7 +1228,7 @@ namespace AvasRoutingTool.ViewModels
         }
 
         /// <summary>The card's "Copy layout" handle: arms the display, or stops when it is the armed one.</summary>
-        private async Task ToggleCopyArmAsync(DisplayCardViewModel d)
+        public async Task ToggleCopyArmAsync(DisplayCardViewModel d)
         {
             if (ReferenceEquals(_armedDisplay, d)) DisarmDisplay();
             else await ArmDisplayAsync(d);

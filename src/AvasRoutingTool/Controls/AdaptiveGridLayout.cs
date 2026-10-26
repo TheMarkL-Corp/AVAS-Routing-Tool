@@ -25,9 +25,10 @@ namespace AvasRoutingTool.Controls
 
         /// <summary>
         /// The display card: its header carries the 56 px Layout and Copy layout buttons, so its chrome is taller;
-        /// with it the picture keeps 16:9 (a smoke test measures the real card).
+        /// with it the picture keeps 16:9 in every state (a smoke test measures the real card: Single View, MultiView,
+        /// a draft chip on the picture).
         /// </summary>
-        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 160, HorizontalPadding = 26 };
+        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 175, HorizontalPadding = 26 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>

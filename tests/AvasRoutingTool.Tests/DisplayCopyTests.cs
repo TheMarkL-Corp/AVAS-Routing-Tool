@@ -990,6 +990,80 @@ namespace AvasRoutingTool.Tests
             Assert.Equal($"genlock:{PaxMac}", rig.Client.MultiViewCalls.Last());
         }
 
+        // ---- Task 10b fix round 1: the overview's focus on the displays, the picture tap, the handle toggle ----
+
+        [Fact]
+        public async Task CopyOrChoiceActive_FollowsTheCopyArmAndTheDropChoice()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            var raised = new List<string?>();
+            rig.Vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            Assert.False(rig.Vm.IsCopyOrChoiceActive);
+
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            Assert.True(rig.Vm.IsCopyOrChoiceActive);
+            Assert.Contains(nameof(MainViewModel.IsCopyOrChoiceActive), raised);
+            rig.Vm.DisarmDisplay();
+            Assert.False(rig.Vm.IsCopyOrChoiceActive);
+
+            raised.Clear();
+            rig.Vm.OpenDropChoice(rig.Rx1Vm, rig.Tx2Vm);
+            Assert.True(rig.Vm.IsCopyOrChoiceActive);
+            Assert.Contains(nameof(MainViewModel.IsCopyOrChoiceActive), raised);
+
+            rig.Now += MainViewModel.DropChoiceTimeout + TimeSpan.FromSeconds(1);
+            rig.Vm.Tick(); // the choice closes by itself
+            Assert.False(rig.Rx1Vm.IsDropChoiceOpen);
+            Assert.False(rig.Vm.IsCopyOrChoiceActive);
+
+            rig.Vm.OpenDropChoice(rig.Rx1Vm, rig.Tx2Vm);
+            await rig.Vm.ChooseIntoBlockAsync(rig.Rx1Vm);
+            Assert.False(rig.Vm.IsCopyOrChoiceActive);
+        }
+
+        [Fact]
+        public async Task TapPicture_OnAMultiViewCard_OpensTheComposer_ButNotWhileACopyIsArmedOrAChoiceIsOpen()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+
+            // A Single View / unrouted card: the picture tap is a plain card tap (nothing armed: nothing happens).
+            await rig.Vm.TapPictureAsync(rig.PaxVm);
+            Assert.Null(rig.Vm.ActiveComposer);
+
+            // A copy armed: the tap is a copy-target tap (on the source itself: nothing), never the Composer.
+            await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
+            await rig.Vm.TapPictureAsync(rig.Rx1Vm);
+            Assert.Null(rig.Vm.ActiveComposer);
+            Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay);
+            rig.Vm.DisarmDisplay();
+
+            // A drop choice open: the choice decides, not the picture.
+            rig.Vm.OpenDropChoice(rig.Rx1Vm, rig.Tx2Vm);
+            await rig.Vm.TapPictureAsync(rig.Rx1Vm);
+            Assert.Null(rig.Vm.ActiveComposer);
+            Assert.True(rig.Rx1Vm.IsDropChoiceOpen);
+            await rig.Vm.ChooseIntoBlockAsync(rig.Rx1Vm);
+            rig.Vm.CloseComposer();
+
+            // Nothing armed, a MultiView card: the Composer opens on what is on screen.
+            await rig.Vm.TapPictureAsync(rig.Rx1Vm);
+            Assert.NotNull(rig.Vm.ActiveComposer);
+            Assert.Equal(Placed(rig.MultiView.GetLive(rig.Rx1)), Placed(rig.Vm.ActiveComposer!.Draft));
+        }
+
+        [Fact]
+        public async Task ToggleCopyArm_ArmsThenStops()
+        {
+            var rig = new Rig();
+            await rig.RestoreMatrixOnRx1Async();
+            await rig.Vm.ToggleCopyArmAsync(rig.Rx1Vm);
+            Assert.Same(rig.Rx1Vm, rig.Vm.ArmedDisplay);
+            await rig.Vm.ToggleCopyArmAsync(rig.Rx1Vm);
+            Assert.Null(rig.Vm.ArmedDisplay);
+        }
+
         /// <summary>Polls a view-model condition set by a fire-and-forget command.</summary>
         private static async Task WaitUntil(Func<bool> condition)
         {
