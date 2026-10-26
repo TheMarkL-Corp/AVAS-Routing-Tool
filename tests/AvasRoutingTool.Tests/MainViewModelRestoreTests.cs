@@ -431,5 +431,27 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(rig.Vm.ActiveComposer!.CheckPlace(MainBlock(rig.Vm), rig.Tx2Vm).Ok);
         }
+
+        [Fact]
+        public async Task AnExternalWindowOnTheFullSizeStream_NeverBlocksAnotherDisplay_AScaledOneStill_Does()
+        {
+            var rig = new Rig();
+            var state = ExternalWithSubscriptionZero();
+            rig.Client.ReceiverStates[Rx1Mac] = state with
+            {
+                Subscriptions = new[]
+                {
+                    new RxSubscription(0, true, "STREAMING", Tx2Mac, "TX2_DUAL LINK_SFPA", 0), // stream 0: a Take never resizes it
+                    new RxSubscription(1, true, "STREAMING", VegaMac, "VEGA_1100", 1),
+                },
+            };
+            await rig.Vm.RestoreStateAsync();
+
+            await rig.Vm.OpenComposerAsync(rig.PaxVm, "pip");
+            int main = MainBlock(rig.Vm);
+
+            Assert.True(rig.Vm.ActiveComposer!.CheckPlace(main, rig.Tx2Vm).Ok);
+            Assert.False(rig.Vm.ActiveComposer.CheckPlace(main, rig.VegaVm).Ok);
+        }
     }
 }

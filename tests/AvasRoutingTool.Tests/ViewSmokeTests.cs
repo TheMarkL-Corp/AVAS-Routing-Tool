@@ -3558,6 +3558,41 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void Composer_ClosedWhileAnEntryIsPending_LeavesNoStaleFlag_ALaterRestoreDoesNotPullFocusIn() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var first = rig.Composer("matrix2x2");
+                var view = rig.View(first);
+                var outside = new Button { Content = "elsewhere" };
+                Showing(new StackPanel { Children = { outside, view } }, () =>
+                {
+                    KeyboardMode();
+                    Assert.True(outside.Focus());
+
+                    // The Composer is shown (opened from the keyboard): an entry is queued. It is closed before that runs.
+                    view.Visibility = Visibility.Collapsed;
+                    view.Visibility = Visibility.Visible;
+                    view.DataContext = null;
+                    Idle();
+
+                    // A Composer for another display appears while the user is a pointer user, then the keyboard is back
+                    // on another control and the blocks are rebuilt: only a keyboard that fell may be put back.
+                    KeyboardMode(false);
+                    var second = rig.Composer("matrix2x2");
+                    view.DataContext = second;
+                    Idle();
+                    KeyboardMode();
+                    Assert.True(outside.Focus());
+                    Pump(() => second.SelectLayoutAsync("pip"));
+                    Idle();
+                    Idle();
+
+                    Assert.True(outside.IsKeyboardFocused, $"a stale entry pulled the keyboard into the Composer (it is on {FocusedName()})");
+                });
+            });
+
+        [Fact]
         public void Composer_AtThePipInset_TheEmptyHintStepsAside_SoItNeverWrapsOverTheNumberChip() =>
             RunSta(() =>
             {

@@ -258,5 +258,93 @@ namespace AvasRoutingTool.Tests
 
             Assert.False(await o.ExitExternalAsync(Rx(), new[] { 1 }));
         }
+
+        // ---- external layouts: only the scaled stream constrains an encoder ----------------------
+
+        private static readonly RxLayout TwoWindows = new("bavm_layout", 3840, 2160, new[]
+        {
+            new RxWindow(0, 0, 0, 0, 960, 540),
+            new RxWindow(1, 1, 960, 0, 1280, 720),
+        });
+
+        [Fact]
+        public void ExternalUses_CountOnlyStreamOneWindows()
+        {
+            var subscriptions = new[]
+            {
+                new RxSubscription(0, true, "STREAMING", "tx2", "TX2", 0), // the full-size stream: no scaler involved
+                new RxSubscription(1, true, "STREAMING", "tx3", "TX3", 1),
+            };
+
+            var uses = MultiViewRestore.ExternalUses("RX1", TwoWindows, subscriptions);
+
+            Assert.Equal(new OtherDisplayUse("RX1", "tx3", 1280, 720), Assert.Single(uses));
+        }
+
+        [Fact]
+        public async Task AStreamZeroWindowOfAnExternalLayout_DoesNotBlockAnotherSizeOnAnotherDisplay_AStreamOneWindowDoes()
+        {
+            var (o, _) = Create();
+            var rx1 = Rx("rx1");
+            var rx2 = Rx("rx2");
+            var subscriptions = new[]
+            {
+                new RxSubscription(0, true, "STREAMING", "tx2", "TX2", 0),
+                new RxSubscription(1, true, "STREAMING", "tx3", "TX3", 1),
+            };
+            o.AdoptExternal(rx1, new[] { 0, 1 }, MultiViewRestore.ExternalUses(rx1.DeviceName, TwoWindows, subscriptions));
+
+            var uses = o.UsesExcept(rx2).ToList();
+            Assert.Equal("tx3", Assert.Single(uses).SourceMac);
+
+            var (plan, _) = await o.PlanForDisplayAsync(rx2, "pip");
+            var main = plan.Slots.Single(s => s.Label == "Main").Index; // 1920x1080
+            var pip = new MultiViewDraft(plan);
+            Assert.True(pip.Place(main, "tx2", "TX2").Ok);
+            Assert.Equal(TakeOutcome.Applied, (await o.TakeAsync(rx2, pip)).Outcome); // TX2 is only on stream 0 there
+
+            var rx3 = Rx("rx3");
+            var other = new MultiViewDraft((await o.PlanForDisplayAsync(rx3, "pip")).Plan);
+            other.Place(main, "tx3", "TX3");
+            var result = await o.TakeAsync(rx3, other);
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome); // TX3 runs at 1280x720 on RX1 (stream 1)
+            Assert.Contains("1280x720", result.Error);
+        }
+
+        [Fact]
+        public async Task AFailedTake_OverAnExternalLayout_PutsItsResizedEncodersBackAtTheExternalSize()
+        {
+            var (o, c) = Create();
+            var rx1 = Rx("rx1");
+            o.AdoptExternal(rx1, new[] { 1 }, new[] { new OtherDisplayUse("RX rx1", "tx2", 960, 540) });
+            var (plan, _) = await o.PlanForDisplayAsync(rx1, "pip");
+            var pip = new MultiViewDraft(plan);
+            pip.Place(plan.Slots.Single(s => s.Label == "Main").Index, "tx2", "TX2"); // 1920x1080: resizes TX2's scaler
+            c.MultiViewCalls.Clear();
+            c.FailMultiViewPrefix = "multiview:";
+
+            var result = await o.TakeAsync(rx1, pip);
+
+            Assert.Equal(TakeOutcome.Rejected, result.Outcome);
+            Assert.Equal(new[] { "scaler:tx2:1920x1080", "scaler:tx2:960x540" },
+                c.MultiViewCalls.Where(x => x.StartsWith("scaler:")).ToArray());
+        }
+
+        [Fact]
+        public async Task AFailedTake_OverAnExternalLayout_LeavesAnEncoderAlreadyAtTheExternalSizeAlone()
+        {
+            var (o, c) = Create();
+            var rx1 = Rx("rx1");
+            o.AdoptExternal(rx1, new[] { 1 }, new[] { new OtherDisplayUse("RX rx1", "tx2", 960, 540) });
+            var (plan, _) = await o.PlanForDisplayAsync(rx1, "matrix2x2");
+            var matrix = new MultiViewDraft(plan);
+            matrix.Place(0, "tx2", "TX2"); // 960x540 at the 1080p fallback: the same size
+            c.MultiViewCalls.Clear();
+            c.FailMultiViewPrefix = "multiview:";
+
+            await o.TakeAsync(rx1, matrix);
+
+            Assert.Equal(new[] { "scaler:tx2:960x540" }, c.MultiViewCalls.Where(x => x.StartsWith("scaler:")).ToArray());
+        }
     }
 }

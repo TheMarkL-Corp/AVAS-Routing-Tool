@@ -28,14 +28,15 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     {
         /// <summary>
         /// The encoders an external layout's windows show, at their window sizes: a window shows the routed
-        /// subscription whose index is its surface. Windows without a known size (read back as 0) or without a routed
-        /// subscription are left out (they constrain no scaler).
+        /// subscription (of stream 1, the scaled stream) whose index is its surface. Windows without a known size
+        /// (read back as 0) or without such a subscription are left out (they constrain no scaler).
         /// </summary>
         public static IReadOnlyList<OtherDisplayUse> ExternalUses(string displayName, RxLayout? layout, IEnumerable<RxSubscription> subscriptions)
         {
             if (layout == null) return Array.Empty<OtherDisplayUse>();
 
-            var routed = subscriptions.Where(s => s.IsRouted).GroupBy(s => s.Index).ToDictionary(g => g.Key, g => g.First());
+            // Only stream 1 is scaled by a Take: a window of the full-size stream 0 constrains no scaler.
+            var routed = subscriptions.Where(s => s.IsRouted && s.SourceStream == 1).GroupBy(s => s.Index).ToDictionary(g => g.Key, g => g.First());
             return layout.Windows
                 .OrderBy(w => w.WindowIndex)
                 .Where(w => w.Width > 0 && w.Height > 0 && routed.ContainsKey(w.Surface))

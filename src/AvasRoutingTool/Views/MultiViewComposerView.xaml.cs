@@ -351,7 +351,14 @@ namespace AvasRoutingTool.Views
         private void RestoreFocus()
         {
             _restoreQueued = false;
-            if (!_restorePending || Composer is not { } c) return;
+            if (Composer is not { } c)
+            {
+                // The Composer was closed meanwhile: nothing is pending for whichever one is shown next.
+                _restorePending = false;
+                _enterPending = false;
+                return;
+            }
+            if (!_restorePending) return;
 
             // Not for a pointer user, not while the window is in the background, not for a Composer that is not shown.
             // Entering: anywhere outside the Composer is wrong; otherwise only a keyboard that fell to nothing is put back.

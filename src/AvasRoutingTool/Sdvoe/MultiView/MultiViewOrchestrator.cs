@@ -923,15 +923,30 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// <summary>
         /// Best effort, never throws: puts each encoder this attempt resized, and the display's live picture still
         /// uses, back at the size that picture needs. Encoders the live picture does not use are left as they are.
+        /// A display running an external (BAVM) layout has no live draft: its recorded window sizes are the targets.
         /// </summary>
         private async Task RestoreScalersAsync(AvasDevice rx, IReadOnlyList<ScalerAttempt> attempts)
         {
             try
             {
-                var session = Find(rx);
-                if (session == null || attempts.Count == 0) return;
+                if (attempts.Count == 0) return;
 
-                foreach (var live in SurfacePlanner.Plan(session.Live, rx.DeviceId).Sources)
+                var targets = new List<(string Mac, int Width, int Height)>();
+                var session = Find(rx);
+                if (session != null)
+                {
+                    targets.AddRange(SurfacePlanner.Plan(session.Live, rx.DeviceId).Sources.Select(s => (s.Mac, s.Width, s.Height)));
+                }
+                else if (_externalUses.TryGetValue(Key(rx), out var uses))
+                {
+                    foreach (var use in uses)
+                    {
+                        string mac = SdvoeClient.NormalizeMac(use.SourceMac);
+                        if (targets.All(t => t.Mac != mac)) targets.Add((mac, use.Width, use.Height));
+                    }
+                }
+
+                foreach (var live in targets)
                 {
                     var last = attempts.LastOrDefault(a => a.Mac == live.Mac);
                     if (last == null) continue;
