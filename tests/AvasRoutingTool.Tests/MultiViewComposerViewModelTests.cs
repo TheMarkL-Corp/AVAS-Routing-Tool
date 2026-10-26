@@ -1498,6 +1498,33 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task ExplainTake_SaysWhyTakeIsOff_AndTheLineGoesWhenItNoLongerHolds()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+
+            vm.ExplainTake();
+
+            Assert.Equal(BannerKind.Info, vm.Banner.Kind);
+            Assert.Equal("Place at least one source (Step 2).", vm.Banner.Text);
+
+            vm.Arm(rig.Tx1); // the arm hint replaces it, as any hint would
+            vm.TapBlock(0);
+            vm.Disarm();
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+            Assert.True(vm.CanTake);
+
+            vm.ExplainTake(); // Take is available: nothing to explain
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+
+            rig.Tx1.SetOnlineState(false);
+            vm.ExplainTake();
+            Assert.Equal("TX1 is offline - clear or replace block 1", vm.Banner.Text);
+            rig.Tx1.SetOnlineState(true); // the reason is gone: so is the line
+            Assert.Equal(BannerKind.None, vm.Banner.Kind);
+        }
+
+        [Fact]
         public async Task TakeButton_AutomationName_AddsTheReasonWhileItIsDisabled()
         {
             var rig = new Rig();

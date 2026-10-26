@@ -68,6 +68,7 @@ namespace AvasRoutingTool.ViewModels
         private bool _disposed;
         private string? _hintText;
         private int? _focusedBlock;
+        private string? _takeHint;
         private readonly MotionPolicy _motion;
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -290,6 +291,17 @@ namespace AvasRoutingTool.ViewModels
                 }
                 return HasChanges ? null : NothingToChangeText;
             }
+        }
+
+        /// <summary>
+        /// Ctrl+Enter with Take unavailable: says why on the banner (Info) instead of doing nothing silently. The line goes
+        /// by itself as soon as the reason no longer holds. Nothing to say while Take is available or a Take is running.
+        /// </summary>
+        public void ExplainTake()
+        {
+            if (_disposed || CanTake || TakeBlockedReason is not { Length: > 0 } reason) return;
+            _takeHint = reason;
+            Banner = new ComposerBanner(reason, BannerKind.Info);
         }
 
         /// <summary>The Take button's name for a screen reader: its label, plus why it is disabled while it is.</summary>
@@ -844,6 +856,13 @@ namespace AvasRoutingTool.ViewModels
             }
 
             _lastCanUndo = CanUndo;
+
+            // The "why Take is off" line (Ctrl+Enter) is withdrawn once that reason is gone.
+            if (_takeHint != null && TakeBlockedReason != _takeHint)
+            {
+                if (Banner.Kind == BannerKind.Info && Banner.Text == _takeHint) Banner = ComposerBanner.None;
+                _takeHint = null;
+            }
             RaiseDerived();
         }
 

@@ -13,6 +13,7 @@
              PreviewMouseMove="Card_PreviewMouseMove"
              PreviewMouseLeftButtonUp="Card_PreviewMouseLeftButtonUp"
              MouseLeftButtonUp="Card_MouseLeftButtonUp"
+             PreviewKeyDown="Card_PreviewKeyDown"
              KeyDown="Card_KeyDown">
 
     <UserControl.Resources>
@@ -295,7 +296,7 @@
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="DraftFrame" Property="Fill" Value="{StaticResource Brush.Surface.StagedHover}" />
                                     </Trigger>
-                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                                         <Setter TargetName="DraftFrame" Property="Stroke" Value="{StaticResource Brush.Focus.Ring}" />
                                         <Setter TargetName="DraftFrame" Property="StrokeThickness" Value="2" />
                                     </Trigger>
@@ -1003,7 +1004,7 @@
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=PreviewSurface, Mode=OneWay}" Value="True">
+                                <DataTrigger Binding="{Binding (views:InputModality.ShowsFocus), ElementName=PreviewSurface, Mode=OneWay}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -1101,7 +1102,7 @@
                                                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
                                                     <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Surface.Selected}" />
                                                 </MultiDataTrigger>
-                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                                                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Focus.Ring}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>

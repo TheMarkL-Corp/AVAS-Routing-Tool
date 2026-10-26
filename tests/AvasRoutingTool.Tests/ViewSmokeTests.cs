@@ -2143,6 +2143,7 @@ namespace AvasRoutingTool.Tests
                 var view = rig.View(rig.Rx1, out var host);
                 Showing(host, () =>
                 {
+                    KeyboardMode();
                     var picture = (FrameworkElement)Named(view, "PreviewSurface").Single();
                     var ring = (Border)Named(view, "PictureFocusRing").Single();
                     Assert.True(picture.Focusable);
@@ -2181,6 +2182,7 @@ namespace AvasRoutingTool.Tests
         /// </summary>
         private static void AssertShowsFocus(FrameworkElement control, FrameworkElement paint, string what)
         {
+            InputModality.IsKeyboard = true; // rings are the keyboard user's
             Keyboard.ClearFocus();
             paint.UpdateLayout();
             byte[] before = Pixels(paint);
@@ -2235,6 +2237,7 @@ namespace AvasRoutingTool.Tests
                 var view = rig.View(c);
                 Showing(view, () =>
                 {
+                    KeyboardMode();
                     var surfaces = Surfaces(view);
                     Assert.Equal(4, surfaces.Count);
 
@@ -2785,6 +2788,462 @@ namespace AvasRoutingTool.Tests
                         Assert.True(toast.IsVisible);
                         Assert.Equal(animations, toast.HasAnimatedProperties);
                         if (!animations) Assert.Equal(1.0, toast.Opacity); // off: shown at once, in full
+                    });
+                }
+            });
+
+        // ---- Task 11 fix round 1: the keyboard stays in the Composer, key repeat, keyboard-only rings, Undo transition ----
+
+        /// <summary>The next key presses are the keyboard's (rings show). The input mode is process-wide state: each test sets what it needs.</summary>
+        private static void KeyboardMode(bool keyboard = true) => InputModality.IsKeyboard = keyboard;
+
+        /// <summary>A key press as the keyboard device delivers a held key: IsRepeat is only settable by the input system, so it is set on the event.</summary>
+        private static void RaiseRepeatedKey(UIElement target, Key key)
+        {
+            KeyEventArgs Make(RoutedEvent routed)
+            {
+                var args = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(target)!, 0, key) { RoutedEvent = routed, Source = target };
+                var field = typeof(KeyEventArgs).GetField("_isRepeat", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    ?? throw new InvalidOperationException("KeyEventArgs has no _isRepeat field: " + string.Join(", ", typeof(KeyEventArgs).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Select(f => f.Name)));
+                field.SetValue(args, true);
+                Assert.True(args.IsRepeat);
+                return args;
+            }
+            var preview = Make(Keyboard.PreviewKeyDownEvent);
+            target.RaiseEvent(preview);
+            if (!preview.Handled) target.RaiseEvent(Make(Keyboard.KeyDownEvent));
+        }
+
+        /// <summary>The keyboard focus is on an element of this Composer (its tree, or its picker popup).</summary>
+        private static bool FocusIsIn(FrameworkElement view)
+        {
+            var popupChild = Named(view, "PickerPopup").OfType<Popup>().Single().Child;
+            for (var d = Keyboard.FocusedElement as DependencyObject; d != null;
+                 d = d is Visual ? VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            {
+                if (ReferenceEquals(d, view) || ReferenceEquals(d, popupChild)) return true;
+            }
+            return false;
+        }
+
+        private static string FocusedName() => (Keyboard.FocusedElement as FrameworkElement)?.Name ?? Keyboard.FocusedElement?.GetType().Name ?? "(nothing)";
+
+        /// <summary>A Composer on Matrix 2x2 with TX1 in block 1 (API index 0), shown, the keyboard on that block, its Replace / Move strip open.</summary>
+        private static (ComposerRig Rig, MultiViewComposerViewModel C, MultiViewComposerView View) WithStripOpen()
+        {
+            var rig = new ComposerRig();
+            var c = rig.Composer("matrix2x2");
+            c.Arm(rig.Tx1);
+            c.TapBlock(0);
+            c.Disarm();
+            return (rig, c, rig.View(c));
+        }
+
+        private static void OpenStripByKeyboard(MultiViewComposerView view, MultiViewComposerViewModel c, int index = 0)
+        {
+            KeyboardMode();
+            var surface = Surfaces(view)[index];
+            Assert.True(surface.Focus());
+            Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surface));
+            Relayout(view);
+            Assert.True(c.Blocks[index].IsSelected);
+        }
+
+        [Fact]
+        public void Composer_EnterOnReplace_OpensThePickerInKeyboardMode_FocusOnATile_EscReturnsToTheBlock() =>
+            RunSta(() =>
+            {
+                var (rig, c, view) = WithStripOpen();
+                Showing(view, () =>
+                {
+                    OpenStripByKeyboard(view, c);
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    var replace = InBlock(view, "ReplaceButton", 0);
+                    Assert.True(replace.Focus());
+
+                    RaiseKey(replace, Key.Enter);
+
+                    Until(() => popup.IsOpen, "the picker did not open");
+                    Until(() => FocusedName() == "PickerTile", $"the keyboard did not go into the picker (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+
+                    // Esc closes it and the keyboard is back on the block (never on the window).
+                    RaiseKey((UIElement)Keyboard.FocusedElement, Key.Escape);
+                    Until(() => !popup.IsOpen, "Esc did not close the picker");
+                    Until(() => Surfaces(view)[0].IsKeyboardFocused, $"the keyboard did not return to the block (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+                    Assert.Equal(new[] { 0 }, c.Draft!.Placements.Keys.ToArray());
+                });
+            });
+
+        [Fact]
+        public void Composer_EnterOnMove_KeyboardGoesBackToABlock_ArrowAndEnterMove_OrSwap() =>
+            RunSta(() =>
+            {
+                var (rig, c, view) = WithStripOpen();
+                c.Arm(rig.Tx2);
+                c.TapBlock(2);
+                c.Disarm(); // TX1 in block 1, TX2 in block 3
+                Showing(view, () =>
+                {
+                    OpenStripByKeyboard(view, c);
+                    var move = InBlock(view, "MoveButton", 0);
+                    Assert.True(move.Focus());
+
+                    RaiseKey(move, Key.Enter);
+
+                    Assert.Equal(0, c.MovingFromIndex);
+                    Until(() => FocusedName() == "BlockSurface", $"the keyboard did not return to a block (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+                    var surfaces = Surfaces(view);
+                    Assert.True(surfaces[0].IsKeyboardFocused);
+
+                    // Down to block 3 (occupied): Enter swaps.
+                    Assert.True(view.HandleKey(Key.Down, ModifierKeys.None, surfaces[0]));
+                    Until(() => surfaces[2].IsKeyboardFocused, "the arrow key did not reach block 3");
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[2]));
+                    Assert.Null(c.MovingFromIndex);
+                    Assert.Equal(new[] { "0:74fe488b07bc", "2:74fe488b07bb" }, c.Draft!.Placements.OrderBy(p => p.Key).Select(p => $"{p.Key}:{p.Value.SourceMac}"));
+
+                    // Again, from block 1 to the empty block 2: a move.
+                    OpenStripByKeyboard(view, c);
+                    var move2 = InBlock(view, "MoveButton", 0);
+                    Assert.True(move2.Focus());
+                    RaiseKey(move2, Key.Enter);
+                    Until(() => surfaces[0].IsKeyboardFocused, "the keyboard did not return to block 1");
+                    Assert.True(view.HandleKey(Key.Right, ModifierKeys.None, surfaces[0]));
+                    Until(() => surfaces[1].IsKeyboardFocused, "the arrow key did not reach block 2");
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.None, surfaces[1]));
+                    Assert.Equal(new[] { "1:74fe488b07bc", "2:74fe488b07bb" }, c.Draft.Placements.OrderBy(p => p.Key).Select(p => $"{p.Key}:{p.Value.SourceMac}"));
+                });
+            });
+
+        [Fact]
+        public void Composer_EscOnReplace_ClosesTheStrip_AndTheKeyboardStaysInTheComposer() =>
+            RunSta(() =>
+            {
+                var (rig, c, view) = WithStripOpen();
+                Showing(view, () =>
+                {
+                    OpenStripByKeyboard(view, c);
+                    var replace = InBlock(view, "ReplaceButton", 0);
+                    Assert.True(replace.Focus());
+
+                    RaiseKey(replace, Key.Escape);
+
+                    Assert.False(c.Blocks[0].IsSelected);
+                    Until(() => FocusedName() == "BlockSurface", $"the keyboard did not return to the block (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+                    Assert.True(Surfaces(view)[0].IsKeyboardFocused);
+                });
+            });
+
+        [Fact]
+        public void Composer_EnterOnTake_KeyboardStaysInTheComposer_OnTheBlock_ThenOnUndoWhenItIsOffered() =>
+            RunSta(() =>
+            {
+                var (rig, c, view) = WithStripOpen();
+                c.Disarm();
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    Assert.True(take.Focus());
+
+                    RaiseKey(take, Key.Enter); // the first Take: nothing to undo yet
+                    Until(() => c.Banner.Kind == BannerKind.Success, "Enter on Take did not take");
+                    Until(() => FocusedName() == "BlockSurface", $"the keyboard fell out of the Composer (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+
+                    // A second Take: Undo is offered, and the keyboard goes there.
+                    c.Arm(rig.Tx2);
+                    c.TapBlock(1);
+                    c.Disarm();
+                    Relayout(view);
+                    Assert.True(take.Focus());
+                    RaiseKey(take, Key.Enter);
+                    Until(() => c.CanUndo && FocusedName() == "UndoButton", $"the keyboard did not reach Undo (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+                });
+            });
+
+        [Fact]
+        public void Composer_EnterOnDonePlacing_KeyboardStaysInTheComposer() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var done = (Button)Named(view, "DoneButton").Single();
+                    Assert.True(done.IsVisible);
+                    Assert.True(done.Focus());
+
+                    RaiseKey(done, Key.Enter);
+
+                    Assert.Null(c.ArmedSource);
+                    Until(() => FocusedName() == "BlockSurface", $"the keyboard fell out of the Composer (it is on {FocusedName()})");
+                    Assert.True(FocusIsIn(view));
+                });
+            });
+
+        [Fact]
+        public void Composer_FocusThatFallsAfterAPointerPress_IsNeverTakenBack() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var done = (Button)Named(view, "DoneButton").Single();
+                    Assert.True(done.Focus());
+                    Tap(done, Mouse.PreviewMouseDownEvent); // the last input was a press: not the keyboard
+                    Assert.False(InputModality.IsKeyboard);
+
+                    c.Disarm(); // Done placing collapses under the focus
+                    Idle();
+                    Idle();
+
+                    Assert.False(FocusIsIn(view), $"focus was put back for a pointer user (it is on {FocusedName()})");
+                });
+            });
+
+        [Fact]
+        public void Composer_CtrlEnter_WithTakeUnavailable_SaysWhy_AndTheLineGoesWhenItNoLongerHolds() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    Assert.False(c.CanTake);
+
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.Control, take));
+
+                    Assert.Equal(BannerKind.Info, c.Banner.Kind);
+                    Assert.Equal("Place at least one source (Step 2).", c.Banner.Text);
+                    Assert.Empty(rig.Client.MultiViewCalls);
+
+                    c.Arm(rig.Tx1);
+                    c.TapBlock(0);
+                    c.Disarm();
+                    Assert.NotEqual("Place at least one source (Step 2).", c.Banner.Text);
+                    Assert.Equal(BannerKind.None, c.Banner.Kind);
+                });
+            });
+
+        [Fact]
+        public void Composer_HeldKeys_AreOnePress_NoRepeatedPlaceTakeOrPick() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var surfaces = Surfaces(view);
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Assert.True(surfaces[1].Focus());
+
+                    // Enter on an empty block opens the picker; the repeats of the held key must not land on its first tile and pick it.
+                    RaiseKey(surfaces[1], Key.Enter);
+                    Until(() => popup.IsOpen && FocusedName() == "PickerTile", "the picker did not open with the keyboard in it");
+                    RaiseRepeatedKey((UIElement)Keyboard.FocusedElement, Key.Enter);
+                    RaiseRepeatedKey((UIElement)Keyboard.FocusedElement, Key.Space);
+                    Idle();
+                    Assert.True(popup.IsOpen);
+                    Assert.Empty(c.Draft!.Placements);
+
+                    // The direct calls: a repeat of Enter / Space / P / Delete / Escape / Ctrl+Enter is consumed and does nothing.
+                    c.Escape();
+                    Until(() => !popup.IsOpen, "the picker stayed open");
+                    c.Arm(rig.Tx1);
+                    foreach (var key in new[] { Key.Enter, Key.Space, Key.P, Key.Delete, Key.Back })
+                        Assert.True(view.HandleKey(key, ModifierKeys.None, surfaces[0], isRepeat: true));
+                    Assert.True(view.HandleKey(Key.Escape, ModifierKeys.None, surfaces[0], isRepeat: true));
+                    Assert.True(view.HandleKey(Key.Enter, ModifierKeys.Control, surfaces[0], isRepeat: true));
+                    Assert.Empty(c.Draft.Placements);
+                    Assert.Same(rig.Tx1, c.ArmedSource);
+                    Assert.Empty(rig.Client.MultiViewCalls);
+
+                    // A held arrow key keeps walking.
+                    Assert.True(view.HandleKey(Key.Right, ModifierKeys.None, surfaces[0], isRepeat: false));
+                    Assert.Equal(1, c.FocusedBlockIndex);
+                });
+            });
+
+        [Fact]
+        public void Composer_HeldEnter_OnAButton_IsOnePress_NoSecondClick() =>
+            RunSta(() =>
+            {
+                var (rig, c, view) = WithStripOpen();
+                Showing(view, () =>
+                {
+                    KeyboardMode();
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    Assert.True(take.Focus());
+
+                    RaiseRepeatedKey(take, Key.Enter); // the repeat of a press that did not start here: nothing
+                    Idle();
+                    Assert.Equal(BannerKind.None, c.Banner.Kind);
+                    Assert.Empty(rig.Client.MultiViewCalls);
+
+                    RaiseKey(take, Key.Enter);
+                    Until(() => c.Banner.Kind == BannerKind.Success, "the press itself did not take");
+                });
+            });
+
+        [Fact]
+        public void SourceCard_HeldEnterOrSpace_IsOnePress() =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                var full = new SourceCardView { DataContext = sources[0], Width = 340, Height = 260 };
+                var compact = new CompactSourceCardView { DataContext = sources[1] };
+                Showing(new StackPanel { DataContext = vm, Children = { full, compact } }, () =>
+                {
+                    Assert.True(full.Focus());
+                    RaiseKey(full, Key.Enter);
+                    Assert.Same(sources[0], vm.ArmedSource);
+                    for (int i = 0; i < 4; i++) RaiseRepeatedKey(full, i % 2 == 0 ? Key.Enter : Key.Space);
+                    Assert.Same(sources[0], vm.ArmedSource); // still armed: the repeats did not toggle it
+
+                    Assert.True(compact.Focus());
+                    RaiseKey(compact, Key.Space);
+                    Assert.Same(sources[1], vm.ArmedSource);
+                    RaiseRepeatedKey(compact, Key.Space);
+                    RaiseRepeatedKey(compact, Key.Enter);
+                    Assert.Same(sources[1], vm.ArmedSource);
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_HeldEnter_OnTheCopyHandleAndOnATarget_IsOnePress() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                var pax = rig.View(rig.Pax, out var h2);
+                Showing(new StackPanel { Children = { h1, h2 } }, () =>
+                {
+                    var handle = (Button)Named(rx1, "CopyLayoutHandle").Single();
+                    var paxPicture = (UIElement)Named(pax, "PreviewSurface").Single();
+                    Assert.True(handle.Focus());
+                    RaiseKey(handle, Key.Enter);
+                    Until(() => rig.Vm.ArmedDisplay == rig.Rx1 && rig.Pax.IsCopyTargetAllowed, "Enter did not arm the copy");
+
+                    RaiseRepeatedKey(handle, Key.Enter); // would disarm it again
+                    RaiseRepeatedKey(handle, Key.Space);
+                    Idle();
+                    Assert.Same(rig.Rx1, rig.Vm.ArmedDisplay);
+
+                    Assert.True(paxPicture.Focus());
+                    rig.Client.MultiViewCalls.Clear();
+                    RaiseRepeatedKey(paxPicture, Key.Enter); // a repeat on a target never copies
+                    RaiseRepeatedKey(paxPicture, Key.Space);
+                    Idle();
+                    Assert.Empty(rig.Client.MultiViewCalls);
+                    Assert.Same(rig.Rx1, rig.Vm.ArmedDisplay);
+
+                    RaiseKey(paxPicture, Key.Enter); // the press itself does
+                    Until(() => rig.Pax.CanUndoScreen, "the first Enter on the target did not copy");
+                });
+            });
+
+        [Fact]
+        public void Rings_ShowAfterAKeyPress_AndNotAfterAPointerPress() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var surface = Surfaces(view)[1];
+                    var ring = (System.Windows.Shapes.Rectangle)InBlock(view, "BlockFocusRing", 1);
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    var tile = Named(view, "LayoutTile").First();
+
+                    // A finger or mouse press focuses a control: no ring.
+                    KeyboardMode(false);
+                    Assert.True(surface.Focus());
+                    Idle();
+                    Assert.False(ring.IsVisible, "a block shows a ring after a pointer focus");
+                    Assert.True(take.Focus());
+                    byte[] takeAfterPointer = Pixels(take);
+                    Assert.True(tile.Focus());
+                    byte[] tileAfterPointer = Pixels(tile);
+
+                    // The first key press brings the ring of the focused control.
+                    Assert.True(surface.Focus());
+                    RaiseKey(surface, Key.Right);
+                    Idle();
+                    Assert.True(InputModality.IsKeyboard);
+                    Assert.True(ring.IsVisible, "no ring after a key press");
+                    Assert.True(take.Focus());
+                    Idle();
+                    Assert.False(takeAfterPointer.SequenceEqual(Pixels(take)), "Take shows no ring after a key press");
+                    Assert.True(tile.Focus());
+                    Idle();
+                    Assert.False(tileAfterPointer.SequenceEqual(Pixels(tile)), "a layout tile shows no ring after a key press");
+
+                    // A press takes it away again, from the control that has focus.
+                    Tap(tile, Mouse.PreviewMouseDownEvent);
+                    Idle();
+                    Assert.False(InputModality.IsKeyboard);
+                    Assert.True(tileAfterPointer.SequenceEqual(Pixels(tile)), "the ring stayed after a pointer press");
+                    Assert.True(surface.Focus());
+                    Idle();
+                    Assert.False(ring.IsVisible, "the block ring stayed after a pointer press");
+                });
+            });
+
+        [Fact]
+        public void Composer_FrameTransition_RunsAfterATake_AndAfterAnUndo_OnlyWhenWindowsAnimationsAreOn() =>
+            RunSta(() =>
+            {
+                foreach (bool animations in new[] { true, false })
+                {
+                    var rig = new ComposerRig();
+                    var c = rig.Composer("matrix2x2", () => animations);
+                    var view = rig.View(c);
+                    Showing(view, () =>
+                    {
+                        var frame = Named(view, "CanvasFrame").Single();
+                        c.Arm(rig.Tx1);
+                        c.TapBlock(0);
+                        c.Disarm();
+                        Pump(c.TakeAsync);
+                        c.Arm(rig.Tx2);
+                        c.TapBlock(1);
+                        c.Disarm();
+                        Pump(c.TakeAsync);
+                        Relayout(view);
+                        Assert.Equal(animations, frame.HasAnimatedProperties);
+
+                        // Undo changes the picture on screen without IsOnScreen ever flipping: it gets the transition too.
+                        frame.BeginAnimation(UIElement.OpacityProperty, null);
+                        Assert.False(frame.HasAnimatedProperties);
+                        Assert.True(c.IsOnScreen);
+                        Assert.True(c.CanUndo);
+                        Pump(c.UndoAsync);
+                        Relayout(view);
+
+                        Assert.Equal(BannerKind.Success, c.Banner.Kind);
+                        Assert.Equal(new[] { 0 }, rig.Mv.GetLive(rig.Rx.Device)!.Placements.Keys.ToArray());
+                        Assert.Equal(animations, frame.HasAnimatedProperties);
+                        if (!animations) Assert.Equal(1.0, frame.Opacity);
                     });
                 }
             });

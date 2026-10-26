@@ -198,7 +198,17 @@ namespace AvasRoutingTool.Views
         {
             if (e.Key is not (Key.Enter or Key.Space) || Card is not { } vm || Main is not { } main) return;
             e.Handled = true;
+            if (e.IsRepeat) return; // a held key is one tap
             await Run(() => main.TapPictureAsync(vm), "Enter on the picture");
+        }
+
+        /// <summary>
+        /// A held Enter or Space is one press: its repeats would arm and disarm the Copy layout handle, reopen the Layout
+        /// menu or tap the picture again. (Tunnelling, so the handle's own click never sees them.)
+        /// </summary>
+        private void Card_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.IsRepeat && e.Key is Key.Enter or Key.Space) e.Handled = true;
         }
 
         /// <summary>Esc anywhere on the card stops what is armed (a copy first), as the arm banner's Stop does.</summary>
@@ -268,6 +278,7 @@ namespace AvasRoutingTool.Views
         private void LayoutMenuFrame_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             _menuKeyboard = true;
+            if (e.IsRepeat && e.Key is Key.Enter or Key.Space) e.Handled = true; // a held Enter chooses one tile
             if (e.Key != Key.Escape || Card is not { } vm) return;
             e.Handled = true;
             vm.IsLayoutMenuOpen = false;

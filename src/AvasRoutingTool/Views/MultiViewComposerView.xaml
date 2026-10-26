@@ -207,7 +207,7 @@
                                                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.Primary}" />
                                                     <Setter TargetName="bd" Property="BorderThickness" Value="3" />
                                                 </DataTrigger>
-                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                                                     <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Focus.Ring}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
@@ -810,7 +810,7 @@
                                                     </Border>
                                                 </Border>
                                                 <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                                                         <Setter TargetName="CornerClearGlyph" Property="BorderBrush" Value="{StaticResource Brush.Focus.Ring}" />
                                                         <Setter TargetName="CornerClearGlyph" Property="BorderThickness" Value="2" />
                                                     </Trigger>
@@ -826,7 +826,7 @@
                                             <Style TargetType="Rectangle">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=BlockSurface, Mode=OneWay}" Value="True">
+                                                    <DataTrigger Binding="{Binding (views:InputModality.ShowsFocus), ElementName=BlockSurface, Mode=OneWay}" Value="True">
                                                         <Setter Property="Visibility" Value="Visible" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -1219,7 +1219,7 @@
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="bd" Property="Background" Value="{StaticResource Brush.Surface.Hover}" />
                                                     </Trigger>
-                                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                                                         <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Brush.Focus.Ring}" />
                                                     </Trigger>
                                                     <Trigger Property="IsEnabled" Value="False">

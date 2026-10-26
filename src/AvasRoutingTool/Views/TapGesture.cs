@@ -71,6 +71,7 @@ namespace AvasRoutingTool.Views
         {
             if (e.Key is not (Key.Enter or Key.Space) || !ReferenceEquals(e.OriginalSource, card)) return;
             e.Handled = true;
+            if (e.IsRepeat) return; // a held key is one press: it must not arm and disarm over and over
             if (card.DataContext is SourceCardViewModel { IsActive: true } vm) ViewLookup.FindMainViewModel(card)?.ArmSource(vm);
         }
 

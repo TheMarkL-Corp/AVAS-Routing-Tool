@@ -64,7 +64,11 @@ namespace AvasRoutingTool.Views
         /// <summary>The block the open picker belongs to (API window index): where the keyboard returns.</summary>
         private int? _pickerBlock;
 
-        private bool _wasOnScreen;
+        /// <summary>Keyboard focus was inside the Composer and fell to the window (a control collapsed or went disabled): it is put back, once it can be.</summary>
+        private bool _restorePending;
+
+        /// <summary>The name of the control that had the keyboard when it fell.</summary>
+        private string? _restoreFrom;
 
         public MultiViewComposerView()
         {
@@ -75,6 +79,8 @@ namespace AvasRoutingTool.Views
             Unloaded += (_, _) => ClosePicker();
             IsVisibleChanged += (_, _) => SchedulePicker();
             PreviewKeyDown += OnPreviewKeyDown;
+            LostKeyboardFocus += View_LostKeyboardFocus;
+            PickerFrame.LostKeyboardFocus += View_LostKeyboardFocus;
         }
 
         public IEnumerable<SourceCardViewModel>? Sources
@@ -124,13 +130,24 @@ namespace AvasRoutingTool.Views
         private void Replace_Click(object sender, RoutedEventArgs e)
         {
             // API window index (ComposerBlockViewModel.Index), never Number / Label.
-            if (sender is FrameworkElement { DataContext: ComposerBlockViewModel block }) Composer?.OpenPicker(block.Index);
+            if (sender is not FrameworkElement { DataContext: ComposerBlockViewModel block } || Composer is not { } c) return;
+
+            // Activated with the keyboard: the picker opens in keyboard mode, as the P key does (the keyboard goes in, Esc comes back).
+            OpenPickerFromKeyboard(() => c.OpenPicker(block.Index), InputModality.IsKeyboard);
         }
 
         private void Move_Click(object sender, RoutedEventArgs e)
         {
             // API window index (ComposerBlockViewModel.Index), never Number / Label.
-            if (sender is FrameworkElement { DataContext: ComposerBlockViewModel block }) Composer?.BeginMove(block.Index);
+            if (sender is not FrameworkElement { DataContext: ComposerBlockViewModel block } || Composer is not { } c) return;
+            c.BeginMove(block.Index);
+
+            // The strip closes under the keyboard: it goes back to the block, from which an arrow key picks the destination.
+            if (InputModality.IsKeyboard)
+            {
+                c.FocusBlock(block.Index);
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => FocusBlockSurface(block.Index)));
+            }
         }
 
         private void PickerTile_Click(object sender, RoutedEventArgs e)
@@ -146,8 +163,15 @@ namespace AvasRoutingTool.Views
         {
             if (e.Handled) return;
             // Alt+key arrives as Key.System: the real key is SystemKey (menus and Alt combinations stay the window's).
-            if (HandleKey(e.Key == Key.System ? e.SystemKey : e.Key, Keyboard.Modifiers, e.OriginalSource as DependencyObject))
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+            // A held Enter or Space is one press: its repeats would click a button again, or land on the first tile of the picker the first press opened.
+            if (e.IsRepeat && key is Key.Enter or Key.Space)
+            {
                 e.Handled = true;
+                return;
+            }
+            if (HandleKey(key, Keyboard.Modifiers, e.OriginalSource as DependencyObject, e.IsRepeat)) e.Handled = true;
         }
 
         /// <summary>
@@ -156,21 +180,27 @@ namespace AvasRoutingTool.Views
         /// Tab is never touched, and nothing is taken while a text box is being typed in. Internal for tests (the real
         /// modifier state cannot be faked).
         /// </summary>
-        internal bool HandleKey(Key key, ModifierKeys modifiers, DependencyObject? source)
+        internal bool HandleKey(Key key, ModifierKeys modifiers, DependencyObject? source, bool isRepeat = false)
         {
             if (Composer is not { } c || source is TextBoxBase || (modifiers & ModifierKeys.Alt) != 0) return false;
 
             if (key == Key.Enter && modifiers == ModifierKeys.Control)
             {
-                _ = Run(c.TakeAsync, "Take (Ctrl+Enter)");
+                if (isRepeat) return true; // one press, one Take
+                if (c.CanTake) _ = Run(c.TakeAsync, "Take (Ctrl+Enter)");
+                else c.ExplainTake(); // never silent: the banner says why Take is off
                 return true;
             }
             if (key == Key.Escape && modifiers == ModifierKeys.None)
             {
+                if (isRepeat) return true; // one press, one step of the ladder
                 if (c.PickerBlockIndex != null) _pickerKeyboard = true; // the keyboard returns to the block
                 return c.Escape();
             }
             if (modifiers != ModifierKeys.None || source is not Button { Name: "BlockSurface", DataContext: ComposerBlockViewModel block }) return false;
+
+            // Arrows repeat (hold to walk); the keys that act once do not.
+            if (isRepeat && key is Key.Enter or Key.Space or Key.P or Key.Delete or Key.Back) return true;
 
             // API window index, never Number / Label.
             c.FocusBlock(block.Index);
@@ -197,9 +227,9 @@ namespace AvasRoutingTool.Views
         }
 
         /// <summary>Runs the view-model call; if it opened the picker, the keyboard goes into it.</summary>
-        private void OpenPickerFromKeyboard(Action action)
+        private void OpenPickerFromKeyboard(Action action, bool keyboard = true)
         {
-            _pickerKeyboard = true;
+            if (keyboard) _pickerKeyboard = true;
             action();
             if (Composer?.PickerBlockIndex == null) _pickerKeyboard = false;
         }
@@ -211,20 +241,93 @@ namespace AvasRoutingTool.Views
         }
 
         /// <summary>Puts the WPF keyboard focus on a block's surface (the view model named the block).</summary>
-        private void FocusBlockSurface(int index)
+        private bool FocusBlockSurface(int index)
         {
             var block = Composer?.Blocks.FirstOrDefault(b => b.Index == index);
-            if (block == null) return;
-            if (BlocksHost.ItemContainerGenerator.ContainerFromItem(block) is ContentPresenter presenter &&
-                presenter.ContentTemplate?.FindName("BlockSurface", presenter) is Button surface)
-                surface.Focus();
+            if (block == null) return false;
+            return BlocksHost.ItemContainerGenerator.ContainerFromItem(block) is ContentPresenter presenter &&
+                   presenter.ContentTemplate?.FindName("BlockSurface", presenter) is Button surface &&
+                   surface.Focus();
+        }
+
+        // ---- the keyboard never falls out of the Composer ----
+
+        /// <summary>The element is part of this Composer (its tree, or its picker popup).</summary>
+        private bool IsInside(DependencyObject? d)
+        {
+            for (; d != null; d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            {
+                if (ReferenceEquals(d, this) || ReferenceEquals(d, PickerPopup.Child)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The keyboard was inside the Composer and has left it for nothing (the focused control collapsed or went disabled:
+        /// Replace, Move, Done placing, Take): it is put back at the next moment it can be. A press with the mouse or a
+        /// finger is never undone, and neither is focus that moved to another control.
+        /// </summary>
+        private void View_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            if (!InputModality.IsKeyboard || !IsInside(e.OldFocus as DependencyObject) || IsInside(e.NewFocus as DependencyObject)) return;
+            _restoreFrom = (e.OldFocus as FrameworkElement)?.Name;
+            _restorePending = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(RestoreFocus));
+        }
+
+        /// <summary>
+        /// Puts the keyboard on the block that is the canvas' Tab stop; after a Take, on Undo when it is offered; failing
+        /// that on Take or the first layout tile. While nothing can take it (a Take is running) it stays pending.
+        /// </summary>
+        private void RestoreFocus()
+        {
+            if (!_restorePending || Composer is not { } c) return;
+
+            var now = Keyboard.FocusedElement;
+            bool gone = now == null || now is Window;
+            if (!gone || !InputModality.IsKeyboard || !IsLoaded || !IsVisible || IsInside(now as DependencyObject))
+            {
+                _restorePending = false; // it is somewhere inside already, or somewhere else on purpose
+                return;
+            }
+            if (c.PickerBlockIndex != null) // the picker opens in keyboard mode and takes it itself
+            {
+                _restorePending = false;
+                return;
+            }
+
+            bool done = _restoreFrom == "TakeButton" && UndoButton.IsVisible && UndoButton.IsEnabled && UndoButton.Focus();
+            if (!done)
+            {
+                var stop = c.Blocks.FirstOrDefault(b => b.IsTabStop);
+                done = stop != null && FocusBlockSurface(stop.Index);
+            }
+            if (!done) done = TakeButton.IsEnabled && TakeButton.Focus();
+            if (!done)
+            {
+                var tile = FindDescendants<Button>(LeftRailScroll).FirstOrDefault(b => b.Name == "LayoutTile" && b.IsEnabled);
+                done = tile != null && tile.Focus();
+            }
+            _restorePending = !done;
+        }
+
+        private void OnLiveChanged(MultiViewDraft? live)
+        {
+            // The picture on screen changed (Take or Undo): the staged frame turns into the live one, skipped when Windows animations are off.
+            if (Composer is { } c) Motion.FadeIn(CanvasFrame, c.FrameTransitionDuration, 0.35);
         }
 
         private void PickerFrame_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Handled) return;
             _pickerKeyboard = true; // a key pressed in the picker: the keyboard returns to the block when it closes
-            if (HandleKey(e.Key == Key.System ? e.SystemKey : e.Key, Keyboard.Modifiers, e.OriginalSource as DependencyObject)) e.Handled = true;
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (e.IsRepeat && key is Key.Enter or Key.Space)
+            {
+                e.Handled = true; // a held Enter picks once, not tile after tile
+                return;
+            }
+            if (HandleKey(key, Keyboard.Modifiers, e.OriginalSource as DependencyObject, e.IsRepeat)) e.Handled = true;
         }
 
         /// <summary>The keyboard goes to the first tile that can take a source (else the first control), so Enter / arrows work at once.</summary>
@@ -418,10 +521,17 @@ namespace AvasRoutingTool.Views
 
         private void Watch(MultiViewComposerViewModel? composer)
         {
-            if (_watched != null) _watched.PropertyChanged -= OnComposerChanged;
+            if (_watched != null)
+            {
+                _watched.PropertyChanged -= OnComposerChanged;
+                _watched.LiveChanged -= OnLiveChanged;
+            }
             _watched = composer;
-            if (_watched != null) _watched.PropertyChanged += OnComposerChanged;
-            _wasOnScreen = _watched?.IsOnScreen ?? false;
+            if (_watched != null)
+            {
+                _watched.PropertyChanged += OnComposerChanged;
+                _watched.LiveChanged += OnLiveChanged;
+            }
             SchedulePicker();
         }
 
@@ -441,10 +551,9 @@ namespace AvasRoutingTool.Views
                     if (c.FocusedBlockIndex is int focused && BlocksHost.IsKeyboardFocusWithin) FocusBlockSurface(focused);
                     break;
 
-                case nameof(MultiViewComposerViewModel.IsOnScreen):
-                    // The staged frame turns into the live frame: one transition, skipped when Windows animations are off.
-                    if (c.IsOnScreen && !_wasOnScreen) Motion.FadeIn(CanvasFrame, c.FrameTransitionDuration, 0.35);
-                    _wasOnScreen = c.IsOnScreen;
+                case nameof(MultiViewComposerViewModel.IsBusy):
+                    // A Take ended: the keyboard that fell out while it ran (Take went disabled) can come back.
+                    if (!c.IsBusy && _restorePending) Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(RestoreFocus));
                     break;
 
                 case nameof(MultiViewComposerViewModel.Banner):
