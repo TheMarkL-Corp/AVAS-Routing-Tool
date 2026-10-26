@@ -359,7 +359,7 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#FDE68A">
+                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.Status.StagedChipText}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Text" Value="{Binding UsedInBlocks, Mode=OneWay, StringFormat='in {0} blocks'}" />

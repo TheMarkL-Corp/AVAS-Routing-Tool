@@ -1,0 +1,145 @@
+<UserControl x:Class="AvasRoutingTool.Views.CompactSourceCardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="292"
+             Height="96"
+             Cursor="Hand"
+             PreviewMouseLeftButtonDown="Card_PreviewMouseLeftButtonDown"
+             MouseMove="Card_MouseMove"
+             MouseLeftButtonUp="Card_MouseLeftButtonUp">
+
+    <!--
+        A source in the Composer's palette strip (Ruling R21): name, online state, link mode, a small live thumbnail,
+        and the Composer marks (armed ring + "Placing", "in N blocks"). Tap arms, drag places - as the full card.
+    -->
+    <Grid>
+        <Border Background="{StaticResource Brush.Surface.Card}"
+                BorderBrush="{StaticResource Brush.Border.Default}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Thumbnail (the source card's own live bitmap, fitted) -->
+                <Border Width="112" Height="63" Background="#050505" CornerRadius="4" ClipToBounds="True" VerticalAlignment="Top">
+                    <Grid>
+                        <Image Source="{Binding PreviewBitmap, Mode=OneWay}" Stretch="Uniform" RenderOptions.BitmapScalingMode="LowQuality" />
+                        <TextBlock Text="NO PREVIEW" FontSize="12" FontWeight="Bold" Foreground="#CBD5E1"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                    <TextBlock Text="{Binding DeviceName, Mode=OneWay}" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Text.Primary}" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding DeviceName, Mode=OneWay}" />
+                    <TextBlock FontSize="14" Foreground="{StaticResource Brush.Text.Secondary}" TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{Binding LinkMode, Mode=OneWay, StringFormat='Online · {0}'}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="False">
+                                        <Setter Property="Text" Value="Offline" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <Border x:Name="UsedInBlocksBadge"
+                                Background="#2A1F08"
+                                BorderBrush="{StaticResource Brush.Status.Staged}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="5,0"
+                                Margin="0,0,4,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.Status.StagedChipText}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding UsedInBlocks, Mode=OneWay, StringFormat='in {0} blocks'}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="1">
+                                                <Setter Property="Text" Value="in 1 block" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <Border Background="#082F3A"
+                                BorderBrush="{StaticResource Brush.Border.DropTarget}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="5,0">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="Placing" FontSize="14" FontWeight="Bold" Foreground="#A5F3FC" />
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Offline: dimmed (the status line says "Offline" in words) -->
+        <Border Background="#990B0F17" CornerRadius="8" IsHitTestVisible="False">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+        </Border>
+
+        <!-- Armed ring (cyan), drawn over the edge so nothing moves -->
+        <Border x:Name="ArmedRing"
+                BorderBrush="{StaticResource Brush.Border.DropTarget}"
+                BorderThickness="3"
+                CornerRadius="8"
+                IsHitTestVisible="False">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+        </Border>
+    </Grid>
+</UserControl>

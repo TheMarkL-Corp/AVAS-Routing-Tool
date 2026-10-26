@@ -46,6 +46,27 @@ namespace AvasRoutingTool.Views
             throw new NotSupportedException();
     }
 
+    /// <summary>True when the number is below the parameter (a block narrower than 240 px gets compact overlays).</summary>
+    public sealed class LessThanConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+            value is double v && double.TryParse(parameter?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double limit) &&
+            v > 0 && v < limit;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            throw new NotSupportedException();
+    }
+
+    /// <summary>-value / 2: centres an element on a zero-size Canvas (an overlay that may overhang its block unclipped).</summary>
+    public sealed class NegativeHalfConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+            value is double v ? -v / 2 : 0.0;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            throw new NotSupportedException();
+    }
+
     /// <summary>True when both values are the same non-empty text, ignoring case (e.g. a block's source MAC and the armed source's).</summary>
     public sealed class SameTextConverter : IMultiValueConverter
     {

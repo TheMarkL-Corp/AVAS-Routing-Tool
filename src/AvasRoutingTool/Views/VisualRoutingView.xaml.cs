@@ -25,6 +25,9 @@ namespace AvasRoutingTool.Views
             Unloaded += (_, _) => _timer.Stop();
         }
 
+        /// <summary>The Tick timer runs while the view is loaded (tests).</summary>
+        internal bool IsTimerRunning => _timer.IsEnabled;
+
         private void OnTick(object? sender, EventArgs e)
         {
             try

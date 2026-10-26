@@ -11,7 +11,7 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <!-- Sources: half the screen in the overview; a fixed palette row while the Composer is open -->
+            <!-- Sources: half the screen in the overview; a compact palette strip while the Composer is open (Ruling R21) -->
             <RowDefinition>
                 <RowDefinition.Style>
                     <Style TargetType="RowDefinition">
@@ -19,7 +19,7 @@
                         <Setter Property="MinHeight" Value="330" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                <Setter Property="Height" Value="340" />
+                                <Setter Property="Height" Value="Auto" />
                                 <Setter Property="MinHeight" Value="0" />
                             </DataTrigger>
                         </Style.Triggers>
@@ -44,7 +44,17 @@
         </Grid.RowDefinitions>
 
         <!-- TOP ROW: Sources (TX) Section (the Composer's palette while it is open) -->
-        <Border Grid.Row="0" Margin="16,12,16,6">
+        <Border Grid.Row="0">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Margin" Value="16,12,16,6" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                            <Setter Property="Margin" Value="16,8,16,2" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -52,7 +62,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Section Header -->
-                <Grid Grid.Row="0" Margin="4,0,4,8">
+                <Grid Grid.Row="0" Margin="4,0,4,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -101,10 +111,48 @@
                     </Border>
                 </Grid>
 
+                <!-- Composer: the sources as a compact palette strip (tap arms, drag places; ring and badges stay) -->
+                <ScrollViewer Grid.Row="1"
+                              x:Name="CompactSourcePalette"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
+                    <ItemsControl ItemsSource="{Binding Sources}" Focusable="False" Margin="0,0,0,10">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <views:CompactSourceCardView Margin="0,0,10,0" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
                 <!-- Sources Carousel / Horizontal List -->
                 <ScrollViewer Grid.Row="1"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
                     <ItemsControl ItemsSource="{Binding Sources}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>

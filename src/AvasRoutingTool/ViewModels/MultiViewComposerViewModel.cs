@@ -152,6 +152,15 @@ namespace AvasRoutingTool.ViewModels
         public IReadOnlyList<string> ChangeLines =>
             _changes.Select(c => $"{NumberOf(c.SlotIndex)}: {c.From ?? "-"} -> {c.To ?? "-"}").ToList();
 
+        /// <summary>How many blocks differ from the screen ("CHANGES (n)").</summary>
+        public int ChangeCount => _changes.Count;
+
+        /// <summary>The staged picture differs from the screen: "STAGED - not on screen yet", dashed amber frame.</summary>
+        public bool IsStaged => _draft != null && HasChanges;
+
+        /// <summary>The staged picture is what the screen shows now: "ON SCREEN", solid blue frame.</summary>
+        public bool IsOnScreen => _draft != null && _live != null && !HasChanges;
+
         public bool StepLayoutDone => _stepLayoutDone;
 
         public bool StepPlaceDone => _draft != null && _draft.Placements.Count > 0;
@@ -936,6 +945,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var name in new[]
             {
                 nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes), nameof(ChangeLines),
+                nameof(ChangeCount), nameof(IsStaged), nameof(IsOnScreen),
                 nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason),
                 nameof(CanUndo), nameof(UnplacedSources), nameof(OutputText), nameof(RateNote), nameof(HeaderNotice),
             })

@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- View smoke tests reach a few view internals (picker cap, drop handling, the Tick timer state) -->
+    <InternalsVisibleTo Include="AvasRoutingTool.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

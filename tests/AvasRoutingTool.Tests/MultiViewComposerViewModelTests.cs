@@ -80,6 +80,54 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task ChangeCount_FollowsTheChanges_AndIsRaised()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            Assert.Equal(0, vm.ChangeCount);
+            var raised = new List<string?>();
+            vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            vm.TapBlock(2);
+
+            Assert.Equal(2, vm.ChangeCount);
+            Assert.Contains(nameof(MultiViewComposerViewModel.ChangeCount), raised);
+        }
+
+        [Fact]
+        public async Task IsStaged_AndIsOnScreen_FollowTheScreen()
+        {
+            var rig = new Rig();
+            var fresh = rig.Composer();
+            Assert.False(fresh.IsStaged);
+            Assert.False(fresh.IsOnScreen);
+
+            var vm = await rig.Matrix();
+            Assert.False(vm.IsStaged); // empty blocks, nothing on screen: nothing to take
+            Assert.False(vm.IsOnScreen);
+
+            var raised = new List<string?>();
+            vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            Assert.True(vm.IsStaged);
+            Assert.False(vm.IsOnScreen);
+            Assert.Contains(nameof(MultiViewComposerViewModel.IsStaged), raised);
+            Assert.Contains(nameof(MultiViewComposerViewModel.IsOnScreen), raised);
+
+            vm.Disarm();
+            await vm.TakeAsync();
+            Assert.False(vm.IsStaged);
+            Assert.True(vm.IsOnScreen);
+
+            vm.Clear(0); // clearing a block that is on screen is a staged change
+            Assert.True(vm.IsStaged);
+            Assert.False(vm.IsOnScreen);
+        }
+
+        [Fact]
         public void NewComposer_IsAtStepOne_WithNothingStaged()
         {
             var rig = new Rig();

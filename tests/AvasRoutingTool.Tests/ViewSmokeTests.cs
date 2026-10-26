@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -558,6 +559,425 @@ namespace AvasRoutingTool.Tests
                     Assert.Null(vm.ActiveComposer);
                     Assert.False(composerView.IsVisible);
                     Assert.True(FindAll<DisplayCardView>(view).Single().IsVisible);
+                });
+            });
+
+        // ---- Task 10a fix round 1 ----
+
+        /// <summary>Lays the view out at exactly <paramref name="width"/> x <paramref name="height"/> (the content area of a real window).</summary>
+        private static void ShowingAt(FrameworkElement view, double width, double height, Action assert)
+        {
+            view.Width = width;
+            view.Height = height;
+            var window = new Window { Content = view, SizeToContent = SizeToContent.WidthAndHeight, ShowInTaskbar = false, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, Left = -10000 };
+            window.Show();
+            try
+            {
+                Relayout(view);
+                assert();
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+
+        private static Rect BoundsIn(FrameworkElement el, Visual ancestor) =>
+            el.TransformToAncestor(ancestor).TransformBounds(new Rect(el.RenderSize));
+
+        private static void Wait(TimeSpan time)
+        {
+            var frame = new DispatcherFrame();
+            var timer = new DispatcherTimer { Interval = time };
+            timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
+            timer.Start();
+            Dispatcher.PushFrame(frame);
+        }
+
+        private static void Tap(UIElement el, RoutedEvent routedEvent) =>
+            el.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = routedEvent, Source = el });
+
+        private static void Click(FrameworkElement button) => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+
+        private static (MainViewModel Vm, DisplayCardViewModel Rx, SourceCardViewModel[] Sources) Overview(Func<DateTime>? clock = null)
+        {
+            var client = new MockSdvoeClient();
+            var vm = new MainViewModel(new Configuration.ConfigService(), client, new MockRtpReceiver(), new MulticastIpManager(),
+                new RoutingOrchestrator(client), new MultiViewOrchestrator(client), clock, post: a => a());
+            var sources = new[]
+            {
+                new SourceCardViewModel(new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = "TX1_c07bb_SFPA", VendorId = 105, IsTransmitter = true, IsActive = true }) { PreviewBitmap = Picture() },
+                new SourceCardViewModel(new AvasDevice { DeviceId = "74fe488b07bc", DeviceName = "TX2_DUAL LINK_SFPA", VendorId = 105, LinkMode = "Dual Link", IsTransmitter = true, IsActive = true }) { PreviewBitmap = Picture() },
+                new SourceCardViewModel(new AvasDevice { DeviceId = "0016c0589c1e", DeviceName = "VEGA_1100", VendorId = 192, IsTransmitter = true, IsActive = true }),
+                new SourceCardViewModel(new AvasDevice { DeviceId = "74fe488b07bd", DeviceName = "TX3_c07bd_SFPA", VendorId = 105, IsTransmitter = true, IsActive = false }),
+            };
+            foreach (var s in sources) vm.Sources.Add(s);
+            var rx = new DisplayCardViewModel(new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1_c059e_SFPA", IsReceiver = true, IsActive = true });
+            vm.Displays.Add(rx);
+            return (vm, rx, sources);
+        }
+
+        [Theory]
+        [InlineData(1280, 720)] // MainWindow default 1280x860, content under the app header
+        [InlineData(1024, 600)] // MainWindow minimum 1024x720
+        public void Composer_InVisualRoutingView_AtRealWindowSizes_TakeVisible_BlocksWide_NothingOverlaps(int width, int height) =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[1]); // the longest name, in every block
+                foreach (var b in c.Blocks.ToList()) c.TapBlock(b.Index);
+                c.Disarm();
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, width, height, () =>
+                {
+                    // The sources stay above as a compact palette.
+                    Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
+                    var palette = FindAll<CompactSourceCardView>(view).Where(s => s.IsVisible).ToList();
+                    Assert.Equal(4, palette.Count);
+                    var strip = (FrameworkElement)Named(view, "CompactSourcePalette").Single();
+                    Assert.True(strip.ActualHeight <= 160, $"palette strip is {strip.ActualHeight} high");
+
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    Assert.True(take.IsVisible);
+                    var tr = BoundsIn(take, view);
+                    Assert.True(tr.Top >= 0 && tr.Bottom <= view.ActualHeight + 0.5, $"Take at {tr} in a {view.ActualHeight} high view");
+                    Assert.True(take.ActualHeight >= 72);
+
+                    var blocks = Named(view, "BlockSurface").Where(e => e.IsVisible).ToList();
+                    Assert.Equal(4, blocks.Count);
+                    Assert.All(blocks, b => Assert.True(b.ActualWidth >= 150, $"block is {b.ActualWidth} wide"));
+
+                    foreach (var root in Named(view, "BlockRoot"))
+                    {
+                        var clear = Named(root, "CornerClear").Single(e => e.IsVisible);
+                        var pill = Named(root, "SourcePill").Single(e => e.IsVisible);
+                        var size = Named(root, "SizeChip").Single();
+                        Assert.False(BoundsIn(clear, view).IntersectsWith(BoundsIn(pill, view)), "corner clear overlaps the source name");
+                        if (size.IsVisible)
+                            Assert.False(BoundsIn(size, view).IntersectsWith(BoundsIn(pill, view)), "size chip overlaps the source name");
+                    }
+                });
+            });
+
+        [Fact]
+        public void Composer_PickerPopup_WithTwelveEncoders_IsCapped_AndTheLastTileScrollsIntoView() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                for (int i = 0; i < 9; i++)
+                {
+                    rig.Sources.Add(new SourceCardViewModel(new AvasDevice
+                    {
+                        DeviceId = $"74fe488b10{i:x2}", DeviceName = $"TX{10 + i}_SFPA", VendorId = 105, IsTransmitter = true, IsActive = true,
+                    }) { PreviewBitmap = Picture() });
+                }
+                Assert.Equal(12, rig.Sources.Count);
+                var c = rig.Composer("matrix2x2");
+                c.TapBlock(1);
+
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Assert.True(popup.IsOpen);
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+
+                    Assert.True(view.PickerMaxHeight >= 300 && view.PickerMaxHeight <= SystemParameters.WorkArea.Height);
+                    Assert.True(content.ActualHeight <= view.PickerMaxHeight + 0.5, $"picker is {content.ActualHeight} high, cap {view.PickerMaxHeight}");
+
+                    var scroll = (ScrollViewer)Named(content, "PickerScroll").Single();
+                    var last = Named(content, "PickerTile").Last();
+                    scroll.ScrollToEnd();
+                    Relayout(content);
+                    var r = BoundsIn(last, scroll);
+                    Assert.True(r.Top >= -0.5 && r.Bottom <= scroll.ViewportHeight + 0.5, $"last tile at {r}, viewport {scroll.ViewportHeight}");
+                });
+            });
+
+        [Fact]
+        public void ThemeScrollBar_Thumb_IsTallerThan20_WhenTheExtentIsTwiceTheViewport() =>
+            RunSta(() =>
+            {
+                // The theme's implicit ScrollViewer style, set explicitly: implicit app-level styles are not looked up
+                // from this test thread (it is not the thread that created the Application).
+                var scroll = new ScrollViewer
+                {
+                    Style = (Style)Application.Current.FindResource(typeof(ScrollViewer)),
+                    Height = 200, Width = 300, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = new Border { Height = 400 },
+                };
+                Showing(scroll, () =>
+                {
+                    var bar = FindAll<ScrollBar>(scroll).Single(b => b.Orientation == Orientation.Vertical && b.IsVisible);
+                    var thumb = FindAll<Thumb>(bar).Single();
+                    Assert.True(thumb.ActualHeight > 20, $"thumb is {thumb.ActualHeight} high");
+                    Assert.True(thumb.ActualHeight < bar.ActualHeight, "thumb fills the whole track");
+                    Assert.True(bar.ActualWidth <= 10, $"bar is {bar.ActualWidth} wide (thin theme bar)");
+                    Assert.Equal(2, FindAll<RepeatButton>(bar).Count); // page up / page down
+                });
+            });
+
+        private static double Luminance(Color c)
+        {
+            static double Channel(byte v)
+            {
+                double s = v / 255.0;
+                return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+            }
+            return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+        }
+
+        private static double Contrast(Color a, Color b)
+        {
+            double la = Luminance(a), lb = Luminance(b);
+            return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+        }
+
+        [Fact]
+        public void TakeStyle_LabelContrast_IsAtLeast4_5_InEveryState() =>
+            RunSta(() =>
+            {
+                var style = (Style)Application.Current.FindResource("Style.Button.Take");
+                Color Of(object? v) => ((SolidColorBrush)v!).Color;
+                var setters = style.Setters.OfType<Setter>().ToList();
+                var fg = Of(setters.Single(s => s.Property == Control.ForegroundProperty).Value);
+                var bg = Of(setters.Single(s => s.Property == Control.BackgroundProperty).Value);
+                Assert.True(Contrast(fg, bg) >= 4.5, $"normal {Contrast(fg, bg):F2}");
+
+                var template = (ControlTemplate)setters.Single(s => s.Property == Control.TemplateProperty).Value;
+                foreach (var trigger in template.Triggers.OfType<Trigger>())
+                {
+                    var ts = trigger.Setters.OfType<Setter>().ToList();
+                    var tFg = ts.FirstOrDefault(s => s.Property == Control.ForegroundProperty) is { } f ? Of(f.Value) : fg;
+                    var tBg = ts.FirstOrDefault(s => s.Property == Control.BackgroundProperty) is { } b ? Of(b.Value) : bg;
+                    Assert.True(Contrast(tFg, tBg) >= 4.5, $"{trigger.Property.Name}={trigger.Value}: {Contrast(tFg, tBg):F2}");
+                }
+            });
+
+        [Fact]
+        public void Composer_TapOnEmptyArea_Disarms_ButATapOnABlockDoesNot() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                var view = rig.View(c);
+
+                Showing(view, () =>
+                {
+                    // MouseUp bubbles; each element on the way raises its own (direct) MouseLeftButtonUp, as in the app.
+                    var block = Named(view, "BlockSurface").First();
+                    Tap(FindAll<TextBlock>(block).First(), Mouse.MouseUpEvent);
+                    Assert.Same(rig.Tx1, c.ArmedSource);
+
+                    Tap((UIElement)Named(view, "CanvasHost").Single(), Mouse.MouseUpEvent);
+                    Assert.Null(c.ArmedSource);
+                });
+            });
+
+        [Fact]
+        public void Composer_DropSourceOnBlock_PlacesIt_HonouringCheckPlace_AndBlockOnBlockMoves() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("quad_1_3");
+                var view = rig.View(c);
+
+                Showing(view, () =>
+                {
+                    var data = new DataObject(typeof(AvasDevice), rig.Tx1.Device);
+                    Assert.Equal(DragDropEffects.Link, view.DropEffectFor(c.Blocks[0], data));
+                    Assert.True(view.DropOn(c.Blocks[0], data)); // API window index of block 1
+                    Assert.Equal("74fe488b07bb", c.Draft!.Placements[c.Blocks[0].Index].SourceMac);
+
+                    // Block 2 is smaller: one encoder has one size per layout -> refused, nothing placed.
+                    Assert.Equal(DragDropEffects.None, view.DropEffectFor(c.Blocks[1], data));
+                    Assert.False(view.DropOn(c.Blocks[1], data));
+                    Assert.False(c.Draft.Placements.ContainsKey(c.Blocks[1].Index));
+                    Assert.Equal(BannerKind.Warning, c.Banner.Kind);
+
+                    // Drag a block onto another block: move (empty target) / swap (occupied).
+                    Assert.True(view.DropOn(c.Blocks[2], new DataObject(typeof(AvasDevice), rig.Tx2.Device)));
+                    Assert.True(view.DropOn(c.Blocks[3], new DataObject(typeof(ComposerBlockViewModel), c.Blocks[2])));
+                    Assert.False(c.Draft.Placements.ContainsKey(c.Blocks[2].Index));
+                    Assert.Equal("74fe488b07bc", c.Draft.Placements[c.Blocks[3].Index].SourceMac);
+                });
+            });
+
+        [Fact]
+        public void SourceCard_Tap_ArmsAndDisarms_OfflineIsIgnored() =>
+            RunSta(() =>
+            {
+                var (vm, _, sources) = Overview();
+                foreach (var compact in new[] { false, true })
+                {
+                    UserControl Card(SourceCardViewModel s) => compact ? new CompactSourceCardView { DataContext = s } : new SourceCardView { DataContext = s };
+                    var online = Card(sources[0]);
+                    var offline = Card(sources[3]);
+                    var host = new StackPanel { DataContext = vm, Children = { online, offline } };
+
+                    Showing(host, () =>
+                    {
+                        Tap(online, UIElement.PreviewMouseLeftButtonDownEvent);
+                        Tap(online, UIElement.MouseLeftButtonUpEvent);
+                        Assert.Same(sources[0], vm.ArmedSource);
+
+                        Tap(online, UIElement.PreviewMouseLeftButtonDownEvent);
+                        Tap(online, UIElement.MouseLeftButtonUpEvent);
+                        Assert.Null(vm.ArmedSource);
+
+                        Tap(offline, UIElement.PreviewMouseLeftButtonDownEvent);
+                        Tap(offline, UIElement.MouseLeftButtonUpEvent);
+                        Assert.Null(vm.ArmedSource);
+
+                        Tap(online, UIElement.MouseLeftButtonUpEvent); // a release without a press here is no tap
+                        Assert.Null(vm.ArmedSource);
+                    });
+                }
+            });
+
+        [Fact]
+        public void CompactSourceCard_ArmedRing_AndUsedInBlocksBadge_Render() =>
+            RunSta(() =>
+            {
+                var (_, _, sources) = Overview();
+                sources[0].IsArmed = true;
+                sources[0].UsedInBlocks = 2;
+                var armed = new CompactSourceCardView { DataContext = sources[0] };
+                Showing(armed, () =>
+                {
+                    Assert.True(Named(armed, "ArmedRing").Single().IsVisible);
+                    AssertVisibleText(armed, "Placing");
+                    AssertVisibleText(armed, "in 2 blocks");
+                    Assert.True(armed.ActualHeight >= 56, "compact card is too small to tap");
+                });
+
+                var plain = new CompactSourceCardView { DataContext = sources[2] };
+                Showing(plain, () =>
+                {
+                    Assert.False(Named(plain, "ArmedRing").Single().IsVisible);
+                    Assert.False(Named(plain, "UsedInBlocksBadge").Single().IsVisible);
+                    AssertVisibleText(plain, "NO PREVIEW");
+                });
+            });
+
+        [Fact]
+        public void VisualRoutingView_TickTimer_RunsWhileLoaded_AndCallsTick() =>
+            RunSta(() =>
+            {
+                var now = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
+                var (vm, _, sources) = Overview(() => now);
+                vm.ArmSource(sources[0]);
+                now += MainViewModel.ArmIdleTimeout + TimeSpan.FromSeconds(1);
+
+                var view = new VisualRoutingView { DataContext = vm };
+                Assert.False(view.IsTimerRunning);
+                var window = new Window { Content = view, Width = 1280, Height = 720, ShowInTaskbar = false, WindowStyle = WindowStyle.None, Left = -10000 };
+                window.Show();
+                Idle();
+                Assert.True(view.IsTimerRunning);
+                Wait(TimeSpan.FromMilliseconds(700));
+                Assert.Null(vm.ArmedSource); // Tick disarmed the idle source
+                window.Close();
+                Idle();
+                Assert.False(view.IsTimerRunning);
+            });
+
+        [Fact]
+        public void VisualRoutingView_StopButton_Disarms() =>
+            RunSta(() =>
+            {
+                var (vm, _, sources) = Overview();
+                vm.ArmSource(sources[1]);
+                var view = new VisualRoutingView { DataContext = vm };
+                Showing(view, () =>
+                {
+                    var stop = Named(view, "StopPlacingButton").Single();
+                    Assert.True(stop.IsVisible && stop.ActualHeight >= 56);
+                    Click(stop);
+                    Assert.Null(vm.ArmedSource);
+                    Relayout(view);
+                    Assert.False(stop.IsVisible);
+                });
+            });
+
+        [Fact]
+        public void Composer_UnplacedChips_RenderAndArmTheSource() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx2);
+                c.TapBlock(2);
+                c.Arm(rig.Vega);
+                c.TapBlock(3);
+                c.Disarm();
+                Pump(() => c.SelectLayoutAsync("side_by_side")); // two blocks: blocks 3 and 4 have nowhere to go
+                Assert.Equal(2, c.UnplacedSources.Count);
+
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var chips = Named(view, "UnplacedChip").Where(e => e.IsVisible).Cast<Button>().ToList();
+                    Assert.Equal(new[] { "TX2", "VEGA_1100" }, chips.Select(b => b.Content as string));
+                    Assert.All(chips, b => Assert.True(b.ActualHeight >= 56));
+                    Click(chips[0]);
+                    Assert.Same(rig.Tx2, c.ArmedSource);
+                });
+            });
+
+        [Fact]
+        public void Composer_ReplaceMoveStrip_OpensThePicker_OrStartsAMove() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                c.TapBlock(0); // a placed block: the strip opens
+
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var replace = Named(view, "ReplaceButton").Single(e => e.IsVisible);
+                    Assert.True(replace.ActualHeight >= 56);
+                    Click(replace);
+                    Assert.Equal(c.Blocks[0].Index, c.PickerBlockIndex);
+
+                    c.Disarm();
+                    c.TapBlock(0);
+                    Relayout(view);
+                    Click(Named(view, "MoveButton").Single(e => e.IsVisible));
+                    Assert.Equal(c.Blocks[0].Index, c.MovingFromIndex);
+                });
+            });
+
+        [Fact]
+        public void Composer_Pip_LowestWindowIndexIsPaintedOnTop() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("pip");
+                var inset = c.Blocks.Single(b => b.Index == 0);
+                var main = c.Blocks.Single(b => b.Index == 1);
+                Assert.True(inset.NormalizedWidth < main.NormalizedWidth);
+
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var host = (ItemsControl)Named(view, "BlocksHost").Single();
+                    var insetBox = (FrameworkElement)host.ItemContainerGenerator.ContainerFromItem(inset);
+                    var mainBox = (FrameworkElement)host.ItemContainerGenerator.ContainerFromItem(main);
+                    Assert.True(Panel.GetZIndex(insetBox) > Panel.GetZIndex(mainBox));
+
+                    var centre = insetBox.TranslatePoint(new Point(insetBox.ActualWidth / 2, insetBox.ActualHeight / 2), host);
+                    var hit = host.InputHitTest(centre) as DependencyObject;
+                    while (hit != null && !(hit is ContentPresenter { DataContext: ComposerBlockViewModel })) hit = VisualTreeHelper.GetParent(hit);
+                    Assert.Same(inset, ((ContentPresenter)hit!).DataContext);
                 });
             });
     }
