@@ -456,6 +456,9 @@ namespace AvasRoutingTool.ViewModels
                     AppLogger.Info("RESTORE", $"'{rx.DeviceName}' is routed to '{rx.ActiveSourceName}'.");
                 }
                 display.NotifyRoutingChanged();
+                // Only what the hardware reports: a decoder still in another mode (nothing converts it until a route) shows no format.
+                if (route != null && string.Equals(state.DisplayMode, "FAST_SWITCHED", StringComparison.OrdinalIgnoreCase) && state.Width > 0 && state.Height > 0)
+                    display.SetSingleViewOutput($"OUT {state.Width}x{state.Height}@{state.Fps}");
                 RefreshKeptDraft(display);
                 AnnounceScreen(display);
                 return;
@@ -505,13 +508,15 @@ namespace AvasRoutingTool.ViewModels
             string rxKey = Key(displayRx);
             var displayVm = FindDisplay(displayRx);
             WithdrawScreenUndo(displayRx, displayVm); // a deliberate change: a copy's Undo must not overwrite it
+            if (displayVm != null) displayVm.LastError = null; // a new attempt: an earlier refusal must not outlive a route that works
 
-            // A multiview decoder must go back to genlocked full screen before a plain join takes effect.
+            // A multiview decoder must go back to Single View (Fast Switch) before a plain join takes effect.
             if (_multiView.IsMultiView(displayRx))
             {
                 if (!await _multiView.ReturnToSingleViewAsync(displayRx))
                 {
                     AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
+                    if (displayVm != null) displayVm.LastError = $"Could not return '{displayRx.DeviceName}' to Single View; the route was not sent.";
                     return false;
                 }
                 displayVm?.ClearLayout();
@@ -523,6 +528,7 @@ namespace AvasRoutingTool.ViewModels
                 if (!await _multiView.ExitExternalAsync(displayRx, MultiViewOrchestrator.StreamOneJoins(externalIndexes)))
                 {
                     AppLogger.Warn("ROUTING", $"Could not return '{displayRx.DeviceName}' to single view; route not sent.");
+                    if (displayVm != null) displayVm.LastError = $"Could not return '{displayRx.DeviceName}' to Single View; the route was not sent.";
                     return false;
                 }
                 _externalSubscriptions.Remove(rxKey);
@@ -535,10 +541,10 @@ namespace AvasRoutingTool.ViewModels
             bool ok = route.Ok;
             if (ok)
             {
-                displayVm?.SetSingleViewOutput(MultiViewCanvasPolicy.OutputLabel(route.Format!));
                 var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == sourceTx.DeviceId);
                 displayVm?.SetPreviewSource(sourceVm);
                 displayVm?.NotifyRoutingChanged();
+                displayVm?.SetSingleViewOutput(MultiViewCanvasPolicy.OutputLabel(route.Format!)); // after the notify, which drops a line made by an earlier route
                 AppLogger.Info("ROUTING", $"Successfully routed video feed to '{displayRx.DeviceName}'.");
             }
             else

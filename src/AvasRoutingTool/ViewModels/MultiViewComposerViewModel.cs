@@ -229,7 +229,7 @@ namespace AvasRoutingTool.ViewModels
                 if (_draft == null) return string.Empty;
 
                 // A resumed draft on a display with nothing live yet: reuse what the card already shows, else the plan's size.
-                string info = _display.CanvasInfo;
+                string info = _display.LayoutCanvasInfo;
                 if (info.StartsWith("OUT ", StringComparison.Ordinal))
                 {
                     int cut = info.IndexOf(" · ", StringComparison.Ordinal);

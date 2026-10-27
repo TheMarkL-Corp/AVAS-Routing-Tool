@@ -139,6 +139,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The decoder output format read from the display EDID (and a bandwidth note), shown on the card.</summary>
         public string CanvasInfo => !string.IsNullOrEmpty(_canvasInfo) ? _canvasInfo : IsRouted ? _singleViewOutput : string.Empty;
 
+        /// <summary>The output format of a multiview or external layout only (what the Composer reuses); empty in Single View.</summary>
+        public string LayoutCanvasInfo => _canvasInfo;
+
         /// <summary>The Single View output format ("OUT 1920x1080@60 (display EDID unavailable)") shown while this card is routed.</summary>
         public void SetSingleViewOutput(string info)
         {
@@ -513,6 +516,9 @@ namespace AvasRoutingTool.ViewModels
 
         public void NotifyRoutingChanged()
         {
+            // The route changed: a Single View format shown for the earlier one is not known to hold. The caller that knows it sets it again.
+            _singleViewOutput = string.Empty;
+            OnPropertyChanged(nameof(CanvasInfo));
             OnPropertyChanged(nameof(ActiveSourceId));
             OnPropertyChanged(nameof(ActiveSourceName));
             OnPropertyChanged(nameof(IsRouted));

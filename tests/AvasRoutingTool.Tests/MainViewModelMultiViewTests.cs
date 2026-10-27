@@ -369,12 +369,15 @@ namespace AvasRoutingTool.Tests
         public async Task RouteVideo_FromAMultiView_ShowsTheSingleViewFormat_NotTheMultiViewOne()
         {
             var rig = new Rig();
+            rig.Client.DisplayEdid = TestEdids.Build((3840, 2160, 60, false));
             await rig.TakeMatrixWithTx1Async();
-            Assert.NotEqual(string.Empty, rig.RxVm.CanvasInfo); // the multiview canvas line
+            Assert.Contains("3840x2160@60", rig.RxVm.CanvasInfo); // the multiview canvas line
+            rig.Client.DisplayEdid = TestEdids.Build((1920, 1080, 60, false)); // another monitor is attached now
 
             Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx));
 
             Assert.StartsWith("OUT 1920x1080@60", rig.RxVm.CanvasInfo);
+            Assert.DoesNotContain("3840x2160", rig.RxVm.CanvasInfo);
             Assert.False(rig.RxVm.IsMultiView);
         }
 
@@ -392,6 +395,35 @@ namespace AvasRoutingTool.Tests
             Assert.Contains("Fast Switch 1920x1080@60", rig.RxVm.LastError);
             Assert.False(rig.RxVm.IsRouted);
             Assert.Equal(string.Empty, rig.RxVm.CanvasInfo);
+        }
+
+        [Fact]
+        public async Task RouteVideo_AfterARefusedModeChange_TheCardErrorGoesAway_WhenTheRetrySucceeds()
+        {
+            var rig = new Rig();
+            rig.Client.FailMultiViewPrefix = "fastswitch:";
+            Assert.False(await rig.Vm.RouteVideoAsync(rig.Tx1, rig.Rx));
+            Assert.True(rig.RxVm.HasError);
+
+            rig.Client.FailMultiViewPrefix = null;
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx1, rig.Rx));
+
+            Assert.False(rig.RxVm.HasError);
+            Assert.True(rig.RxVm.IsRouted);
+        }
+
+        [Fact]
+        public async Task RouteVideo_WhenTheMultiViewCannotBeLeft_ReportsItOnTheCard_AndKeepsTheMultiView()
+        {
+            var rig = new Rig();
+            await rig.TakeMatrixWithTx1Async();
+            rig.Client.FailMultiViewPrefix = "fastswitch:";
+
+            Assert.False(await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx));
+
+            Assert.True(rig.RxVm.HasError);
+            Assert.Contains("Single View", rig.RxVm.LastError);
+            Assert.True(rig.RxVm.IsMultiView);
         }
 
         [Fact]

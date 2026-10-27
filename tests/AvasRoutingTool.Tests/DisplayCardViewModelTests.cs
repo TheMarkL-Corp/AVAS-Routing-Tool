@@ -59,6 +59,30 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void NotifyRoutingChanged_DropsASingleViewLineThatMayNoLongerDescribeTheRoute()
+        {
+            var device = new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1", IsReceiver = true, ActiveSourceId = "74fe488b07bb", ActiveSourceName = "TX2" };
+            var vm = new DisplayCardViewModel(device, d => Task.CompletedTask);
+            vm.SetSingleViewOutput("OUT 3840x2160@60");
+
+            vm.NotifyRoutingChanged(); // a route made elsewhere (restore, copy, undo): the old format is not known to hold
+
+            Assert.Equal(string.Empty, vm.CanvasInfo);
+        }
+
+        [Fact]
+        public void TheSingleViewLine_IsNotTheLayoutCanvas()
+        {
+            var device = new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1", IsReceiver = true, ActiveSourceId = "74fe488b07bb", ActiveSourceName = "TX2" };
+            var vm = new DisplayCardViewModel(device, d => Task.CompletedTask);
+
+            vm.SetSingleViewOutput("OUT 1920x1080@60 (display EDID unavailable)");
+
+            Assert.NotEqual(string.Empty, vm.CanvasInfo);
+            Assert.Equal(string.Empty, vm.LayoutCanvasInfo); // what the Composer reuses: only a multiview / external canvas
+        }
+
+        [Fact]
         public void SetPreviewSource_WhenAvasSource_MirrorsPreviewBitmapAndSetsSupported()
         {
             var rxDevice = new AvasDevice

@@ -56,6 +56,21 @@ namespace AvasRoutingTool.Tests
 
         // ---- Single View ------------------------------------------------------------------
 
+        [Theory]
+        [InlineData("FAST_SWITCHED", "OUT 3840x2160@60")]  // the fixture's real frame buffer: 3840x2160@60
+        [InlineData("GENLOCKED", "")] // not converted yet (Single View is only changed on a route): the card must not claim a format it was not set to
+        public async Task SingleViewRoute_Restored_ShowsTheOutputLineOnlyForFastSwitch(string mode, string expected)
+        {
+            var rig = new Rig();
+            rig.Hardware(Rx1Mac, "rx_single_view.json");
+            rig.Client.ReceiverStates[Rx1Mac] = rig.Client.ReceiverStates[Rx1Mac]! with { DisplayMode = mode };
+
+            await rig.Vm.RestoreStateAsync();
+
+            Assert.True(rig.Rx1Vm.IsRouted);
+            Assert.Equal(expected, rig.Rx1Vm.CanvasInfo);
+        }
+
         [Fact]
         public async Task SingleViewRoute_IsRestoredAndThePreviewMirrored()
         {
