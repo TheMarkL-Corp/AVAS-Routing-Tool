@@ -61,7 +61,7 @@ namespace AvasRoutingTool.Sdvoe
             var format = MultiViewCanvasPolicy.Choose(await ReadEdidAsync(displayRx), _fallback);
             AppLogger.Info("ROUTING", $"'{displayRx.DeviceName}' single view output: {format.Description}");
 
-            var state = await _sdvoeClient.ReadReceiverStateAsync(displayRx.DeviceId);
+            var state = await ReadStateAsync(displayRx);
             if (state != null &&
                 string.Equals(state.DisplayMode, FastSwitched, StringComparison.OrdinalIgnoreCase) &&
                 state.Width == format.Width && state.Height == format.Height && state.Fps == format.Fps)
@@ -69,9 +69,32 @@ namespace AvasRoutingTool.Sdvoe
                 return new SingleViewMode(true, format, false);
             }
 
-            bool ok = await _sdvoeClient.SetFastSwitchedAsync(displayRx.DeviceId, format.Width, format.Height, format.Fps);
+            bool ok;
+            try
+            {
+                ok = await _sdvoeClient.SetFastSwitchedAsync(displayRx.DeviceId, format.Width, format.Height, format.Fps);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                AppLogger.Warn("ROUTING", $"Fast Switch for '{displayRx.DeviceName}' threw: {ex.Message}");
+                ok = false;
+            }
             if (!ok) AppLogger.Warn("ROUTING", $"'{displayRx.DeviceName}' did not accept Fast Switch {format.Width}x{format.Height}@{format.Fps}.");
             return new SingleViewMode(ok, format, true);
+        }
+
+        /// <summary>The receiver's reported state, or null when it cannot be read; an unreadable receiver gets the mode sent.</summary>
+        private async Task<RxState?> ReadStateAsync(AvasDevice displayRx)
+        {
+            try
+            {
+                return await _sdvoeClient.ReadReceiverStateAsync(displayRx.DeviceId);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                AppLogger.Warn("ROUTING", $"State read for '{displayRx.DeviceName}' threw: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>The display's EDID, or null when there is none or it cannot be read or parsed.</summary>

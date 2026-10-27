@@ -124,8 +124,13 @@ namespace AvasRoutingTool.Tests
         }
 
         /// <summary>Like the hardware: an accepted mode change shows in what the receiver reports next.</summary>
+        public bool ThrowOnFastSwitch { get; set; }
+
+        public bool ThrowOnReceiverRead { get; set; }
+
         public async Task<bool> SetFastSwitchedAsync(string rxMac, int width, int height, int fps)
         {
+            if (ThrowOnFastSwitch) throw new System.InvalidOperationException("set:video blew up");
             bool ok = await Record($"fastswitch:{rxMac}:{width}x{height}@{fps}");
             if (ok) ReceiverStates[rxMac] = new AvasRoutingTool.Sdvoe.RxState(rxMac, rxMac, "FAST_SWITCHED", width, height, fps, System.Array.Empty<AvasRoutingTool.Sdvoe.RxSubscription>(), null);
             return ok;
@@ -141,6 +146,7 @@ namespace AvasRoutingTool.Tests
 
         public async Task<AvasRoutingTool.Sdvoe.RxState?> ReadReceiverStateAsync(string rxMac)
         {
+            if (ThrowOnReceiverRead) throw new System.InvalidOperationException("get:state blew up");
             lock (ReceiverReads) ReceiverReads.Add(rxMac);
             if (ReceiverReadDelay.TryGetValue(rxMac, out var delay)) await Task.Delay(delay);
             return ReceiverStates.TryGetValue(rxMac, out var s) ? s : null;
@@ -280,6 +286,44 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("00:11:22:33:44:CC", rx.ActiveSourceId);
             Assert.Equal("Earlier", rx.ActiveSourceName);
             Assert.False(await new RoutingOrchestrator(mock).RouteSingleViewVideoAsync(tx, rx));
+        }
+
+        [Fact]
+        public async Task Route_WhenSetVideoThrows_RefusesTheRoute_SendsNoJoin_AndKeepsTheActiveSource()
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = TestEdids.Build((1920, 1080, 60, false)), ThrowOnFastSwitch = true };
+            var (tx, rx) = Pair();
+            rx.ActiveSourceId = "00:11:22:33:44:CC";
+
+            var result = await new RoutingOrchestrator(mock).RouteSingleViewAsync(tx, rx);
+
+            Assert.False(result.Ok);
+            Assert.Contains("Fast Switch 1920x1080@60", result.Error);
+            Assert.DoesNotContain(mock.AllCalls, c => c.StartsWith("join:"));
+            Assert.Equal("00:11:22:33:44:CC", rx.ActiveSourceId);
+        }
+
+        [Fact]
+        public async Task Route_WhenTheStateReadThrows_TreatsItAsUnreadable_AndStillSetsTheMode()
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = TestEdids.Build((1920, 1080, 60, false)), ThrowOnReceiverRead = true };
+            var (tx, rx) = Pair();
+
+            var result = await new RoutingOrchestrator(mock).RouteSingleViewAsync(tx, rx);
+
+            Assert.True(result.Ok);
+            Assert.Equal(new[] { $"fastswitch:{RxMac}:1920x1080@60", $"join:{RxMac}:{TxMac}" }, mock.AllCalls);
+        }
+
+        [Fact]
+        public async Task EnsureSingleViewMode_WhenSetVideoThrows_ReturnsNotOk_ForMultiViewExits()
+        {
+            var mock = new MockSdvoeClient { ThrowOnFastSwitch = true };
+            var (_, rx) = Pair();
+
+            var mode = await new RoutingOrchestrator(mock).EnsureSingleViewModeAsync(rx);
+
+            Assert.False(mode.Ok);
         }
 
         [Fact]
