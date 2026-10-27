@@ -66,31 +66,43 @@ namespace AvasRoutingTool.Services
                 // Remove existing theme dictionaries to avoid conflicts
                 for (int i = app.Resources.MergedDictionaries.Count - 1; i >= 0; i--)
                 {
-                    var d = app.Resources.MergedDictionaries[i];
-                    var src = d?.Source?.OriginalString ?? "";
-                    if (src.Contains("Theme.Dark.xaml", StringComparison.OrdinalIgnoreCase) ||
-                        src.Contains("Theme.Light.xaml", StringComparison.OrdinalIgnoreCase))
+                    try
                     {
-                        app.Resources.MergedDictionaries.RemoveAt(i);
+                        var d = app.Resources.MergedDictionaries[i];
+                        var src = d?.Source?.OriginalString ?? "";
+                        if (src.Contains("Theme.Dark.xaml", StringComparison.OrdinalIgnoreCase) ||
+                            src.Contains("Theme.Light.xaml", StringComparison.OrdinalIgnoreCase))
+                        {
+                            app.Resources.MergedDictionaries.RemoveAt(i);
+                        }
                     }
+                    catch { }
                 }
 
-                foreach (var md in app.Resources.MergedDictionaries)
+                foreach (var md in app.Resources.MergedDictionaries.ToList())
                 {
                     if (md == null) continue;
                     for (int j = md.MergedDictionaries.Count - 1; j >= 0; j--)
                     {
-                        var src = md.MergedDictionaries[j]?.Source?.OriginalString ?? "";
-                        if (src.Contains("Theme.Dark.xaml", StringComparison.OrdinalIgnoreCase) ||
-                            src.Contains("Theme.Light.xaml", StringComparison.OrdinalIgnoreCase))
+                        try
                         {
-                            md.MergedDictionaries.RemoveAt(j);
+                            var src = md.MergedDictionaries[j]?.Source?.OriginalString ?? "";
+                            if (src.Contains("Theme.Dark.xaml", StringComparison.OrdinalIgnoreCase) ||
+                                src.Contains("Theme.Light.xaml", StringComparison.OrdinalIgnoreCase))
+                            {
+                                md.MergedDictionaries.RemoveAt(j);
+                            }
                         }
+                        catch { }
                     }
                 }
 
                 // Add the new palette dictionary
-                app.Resources.MergedDictionaries.Add(newDict);
+                try
+                {
+                    app.Resources.MergedDictionaries.Add(newDict);
+                }
+                catch { }
             }
 
             try

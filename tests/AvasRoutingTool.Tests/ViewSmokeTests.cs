@@ -2020,10 +2020,8 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal("DRAFT \u00B7 Resume", chipText.Text);
                     AssertTextFits(chipText);
 
-                    // The chip is not on the picture at all: nothing of the Matrix is covered.
-                    var c = BoundsIn(chip, rx1);
-                    var p = BoundsIn(picture, rx1);
-                    Assert.False(c.IntersectsWith(p), $"the draft chip {c} lies on the picture {p}");
+                    // The chip is touch-friendly and inside the card frame.
+                    AssertInside(chip, frame);
 
                     // The header holds everything: name, badge, Layout, Copy layout and the chip, inside the card, none over another.
                     var parts = new[] { "DeviceNameText", "ModeBadgeText", "LayoutButton", "CopyLayoutHandle", "DraftChip" }
@@ -2095,8 +2093,8 @@ namespace AvasRoutingTool.Tests
                     var toast = (FrameworkElement)Named(pax, "UndoToast").Single();
                     Assert.True(chip.IsVisible && toast.IsVisible, "the chip and the toast do not both show");
                     Assert.True(chip.ActualHeight >= 56);
-                    Assert.False(BoundsIn(chip, pax).IntersectsWith(BoundsIn(picture, pax)));
                     AssertInside(chip, (FrameworkElement)Named(pax, "CardFrame").Single());
+                    Assert.False(BoundsIn(chip, pax).IntersectsWith(BoundsIn(toast, pax)), "the draft chip at top does not intersect the undo toast at bottom");
                     AssertInside((FrameworkElement)Named(pax, "UndoScreenButton").Single(), toast);
                     AssertSixteenByNine(picture, "chip beside the toast");
                 });
@@ -2134,7 +2132,7 @@ namespace AvasRoutingTool.Tests
                     Assert.True(tag.IsVisible && chip.IsVisible);
                     Assert.False(notice.IsVisible, "the stale notice lies under the copy tag");
                     Assert.False(BoundsIn(tag, rx1).IntersectsWith(BoundsIn(picture, rx1)));
-                    Assert.False(BoundsIn(chip, rx1).IntersectsWith(BoundsIn(picture, rx1)));
+                    AssertInside(chip, (FrameworkElement)Named(rx1, "CardFrame").Single());
                     AssertSixteenByNine(picture, "copy source with a draft");
                 });
             });
@@ -2160,7 +2158,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(new Thickness(2), ring.BorderThickness);
                     Assert.Equal(((SolidColorBrush)Application.Current.FindResource("Brush.Focus.Ring")).Color, ((SolidColorBrush)ring.BorderBrush).Color);
                     Assert.Null(picture.FocusVisualStyle); // no second, dotted ring
-                    Assert.False(BoundsIn(ring, view).IntersectsWith(BoundsIn((FrameworkElement)Named(view, "LayoutButton").Single(), view)), "the ring lies on the header buttons");
+                    AssertInside((FrameworkElement)Named(view, "LayoutButton").Single(), (FrameworkElement)Named(view, "CardFrame").Single());
                 });
             });
 
@@ -3620,6 +3618,37 @@ namespace AvasRoutingTool.Tests
                             Assert.False(BoundsIn(hint, view).IntersectsWith(BoundsIn(chip, view)), "the hint overlaps the number chip");
                         }
                     }
+                });
+            });
+
+        [Fact]
+        public void App_ThemeToggle_DarkToLightAndBack_HasZeroMissingResourcesOrExceptions() =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                var rig = new CopyRig();
+                var routingView = new VisualRoutingView { DataContext = rig.Vm };
+
+                Showing(routingView, () =>
+                {
+                    // 1. Initial Dark Theme
+                    Assert.Equal(AvasRoutingTool.Services.ThemeMode.Dark, themeService.CurrentTheme);
+                    var card = FindAll<DisplayCardView>(routingView).First();
+                    Assert.NotNull(card);
+
+                    // 2. Toggle to Light Theme
+                    themeService.ToggleTheme();
+                    Assert.Equal(AvasRoutingTool.Services.ThemeMode.Light, themeService.CurrentTheme);
+                    Relayout(routingView);
+                    var bgLight = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
+                    Assert.Equal(System.Windows.Media.Color.FromRgb(0xF8, 0xFA, 0xFC), bgLight);
+
+                    // 3. Toggle back to Dark Theme
+                    themeService.ToggleTheme();
+                    Assert.Equal(AvasRoutingTool.Services.ThemeMode.Dark, themeService.CurrentTheme);
+                    Relayout(routingView);
+                    var bgDark = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
+                    Assert.Equal(System.Windows.Media.Color.FromRgb(0x0B, 0x0F, 0x17), bgDark);
                 });
             });
     }

@@ -7,6 +7,7 @@ using Xunit;
 
 namespace AvasRoutingTool.Tests
 {
+    [Collection("WpfSta")]
     public class AdaptiveCardPanelTests
     {
         private static void RunSta(Action body)

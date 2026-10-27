@@ -64,12 +64,11 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Card header: name, draft chip, and mode badge -->
+                <!-- Card header: name and mode badge -->
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
@@ -102,61 +101,8 @@
                                VerticalAlignment="Center"
                                Margin="0,0,8,0" />
 
-                    <!--
-                        Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15).
-                        Kept in the header row (touch height >= 56), never on the picture, avoiding clipping.
-                    -->
-                    <Button x:Name="DraftChip"
-                            Grid.Column="2"
-                            Margin="0,0,8,0"
-                            Width="84"
-                            MinHeight="56"
-                            Cursor="Hand"
-                            AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
-                            ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
-                            Click="DraftChip_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Grid>
-                                    <Rectangle x:Name="DraftFrame"
-                                               Fill="{DynamicResource Brush.Surface.Staged}"
-                                               Stroke="{DynamicResource Brush.Status.Staged}"
-                                               StrokeThickness="1.5"
-                                               StrokeDashArray="4 3"
-                                               RadiusX="8" RadiusY="8" />
-                                    <ContentPresenter Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="DraftFrame" Property="Fill" Value="{DynamicResource Brush.Surface.StagedHover}" />
-                                    </Trigger>
-                                    <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                                        <Setter TargetName="DraftFrame" Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
-                                        <Setter TargetName="DraftFrame" Property="StrokeThickness" Value="2" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                        <TextBlock Text="DRAFT &#183; Resume"
-                                   FontSize="14"
-                                   FontWeight="Bold"
-                                   TextWrapping="Wrap"
-                                   TextAlignment="Center"
-                                   Foreground="{DynamicResource Brush.Status.StagedChipText}" />
-                    </Button>
-
                     <!-- Routed status pill: the layout and its fill ("MATRIX 2X2 · 3/4") -->
-                    <Border Grid.Column="3"
+                    <Border Grid.Column="2"
                             VerticalAlignment="Center"
                             CornerRadius="4"
                             Padding="6,2">
@@ -558,6 +504,9 @@
                                     <DataTrigger Binding="{Binding IsTouchRevealed, RelativeSource={RelativeSource AncestorType=views:DisplayCardView}}" Value="True">
                                         <Setter Property="Opacity" Value="1" />
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
+                                        <Setter Property="Opacity" Value="1" />
+                                    </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
@@ -571,6 +520,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="6" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
@@ -641,9 +591,62 @@
                                 </StackPanel>
                             </Button>
 
+                            <!--
+                                Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15).
+                                Placed in the action strip, keeps touch height >= 56.
+                            -->
+                            <Button x:Name="DraftChip"
+                                    Grid.Row="0" Grid.Column="3"
+                                    Margin="6,0,0,0"
+                                    Width="84"
+                                    MinHeight="56"
+                                    Cursor="Hand"
+                                    AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
+                                    ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
+                                    Click="DraftChip_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Grid>
+                                            <Rectangle x:Name="DraftFrame"
+                                                       Fill="{DynamicResource Brush.Surface.Staged}"
+                                                       Stroke="{DynamicResource Brush.Status.Staged}"
+                                                       StrokeThickness="1.5"
+                                                       StrokeDashArray="4 3"
+                                                       RadiusX="8" RadiusY="8" />
+                                            <ContentPresenter Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="DraftFrame" Property="Fill" Value="{DynamicResource Brush.Surface.StagedHover}" />
+                                            </Trigger>
+                                            <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                                                <Setter TargetName="DraftFrame" Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
+                                                <Setter TargetName="DraftFrame" Property="StrokeThickness" Value="2" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="DRAFT &#183; Resume"
+                                           FontSize="14"
+                                           FontWeight="Bold"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           Foreground="{DynamicResource Brush.Status.StagedChipText}" />
+                            </Button>
+
                             <!-- Quick Power / Turn Off Button -->
                             <Button x:Name="TurnOffButton"
-                                    Grid.Row="0" Grid.Column="3"
+                                    Grid.Row="0" Grid.Column="4"
                                     Margin="6,0,0,0"
                                     MinHeight="48"
                                     MinWidth="48"
@@ -678,7 +681,7 @@
 
                             <!-- Why Copy layout is off, in words ("RX1 shows nothing to copy") -->
                             <TextBlock x:Name="CopyFromBlockedLabel"
-                                       Grid.Row="1" Grid.ColumnSpan="4"
+                                       Grid.Row="1" Grid.ColumnSpan="5"
                                        Text="{Binding CopyFromBlockedText, Mode=OneWay}"
                                        FontSize="11"
                                        Foreground="{DynamicResource Brush.Text.Secondary}"

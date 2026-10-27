@@ -8,6 +8,7 @@ using Xunit;
 
 namespace AvasRoutingTool.Tests
 {
+    [Collection("WpfSta")]
     public class FractionalLayoutPanelTests
     {
         private static void RunSta(Action body)

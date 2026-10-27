@@ -28,7 +28,7 @@ namespace AvasRoutingTool.Controls
         /// with it the picture keeps 16:9 in every state (a smoke test measures the real card: Single View, MultiView,
         /// a draft chip on the picture).
         /// </summary>
-        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 75, HorizontalPadding = 26 };
+        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 87, HorizontalPadding = 26 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>
