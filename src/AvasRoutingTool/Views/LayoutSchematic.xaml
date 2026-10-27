@@ -6,8 +6,8 @@
              IsHitTestVisible="False">
 
     <!-- A layout preset drawn as its real block geometry (16:9 screen, letterbox gaps included). -->
-    <Border Background="#070A0F"
-            BorderBrush="#334155"
+    <Border Background="{DynamicResource Brush.Surface.Inset}"
+            BorderBrush="{DynamicResource Brush.Border.Control}"
             BorderThickness="1"
             CornerRadius="4"
             Padding="2">
@@ -29,14 +29,14 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Margin="1.5"
-                                Background="#1E3A5F"
+                                Background="{DynamicResource Brush.Surface.SchematicActive}"
                                 BorderBrush="{DynamicResource Brush.Accent.Primary}"
                                 BorderThickness="1"
                                 CornerRadius="2">
                             <TextBlock Text="{Binding Number, Mode=OneWay}"
                                        FontSize="11"
                                        FontWeight="Bold"
-                                       Foreground="#DBEAFE"
+                                       Foreground="{DynamicResource Brush.Text.OnSchematicActive}"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                         </Border>

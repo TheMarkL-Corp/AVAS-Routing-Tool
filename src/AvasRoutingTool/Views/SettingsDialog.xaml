@@ -60,7 +60,7 @@
                     <TextBox x:Name="TxtControlServerIp"
                              Margin="0,6,0,0"
                              Padding="10,8"
-                             Background="#0D131F"
+                             Background="{DynamicResource Brush.Surface.Field}"
                              Foreground="{DynamicResource Brush.Text.Secondary}"
                              BorderBrush="{DynamicResource Brush.Border.Default}"
                              BorderThickness="1"

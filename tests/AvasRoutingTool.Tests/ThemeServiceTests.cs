@@ -105,5 +105,64 @@ namespace AvasRoutingTool.Tests
                     if (File.Exists(tempFile)) File.Delete(tempFile);
                 }
             });
+
+        private static double AppBackgroundLuminance()
+        {
+            var c = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
+            return (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0;
+        }
+
+        [Theory]
+        [InlineData(true, ThemeMode.Light)]
+        [InlineData(false, ThemeMode.Dark)]
+        public void ThemeService_SystemMode_FollowsTheOperatingSystem_AndIsPersisted(bool systemPrefersLight, ThemeMode expected) =>
+            RunSta(() =>
+            {
+                string tempFile = Path.Combine(Path.GetTempPath(), $"avas_theme_test_{Guid.NewGuid():N}.json");
+                try
+                {
+                    var configService = new ConfigService(tempFile);
+                    var service = new ThemeService(configService, () => systemPrefersLight);
+
+                    service.SetTheme(ThemeMode.System);
+
+                    Assert.Equal(ThemeMode.System, service.CurrentTheme);
+                    Assert.Equal(expected, service.EffectiveTheme);
+                    Assert.Equal("System", configService.Load().Theme);
+                    Assert.Equal(expected == ThemeMode.Light, AppBackgroundLuminance() > 0.85);
+                }
+                finally
+                {
+                    if (File.Exists(tempFile)) File.Delete(tempFile);
+                }
+            });
+
+        [Fact]
+        public void ThemeService_LoadsSystemFromConfig_AndTogglePicksTheOppositeOfWhatIsShown() =>
+            RunSta(() =>
+            {
+                string tempFile = Path.Combine(Path.GetTempPath(), $"avas_theme_test_{Guid.NewGuid():N}.json");
+                try
+                {
+                    var configService = new ConfigService(tempFile);
+                    var cfg = configService.Load();
+                    cfg.Theme = "System";
+                    configService.Save(cfg);
+
+                    var service = new ThemeService(configService, () => true);
+                    Assert.Equal(ThemeMode.System, service.CurrentTheme);
+                    Assert.Equal(ThemeMode.Light, service.EffectiveTheme);
+
+                    // The OS shows Light, so the toggle goes to an explicit Dark.
+                    service.ToggleTheme();
+                    Assert.Equal(ThemeMode.Dark, service.CurrentTheme);
+                    Assert.Equal(ThemeMode.Dark, service.EffectiveTheme);
+                    Assert.Equal("Dark", configService.Load().Theme);
+                }
+                finally
+                {
+                    if (File.Exists(tempFile)) File.Delete(tempFile);
+                }
+            });
     }
 }

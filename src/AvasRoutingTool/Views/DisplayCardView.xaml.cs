@@ -65,6 +65,7 @@ namespace AvasRoutingTool.Views
                 Watch(null);
                 HideCopyTip();
                 HideGhost();
+                ResetTouchReveal();
             };
         }
 
@@ -166,21 +167,29 @@ namespace AvasRoutingTool.Views
 
         private DispatcherTimer? _touchDimTimer;
 
+        /// <summary>How long a tap keeps the action dock up when there is no hover to hold it.</summary>
+        public static readonly TimeSpan TouchRevealDuration = TimeSpan.FromSeconds(4);
+
         public void RevealActionsOnTouch()
         {
             IsTouchRevealed = true;
             if (_touchDimTimer == null)
             {
-                _touchDimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
-                _touchDimTimer.Tick += (_, _) =>
-                {
-                    _touchDimTimer?.Stop();
-                    IsTouchRevealed = false;
-                };
+                _touchDimTimer = new DispatcherTimer { Interval = TouchRevealDuration };
+                _touchDimTimer.Tick += (_, _) => ResetTouchReveal();
             }
             _touchDimTimer.Stop();
             _touchDimTimer.Start();
         }
+
+        /// <summary>Back to hidden now: the timer fired, or the card left the tree (a timer must not outlive its card).</summary>
+        private void ResetTouchReveal()
+        {
+            _touchDimTimer?.Stop();
+            IsTouchRevealed = false;
+        }
+
+        internal bool TouchRevealTimerRunning => _touchDimTimer?.IsEnabled == true;
 
         // ---- tap on the card: MainViewModel.TapDisplayAsync / TapPictureAsync ----
 
@@ -193,7 +202,8 @@ namespace AvasRoutingTool.Views
         {
             _tapPending = false;
             _cardTap.Press(e.GetPosition(this));
-            RevealActionsOnTouch();
+            // A finger or pen is promoted to a mouse press (StylusDevice set) and has no hover to keep the dock up; a real mouse does.
+            if (e.StylusDevice != null) RevealActionsOnTouch();
         }
 
         /// <summary>Movement past the 8 px threshold makes the press a drag (e.g. a scroll), never a tap.</summary>

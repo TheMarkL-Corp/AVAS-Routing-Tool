@@ -177,7 +177,7 @@ namespace AvasRoutingTool.ViewModels
         public IThemeService ThemeService { get; }
         public ICommand ToggleThemeCommand { get; }
         public ThemeMode CurrentTheme => ThemeService.CurrentTheme;
-        public string ThemeButtonLabel => CurrentTheme == ThemeMode.Dark ? "☀️  Light" : "🌙  Dark";
+        public string ThemeButtonLabel => ThemeService.EffectiveTheme == ThemeMode.Dark ? "☀️  Light" : "🌙  Dark";
 
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }

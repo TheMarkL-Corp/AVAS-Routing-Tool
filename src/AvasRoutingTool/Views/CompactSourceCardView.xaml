@@ -31,10 +31,10 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Thumbnail (the source card's own live bitmap, fitted) -->
-                <Border Width="112" Height="63" Background="#050505" CornerRadius="4" ClipToBounds="True" VerticalAlignment="Top">
+                <Border Width="112" Height="63" Background="{DynamicResource Brush.Surface.PreviewBlack}" CornerRadius="4" ClipToBounds="True" VerticalAlignment="Top">
                     <Grid>
                         <Image Source="{Binding PreviewBitmap, Mode=OneWay}" Stretch="Uniform" RenderOptions.BitmapScalingMode="LowQuality" />
-                        <TextBlock Text="NO PREVIEW" FontSize="12" FontWeight="Bold" Foreground="#CBD5E1"
+                        <TextBlock Text="NO PREVIEW" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnPreview}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -67,7 +67,7 @@
                     </TextBlock>
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <Border x:Name="UsedInBlocksBadge"
-                                Background="#2A1F08"
+                                Background="{DynamicResource Brush.Surface.Staged}"
                                 BorderBrush="{DynamicResource Brush.Status.Staged}"
                                 BorderThickness="1"
                                 CornerRadius="4"
@@ -95,7 +95,7 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Border>
-                        <Border Background="#082F3A"
+                        <Border Background="{DynamicResource Brush.Surface.CopyTarget}"
                                 BorderBrush="{DynamicResource Brush.Border.DropTarget}"
                                 BorderThickness="1"
                                 CornerRadius="4"
@@ -110,7 +110,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <TextBlock Text="Placing" FontSize="14" FontWeight="Bold" Foreground="#A5F3FC" />
+                            <TextBlock Text="Placing" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
                         </Border>
                     </StackPanel>
                 </StackPanel>

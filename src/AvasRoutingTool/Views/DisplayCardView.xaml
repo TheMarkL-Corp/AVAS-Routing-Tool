@@ -155,7 +155,7 @@
                         FocusVisualStyle="{x:Null}"
                         KeyDown="PreviewSurface_KeyDown"
                         AutomationProperties.Name="{Binding PictureAutomationName, Mode=OneWay}"
-                        Background="#070A0F"
+                        Background="{DynamicResource Brush.Surface.PreviewBackdrop}"
                         BorderBrush="{DynamicResource Brush.Border.Default}"
                         BorderThickness="1"
                         CornerRadius="6"
@@ -190,7 +190,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Margin="1"
-                                        Background="#0B0F17"
+                                        Background="{DynamicResource Brush.Surface.PreviewTile}"
                                         BorderThickness="1"
                                         CornerRadius="3"
                                         ClipToBounds="True"
@@ -285,7 +285,7 @@
                                                        Opacity="0.6" />
                                             <TextBlock Text="Drop source"
                                                        FontSize="9"
-                                                       Foreground="#475569"
+                                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                                        HorizontalAlignment="Center" />
                                         </StackPanel>
                                     </Grid>
@@ -334,7 +334,7 @@
                                 </Style>
                             </Border.Style>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="● " Foreground="#10B981" FontSize="9" VerticalAlignment="Center" />
+                                <TextBlock Text="● " Foreground="{DynamicResource Brush.Status.Online}" FontSize="9" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Primary}" FontSize="10" FontWeight="SemiBold" />
                             </StackPanel>
                         </Border>
@@ -405,7 +405,7 @@
                                        Margin="0,8,0,0" />
                             <TextBlock Text="Drop a source to switch this display to Single View"
                                        FontSize="9"
-                                       Foreground="#475569"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        TextAlignment="Center"
                                        Margin="0,4,0,0" />
                         </StackPanel>
@@ -438,7 +438,7 @@
                                        Margin="0,8,0,0" />
                             <TextBlock Text="Drag any TX card above or 'Off' to turn off"
                                        FontSize="9"
-                                       Foreground="#475569"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,2,0,0" />
                         </StackPanel>
@@ -466,7 +466,7 @@
                         <TextBlock x:Name="ErrorBannerText"
                                    AutomationProperties.LiveSetting="Assertive"
                                    Text="{Binding LastError, Mode=OneWay}"
-                                   Foreground="#FCA5A5"
+                                   Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
                                    FontSize="10"
                                    TextWrapping="Wrap" />
                     </Border>
@@ -487,33 +487,33 @@
                             CornerRadius="8">
                         <Border.Style>
                             <Style TargetType="Border">
+                                <!-- Any reason to show the dock sets Tag; the one Tag trigger below fades it in and out and makes it touchable. -->
                                 <Setter Property="Opacity" Value="0" />
                                 <Setter Property="IsHitTestVisible" Value="False" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsMouseOver, ElementName=CardFrame}" Value="True">
-                                        <Setter Property="Opacity" Value="1" />
-                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                        <Setter Property="Tag" Value="Revealed" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=CardFrame}" Value="True">
-                                        <Setter Property="Opacity" Value="1" />
-                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                        <Setter Property="Tag" Value="Revealed" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                        <Setter Property="Opacity" Value="1" />
-                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                        <Setter Property="Tag" Value="Revealed" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsLayoutMenuOpen, Mode=OneWay}" Value="True">
-                                        <Setter Property="Opacity" Value="1" />
-                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                        <Setter Property="Tag" Value="Revealed" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsTouchRevealed, RelativeSource={RelativeSource AncestorType=views:DisplayCardView}}" Value="True">
-                                        <Setter Property="Opacity" Value="1" />
-                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                        <Setter Property="Tag" Value="Revealed" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
-                                        <Setter Property="Opacity" Value="1" />
-                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                        <Setter Property="Tag" Value="Revealed" />
                                     </DataTrigger>
+                                    <Trigger Property="Tag" Value="Revealed">
+                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                        <Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" /></Storyboard></BeginStoryboard></Trigger.EnterActions>
+                                        <Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25" /></Storyboard></BeginStoryboard></Trigger.ExitActions>
+                                    </Trigger>
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
@@ -663,7 +663,7 @@
                                     FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
                                     AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
                                     Background="#26EF4444"
-                                    Foreground="#EF4444"
+                                    Foreground="{DynamicResource Brush.Action.Danger}"
                                     BorderBrush="#4DEF4444"
                                     BorderThickness="1"
                                     FontSize="13"

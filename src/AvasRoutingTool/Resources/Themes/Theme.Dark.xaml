@@ -57,6 +57,30 @@
     <Color x:Key="Color.Surface.Staged">#2A1F08</Color>
     <Color x:Key="Color.Surface.StagedHover">#3A2B0B</Color>
 
+    <!-- Chrome tints and preview-fixed colours (video backdrops and scrim text keep the same value in both themes) -->
+    <Color x:Key="Color.Text.Soft">#CBD5E1</Color>
+    <Color x:Key="Color.Text.Strong">#E2E8F0</Color>
+    <Color x:Key="Color.Border.Strong">#475569</Color>
+    <Color x:Key="Color.Text.Danger">#FCA5A5</Color>
+    <Color x:Key="Color.Text.DangerSoft">#F87171</Color>
+    <Color x:Key="Color.Text.OnDangerHover">#FFFFFF</Color>
+    <Color x:Key="Color.Surface.Inset">#070A0F</Color>
+    <Color x:Key="Color.Surface.Field">#0D131F</Color>
+    <Color x:Key="Color.Surface.SchematicActive">#1E3A5F</Color>
+    <Color x:Key="Color.Text.OnSchematicActive">#DBEAFE</Color>
+    <Color x:Key="Color.Surface.Info">#0F1E3A</Color>
+    <Color x:Key="Color.Surface.DangerStrong">#3B0D0D</Color>
+    <Color x:Key="Color.Surface.Brand">#1E3A8A</Color>
+    <Color x:Key="Color.Surface.PreviewBackdrop">#070A0F</Color>
+    <Color x:Key="Color.Surface.PreviewTile">#0B0F17</Color>
+    <Color x:Key="Color.Surface.PreviewBlack">#050505</Color>
+    <Color x:Key="Color.Surface.PreviewMat">#000000</Color>
+    <Color x:Key="Color.Text.OnPreview">#CBD5E1</Color>
+    <Color x:Key="Color.Text.OnPreviewMuted">#475569</Color>
+    <Color x:Key="Color.Text.OnScrim">#F1F5F9</Color>
+    <Color x:Key="Color.Text.OnScrimAccent">#A5F3FC</Color>
+    <Color x:Key="Color.Text.OnScrimDanger">#FCA5A5</Color>
+
     <!-- SolidColorBrushes -->
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Background.Dark" Color="{StaticResource Color.Background.Dark}" />
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Card" Color="{StaticResource Color.Surface.Card}" />
@@ -100,5 +124,27 @@
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.Danger" Color="{StaticResource Color.Border.Danger}" />
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Staged" Color="{StaticResource Color.Surface.Staged}" />
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.StagedHover" Color="{StaticResource Color.Surface.StagedHover}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.Soft" Color="{StaticResource Color.Text.Soft}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.Strong" Color="{StaticResource Color.Text.Strong}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.Strong" Color="{StaticResource Color.Border.Strong}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.Danger" Color="{StaticResource Color.Text.Danger}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.DangerSoft" Color="{StaticResource Color.Text.DangerSoft}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnDangerHover" Color="{StaticResource Color.Text.OnDangerHover}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Inset" Color="{StaticResource Color.Surface.Inset}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Field" Color="{StaticResource Color.Surface.Field}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.SchematicActive" Color="{StaticResource Color.Surface.SchematicActive}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnSchematicActive" Color="{StaticResource Color.Text.OnSchematicActive}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Info" Color="{StaticResource Color.Surface.Info}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.DangerStrong" Color="{StaticResource Color.Surface.DangerStrong}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Brand" Color="{StaticResource Color.Surface.Brand}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.PreviewBackdrop" Color="{StaticResource Color.Surface.PreviewBackdrop}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.PreviewTile" Color="{StaticResource Color.Surface.PreviewTile}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.PreviewBlack" Color="{StaticResource Color.Surface.PreviewBlack}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.PreviewMat" Color="{StaticResource Color.Surface.PreviewMat}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnPreview" Color="{StaticResource Color.Text.OnPreview}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnPreviewMuted" Color="{StaticResource Color.Text.OnPreviewMuted}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnScrim" Color="{StaticResource Color.Text.OnScrim}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnScrimAccent" Color="{StaticResource Color.Text.OnScrimAccent}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnScrimDanger" Color="{StaticResource Color.Text.OnScrimDanger}" />
 
 </ResourceDictionary>

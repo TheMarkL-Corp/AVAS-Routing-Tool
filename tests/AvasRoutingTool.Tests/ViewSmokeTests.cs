@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -3652,6 +3652,109 @@ namespace AvasRoutingTool.Tests
                     Relayout(routingView);
                     var bgDark = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
                     Assert.Equal(System.Windows.Media.Color.FromRgb(0x0B, 0x0F, 0x17), bgDark);
+                });
+            });
+
+        /// <summary>The colours the Dark palette gives to chrome: nothing painted with them may survive in Light mode.</summary>
+        private static HashSet<Color> DarkChromeColours(params string[] keys)
+        {
+            var dark = new ResourceDictionary { Source = new Uri("pack://application:,,,/AvasRoutingTool;component/Resources/Themes/Theme.Dark.xaml") };
+            return keys.Select(k => (Color)dark[k]).ToHashSet();
+        }
+
+        /// <summary>Every colour a laid-out view paints its chrome with (backgrounds, text, fills), as the elements resolved them.</summary>
+        private static List<(string Where, Color Colour, bool IsText)> PaintedColours(DependencyObject root)
+        {
+            static IEnumerable<(Brush? Brush, bool IsText)> Brushes(DependencyObject d) => d switch
+            {
+                Border b => new[] { (b.Background, false) },
+                Panel p => new[] { (p.Background, false) },
+                TextBlock t => new[] { (t.Foreground, true) },
+                Control c => new[] { (c.Background, false), (c.Foreground, true) },
+                System.Windows.Shapes.Shape s => new[] { (s.Fill, false) },
+                _ => Array.Empty<(Brush?, bool)>(),
+            };
+            var found = new List<(string, Color, bool)>();
+            foreach (var d in AllVisuals(root))
+                foreach (var (brush, isText) in Brushes(d))
+                    if (brush is SolidColorBrush { Color.A: > 0 } solid)
+                        found.Add(((d as FrameworkElement)?.Name is { Length: > 0 } n ? $"{d.GetType().Name} {n}" : d.GetType().Name, solid.Color, isText));
+            return found;
+        }
+
+        private static IEnumerable<DependencyObject> AllVisuals(DependencyObject root)
+        {
+            yield return root;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+                foreach (var child in AllVisuals(VisualTreeHelper.GetChild(root, i)))
+                    yield return child;
+        }
+
+        [Fact]
+        public void App_ThemeToggle_RepaintsEveryRenderedView_NoDarkChromeLeftInLightMode() =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    var rig = new CopyRig();
+                    var routing = new VisualRoutingView { DataContext = rig.Vm };
+                    var composerRig = new ComposerRig();
+                    var composer = composerRig.View(composerRig.Composer("matrix2x2"));
+                    // Colours only the Dark palette gives to chrome: card/elevated/hover surfaces and the light-on-dark text. (Its background and text-on-dark values
+                    // are left out on purpose: the Light canvas and the preview tile legitimately reuse them.)
+                    var darkSurfaces = DarkChromeColours("Color.Surface.Card", "Color.Surface.Elevated", "Color.Surface.Hover");
+                    var darkText = DarkChromeColours("Color.Text.Primary");
+                    bool IsDarkChrome((string Where, Color Colour, bool IsText) p) => (p.IsText ? darkText : darkSurfaces).Contains(p.Colour);
+
+                    foreach (var view in new FrameworkElement[] { routing, composer })
+                    {
+                        Showing(view, () =>
+                        {
+                            var before = PaintedColours(view);
+                            Assert.Contains(before, IsDarkChrome); // the Dark palette is on screen
+
+                            themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Light);
+                            Relayout(view);
+
+                            var leftovers = PaintedColours(view).Where(IsDarkChrome).Select(p => $"{p.Where} {p.Colour}").Distinct().ToList();
+                            Assert.True(leftovers.Count == 0, $"{view.GetType().Name} still paints Dark chrome in Light mode:\n" + string.Join("\n", leftovers));
+
+                            themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                            Relayout(view);
+                            Assert.Contains(PaintedColours(view), IsDarkChrome);
+                        });
+                    }
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
+        [Fact]
+        public void DisplayCard_ActionDock_IsUntouchableUntilRevealed_AndATapKeepsItUpForFourSeconds_UntilTheCardUnloads() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host);
+                Showing(host, () =>
+                {
+                    var dock = (Border)Named(view, "FloatingActionDock").Single();
+                    Assert.False(dock.IsHitTestVisible, "a hidden dock must not catch the first tap");
+                    Assert.False(view.IsTouchRevealed);
+                    Assert.Equal(TimeSpan.FromSeconds(4), DisplayCardView.TouchRevealDuration);
+
+                    view.RevealActionsOnTouch();
+                    Assert.True(view.IsTouchRevealed);
+                    Assert.True(view.TouchRevealTimerRunning);
+                    Assert.True(dock.IsHitTestVisible);
+
+                    // A card that leaves the tree takes its timer with it.
+                    view.RaiseEvent(new RoutedEventArgs(FrameworkElement.UnloadedEvent));
+                    Assert.False(view.TouchRevealTimerRunning);
+                    Assert.False(view.IsTouchRevealed);
+                    Assert.False(dock.IsHitTestVisible);
                 });
             });
     }

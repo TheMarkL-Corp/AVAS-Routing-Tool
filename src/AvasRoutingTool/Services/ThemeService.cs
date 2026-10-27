@@ -10,32 +10,53 @@ namespace AvasRoutingTool.Services
         private const string LightFile = "Theme.Light.xaml";
 
         private readonly IConfigService? _configService;
+        private readonly Func<bool> _systemPrefersLight;
         private ThemeMode _currentTheme = ThemeMode.Dark;
 
         public event EventHandler<ThemeMode>? ThemeChanged;
 
         public ThemeMode CurrentTheme => _currentTheme;
 
-        public ThemeService(IConfigService? configService = null)
+        public ThemeMode EffectiveTheme =>
+            _currentTheme != ThemeMode.System ? _currentTheme
+            : _systemPrefersLight() ? ThemeMode.Light : ThemeMode.Dark;
+
+        /// <param name="systemPrefersLight">Test seam for the Windows app-mode setting; defaults to the registry value.</param>
+        public ThemeService(IConfigService? configService = null, Func<bool>? systemPrefersLight = null)
         {
             _configService = configService;
+            _systemPrefersLight = systemPrefersLight ?? WindowsAppsUseLightTheme;
             if (_configService != null &&
-                string.Equals(_configService.Load().Theme, nameof(ThemeMode.Light), StringComparison.OrdinalIgnoreCase))
+                Enum.TryParse<ThemeMode>(_configService.Load().Theme, ignoreCase: true, out var saved))
             {
-                _currentTheme = ThemeMode.Light;
+                _currentTheme = saved;
             }
-            ApplyThemeResources(_currentTheme);
+            ApplyThemeResources(EffectiveTheme);
         }
 
         public void SetTheme(ThemeMode mode)
         {
             _currentTheme = mode;
-            ApplyThemeResources(mode);
+            ApplyThemeResources(EffectiveTheme);
             Persist(mode);
             ThemeChanged?.Invoke(this, mode);
         }
 
-        public void ToggleTheme() => SetTheme(_currentTheme == ThemeMode.Dark ? ThemeMode.Light : ThemeMode.Dark);
+        public void ToggleTheme() => SetTheme(EffectiveTheme == ThemeMode.Dark ? ThemeMode.Light : ThemeMode.Dark);
+
+        /// <summary>Windows "Choose your default app mode"; a machine without the value (or with an unreadable registry) shows Dark.</summary>
+        private static bool WindowsAppsUseLightTheme()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+                return key?.GetValue("AppsUseLightTheme") is int v && v != 0;
+            }
+            catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
+            {
+                return false;
+            }
+        }
 
         /// <summary>The choice is a convenience: a config that cannot be written must not stop the switch itself.</summary>
         private void Persist(ThemeMode mode)
@@ -53,12 +74,12 @@ namespace AvasRoutingTool.Services
             }
         }
 
-        private static void ApplyThemeResources(ThemeMode mode)
+        private static void ApplyThemeResources(ThemeMode effective)
         {
             var app = Application.Current;
             if (app == null) return;
 
-            var file = mode == ThemeMode.Light ? LightFile : DarkFile;
+            var file = effective == ThemeMode.Light ? LightFile : DarkFile;
             var palette = new ResourceDictionary
             {
                 Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/Themes/{file}", UriKind.Absolute)
