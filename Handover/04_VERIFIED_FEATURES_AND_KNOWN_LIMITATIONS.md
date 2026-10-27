@@ -93,7 +93,7 @@ The one piece of hardware evidence is the Task 1 lab spike (user-confirmed pictu
 
 ### 4.2 Known limitations and unverified assumptions
 
-1. **Single View source output format (R13)** is assumed to be the source display's EDID preferred mode (1920x1080@60 if unreadable). A genlocked decoder outputs the encoder timing, so the copy guard can wrongly block (rarely wrongly allow).
+1. **Single View runs in Fast Switch at the display EDID format** (`set:video FAST_SWITCHED`, EDID via `MultiViewCanvasPolicy`, 1920x1080@60 if unreadable, then `join`; GENLOCKED is never sent). This is what R13 assumed, so the copy guard now matches the real output. **Not yet run on hardware** (plan `docs/superpowers/plans/2026-10-27-single-view-fast-switch-edid.md` Task 5 step 1): the `set:video` body comes from the SDVoE API Reference example; Fast Switch needs an AVP2000/AVP2000T decoder (any other chip refuses and the route is not sent); a switch may blank briefly when the mode changes.
 2. **Copied external layouts (R16)** keep each subscription's stream index as read back; if the read-back omits it, the copy would subscribe stream 0 instead of 1.
 3. **EDID modes** come only from detailed timing descriptors and the base CTA video data block. HDMI_VIC (4K24/25/30) and YCbCr 4:2:0-only 4K modes are not read, so a target listing 4K60 only as 4:2:0 is conservatively blocked for copy.
 4. **Lower-resolution copy block** cannot be shown on hardware with two 4K decoders; only the `DisplayCopyPlanner` tests cover it.
