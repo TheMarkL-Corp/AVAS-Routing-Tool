@@ -13,8 +13,8 @@
              MouseLeftButtonUp="Card_MouseLeftButtonUp">
 
     <Grid>
-    <Border Background="{StaticResource Brush.Surface.Card}"
-            BorderBrush="{StaticResource Brush.Border.Default}"
+    <Border Background="{DynamicResource Brush.Surface.Card}"
+            BorderBrush="{DynamicResource Brush.Border.Default}"
             BorderThickness="1"
             CornerRadius="8"
             Padding="12"
@@ -24,7 +24,7 @@
             <Style TargetType="Border">
                 <Style.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border.Highlight}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Highlight}" />
                     </Trigger>
                 </Style.Triggers>
             </Style>
@@ -54,10 +54,10 @@
                          VerticalAlignment="Center">
                     <Ellipse.Style>
                         <Style TargetType="Ellipse">
-                            <Setter Property="Fill" Value="{StaticResource Brush.Status.Offline}" />
+                            <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
-                                    <Setter Property="Fill" Value="{StaticResource Brush.Status.Online}" />
+                                    <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -69,7 +69,7 @@
                            Text="{Binding DeviceName, Mode=OneWay}"
                            FontWeight="SemiBold"
                            FontSize="13"
-                           Foreground="{StaticResource Brush.Text.Primary}"
+                           Foreground="{DynamicResource Brush.Text.Primary}"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
 
@@ -138,10 +138,10 @@
                         <TextBlock Text="{Binding Fps, StringFormat='{}{0:F1}'}"
                                    FontSize="11"
                                    FontWeight="Medium"
-                                   Foreground="{StaticResource Brush.Accent.Primary}" />
+                                   Foreground="{DynamicResource Brush.Accent.Primary}" />
                         <TextBlock Text=" FPS"
                                    FontSize="10"
-                                   Foreground="{StaticResource Brush.Text.Muted}" />
+                                   Foreground="{DynamicResource Brush.Text.Muted}" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -149,7 +149,7 @@
             <!-- Live Video Preview Surface -->
             <Border Grid.Row="1"
                     Background="#0B0F17"
-                    BorderBrush="{StaticResource Brush.Border.Default}"
+                    BorderBrush="{DynamicResource Brush.Border.Default}"
                     BorderThickness="1"
                     CornerRadius="6"
                     ClipToBounds="True">
@@ -173,7 +173,7 @@
                             </Style>
                         </StackPanel.Style>
                         <Path Data="{StaticResource Icon.Video}"
-                              Fill="{StaticResource Brush.Text.Muted}"
+                              Fill="{DynamicResource Brush.Text.Muted}"
                               Width="22" Height="22"
                               Stretch="Uniform"
                               HorizontalAlignment="Center"
@@ -181,12 +181,12 @@
                         <TextBlock Text="Preview not supported"
                                    FontSize="11"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Text.Secondary}"
+                                   Foreground="{DynamicResource Brush.Text.Secondary}"
                                    HorizontalAlignment="Center"
                                    Margin="0,6,0,0" />
                         <TextBlock Text="Non-AVAS Device"
                                    FontSize="10"
-                                   Foreground="{StaticResource Brush.Text.Muted}"
+                                   Foreground="{DynamicResource Brush.Text.Muted}"
                                    HorizontalAlignment="Center"
                                    Margin="0,2,0,0" />
                     </StackPanel>
@@ -210,13 +210,13 @@
                             </Style>
                         </StackPanel.Style>
                         <Path Data="{StaticResource Icon.Video}"
-                              Fill="{StaticResource Brush.Text.Muted}"
+                              Fill="{DynamicResource Brush.Text.Muted}"
                               Width="24" Height="24"
                               Stretch="Uniform"
                               HorizontalAlignment="Center" />
                         <TextBlock Text="Preview Standby"
                                    FontSize="10"
-                                   Foreground="{StaticResource Brush.Text.Muted}"
+                                   Foreground="{DynamicResource Brush.Text.Muted}"
                                    HorizontalAlignment="Center"
                                    Margin="0,4,0,0" />
                     </StackPanel>
@@ -233,17 +233,17 @@
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="{Binding IpAddress, Mode=OneWay}"
                                FontSize="11"
-                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                               Foreground="{DynamicResource Brush.Text.Secondary}" />
                     <TextBlock Text="{Binding MacAddress, Mode=OneWay}"
                                FontSize="10"
-                               Foreground="{StaticResource Brush.Text.Muted}" />
+                               Foreground="{DynamicResource Brush.Text.Muted}" />
                 </StackPanel>
 
                 <!-- Preview Multicast IP Badge -->
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock FontSize="10" Foreground="{StaticResource Brush.Text.Muted}" HorizontalAlignment="Right">
+                    <TextBlock FontSize="10" Foreground="{DynamicResource Brush.Text.Muted}" HorizontalAlignment="Right">
                         <Run Text="MCAST: " />
-                        <Run Text="{Binding PreviewMulticastIp, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Secondary}" FontWeight="Medium" />
+                        <Run Text="{Binding PreviewMulticastIp, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Secondary}" FontWeight="Medium" />
                     </TextBlock>
                 </StackPanel>
             </Grid>
@@ -261,9 +261,9 @@
                     <!-- Refresh Button -->
                     <Button Command="{Binding RefreshPreviewCommand, Mode=OneWay}"
                             ToolTip="Force preview reset &amp; restart"
-                            Background="#1E293B"
-                            Foreground="{StaticResource Brush.Text.Secondary}"
-                            BorderBrush="{StaticResource Brush.Border.Default}"
+                            Background="{DynamicResource Brush.Surface.Elevated}"
+                            Foreground="{DynamicResource Brush.Text.Secondary}"
+                            BorderBrush="{DynamicResource Brush.Border.Default}"
                             BorderThickness="1"
                             FontSize="10"
                             FontWeight="Medium"
@@ -289,7 +289,7 @@
                     <!-- Start Preview Button -->
                     <Button Command="{Binding StartPreviewCommand, Mode=OneWay}"
                             ToolTip="Start Preview Stream"
-                            Background="#1E293B"
+                            Background="{DynamicResource Brush.Surface.Elevated}"
                             Foreground="#10B981"
                             BorderBrush="#10B981"
                             BorderThickness="1"
@@ -321,7 +321,7 @@
                     <!-- Stop Preview Button -->
                     <Button Command="{Binding StopPreviewCommand, Mode=OneWay}"
                             ToolTip="Stop Preview Stream"
-                            Background="#1E293B"
+                            Background="{DynamicResource Brush.Surface.Elevated}"
                             Foreground="#EF4444"
                             BorderBrush="#EF4444"
                             BorderThickness="1"
@@ -350,7 +350,7 @@
                     <!-- In the Composer: how many staged blocks show this encoder -->
                     <Border x:Name="UsedInBlocksBadge"
                             Background="#2A1F08"
-                            BorderBrush="{StaticResource Brush.Status.Staged}"
+                            BorderBrush="{DynamicResource Brush.Status.Staged}"
                             BorderThickness="1"
                             CornerRadius="4"
                             Padding="6,2"
@@ -365,7 +365,7 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="{StaticResource Brush.Status.StagedChipText}">
+                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Status.StagedChipText}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Text" Value="{Binding UsedInBlocks, Mode=OneWay, StringFormat='in {0} blocks'}" />
@@ -381,7 +381,7 @@
 
                     <!-- Tapped to place: the ring alone is colour, so it also says so -->
                     <Border Background="#082F3A"
-                            BorderBrush="{StaticResource Brush.Border.DropTarget}"
+                            BorderBrush="{DynamicResource Brush.Border.DropTarget}"
                             BorderThickness="1"
                             CornerRadius="4"
                             Padding="6,2"
@@ -400,7 +400,7 @@
                     </Border>
 
                     <!-- Tap / drag hint (gives way to the badges: the card is narrow) -->
-                    <Border Background="{StaticResource Brush.Surface.Elevated}"
+                    <Border Background="{DynamicResource Brush.Surface.Elevated}"
                             CornerRadius="4"
                             Padding="6,3"
                             VerticalAlignment="Center">
@@ -420,7 +420,7 @@
                         <TextBlock Text="TAP OR DRAG TO ROUTE"
                                    FontSize="9"
                                    FontWeight="Bold"
-                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
                     </Border>
                 </StackPanel>
             </Grid>
@@ -430,7 +430,7 @@
     <!-- Keyboard focus: a 2 px ring just inside the edge (inside the armed ring), drawn here so it also renders -->
     <Border x:Name="FocusRing"
             Margin="3"
-            BorderBrush="{StaticResource Brush.Focus.Ring}"
+            BorderBrush="{DynamicResource Brush.Focus.Ring}"
             BorderThickness="2"
             CornerRadius="6"
             IsHitTestVisible="False">
@@ -448,7 +448,7 @@
 
     <!-- Armed ring (cyan, spec 9), drawn over the card edge so the card does not move -->
     <Border x:Name="ArmedRing"
-            BorderBrush="{StaticResource Brush.Border.DropTarget}"
+            BorderBrush="{DynamicResource Brush.Border.DropTarget}"
             BorderThickness="3"
             CornerRadius="8"
             IsHitTestVisible="False">

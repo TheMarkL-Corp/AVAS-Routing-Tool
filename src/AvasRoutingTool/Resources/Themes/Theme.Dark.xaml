@@ -1,5 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+                    mc:Ignorable="po">
 
     <!-- Slate Dark Color Palette -->
     <Color x:Key="Color.Background.Dark">#0B0F17</Color>
@@ -55,47 +58,47 @@
     <Color x:Key="Color.Surface.StagedHover">#3A2B0B</Color>
 
     <!-- SolidColorBrushes -->
-    <SolidColorBrush x:Key="Brush.Background.Dark" Color="{StaticResource Color.Background.Dark}" />
-    <SolidColorBrush x:Key="Brush.Surface.Card" Color="{StaticResource Color.Surface.Card}" />
-    <SolidColorBrush x:Key="Brush.Surface.Elevated" Color="{StaticResource Color.Surface.Elevated}" />
-    <SolidColorBrush x:Key="Brush.Surface.Hover" Color="{StaticResource Color.Surface.Hover}" />
-    <SolidColorBrush x:Key="Brush.Border.Default" Color="{StaticResource Color.Border.Default}" />
-    <SolidColorBrush x:Key="Brush.Border.Highlight" Color="{StaticResource Color.Border.Highlight}" />
-    <SolidColorBrush x:Key="Brush.Border.DropTarget" Color="{StaticResource Color.Border.DropTarget}" />
-    <SolidColorBrush x:Key="Brush.Accent.Primary" Color="{StaticResource Color.Accent.Primary}" />
-    <SolidColorBrush x:Key="Brush.Accent.PrimaryHover" Color="{StaticResource Color.Accent.PrimaryHover}" />
-    <SolidColorBrush x:Key="Brush.Status.Online" Color="{StaticResource Color.Status.Online}" />
-    <SolidColorBrush x:Key="Brush.Status.Offline" Color="{StaticResource Color.Status.Offline}" />
-    <SolidColorBrush x:Key="Brush.Status.Routed" Color="{StaticResource Color.Status.Routed}" />
-    <SolidColorBrush x:Key="Brush.Text.Primary" Color="{StaticResource Color.Text.Primary}" />
-    <SolidColorBrush x:Key="Brush.Text.Secondary" Color="{StaticResource Color.Text.Secondary}" />
-    <SolidColorBrush x:Key="Brush.Text.Muted" Color="{StaticResource Color.Text.Muted}" />
-    <SolidColorBrush x:Key="Brush.Action.Danger" Color="{StaticResource Color.Action.Danger}" />
-    <SolidColorBrush x:Key="Brush.Status.Staged" Color="{StaticResource Color.Status.Staged}" />
-    <SolidColorBrush x:Key="Brush.Status.StagedText" Color="{StaticResource Color.Status.StagedText}" />
-    <SolidColorBrush x:Key="Brush.Status.StagedChipText" Color="{StaticResource Color.Status.StagedChipText}" />
-    <SolidColorBrush x:Key="Brush.Focus.Ring" Color="{StaticResource Color.Focus.Ring}" />
-    <SolidColorBrush x:Key="Brush.Text.Accent" Color="{StaticResource Color.Text.Accent}" />
-    <SolidColorBrush x:Key="Brush.Action.Take" Color="{StaticResource Color.Action.Take}" />
-    <SolidColorBrush x:Key="Brush.Action.TakeHover" Color="{StaticResource Color.Action.TakeHover}" />
-    <SolidColorBrush x:Key="Brush.Action.TakePressed" Color="{StaticResource Color.Action.TakePressed}" />
-    <SolidColorBrush x:Key="Brush.Text.OnAction" Color="{StaticResource Color.Text.OnAction}" />
-    <SolidColorBrush x:Key="Brush.ScrollBar.Thumb" Color="{StaticResource Color.ScrollBar.Thumb}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Background.Dark" Color="{StaticResource Color.Background.Dark}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Card" Color="{StaticResource Color.Surface.Card}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Elevated" Color="{StaticResource Color.Surface.Elevated}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Hover" Color="{StaticResource Color.Surface.Hover}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.Default" Color="{StaticResource Color.Border.Default}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.Highlight" Color="{StaticResource Color.Border.Highlight}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.DropTarget" Color="{StaticResource Color.Border.DropTarget}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Accent.Primary" Color="{StaticResource Color.Accent.Primary}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Accent.PrimaryHover" Color="{StaticResource Color.Accent.PrimaryHover}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Status.Online" Color="{StaticResource Color.Status.Online}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Status.Offline" Color="{StaticResource Color.Status.Offline}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Status.Routed" Color="{StaticResource Color.Status.Routed}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.Primary" Color="{StaticResource Color.Text.Primary}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.Secondary" Color="{StaticResource Color.Text.Secondary}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.Muted" Color="{StaticResource Color.Text.Muted}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Action.Danger" Color="{StaticResource Color.Action.Danger}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Status.Staged" Color="{StaticResource Color.Status.Staged}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Status.StagedText" Color="{StaticResource Color.Status.StagedText}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Status.StagedChipText" Color="{StaticResource Color.Status.StagedChipText}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Focus.Ring" Color="{StaticResource Color.Focus.Ring}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.Accent" Color="{StaticResource Color.Text.Accent}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Action.Take" Color="{StaticResource Color.Action.Take}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Action.TakeHover" Color="{StaticResource Color.Action.TakeHover}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Action.TakePressed" Color="{StaticResource Color.Action.TakePressed}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnAction" Color="{StaticResource Color.Text.OnAction}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.ScrollBar.Thumb" Color="{StaticResource Color.ScrollBar.Thumb}" />
 
-    <SolidColorBrush x:Key="Brush.Surface.CopyTarget" Color="{StaticResource Color.Surface.CopyTarget}" />
-    <SolidColorBrush x:Key="Brush.Text.OnCopyTarget" Color="{StaticResource Color.Text.OnCopyTarget}" />
-    <SolidColorBrush x:Key="Brush.Text.CopyAccent" Color="{StaticResource Color.Text.CopyAccent}" />
-    <SolidColorBrush x:Key="Brush.Text.OnDropTarget" Color="{StaticResource Color.Text.OnDropTarget}" />
-    <SolidColorBrush x:Key="Brush.Surface.UndoToast" Color="{StaticResource Color.Surface.UndoToast}" />
-    <SolidColorBrush x:Key="Brush.Text.UndoToast" Color="{StaticResource Color.Text.UndoToast}" />
-    <SolidColorBrush x:Key="Brush.Surface.Overlay" Color="{StaticResource Color.Surface.Overlay}" />
-    <SolidColorBrush x:Key="Brush.Text.OnOverlay" Color="{StaticResource Color.Text.OnOverlay}" />
-    <SolidColorBrush x:Key="Brush.Surface.Popup" Color="{StaticResource Color.Surface.Popup}" />
-    <SolidColorBrush x:Key="Brush.Border.Control" Color="{StaticResource Color.Border.Control}" />
-    <SolidColorBrush x:Key="Brush.Surface.Selected" Color="{StaticResource Color.Surface.Selected}" />
-    <SolidColorBrush x:Key="Brush.Surface.Danger" Color="{StaticResource Color.Surface.Danger}" />
-    <SolidColorBrush x:Key="Brush.Border.Danger" Color="{StaticResource Color.Border.Danger}" />
-    <SolidColorBrush x:Key="Brush.Surface.Staged" Color="{StaticResource Color.Surface.Staged}" />
-    <SolidColorBrush x:Key="Brush.Surface.StagedHover" Color="{StaticResource Color.Surface.StagedHover}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.CopyTarget" Color="{StaticResource Color.Surface.CopyTarget}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnCopyTarget" Color="{StaticResource Color.Text.OnCopyTarget}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.CopyAccent" Color="{StaticResource Color.Text.CopyAccent}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnDropTarget" Color="{StaticResource Color.Text.OnDropTarget}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.UndoToast" Color="{StaticResource Color.Surface.UndoToast}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.UndoToast" Color="{StaticResource Color.Text.UndoToast}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Overlay" Color="{StaticResource Color.Surface.Overlay}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnOverlay" Color="{StaticResource Color.Text.OnOverlay}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Popup" Color="{StaticResource Color.Surface.Popup}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.Control" Color="{StaticResource Color.Border.Control}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Selected" Color="{StaticResource Color.Surface.Selected}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Danger" Color="{StaticResource Color.Surface.Danger}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.Danger" Color="{StaticResource Color.Border.Danger}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Staged" Color="{StaticResource Color.Surface.Staged}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.StagedHover" Color="{StaticResource Color.Surface.StagedHover}" />
 
 </ResourceDictionary>
