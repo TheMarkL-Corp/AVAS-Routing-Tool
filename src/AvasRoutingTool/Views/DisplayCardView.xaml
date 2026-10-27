@@ -488,24 +488,31 @@
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Opacity" Value="0" />
+                                <Setter Property="IsHitTestVisible" Value="False" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsMouseOver, ElementName=CardFrame}" Value="True">
                                         <Setter Property="Opacity" Value="1" />
+                                        <Setter Property="IsHitTestVisible" Value="True" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=CardFrame}" Value="True">
                                         <Setter Property="Opacity" Value="1" />
+                                        <Setter Property="IsHitTestVisible" Value="True" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
                                         <Setter Property="Opacity" Value="1" />
+                                        <Setter Property="IsHitTestVisible" Value="True" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsLayoutMenuOpen, Mode=OneWay}" Value="True">
                                         <Setter Property="Opacity" Value="1" />
+                                        <Setter Property="IsHitTestVisible" Value="True" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsTouchRevealed, RelativeSource={RelativeSource AncestorType=views:DisplayCardView}}" Value="True">
                                         <Setter Property="Opacity" Value="1" />
+                                        <Setter Property="IsHitTestVisible" Value="True" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
                                         <Setter Property="Opacity" Value="1" />
+                                        <Setter Property="IsHitTestVisible" Value="True" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

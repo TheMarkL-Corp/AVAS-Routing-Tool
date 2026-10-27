@@ -788,7 +788,10 @@ namespace AvasRoutingTool.Tests
             RunSta(() =>
             {
                 var style = (Style)Application.Current.FindResource("Style.Button.Take");
-                Color Of(object? v) => ((SolidColorBrush)v!).Color;
+                // Setter values are DynamicResource references (the palette swaps at runtime): resolve them against the app resources
+                Color Of(object? v) => v is DynamicResourceExtension dyn
+                    ? ((SolidColorBrush)Application.Current.FindResource(dyn.ResourceKey)).Color
+                    : ((SolidColorBrush)v!).Color;
                 var setters = style.Setters.OfType<Setter>().ToList();
                 var fg = Of(setters.Single(s => s.Property == Control.ForegroundProperty).Value);
                 var bg = Of(setters.Single(s => s.Property == Control.BackgroundProperty).Value);

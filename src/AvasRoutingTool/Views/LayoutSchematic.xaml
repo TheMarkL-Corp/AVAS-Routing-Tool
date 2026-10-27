@@ -1,4 +1,4 @@
-<UserControl x:Class="AvasRoutingTool.Views.LayoutSchematic"
+﻿<UserControl x:Class="AvasRoutingTool.Views.LayoutSchematic"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
@@ -30,7 +30,7 @@
                     <DataTemplate>
                         <Border Margin="1.5"
                                 Background="#1E3A5F"
-                                BorderBrush="{StaticResource Brush.Accent.Primary}"
+                                BorderBrush="{DynamicResource Brush.Accent.Primary}"
                                 BorderThickness="1"
                                 CornerRadius="2">
                             <TextBlock Text="{Binding Number, Mode=OneWay}"
@@ -50,7 +50,7 @@
                        Visibility="Collapsed"
                        FontSize="13"
                        FontWeight="Bold"
-                       Foreground="{StaticResource Brush.Text.Secondary}"
+                       Foreground="{DynamicResource Brush.Text.Secondary}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center" />
         </Grid>

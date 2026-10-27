@@ -1,12 +1,12 @@
-<Window x:Class="AvasRoutingTool.Views.SettingsDialog"
+﻿<Window x:Class="AvasRoutingTool.Views.SettingsDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="System Settings"
         Height="540" Width="480"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{StaticResource Brush.Background.Dark}"
-        Foreground="{StaticResource Brush.Text.Primary}"
+        Background="{DynamicResource Brush.Background.Dark}"
+        Foreground="{DynamicResource Brush.Text.Primary}"
         FontFamily="Segoe UI">
 
     <Grid Margin="24">
@@ -21,10 +21,10 @@
             <TextBlock Text="Configuration &amp; Network"
                        FontSize="18"
                        FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.Text.Primary}" />
+                       Foreground="{DynamicResource Brush.Text.Primary}" />
             <TextBlock Text="Customize server endpoints, ports, and SDVoE multicast parameters."
                        FontSize="12"
-                       Foreground="{StaticResource Brush.Text.Secondary}"
+                       Foreground="{DynamicResource Brush.Text.Secondary}"
                        Margin="0,4,0,0" />
         </StackPanel>
 
@@ -36,18 +36,18 @@
                     <TextBlock Text="BAVM Web Management URL"
                                FontSize="12"
                                FontWeight="Medium"
-                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                               Foreground="{DynamicResource Brush.Text.Secondary}" />
                     <TextBox x:Name="TxtBavmUrl"
                              Margin="0,6,0,0"
                              Padding="10,8"
-                             Background="{StaticResource Brush.Surface.Card}"
-                             Foreground="{StaticResource Brush.Text.Primary}"
-                             BorderBrush="{StaticResource Brush.Border.Default}"
+                             Background="{DynamicResource Brush.Surface.Card}"
+                             Foreground="{DynamicResource Brush.Text.Primary}"
+                             BorderBrush="{DynamicResource Brush.Border.Default}"
                              BorderThickness="1"
                              TextChanged="TxtBavmUrl_TextChanged" />
                     <TextBlock Text="Default: http://localhost:80 (Saved persistently across sessions)"
                                FontSize="11"
-                               Foreground="{StaticResource Brush.Text.Muted}"
+                               Foreground="{DynamicResource Brush.Text.Muted}"
                                Margin="0,4,0,0" />
                 </StackPanel>
 
@@ -56,13 +56,13 @@
                     <TextBlock Text="Derived Control Server IP (Synced with BAVM Host)"
                                FontSize="12"
                                FontWeight="Medium"
-                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                               Foreground="{DynamicResource Brush.Text.Secondary}" />
                     <TextBox x:Name="TxtControlServerIp"
                              Margin="0,6,0,0"
                              Padding="10,8"
                              Background="#0D131F"
-                             Foreground="{StaticResource Brush.Text.Secondary}"
-                             BorderBrush="{StaticResource Brush.Border.Default}"
+                             Foreground="{DynamicResource Brush.Text.Secondary}"
+                             BorderBrush="{DynamicResource Brush.Border.Default}"
                              BorderThickness="1"
                              IsReadOnly="True" />
                 </StackPanel>
@@ -79,13 +79,13 @@
                         <TextBlock Text="Telnet Control Port"
                                    FontSize="12"
                                    FontWeight="Medium"
-                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
                         <TextBox x:Name="TxtTelnetPort"
                                  Margin="0,6,0,0"
                                  Padding="10,8"
-                                 Background="{StaticResource Brush.Surface.Card}"
-                                 Foreground="{StaticResource Brush.Text.Primary}"
-                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 Background="{DynamicResource Brush.Surface.Card}"
+                                 Foreground="{DynamicResource Brush.Text.Primary}"
+                                 BorderBrush="{DynamicResource Brush.Border.Default}"
                                  BorderThickness="1" />
                     </StackPanel>
 
@@ -93,13 +93,13 @@
                         <TextBlock Text="REST API Port"
                                    FontSize="12"
                                    FontWeight="Medium"
-                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
                         <TextBox x:Name="TxtRestPort"
                                  Margin="0,6,0,0"
                                  Padding="10,8"
-                                 Background="{StaticResource Brush.Surface.Card}"
-                                 Foreground="{StaticResource Brush.Text.Primary}"
-                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 Background="{DynamicResource Brush.Surface.Card}"
+                                 Foreground="{DynamicResource Brush.Text.Primary}"
+                                 BorderBrush="{DynamicResource Brush.Border.Default}"
                                  BorderThickness="1" />
                     </StackPanel>
                 </Grid>
@@ -116,13 +116,13 @@
                         <TextBlock Text="Multicast Pool Start"
                                    FontSize="12"
                                    FontWeight="Medium"
-                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
                         <TextBox x:Name="TxtMcastStart"
                                  Margin="0,6,0,0"
                                  Padding="10,8"
-                                 Background="{StaticResource Brush.Surface.Card}"
-                                 Foreground="{StaticResource Brush.Text.Primary}"
-                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 Background="{DynamicResource Brush.Surface.Card}"
+                                 Foreground="{DynamicResource Brush.Text.Primary}"
+                                 BorderBrush="{DynamicResource Brush.Border.Default}"
                                  BorderThickness="1" />
                     </StackPanel>
 
@@ -130,13 +130,13 @@
                         <TextBlock Text="Multicast Pool End"
                                    FontSize="12"
                                    FontWeight="Medium"
-                                   Foreground="{StaticResource Brush.Text.Secondary}" />
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
                         <TextBox x:Name="TxtMcastEnd"
                                  Margin="0,6,0,0"
                                  Padding="10,8"
-                                 Background="{StaticResource Brush.Surface.Card}"
-                                 Foreground="{StaticResource Brush.Text.Primary}"
-                                 BorderBrush="{StaticResource Brush.Border.Default}"
+                                 Background="{DynamicResource Brush.Surface.Card}"
+                                 Foreground="{DynamicResource Brush.Text.Primary}"
+                                 BorderBrush="{DynamicResource Brush.Border.Default}"
                                  BorderThickness="1" />
                     </StackPanel>
                 </Grid>
@@ -145,13 +145,13 @@
                     <TextBlock Text="Stream 1 Scaler Preview Port"
                                FontSize="12"
                                FontWeight="Medium"
-                               Foreground="{StaticResource Brush.Text.Secondary}" />
+                               Foreground="{DynamicResource Brush.Text.Secondary}" />
                     <TextBox x:Name="TxtBasePort"
                              Margin="0,6,0,0"
                              Padding="10,8"
-                             Background="{StaticResource Brush.Surface.Card}"
-                             Foreground="{StaticResource Brush.Text.Primary}"
-                             BorderBrush="{StaticResource Brush.Border.Default}"
+                             Background="{DynamicResource Brush.Surface.Card}"
+                             Foreground="{DynamicResource Brush.Text.Primary}"
+                             BorderBrush="{DynamicResource Brush.Border.Default}"
                              BorderThickness="1" />
                 </StackPanel>
             </StackPanel>
