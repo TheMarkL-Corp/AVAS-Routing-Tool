@@ -58,6 +58,9 @@ namespace AvasRoutingTool.Sdvoe
         /// </summary>
         Task<RxState?> ReadReceiverStateAsync(string rxMac);
 
+        /// <summary>Puts a receiver into Fast Switch (aspect kept, black bars) at the given output format: the mode Single View runs in.</summary>
+        Task<bool> SetFastSwitchedAsync(string rxMac, int width, int height, int fps);
+
         /// <summary>Returns a receiver to the full-screen genlocked display mode used by Single View.</summary>
         Task<bool> SetGenlockedAsync(string rxMac);
 

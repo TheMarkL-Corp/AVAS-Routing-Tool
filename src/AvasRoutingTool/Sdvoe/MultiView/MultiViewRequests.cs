@@ -76,6 +76,18 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 value = halve ? 1 : 0,
             });
 
+        /// <summary>
+        /// Puts a receiver into Fast Switch at the given output format (plain FAST_SWITCHED: the picture keeps its aspect
+        /// with black bars; the _CROP / _STRETCH modes are never used). Body as in the SDVoE API Reference example.
+        /// </summary>
+        public static RestCall SetFastSwitched(string rxMac, int width, int height, int fps) =>
+            new("POST", DevicePath(rxMac), new
+            {
+                op = "set:video",
+                display_mode = "FAST_SWITCHED",
+                video = new { width, height, fps },
+            });
+
         public static RestCall SetGenlocked(string rxMac) =>
             new("POST", DevicePath(rxMac), new { op = "set:video", display_mode = "GENLOCKED" });
 

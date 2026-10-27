@@ -146,6 +146,23 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void SetFastSwitched_SendsTheApiExampleBody()
+        {
+            var call = MultiViewRequests.SetFastSwitched("74fe483c059e", 1920, 1080, 60);
+
+            Assert.Equal("POST", call.Method);
+            Assert.Equal("/api/device/74fe483c059e", call.Path);
+            var body = Json(call);
+            Assert.Equal("set:video", body.GetProperty("op").GetString());
+            Assert.Equal("FAST_SWITCHED", body.GetProperty("display_mode").GetString());
+            var video = body.GetProperty("video");
+            Assert.Equal(1920, video.GetProperty("width").GetInt32());
+            Assert.Equal(1080, video.GetProperty("height").GetInt32());
+            Assert.Equal(60, video.GetProperty("fps").GetInt32());
+            Assert.False(body.TryGetProperty("width", out _));
+        }
+
+        [Fact]
         public void SetGenlocked_SendsDisplayModeOnly()
         {
             var call = MultiViewRequests.SetGenlocked("74fe483c059e");

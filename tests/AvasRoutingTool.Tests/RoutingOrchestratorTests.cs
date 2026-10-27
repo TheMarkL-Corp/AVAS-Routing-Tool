@@ -118,6 +118,9 @@ namespace AvasRoutingTool.Tests
             return Record($"multiview:{rxMac}:{layoutName}:{string.Join(",", System.Linq.Enumerable.Select(subscriptions, s => $"{s.SourceMac}@{s.SubscriptionIndex}"))}");
         }
 
+        public Task<bool> SetFastSwitchedAsync(string rxMac, int width, int height, int fps) =>
+            Record($"fastswitch:{rxMac}:{width}x{height}@{fps}");
+
         public Task<bool> SetGenlockedAsync(string rxMac) => Record($"genlock:{rxMac}");
 
         /// <summary>State returned by <see cref="ReadReceiverStateAsync"/> per receiver MAC (missing = unreadable).</summary>

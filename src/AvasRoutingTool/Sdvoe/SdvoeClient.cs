@@ -443,6 +443,12 @@ namespace AvasRoutingTool.Sdvoe
             return SendRestCallAsync(MultiView.MultiViewRequests.SetScalerFrameDivider(txMac, halve));
         }
 
+        public Task<bool> SetFastSwitchedAsync(string rxMac, int width, int height, int fps)
+        {
+            AppLogger.Info("ROUTING", $"Setting {NormalizeMac(rxMac)} to fast switch {width}x{height}@{fps}");
+            return SendRestCallAsync(MultiView.MultiViewRequests.SetFastSwitched(rxMac, width, height, fps));
+        }
+
         public Task<bool> SetGenlockedAsync(string rxMac)
         {
             AppLogger.Info("MULTIVIEW", $"Returning {NormalizeMac(rxMac)} to genlocked single view");
