@@ -343,6 +343,58 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task RouteVideo_ShowsTheOutputFormatOnTheCard()
+        {
+            var rig = new Rig();
+            rig.Client.DisplayEdid = TestEdids.Build((3840, 2160, 60, false));
+
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx1, rig.Rx));
+
+            Assert.StartsWith("OUT 3840x2160@60", rig.RxVm.CanvasInfo);
+        }
+
+        [Fact]
+        public async Task RouteVideo_WithoutAnEdid_ShowsTheFallbackReasonOnTheCard()
+        {
+            var rig = new Rig();
+            rig.Client.DisplayEdid = null;
+
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx1, rig.Rx));
+
+            Assert.Contains("1920x1080@60", rig.RxVm.CanvasInfo);
+            Assert.Contains("display EDID unavailable", rig.RxVm.CanvasInfo);
+        }
+
+        [Fact]
+        public async Task RouteVideo_FromAMultiView_ShowsTheSingleViewFormat_NotTheMultiViewOne()
+        {
+            var rig = new Rig();
+            await rig.TakeMatrixWithTx1Async();
+            Assert.NotEqual(string.Empty, rig.RxVm.CanvasInfo); // the multiview canvas line
+
+            Assert.True(await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx));
+
+            Assert.StartsWith("OUT 1920x1080@60", rig.RxVm.CanvasInfo);
+            Assert.False(rig.RxVm.IsMultiView);
+        }
+
+        [Fact]
+        public async Task RouteVideo_OnAnUnroutedCard_WhenFastSwitchIsRefused_ReportsItOnTheCard_AndRoutesNothing()
+        {
+            var rig = new Rig();
+            rig.Client.FailMultiViewPrefix = "fastswitch:";
+
+            bool ok = await rig.Vm.RouteVideoAsync(rig.Tx1, rig.Rx);
+
+            Assert.False(ok);
+            Assert.Null(rig.Client.LastVideoTx);
+            Assert.True(rig.RxVm.HasError);
+            Assert.Contains("Fast Switch 1920x1080@60", rig.RxVm.LastError);
+            Assert.False(rig.RxVm.IsRouted);
+            Assert.Equal(string.Empty, rig.RxVm.CanvasInfo);
+        }
+
+        [Fact]
         public async Task RouteVideo_WhenFastSwitchIsRefused_DoesNotJoin_AndTheCardKeepsTheMultiView()
         {
             var rig = new Rig();

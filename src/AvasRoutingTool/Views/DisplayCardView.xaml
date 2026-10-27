@@ -810,8 +810,8 @@
                         <TextBlock Text="COPYING FROM HERE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
                     </Border>
 
-                    <!-- Decoder output format from the display's EDID (multiview only) -->
-                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                    <!-- Decoder output format from the display's EDID (multiview and Single View) -->
+                    <TextBlock x:Name="OutputLine" Grid.Row="1" Grid.ColumnSpan="2"
                                Text="{Binding CanvasInfo, Mode=OneWay}"
                                ToolTip="{Binding CanvasInfo, Mode=OneWay}"
                                FontSize="10"

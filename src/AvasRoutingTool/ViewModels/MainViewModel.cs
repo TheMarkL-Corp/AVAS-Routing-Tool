@@ -531,9 +531,11 @@ namespace AvasRoutingTool.ViewModels
             }
 
             AppLogger.Info("ROUTING", $"Requesting route: '{sourceTx.DeviceName}' ({sourceTx.DeviceId}) -> '{displayRx.DeviceName}' ({displayRx.DeviceId})");
-            bool ok = await _orchestrator.RouteSingleViewVideoAsync(sourceTx, displayRx);
+            var route = await _orchestrator.RouteSingleViewAsync(sourceTx, displayRx);
+            bool ok = route.Ok;
             if (ok)
             {
+                displayVm?.SetSingleViewOutput(MultiViewCanvasPolicy.OutputLabel(route.Format!));
                 var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == sourceTx.DeviceId);
                 displayVm?.SetPreviewSource(sourceVm);
                 displayVm?.NotifyRoutingChanged();
@@ -541,7 +543,8 @@ namespace AvasRoutingTool.ViewModels
             }
             else
             {
-                AppLogger.Warn("ROUTING", $"Failed to route video feed to '{displayRx.DeviceName}'.");
+                AppLogger.Warn("ROUTING", $"Failed to route video feed to '{displayRx.DeviceName}': {route.Error}");
+                if (displayVm != null) displayVm.LastError = route.Error;
             }
             if (displayVm != null) RefreshKeptDraft(displayVm);
             AnnounceScreen(displayVm);

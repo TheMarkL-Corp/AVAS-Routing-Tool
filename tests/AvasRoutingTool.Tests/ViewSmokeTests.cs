@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -3652,6 +3652,35 @@ namespace AvasRoutingTool.Tests
                     Relayout(routingView);
                     var bgDark = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
                     Assert.Equal(System.Windows.Media.Color.FromRgb(0x0B, 0x0F, 0x17), bgDark);
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_SingleView_ShowsTheOutputLine_FitsWithoutEllipsis_AndTheFallbackReasonReads() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                rig.Client.DisplayEdids[CopyRig.Rx3Mac] = TestEdids.Build((1920, 1080, 60, false));
+                var view = rig.View(rig.Rx3, out var host); // RX3: 1080p display, unrouted
+                Showing(host, () =>
+                {
+                    var line = (TextBlock)Named(view, "OutputLine").Single();
+                    var frame = Named(view, "CardFrame").Single();
+                    Assert.False(line.IsVisible, "an unrouted card shows no output line");
+
+                    Pump(() => rig.Vm.RouteVideoAsync(rig.Vega.Device, rig.Rx3.Device));
+                    Relayout(view);
+                    Assert.True(line.IsVisible);
+                    Assert.StartsWith("OUT 1920x1080@60", line.Text);
+                    AssertTextFits(line);
+                    AssertInside(line, frame);
+
+                    // No EDID: the fallback format and its reason read in full on the card.
+                    rig.Client.DisplayEdids[CopyRig.Rx3Mac] = null;
+                    Pump(() => rig.Vm.RouteVideoAsync(rig.Tx2.Device, rig.Rx3.Device));
+                    Relayout(view);
+                    Assert.Contains("display EDID unavailable", line.Text);
+                    AssertTextFits(line);
                 });
             });
 

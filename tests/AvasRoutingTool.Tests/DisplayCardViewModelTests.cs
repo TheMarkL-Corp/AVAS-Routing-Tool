@@ -41,6 +41,24 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void SetSingleViewOutput_ShowsWhileRouted_AndIsGoneOnceTheDisplayIsUnrouted()
+        {
+            var device = new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1", IsReceiver = true, ActiveSourceId = "74fe488b07bb", ActiveSourceName = "TX2" };
+            var vm = new DisplayCardViewModel(device, d => { d.ActiveSourceId = string.Empty; d.ActiveSourceName = string.Empty; return Task.CompletedTask; });
+            var changed = new System.Collections.Generic.List<string?>();
+            vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            Assert.Equal(string.Empty, vm.CanvasInfo);
+
+            vm.SetSingleViewOutput("OUT 3840x2160@60 (VP3268-4K)");
+
+            Assert.Equal("OUT 3840x2160@60 (VP3268-4K)", vm.CanvasInfo);
+            Assert.Contains(nameof(DisplayCardViewModel.CanvasInfo), changed);
+
+            vm.UnrouteCommand.Execute(null);
+            Assert.Equal(string.Empty, vm.CanvasInfo); // an unrouted card shows no output line
+        }
+
+        [Fact]
         public void SetPreviewSource_WhenAvasSource_MirrorsPreviewBitmapAndSetsSupported()
         {
             var rxDevice = new AvasDevice

@@ -23,6 +23,7 @@ namespace AvasRoutingTool.ViewModels
         private string _layoutTitle = string.Empty;
         private string? _lastError;
         private string _canvasInfo = string.Empty;
+        private string _singleViewOutput = string.Empty;
         private bool _isExternalLayout;
         private int _externalSourceCount;
         private string _externalLayoutText = string.Empty;
@@ -136,7 +137,14 @@ namespace AvasRoutingTool.ViewModels
         }
 
         /// <summary>The decoder output format read from the display EDID (and a bandwidth note), shown on the card.</summary>
-        public string CanvasInfo => _canvasInfo;
+        public string CanvasInfo => !string.IsNullOrEmpty(_canvasInfo) ? _canvasInfo : IsRouted ? _singleViewOutput : string.Empty;
+
+        /// <summary>The Single View output format ("OUT 1920x1080@60 (display EDID unavailable)") shown while this card is routed.</summary>
+        public void SetSingleViewOutput(string info)
+        {
+            _singleViewOutput = info ?? string.Empty;
+            OnPropertyChanged(nameof(CanvasInfo));
+        }
 
         /// <summary>Width / height of the multiview canvas, so the window surface is letterboxed like the real output.</summary>
         public double CanvasAspect => _canvasAspect;
@@ -350,6 +358,7 @@ namespace AvasRoutingTool.ViewModels
             SetPreviewSource(null);
 
             ResetExternalLayout();
+            _singleViewOutput = string.Empty;
             _layoutId = plan.Id;
             _layoutTitle = title;
             _canvasInfo = canvasInfo;
@@ -387,6 +396,7 @@ namespace AvasRoutingTool.ViewModels
             DetachSlotSources();
             Slots.Clear();
             SetPreviewSource(null);
+            _singleViewOutput = string.Empty;
             _layoutId = "single";
             _layoutTitle = string.Empty;
             _logicalOrder = new List<int>();
