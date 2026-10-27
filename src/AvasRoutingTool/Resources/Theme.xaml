@@ -3,9 +3,6 @@
                     xmlns:sys="clr-namespace:System;assembly=mscorlib"
                     xmlns:views="clr-namespace:AvasRoutingTool.Views">
 
-    <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="Themes/Theme.Dark.xaml" />
-    </ResourceDictionary.MergedDictionaries>
     <!-- Keyboard focus on a non-button element (e.g. a display card's picture): the 2 px ring, not the dotted default -->
     <Style x:Key="Style.FocusVisual.Ring">
         <Setter Property="Control.Template">

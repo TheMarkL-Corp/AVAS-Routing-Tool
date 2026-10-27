@@ -25,6 +25,7 @@ namespace AvasRoutingTool.Tests
     /// Catches binding/resource crashes (e.g. TwoWay binding on a read-only property) that
     /// pure view-model tests can never see.
     /// </summary>
+    [Collection("WpfSta")]
     public class ViewSmokeTests
     {
         private static void RunSta(Action body)
@@ -37,11 +38,36 @@ namespace AvasRoutingTool.Tests
                     // The input mode is process-wide: every test starts as a pointer user (the start state) and sets what it needs.
                     InputModality.IsKeyboard = false;
                     var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                    foreach (var name in new[] { "Theme", "Icons" })
+                    bool hasDark = false;
+                    bool hasTheme = false;
+                    bool hasIcons = false;
+                    foreach (var d in app.Resources.MergedDictionaries.ToList())
+                    {
+                        if (d == null) continue;
+                        var s = d.Source?.OriginalString ?? "";
+                        if (s.Contains("Theme.Dark", StringComparison.OrdinalIgnoreCase)) hasDark = true;
+                        if (s.EndsWith("/Theme.xaml", StringComparison.OrdinalIgnoreCase)) hasTheme = true;
+                        if (s.Contains("Icons.xaml", StringComparison.OrdinalIgnoreCase)) hasIcons = true;
+                    }
+                    if (!hasDark)
                     {
                         app.Resources.MergedDictionaries.Add(new ResourceDictionary
                         {
-                            Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/{name}.xaml")
+                            Source = new Uri("pack://application:,,,/AvasRoutingTool;component/Resources/Themes/Theme.Dark.xaml")
+                        });
+                    }
+                    if (!hasTheme)
+                    {
+                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                        {
+                            Source = new Uri("pack://application:,,,/AvasRoutingTool;component/Resources/Theme.xaml")
+                        });
+                    }
+                    if (!hasIcons)
+                    {
+                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                        {
+                            Source = new Uri("pack://application:,,,/AvasRoutingTool;component/Resources/Icons.xaml")
                         });
                     }
                     body();

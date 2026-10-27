@@ -14,6 +14,7 @@ using AvasRoutingTool.Logging;
 using AvasRoutingTool.Rtp;
 using AvasRoutingTool.Sdvoe;
 using AvasRoutingTool.Sdvoe.MultiView;
+using AvasRoutingTool.Services;
 
 namespace AvasRoutingTool.ViewModels
 {
@@ -173,6 +174,11 @@ namespace AvasRoutingTool.ViewModels
         /// <summary><paramref name="normal"/> when animations are on, <see cref="TimeSpan.Zero"/> when they are off.</summary>
         public TimeSpan TransitionDuration(TimeSpan normal) => _motion.Resolve(normal);
 
+        public IThemeService ThemeService { get; }
+        public ICommand ToggleThemeCommand { get; }
+        public ThemeMode CurrentTheme => ThemeService.CurrentTheme;
+        public string ThemeButtonLabel => CurrentTheme == ThemeMode.Dark ? "☀️  Light" : "🌙  Dark";
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand ClearLogsCommand { get; }
@@ -196,7 +202,8 @@ namespace AvasRoutingTool.ViewModels
             MultiViewOrchestrator? multiView = null,
             Func<DateTime>? clock = null,
             Action<Action>? post = null,
-            Func<bool>? animationsEnabled = null)
+            Func<bool>? animationsEnabled = null,
+            IThemeService? themeService = null)
         {
             _motion = new MotionPolicy(animationsEnabled);
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
@@ -218,6 +225,14 @@ namespace AvasRoutingTool.ViewModels
 
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
+
+            ThemeService = themeService ?? new ThemeService(_configService);
+            ThemeService.ThemeChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(CurrentTheme));
+                OnPropertyChanged(nameof(ThemeButtonLabel));
+            };
+            ToggleThemeCommand = new RelayCommand(_ => ThemeService.ToggleTheme());
 
             RefreshCommand = new RelayCommand(async _ => await RefreshDevicesAsync());
             OpenSettingsCommand = new RelayCommand(_ => RequestOpenSettings?.Invoke());

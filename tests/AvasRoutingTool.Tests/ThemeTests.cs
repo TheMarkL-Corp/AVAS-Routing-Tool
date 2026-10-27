@@ -8,6 +8,7 @@ using Xunit;
 
 namespace AvasRoutingTool.Tests
 {
+    [Collection("WpfSta")]
     public class ThemeTests
     {
         private static readonly object AppLock = new();
