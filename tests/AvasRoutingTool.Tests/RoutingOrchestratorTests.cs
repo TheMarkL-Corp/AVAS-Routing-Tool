@@ -32,6 +32,7 @@ namespace AvasRoutingTool.Tests
         public Task<bool> JoinStreamAsync(string rxMac, string txMac, string streamType, int streamIndex)
         {
             if (FailJoin) return Task.FromResult(false);
+            lock (AllCalls) AllCalls.Add($"join:{rxMac}:{txMac}");
             if (streamType == "HDMI")
             {
                 LastVideoRx = rxMac;
@@ -86,9 +87,13 @@ namespace AvasRoutingTool.Tests
         /// </summary>
         public System.Func<string, Task>? DuringCall { get; set; }
 
+        /// <summary>Every multiview call and every accepted join, in the order they were made (joins are not in <see cref="MultiViewCalls"/>).</summary>
+        public System.Collections.Generic.List<string> AllCalls { get; } = new();
+
         private async Task<bool> Record(string entry)
         {
             lock (MultiViewCalls) MultiViewCalls.Add(entry);
+            lock (AllCalls) AllCalls.Add(entry);
             if (DuringCall != null) await DuringCall(entry);
             return FailMultiViewPrefix == null || !entry.StartsWith(FailMultiViewPrefix);
         }
@@ -118,10 +123,13 @@ namespace AvasRoutingTool.Tests
             return Record($"multiview:{rxMac}:{layoutName}:{string.Join(",", System.Linq.Enumerable.Select(subscriptions, s => $"{s.SourceMac}@{s.SubscriptionIndex}"))}");
         }
 
-        public Task<bool> SetFastSwitchedAsync(string rxMac, int width, int height, int fps) =>
-            Record($"fastswitch:{rxMac}:{width}x{height}@{fps}");
-
-        public Task<bool> SetGenlockedAsync(string rxMac) => Record($"genlock:{rxMac}");
+        /// <summary>Like the hardware: an accepted mode change shows in what the receiver reports next.</summary>
+        public async Task<bool> SetFastSwitchedAsync(string rxMac, int width, int height, int fps)
+        {
+            bool ok = await Record($"fastswitch:{rxMac}:{width}x{height}@{fps}");
+            if (ok) ReceiverStates[rxMac] = new AvasRoutingTool.Sdvoe.RxState(rxMac, rxMac, "FAST_SWITCHED", width, height, fps, System.Array.Empty<AvasRoutingTool.Sdvoe.RxSubscription>(), null);
+            return ok;
+        }
 
         /// <summary>State returned by <see cref="ReadReceiverStateAsync"/> per receiver MAC (missing = unreadable).</summary>
         public System.Collections.Generic.Dictionary<string, AvasRoutingTool.Sdvoe.RxState?> ReceiverStates { get; } = new();
@@ -214,6 +222,110 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("00:11:22:33:44:BB", mock.LastUnroutedRx);
             Assert.Empty(rx.ActiveSourceId);
             Assert.Empty(rx.ActiveSourceName);
+        }
+
+        // ---- Single View runs in Fast Switch at the display's EDID format ----
+
+        private const string RxMac = "00:11:22:33:44:BB";
+        private const string TxMac = "00:11:22:33:44:AA";
+
+        private static (AvasDevice Tx, AvasDevice Rx) Pair() => (
+            new AvasDevice { DeviceId = TxMac, DeviceName = "Bron 1", IsTransmitter = true },
+            new AvasDevice { DeviceId = RxMac, DeviceName = "Samsung 1", IsReceiver = true });
+
+        private static RxState StateOf(string mode, int w, int h, int fps) =>
+            new(RxMac, "Samsung 1", mode, w, h, fps, System.Array.Empty<RxSubscription>(), null);
+
+        [Fact]
+        public async Task Route_SetsFastSwitchAtTheEdidFormat_BeforeTheJoin()
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = TestEdids.Build((3840, 2160, 60, false)) };
+            var (tx, rx) = Pair();
+
+            var result = await new RoutingOrchestrator(mock).RouteSingleViewAsync(tx, rx);
+
+            Assert.True(result.Ok);
+            Assert.Equal(new[] { $"fastswitch:{RxMac}:3840x2160@60", $"join:{RxMac}:{TxMac}" }, mock.AllCalls);
+            Assert.True(result.Format!.FromDisplay);
+            Assert.Equal((3840, 2160, 60), (result.Format.Width, result.Format.Height, result.Format.Fps));
+        }
+
+        [Fact]
+        public async Task Route_WithoutAnEdid_FallsBackTo1080p60_AndStillJoins()
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = null };
+            var (tx, rx) = Pair();
+
+            var result = await new RoutingOrchestrator(mock).RouteSingleViewAsync(tx, rx);
+
+            Assert.True(result.Ok);
+            Assert.Equal(new[] { $"fastswitch:{RxMac}:1920x1080@60", $"join:{RxMac}:{TxMac}" }, mock.AllCalls);
+            Assert.False(result.Format!.FromDisplay);
+            Assert.Contains("display EDID unavailable", result.Format.Description);
+        }
+
+        [Fact]
+        public async Task Route_WhenSetVideoIsRefused_SendsNoJoin_AndKeepsTheActiveSource()
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = TestEdids.Build((1920, 1080, 60, false)), FailMultiViewPrefix = "fastswitch:" };
+            var (tx, rx) = Pair();
+            rx.ActiveSourceId = "00:11:22:33:44:CC";
+            rx.ActiveSourceName = "Earlier";
+
+            var result = await new RoutingOrchestrator(mock).RouteSingleViewAsync(tx, rx);
+
+            Assert.False(result.Ok);
+            Assert.Contains("Fast Switch 1920x1080@60", result.Error);
+            Assert.DoesNotContain(mock.AllCalls, c => c.StartsWith("join:"));
+            Assert.Equal("00:11:22:33:44:CC", rx.ActiveSourceId);
+            Assert.Equal("Earlier", rx.ActiveSourceName);
+            Assert.False(await new RoutingOrchestrator(mock).RouteSingleViewVideoAsync(tx, rx));
+        }
+
+        [Fact]
+        public async Task Route_SkipsSetVideo_WhenTheRxIsAlreadyFastSwitchedAtTheFormat()
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = TestEdids.Build((1920, 1080, 60, false)) };
+            mock.ReceiverStates[RxMac] = StateOf("FAST_SWITCHED", 1920, 1080, 60);
+            var (tx, rx) = Pair();
+
+            var result = await new RoutingOrchestrator(mock).RouteSingleViewAsync(tx, rx);
+
+            Assert.True(result.Ok);
+            Assert.Equal(new[] { $"join:{RxMac}:{TxMac}" }, mock.AllCalls);
+        }
+
+        [Theory]
+        [InlineData("FAST_SWITCHED_CROP", 1920, 1080)]
+        [InlineData("FAST_SWITCHED_STRETCH", 1920, 1080)]
+        [InlineData("GENLOCKED", 1920, 1080)]
+        [InlineData("FAST_SWITCHED", 1280, 720)]
+        [InlineData(null, 0, 0)] // state unreadable: it cannot be proven correct
+        public async Task Route_SendsSetVideo_WhenTheRxIsInAnotherModeOrSize_OrUnreadable(string? mode, int w, int h)
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = TestEdids.Build((1920, 1080, 60, false)) };
+            if (mode != null) mock.ReceiverStates[RxMac] = StateOf(mode, w, h, 60);
+            var (tx, rx) = Pair();
+
+            Assert.True((await new RoutingOrchestrator(mock).RouteSingleViewAsync(tx, rx)).Ok);
+
+            Assert.Equal(new[] { $"fastswitch:{RxMac}:1920x1080@60", $"join:{RxMac}:{TxMac}" }, mock.AllCalls);
+        }
+
+        [Fact]
+        public async Task Route_SecondTxToTheSameRx_ChangesOnlyTheJoin()
+        {
+            var mock = new MockSdvoeClient { DisplayEdid = TestEdids.Build((1920, 1080, 60, false)) };
+            var (tx, rx) = Pair();
+            var orchestrator = new RoutingOrchestrator(mock);
+            await orchestrator.RouteSingleViewAsync(tx, rx);
+            mock.ReceiverStates[RxMac] = StateOf("FAST_SWITCHED", 1920, 1080, 60); // what the hardware now reports
+            mock.AllCalls.Clear();
+
+            var tx2 = new AvasDevice { DeviceId = "00:11:22:33:44:DD", DeviceName = "Bron 2", IsTransmitter = true };
+            Assert.True((await orchestrator.RouteSingleViewAsync(tx2, rx)).Ok);
+
+            Assert.Equal(new[] { $"join:{RxMac}:00:11:22:33:44:DD" }, mock.AllCalls);
         }
     }
 }

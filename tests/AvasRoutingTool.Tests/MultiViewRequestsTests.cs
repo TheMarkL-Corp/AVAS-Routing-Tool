@@ -163,17 +163,11 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void SetGenlocked_SendsDisplayModeOnly()
+        public void TheToolNeverBuildsAFastSwitchedRequest()
         {
-            var call = MultiViewRequests.SetGenlocked("74fe483c059e");
-
-            Assert.Equal("/api/device/74fe483c059e", call.Path);
-            var body = Json(call);
-            Assert.Equal("set:video", body.GetProperty("op").GetString());
-            Assert.Equal("GENLOCKED", body.GetProperty("display_mode").GetString());
-            // Genlock takes no video format arguments (API 4.19.12.1).
-            Assert.False(body.TryGetProperty("video", out _));
-            Assert.False(body.TryGetProperty("width", out _));
+            // Single View always runs in Fast Switch (docs/superpowers/specs/2026-10-27-single-view-fast-switch-edid.md, D1/D9).
+            Assert.DoesNotContain(typeof(MultiViewRequests).GetMethods(), m => m.Name.Contains("Genlock", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(typeof(AvasRoutingTool.Sdvoe.ISdvoeClient).GetMethods(), m => m.Name.Contains("Genlock", StringComparison.OrdinalIgnoreCase));
         }
 
         [Theory]

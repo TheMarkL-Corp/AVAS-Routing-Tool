@@ -88,9 +88,6 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 video = new { width, height, fps },
             });
 
-        public static RestCall SetGenlocked(string rxMac) =>
-            new("POST", DevicePath(rxMac), new { op = "set:video", display_mode = "GENLOCKED" });
-
         private static string DevicePath(string mac) => $"/api/device/{SdvoeClient.NormalizeMac(mac)}";
     }
 }

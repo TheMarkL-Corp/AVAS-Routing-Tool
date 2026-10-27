@@ -449,12 +449,6 @@ namespace AvasRoutingTool.Sdvoe
             return SendRestCallAsync(MultiView.MultiViewRequests.SetFastSwitched(rxMac, width, height, fps));
         }
 
-        public Task<bool> SetGenlockedAsync(string rxMac)
-        {
-            AppLogger.Info("MULTIVIEW", $"Returning {NormalizeMac(rxMac)} to genlocked single view");
-            return SendRestCallAsync(MultiView.MultiViewRequests.SetGenlocked(rxMac));
-        }
-
         /// <summary>How long a background request may stay PROCESSING before we give up on it.</summary>
         public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(8);
 

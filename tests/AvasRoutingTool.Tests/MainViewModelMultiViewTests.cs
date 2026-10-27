@@ -327,7 +327,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task RouteVideo_OnMultiViewDisplay_ReturnsToGenlockThenJoins()
+        public async Task RouteVideo_OnMultiViewDisplay_ReturnsToFastSwitchThenJoins()
         {
             var rig = new Rig();
             await rig.TakeMatrixWithTx1Async();
@@ -335,7 +335,7 @@ namespace AvasRoutingTool.Tests
             bool ok = await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx);
 
             Assert.True(ok);
-            Assert.Equal(new[] { "genlock:rx1" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, rig.Client.MultiViewCalls);
             Assert.Equal("tx2", rig.Client.LastVideoTx);
             Assert.False(rig.RxVm.IsMultiView);
             Assert.Empty(rig.RxVm.Slots);
@@ -343,11 +343,11 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task RouteVideo_WhenGenlockIsRefused_DoesNotJoin_AndTheCardKeepsTheMultiView()
+        public async Task RouteVideo_WhenFastSwitchIsRefused_DoesNotJoin_AndTheCardKeepsTheMultiView()
         {
             var rig = new Rig();
             await rig.TakeMatrixWithTx1Async();
-            rig.Client.FailMultiViewPrefix = "genlock:";
+            rig.Client.FailMultiViewPrefix = "fastswitch:";
 
             bool ok = await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx);
 
@@ -379,7 +379,7 @@ namespace AvasRoutingTool.Tests
             bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "single");
 
             Assert.True(ok);
-            Assert.Equal(new[] { "genlock:rx1" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, rig.Client.MultiViewCalls);
             Assert.False(rig.RxVm.IsMultiView);
             Assert.Empty(rig.RxVm.CanvasInfo); // the multiview's output format is gone with it
         }
@@ -424,11 +424,11 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task SingleViewFromTheCard_WhenGenlockIsRefused_ReportsItOnTheCard()
+        public async Task SingleViewFromTheCard_WhenFastSwitchIsRefused_ReportsItOnTheCard()
         {
             var rig = new Rig();
             await rig.TakeMatrixWithTx1Async();
-            rig.Client.FailMultiViewPrefix = "genlock:";
+            rig.Client.FailMultiViewPrefix = "fastswitch:";
 
             bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "single");
 
@@ -462,7 +462,7 @@ namespace AvasRoutingTool.Tests
             rig.Place(1, rig.Tx2Vm);
             var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            rig.Client.DuringCall = e => e.StartsWith("genlock:") && entered.TrySetResult() ? release.Task : Task.CompletedTask;
+            rig.Client.DuringCall = e => e.StartsWith("fastswitch:") && entered.TrySetResult() ? release.Task : Task.CompletedTask;
 
             var off = rig.Vm.UnrouteVideoAsync(rig.Rx);
             await entered.Task; // Off is in flight
@@ -474,7 +474,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(await off);
             var calls = rig.Client.MultiViewCalls;
-            Assert.True(calls.IndexOf("genlock:rx1") < calls.FindLastIndex(c => c.StartsWith("multiview:")));
+            Assert.True(calls.IndexOf("fastswitch:rx1:1920x1080@60") < calls.FindLastIndex(c => c.StartsWith("multiview:")));
             Assert.True(rig.MultiView.IsMultiView(rig.Rx)); // the Take came last, and the card agrees
             Assert.True(rig.RxVm.IsMultiView);
         });

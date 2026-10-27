@@ -318,18 +318,5 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(3840, call.Body.GetProperty("video").GetProperty("width").GetInt32());
             Assert.Equal(60, call.Body.GetProperty("video").GetProperty("fps").GetInt32());
         }
-
-        [Fact]
-        public async Task SetGenlockedAsync_SendsSetVideoGenlocked()
-        {
-            var handler = new RecordingHandler();
-            var client = new SdvoeClient(handler);
-
-            bool ok = await client.SetGenlockedAsync("74fe483c059e");
-
-            Assert.True(ok);
-            var call = Assert.Single(handler.Calls);
-            Assert.Equal("GENLOCKED", call.Body.GetProperty("display_mode").GetString());
-        }
     }
 }

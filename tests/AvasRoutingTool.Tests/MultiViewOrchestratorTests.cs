@@ -670,7 +670,7 @@ namespace AvasRoutingTool.Tests
         // ---- leaving multiview ----------------------------------------------------------------------
 
         [Fact]
-        public async Task ReturnToSingleView_SetsGenlockAndForgetsTheLayout()
+        public async Task ReturnToSingleView_SetsFastSwitchAndForgetsTheLayout()
         {
             var (o, c) = Create();
             var rx = Rx();
@@ -681,7 +681,7 @@ namespace AvasRoutingTool.Tests
             bool ok = await o.ReturnToSingleViewAsync(rx);
 
             Assert.True(ok);
-            Assert.Equal(new[] { "genlock:rx1" }, c.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, c.MultiViewCalls);
             Assert.False(o.IsMultiView(rx));
             Assert.Null(o.GetLive(rx));
             Assert.False(o.CanUndo(rx));
@@ -699,7 +699,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task TurnOff_LeavesEachSubscriptionOnceThenGenlocksAndForgetsTheLayout()
+        public async Task TurnOff_LeavesEachSubscriptionOnceThenSetsFastSwitchAndForgetsTheLayout()
         {
             var (o, c) = Create();
             var rx = Rx();
@@ -710,7 +710,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(ok);
             Assert.Equal(new[] { "rx1:1", "rx1:2" }, c.Leaves);
-            Assert.Equal(new[] { "genlock:rx1" }, c.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, c.MultiViewCalls);
             Assert.False(o.IsMultiView(rx));
         }
 

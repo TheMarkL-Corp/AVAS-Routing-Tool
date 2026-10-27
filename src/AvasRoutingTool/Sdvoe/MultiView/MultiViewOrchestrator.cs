@@ -128,7 +128,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
             _fallback = fallback ?? MultiViewCanvasPolicy.DefaultFallback;
-            _routing = new RoutingOrchestrator(_client);
+            _routing = new RoutingOrchestrator(_client, fallback);
         }
 
         /// <summary>
@@ -355,7 +355,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
         /// <summary>
         /// Leaves a multiview this tool did not start (an external layout): optionally leaves the given
-        /// subscriptions, then returns the decoder to full-screen genlock.
+        /// subscriptions, then returns the decoder to Single View (Fast Switch at its display's EDID format).
         /// </summary>
         /// <param name="leaveIndexZero">
         /// Also leaves subscription 0 when the external layout had it joined (no Single View source follows to reuse
@@ -373,7 +373,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                         toLeave.Insert(0, 0);
                     foreach (int index in toLeave)
                         await LeaveAsync(rx, index);
-                    bool ok = await _client.SetGenlockedAsync(rx.DeviceId);
+                    bool ok = (await _routing.EnsureSingleViewModeAsync(rx)).Ok;
                     if (ok) DropExternal(rx);
                     return ok;
                 }
@@ -386,7 +386,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
         /// <summary>
         /// Leaves multiview: the multiview's stream-1 subscriptions are left (best effort; index 0 is kept, a Single
-        /// View join reuses it), then the decoder goes back to full-screen genlock, ready for a normal join.
+        /// View join reuses it), then the decoder goes back to Single View (Fast Switch at its display's EDID format), ready for a normal join.
         /// </summary>
         /// <param name="leaveIndexZero">
         /// Leaves subscription 0 as well, for a return to Single View with no source to follow (nothing reuses it).
@@ -404,8 +404,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                     if (await LeaveAsync(rx, index)) left.Add(index);
                 }
 
-                bool ok = await GenlockAndEndAsync(rx);
-                // Refused genlock: the display stays in multiview, but the leaves did happen, so they no longer
+                bool ok = await EndMultiViewAsync(rx);
+                // Refused Fast Switch: the display stays in multiview, but the leaves did happen, so they no longer
                 // count as joined (a later Off or Take does not leave them again).
                 if (!ok && left.Count > 0) session.Joined = session.Joined.Except(left).ToHashSet();
                 return ok;
@@ -416,7 +416,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             }
         });
 
-        /// <summary>Leaves every subscription joined on the decoder, then returns it to genlock.</summary>
+        /// <summary>Leaves every subscription joined on the decoder, then returns it to Single View (Fast Switch).</summary>
         public Task<bool> TurnOffAsync(AvasDevice rx) => ExclusiveAsync(rx, async () =>
         {
             await _gate.WaitAsync();
@@ -428,7 +428,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 foreach (int index in session.Joined.OrderBy(i => i))
                     await LeaveAsync(rx, index);
 
-                return await GenlockAndEndAsync(rx);
+                return await EndMultiViewAsync(rx);
             }
             finally
             {
@@ -469,7 +469,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// <summary>
         /// Puts <paramref name="source"/> (another display's picture on screen now) on the target, as the only
         /// operation on the target (the source's lock is never taken: its state comes from the snapshot).
-        /// Single View: the target leaves multiview (genlock) if needed, then is routed to the same encoder.
+        /// Single View: the target leaves multiview (back to Single View) if needed, then is routed to the same encoder.
         /// MultiView this tool made: the same preset at the source's output format, named per target
         /// (<c>avas_&lt;mac&gt;_&lt;preset&gt;_&lt;W&gt;x&lt;H&gt;</c>), same surfaces and subscriptions. External layout: its
         /// windows as they are, named <c>avas_&lt;mac&gt;_copy_&lt;W&gt;x&lt;H&gt;</c>, recorded read-only like an adopted
@@ -515,7 +515,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
         /// <summary>
         /// Puts back a copy target's previous picture (<see cref="PreviousScreen"/>): Nothing = leave every
-        /// subscription and genlock; Single View = route that encoder; MultiView = Take that draft again (its own EDID
+        /// subscription and Fast Switch; Single View = route that encoder; MultiView = Take that draft again (its own EDID
         /// canvas); External = load that layout again. Afterwards the snapshot is gone. False when the device refused.
         /// </summary>
         public Task<bool> RestoreScreenAsync(AvasDevice target, ScreenState previous)
@@ -716,7 +716,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                     if (Find(rx) != null) return await TurnOffAsync(rx);
                     if (_external.TryGetValue(key, out var external)) return await ExitExternalAsync(rx, external.OrderBy(i => i));
                     if (!string.IsNullOrEmpty(rx.ActiveSourceId) && !await _routing.UnrouteDisplayAsync(rx)) return false;
-                    return await _client.SetGenlockedAsync(rx.DeviceId);
+                    return (await _routing.EnsureSingleViewModeAsync(rx)).Ok;
 
                 case ScreenKind.Single:
                     if (string.IsNullOrEmpty(previous.SourceMac)) return false;
@@ -1020,9 +1020,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             return false;
         }
 
-        private async Task<bool> GenlockAndEndAsync(AvasDevice rx)
+        private async Task<bool> EndMultiViewAsync(AvasDevice rx)
         {
-            bool ok = await _client.SetGenlockedAsync(rx.DeviceId);
+            bool ok = (await _routing.EnsureSingleViewModeAsync(rx)).Ok;
             if (ok)
             {
                 _sessions.Remove(Key(rx));

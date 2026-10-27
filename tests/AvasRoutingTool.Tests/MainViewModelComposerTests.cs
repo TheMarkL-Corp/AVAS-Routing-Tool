@@ -140,7 +140,7 @@ namespace AvasRoutingTool.Tests
 
             await rig.Vm.ChooseFullScreenAsync(rig.RxVm);
 
-            Assert.Equal(new[] { "genlock:rx1" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, rig.Client.MultiViewCalls);
             Assert.Equal("tx2", rig.Client.LastVideoTx);
             Assert.False(rig.RxVm.IsMultiView);
             Assert.Empty(rig.RxVm.Slots);
@@ -201,6 +201,7 @@ namespace AvasRoutingTool.Tests
                 rig.RxVm.LayoutMenu.Select(l => l.Id));
             Assert.Equal("Matrix 2x2", rig.RxVm.LayoutMenu[1].Title);
             rig.RxVm.IsLayoutMenuOpen = true;
+            rig.Client.MultiViewCalls.Clear(); // the route above set Fast Switch; choosing a preset must send nothing more
 
             bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "matrix2x2");
 
@@ -223,7 +224,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(await rig.Vm.ChooseLayoutFromCardAsync(rig.RxVm, "single"));
 
-            Assert.Equal(new[] { "genlock:rx1" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, rig.Client.MultiViewCalls);
             Assert.False(rig.RxVm.IsMultiView);
             Assert.False(rig.MultiView.IsMultiView(rig.Rx));
             Assert.False(rig.RxVm.IsLayoutMenuOpen);
@@ -372,7 +373,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(await route);
             var calls = rig.Client.MultiViewCalls;
-            Assert.True(calls.FindIndex(c => c.StartsWith("multiview:")) < calls.IndexOf("genlock:rx1"),
+            Assert.True(calls.FindIndex(c => c.StartsWith("multiview:")) < calls.IndexOf("fastswitch:rx1:1920x1080@60"),
                 string.Join(" | ", calls));
             Assert.Equal("tx2", rig.Client.LastVideoTx);
             Assert.False(rig.MultiView.IsMultiView(rig.Rx)); // the Route won, and everybody agrees
@@ -401,7 +402,7 @@ namespace AvasRoutingTool.Tests
             Assert.False(rig.MultiView.IsMultiView(rig.Rx));
             Assert.False(rig.RxVm.IsMultiView);
             Assert.Contains("rx1:2", rig.Client.Leaves); // Off left the source the Take had just added
-            Assert.Equal("genlock:rx1", rig.Client.MultiViewCalls.Last());
+            Assert.Equal("fastswitch:rx1:1920x1080@60", rig.Client.MultiViewCalls.Last());
         });
 
         [Fact]

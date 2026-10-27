@@ -200,6 +200,7 @@ namespace AvasRoutingTool.Tests
             var rig = new Rig();
             await rig.Vm.RouteVideoAsync(rig.Tx2Vm.Device, rig.Rx1);
             rig.Client.LastVideoRx = rig.Client.LastVideoTx = null;
+            rig.Client.MultiViewCalls.Clear();
             await rig.Vm.ArmDisplayAsync(rig.Rx1Vm);
             Assert.Equal($"Copy {Rx1Name} - Single View ({Tx2Name}) - 3840x2160", rig.PaxVm.CopyTargetText);
 
@@ -207,7 +208,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal(PaxMac, rig.Client.LastVideoRx);
             Assert.Equal(Tx2Mac, rig.Client.LastVideoTx);
-            Assert.Empty(rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { $"fastswitch:{PaxMac}:3840x2160@60" }, rig.Client.MultiViewCalls); // the copy only sets the mode, no multiview scaffolding
             Assert.Equal(Tx2Mac, rig.PaxVm.ActiveSourceId);
             Assert.Equal("SINGLE VIEW", rig.PaxVm.ModeBadge);
             Assert.Equal(Tx2Name, rig.PaxVm.SourceLabel);
@@ -270,11 +271,12 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(ScreenKind.Single, rig.MultiView.PreviousScreen(rig.Pax)!.Kind);
             rig.Client.MultiViewCalls.Clear();
             rig.Client.LastVideoRx = rig.Client.LastVideoTx = null;
+            rig.Client.ReceiverStates.Remove(PaxMac); // Pax runs the copied multiview now, so it is not "already in Fast Switch"
 
             rig.PaxVm.UndoScreenCommand.Execute(null);
             await Within(WaitUntil(() => rig.PaxVm.ActiveSourceId == VegaMac), "Undo");
 
-            Assert.Equal(new[] { $"genlock:{PaxMac}" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { $"fastswitch:{PaxMac}:3840x2160@60" }, rig.Client.MultiViewCalls);
             Assert.Equal(PaxMac, rig.Client.LastVideoRx);
             Assert.Equal(VegaMac, rig.Client.LastVideoTx);
             Assert.False(rig.MultiView.IsMultiView(rig.Pax));
@@ -520,7 +522,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task UndoScreen_OfATargetThatShowedNothing_LeavesEverythingAndGenlocks()
+        public async Task UndoScreen_OfATargetThatShowedNothing_LeavesEverythingAndSetsFastSwitch()
         {
             var rig = new Rig();
             await rig.RestoreMatrixOnRx1Async();
@@ -533,7 +535,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Contains($"{PaxMac}:1", rig.Client.Leaves);
             Assert.Contains($"{PaxMac}:2", rig.Client.Leaves);
-            Assert.Equal(new[] { $"genlock:{PaxMac}" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { $"fastswitch:{PaxMac}:3840x2160@60" }, rig.Client.MultiViewCalls);
             Assert.False(rig.MultiView.IsMultiView(rig.Pax));
             Assert.False(rig.PaxVm.IsMultiView);
             Assert.Equal("UNROUTED", rig.PaxVm.ModeBadge);
@@ -582,14 +584,14 @@ namespace AvasRoutingTool.Tests
             Assert.True(await copy);
             Assert.True(await route);
             var calls = rig.Client.MultiViewCalls;
-            Assert.True(calls.FindIndex(c => c.StartsWith("multiview:")) < calls.IndexOf($"genlock:{PaxMac}"), string.Join(" | ", calls));
+            Assert.True(calls.FindIndex(c => c.StartsWith("multiview:")) < calls.IndexOf($"fastswitch:{PaxMac}:3840x2160@60"), string.Join(" | ", calls));
             Assert.Equal(VegaMac, rig.PaxVm.ActiveSourceId); // the Route ran last, and everybody agrees
             Assert.False(rig.MultiView.IsMultiView(rig.Pax));
             Assert.False(rig.PaxVm.IsMultiView);
         });
 
         [Fact]
-        public async Task CopySingleView_OntoAMultiViewTarget_ReturnsItToGenlockFirst()
+        public async Task CopySingleView_OntoAMultiViewTarget_ReturnsItToFastSwitchFirst()
         {
             var rig = new Rig();
             await rig.RestoreSideBySideOnPaxAsync();
@@ -599,7 +601,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(await rig.Vm.CopyDisplayAsync(rig.Rx1Vm, rig.PaxVm));
 
-            Assert.Equal(new[] { $"genlock:{PaxMac}" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { $"fastswitch:{PaxMac}:3840x2160@60" }, rig.Client.MultiViewCalls);
             Assert.Equal(PaxMac, rig.Client.LastVideoRx);
             Assert.Equal(Tx2Mac, rig.Client.LastVideoTx);
             Assert.False(rig.MultiView.IsMultiView(rig.Pax));
@@ -965,18 +967,18 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(await route);
             Assert.False(await undo); // the Route withdrew the snapshot: the late Undo must not overwrite it
-            Assert.Equal(new[] { $"genlock:{PaxMac}" }, rig.Client.MultiViewCalls); // the Route's only
+            Assert.Equal(new[] { $"fastswitch:{PaxMac}:3840x2160@60" }, rig.Client.MultiViewCalls); // the Route's only
             Assert.Equal(VegaMac, rig.Client.LastVideoTx);
             Assert.Equal(VegaMac, rig.PaxVm.ActiveSourceId);
             Assert.DoesNotContain($"{PaxMac}:0", rig.Client.Leaves);
         }
 
         [Fact]
-        public async Task ReturnToSingleView_WhoseGenlockFails_ForgetsTheSubscriptionsItAlreadyLeft()
+        public async Task ReturnToSingleView_WhoseFastSwitchFails_ForgetsTheSubscriptionsItAlreadyLeft()
         {
             var rig = new Rig();
             await rig.RestoreSideBySideOnPaxAsync(); // joined 3 and 4
-            rig.Client.FailMultiViewPrefix = "genlock:";
+            rig.Client.FailMultiViewPrefix = "fastswitch:";
 
             Assert.False(await rig.Vm.RouteVideoAsync(rig.Tx2Vm.Device, rig.Pax));
             Assert.Equal(new[] { $"{PaxMac}:3", $"{PaxMac}:4" }, rig.Client.Leaves); // the leaves did happen
@@ -987,7 +989,7 @@ namespace AvasRoutingTool.Tests
             Assert.True(await rig.Vm.UnrouteVideoAsync(rig.Pax));
 
             Assert.Empty(rig.Client.Leaves); // nothing left to leave: 3 and 4 are no longer counted as joined
-            Assert.Equal($"genlock:{PaxMac}", rig.Client.MultiViewCalls.Last());
+            Assert.Equal($"fastswitch:{PaxMac}:3840x2160@60", rig.Client.MultiViewCalls.Last());
         }
 
         // ---- Task 10b fix round 1: the overview's focus on the displays, the picture tap, the handle toggle ----

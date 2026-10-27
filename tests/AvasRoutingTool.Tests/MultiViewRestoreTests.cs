@@ -177,7 +177,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(await o.ReturnToSingleViewAsync(rx));
 
-            Assert.Equal(new[] { "genlock:rx1" }, c.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, c.MultiViewCalls);
             Assert.False(o.IsMultiView(rx));
         }
 
@@ -227,7 +227,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ExitExternal_LeavesTheGivenSubscriptionsThenGenlocks()
+        public async Task ExitExternal_LeavesTheGivenSubscriptionsThenSetsFastSwitch()
         {
             var (o, c) = Create();
             var rx = Rx();
@@ -236,25 +236,25 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(ok);
             Assert.Equal("rx1", c.LastUnroutedRx);
-            Assert.Equal(new[] { "genlock:rx1" }, c.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, c.MultiViewCalls);
         }
 
         [Fact]
-        public async Task ExitExternal_WithNothingToLeave_JustGenlocks()
+        public async Task ExitExternal_WithNothingToLeave_JustSetsFastSwitch()
         {
             var (o, c) = Create();
 
             Assert.True(await o.ExitExternalAsync(Rx(), System.Array.Empty<int>()));
 
             Assert.Null(c.LastUnroutedRx);
-            Assert.Equal(new[] { "genlock:rx1" }, c.MultiViewCalls);
+            Assert.Equal(new[] { "fastswitch:rx1:1920x1080@60" }, c.MultiViewCalls);
         }
 
         [Fact]
-        public async Task ExitExternal_GenlockRefused_ReportsFailure()
+        public async Task ExitExternal_FastSwitchRefused_ReportsFailure()
         {
             var (o, c) = Create();
-            c.FailMultiViewPrefix = "genlock:";
+            c.FailMultiViewPrefix = "fastswitch:";
 
             Assert.False(await o.ExitExternalAsync(Rx(), new[] { 1 }));
         }

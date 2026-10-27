@@ -268,7 +268,7 @@ namespace AvasRoutingTool.Tests
         // ---- Leaving an external multiview ----------------------------------------------------
 
         [Fact]
-        public async Task JoinOnAnExternalMultiView_GenlocksFirst()
+        public async Task JoinOnAnExternalMultiView_SetsFastSwitchFirst()
         {
             var rig = new Rig();
             rig.Client.ReceiverStates[Rx1Mac] = Rig.ExternalMultiView();
@@ -277,19 +277,19 @@ namespace AvasRoutingTool.Tests
             bool ok = await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx1);
 
             Assert.True(ok);
-            Assert.Equal(new[] { $"genlock:{Rx1Mac}" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { $"fastswitch:{Rx1Mac}:1920x1080@60" }, rig.Client.MultiViewCalls);
             Assert.Equal(Tx2Mac, rig.Client.LastVideoTx);
             Assert.False(rig.Rx1Vm.IsExternalLayout);
             Assert.Equal("SINGLE VIEW", rig.Rx1Vm.ModeBadge);
         }
 
         [Fact]
-        public async Task JoinOnAnExternalMultiView_DoesNotJoinWhenGenlockIsRefused()
+        public async Task JoinOnAnExternalMultiView_DoesNotJoinWhenFastSwitchIsRefused()
         {
             var rig = new Rig();
             rig.Client.ReceiverStates[Rx1Mac] = Rig.ExternalMultiView();
             await rig.Vm.RestoreStateAsync();
-            rig.Client.FailMultiViewPrefix = "genlock:";
+            rig.Client.FailMultiViewPrefix = "fastswitch:";
 
             bool ok = await rig.Vm.RouteVideoAsync(rig.Tx2, rig.Rx1);
 
@@ -299,7 +299,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task TurnOffAnExternalMultiView_LeavesItsSubscriptionsThenGenlocks()
+        public async Task TurnOffAnExternalMultiView_LeavesItsSubscriptionsThenSetsFastSwitch()
         {
             var rig = new Rig();
             rig.Client.ReceiverStates[Rx1Mac] = Rig.ExternalMultiView();
@@ -309,13 +309,13 @@ namespace AvasRoutingTool.Tests
 
             Assert.True(ok);
             Assert.Equal(Rx1Mac, rig.Client.LastUnroutedRx);
-            Assert.Equal(new[] { $"genlock:{Rx1Mac}" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { $"fastswitch:{Rx1Mac}:1920x1080@60" }, rig.Client.MultiViewCalls);
             Assert.False(rig.Rx1Vm.IsExternalLayout);
             Assert.False(rig.Rx1Vm.IsRouted);
         }
 
         [Fact]
-        public async Task SingleViewTileOnAnExternalMultiView_GenlocksAndClearsTheBadge()
+        public async Task SingleViewTileOnAnExternalMultiView_SetsFastSwitchAndClearsTheBadge()
         {
             var rig = new Rig();
             rig.Client.ReceiverStates[Rx1Mac] = Rig.ExternalMultiView();
@@ -324,7 +324,7 @@ namespace AvasRoutingTool.Tests
             bool ok = await rig.Vm.ChooseLayoutFromCardAsync(rig.Rx1Vm, "single");
 
             Assert.True(ok);
-            Assert.Equal(new[] { $"genlock:{Rx1Mac}" }, rig.Client.MultiViewCalls);
+            Assert.Equal(new[] { $"fastswitch:{Rx1Mac}:1920x1080@60" }, rig.Client.MultiViewCalls);
             Assert.False(rig.Rx1Vm.IsExternalLayout);
         }
 
