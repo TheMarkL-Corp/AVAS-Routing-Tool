@@ -1,6 +1,6 @@
 # MultiView Composer - UX Design Spec (proposal for approval)
 
-**Status:** Proposal, 2026-10-25. Builds on, and amends, Antigravity's draft `docs/superpowers/plans/2026-10-25-phase2-multiview-ui-ux-enhancement.md` (see "Relation to the Antigravity draft").
+**Status:** Implemented on branch `feat/multiview-composer` and verified by tests and reviews; **hardware lab validation NOT run** (see "Validation status" in section 2). Proposal dated 2026-10-25. Builds on, and amends, Antigravity's draft `docs/superpowers/plans/2026-10-25-phase2-multiview-ui-ux-enhancement.md` (see "Relation to the Antigravity draft").
 **Plan:** `docs/superpowers/plans/2026-10-25-multiview-composer.md`
 **Visual mockup:** interactive HTML prototype published with this proposal (link in the hand-off message).
 
@@ -19,7 +19,32 @@ MultiView must have the same consistency of functionality as Phase 1 Single View
 | Who operates it, how? | **Circulating nurse / OR staff on a touchscreen, possibly gloved, under time pressure.** Touch first; mouse and drag stay as shortcuts. |
 | Same encoder twice in blocks of different sizes? | **Only equal-size blocks.** A different-size block is shown as unavailable for that encoder, with a one-line reason. |
 
-Hardware basis: a multiview window is a 1:1 view onto an area of the decoder frame buffer (windows do not scale), and the API counts windows (32) and distinct sources/surfaces (32) separately (PDS-062489 §5.1/5.1.1). So equal-size blocks showing the same encoder share **one surface and one subscription**; different sizes would need two scaled streams from one encoder, which an encoder does not have. **To be confirmed on the lab first (plan Task 1).**
+Hardware basis: a multiview window is a 1:1 view onto an area of the decoder frame buffer (windows do not scale), and the API counts windows (32) and distinct sources/surfaces (32) separately (PDS-062489 §5.1/5.1.1). So equal-size blocks showing the same encoder share **one surface and one subscription**; different sizes would need two scaled streams from one encoder, which an encoder does not have. **Confirmed on the lab spike (plan Task 1, user-confirmed pictures):** TX2 in blocks 1 and 3 through one surface and one subscription, VEGA in block 2, block 4 black as designed. The spike also showed that a window without `target_surface` is black on the server but reads back as VIDEO / surface 255 (restore treats it as empty), and that a decoder keeps its **own copy** of a layout, so overwriting a layout on the server did not change decoders already running it.
+
+### Validation status (2026-10-27)
+
+**Hardware lab validation of the finished Composer was NOT run.** The product owner decided to skip plan Task 12 steps 1-2. What exists instead: the unit, integration and view (STA smoke) tests - 701 tests under the filter `FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests`, the `Live*` hardware test classes were never run for this work - and four reviews (per-task spec and quality reviews, a final engine review and a final views review, then a scoped re-review). They cover behaviour against the mocks and the rendered views; they do not prove what a decoder does.
+
+What the lab run would have covered (plan Task 12 steps 1-2), none of it executed:
+- **RX1, Matrix 2x2:** TX2 in blocks 1 and 3 and VEGA in block 2, **Take**, the operator confirms the picture; **Undo**.
+- **RX1, layout change to PiP** with TX2 in the main block: TX2 shown as unavailable for the inset with the reason text from section 6.
+- **RX1, 4K 1+3** with Take.
+- **Disconnect a source while staged:** Take is blocked.
+- **Copy RX1 (4K Matrix) onto PAX355S (4K):** PAX355S shows the same picture; **Undo** puts PAX355S back to its previous state; **copy a Single View RX1** onto PAX355S.
+- Restore the lab afterwards.
+
+The lower-resolution copy block (target native size below the source's output) cannot be shown on hardware with today's two 4K decoders. It is covered by the `DisplayCopyPlanner` tests only, and would stay so even after a lab run.
+
+Assumptions that are **unverified on hardware**:
+- **R13:** a Single View source's output format is taken as the source display's EDID preferred mode (1920x1080@60 if unreadable). A genlocked decoder really outputs the encoder's timing, so the guard could block a copy it should allow, or rarely allow one it should block.
+- **R16:** a copied *external* (read-only, made elsewhere) layout keeps every window's offsets and every subscription's stream index as read back. If the read-back omits the stream index, the copy would subscribe stream 0 instead of stream 1.
+- **EDID modes** are read only from detailed timing descriptors and the base CTA video data block. HDMI_VIC (4K24/25/30 through the vendor block) and YCbCr 4:2:0-only 4K modes are not seen, so a target that lists 4K60 only as 4:2:0 is conservatively **blocked** for copy (never a false allow).
+- Real mouse and touch **drag**, and the drag **ghost at a display scale other than 100 %** (tests use a fake drag starter), held keys, a screen reader, and Alt-Tab behaviour of the keyboard focus guard.
+
+Product decisions made during the build and flagged to the product owner:
+- **R12:** a card running an *external* layout routes Single View on drop or tap, with no drop choice (Phase 1 behaviour), so an external MultiView can be replaced without the two-choice prompt of section 5.1.
+- **R20/R21:** while composing, the Sources row becomes a **compact palette strip** (name, status, link mode, small thumbnail) so the Composer fits 1280x860 and the 1024x720 minimum with Take visible; the full-size Sources row of the mock-up in 5.2 is not kept.
+- **First Take on an empty display offers no Undo** (the engine has no previous picture to restore).
 
 ## 3. Who and where
 
@@ -33,13 +58,13 @@ A nurse a step away from a 24-27" touch panel on the OR console, gloves on, surg
 
 ### 5.1 Overview (existing screen, small changes)
 - **Tap-to-arm everywhere.** Tapping a source card arms it (cyan ring + banner "Placing TX2 - tap a display or a block. Tap TX2 again to stop."). Tapping a display card then routes it in Single View immediately (Phase 1 behaviour, now without drag). Drag still works. Auto-disarm after 15 s idle or after one Single View route.
-- **Layout ▾ on every card header** (adopted from Antigravity v2, confirmed 2026-10-26): a >= 56 px header button opens a popup of schematic tiles (Single View, Matrix 2x2, PIP, Side-by-Side, 1+3, Off). Picking a MultiView preset opens the Composer with that layout **already staged** (Step 1 done); Single View / Off behave as the bottom-bar tiles do today. Dragging a layout tile from the bottom bar onto a card does the same.
-- **Display card in MultiView** keeps showing the *live* composite (today's behaviour). Tapping the composite or **Edit MultiView** (>= 56 px) opens the Composer with what is on screen.
+- **Layout ▾ on every display card** (adopted from Antigravity v2, confirmed 2026-10-26; as built it sits on a button row **under the card name**, next to **Copy layout**, not on the name line): a >= 56 px button opens a popup of schematic tiles (Single View, Matrix 2x2, PIP, Side-by-Side, 1+3, Off). Picking a MultiView preset opens the Composer with that layout **already staged** (Step 1 done); Single View / Off behave as the bottom-bar tiles do today. Dragging a layout tile from the bottom bar onto a card does the same.
+- **Display card in MultiView** keeps showing the *live* composite (today's behaviour). Tapping the composite (the card's mini picture; there is no separate Edit MultiView button), the **Layout** menu, or the draft chip's **Resume** opens the Composer with what is on screen.
 - **Card badge shows fill** (adopted): "MATRIX 2x2 · 3/4" - layout and how many blocks carry a source, on screen.
-- **Dropping (or tapping) a source on a MultiView card** no longer silently replaces the multiview. An inline two-choice prompt on the card: **Full screen (Single View)** - goes live now; **Into a block...** - opens the Composer with the source armed. One tap either way; the prompt closes after 10 s.
-- **Draft chip** on a card with unsent Composer changes: "DRAFT - not on screen" with **Resume**.
+- **Dropping (or tapping) a source on a MultiView card** no longer silently replaces the multiview. An inline two-choice prompt on the card: **Full screen (Single View)** - goes live now; **Into a block...** - opens the Composer with the source armed. One tap either way; the prompt closes after 10 s. Exception as built (ruling R12): a card running an **external, read-only** layout routes Single View straight away, without the prompt.
+- **Draft chip** on a card with unsent Composer changes: "DRAFT · Resume" (>= 56 px high), the third control of the card's **header button row** beside Layout and Copy layout (ruling R24), never over the picture or the error banner, so a draft never hides the hardware's reason.
 
-### 5.2 MultiView Composer (new; replaces the Displays row while open; the Sources row stays visible above as the palette)
+### 5.2 MultiView Composer (new; replaces the Displays row while open; the Sources row stays visible above as the palette, shown as a **compact strip** while composing - rulings R20/R21; the sketch below shows the palette at full size)
 
 ```
 +------------------------------------------------------------------------------------------+
@@ -62,7 +87,7 @@ A nurse a step away from a 24-27" touch panel on the OR console, gloves on, surg
 
 - **Left rail - Step 1 Layout:** the four presets as large tiles (>= 200x96 px) drawn as schematics of the real block geometry for this display's output (from EDID), not text only. The selected tile is marked by border, check icon and "Selected" text. Changing the layout re-maps placed sources by block order (1->1, 2->2...); sources that no longer fit are listed as **Unplaced** chips the operator can tap to re-place. Nothing reaches the screen.
 - **Centre - the staged canvas (Steps 2 and 3):** the display at its real output aspect, as large as the space allows (a Matrix block is ~620x350 px on a 1920x1080 panel, versus ~150-300 px inside a card today). Steps are numbered zones of one screen, not wizard pages: an expert can go straight to placing; the step markers on the rail tick as they complete (layout chosen, >= 1 block placed, Take available).
-- **Right rail - ON SCREEN NOW + Take:** a small live composite of what the surgeon sees right now (mirrored previews), the output format, the list of changes, and the actions.
+- **Right rail - ON SCREEN NOW + Take:** a small live composite of what the surgeon sees right now (mirrored previews), the output format, the list of changes, and the actions. Take, the blocked reason and Undo are pinned outside the rail's scroll area so Take stays visible at 1280x860 and at the 1024x720 minimum; below 1200 px the rails narrow (240/264 px). Measured Matrix block sizes with the compact palette: ~612x341 px in a 1920x1014 content area, ~284x156 at 1264x755 and ~204x111 at the 1008x615 minimum.
 
 ### Flow at a glance
 
@@ -101,7 +126,7 @@ Placed block (confirmed 2026-10-26):
 
 - A block shows its encoder's live preview the moment it is placed (staged), mirrored from the source card's existing bitmap - no new streams or sockets.
 - The preview is fitted **uniformly** inside the block: blocks are 16:9 and previews are 16:9, so it fills; a non-16:9 source is letterboxed, never stretched or cropped.
-- Overlay (legible from a step back): block number top-left (28 px), source name pill bottom-left (16 px), status chips: **NO PREVIEW** (non-AVAS, with the source name centred), **NO SIGNAL** (0 fps for > 2 s, last frame dimmed), **OFFLINE**, **Same as 1**.
+- Overlay (legible from a step back): block number top-left (28 px), source name pill bottom-left (16 px), status chips: **NO PREVIEW** (non-AVAS, with the source name centred), **NO SIGNAL** (0 fps for > 2 s, last frame dimmed - **not built**: the block view-model carries no signal/fps state; follow-up), **OFFLINE**, **Same as 1**.
 - These are monitoring previews (low rate), not the surgical feed; a "Preview" caption on the canvas header says so once.
 - When the layout runs sources at half frame rate (bandwidth > 9 Gbps), the header says "Sources at 30 fps on this layout".
 
@@ -109,7 +134,7 @@ Placed block (confirmed 2026-10-26):
 
 - **Take** (primary, >= 72 px high, full rail width): label states the effect, e.g. "TAKE 3 CHANGES TO SCREEN". Disabled with the reason underneath when there is nothing to take or an issue blocks it (offline encoder, conflict). One tap, no confirmation dialog - Take *is* the confirmation.
 - **While taking:** button shows progress ("Sending to RX1..."), the Composer is locked, a second tap does nothing.
-- **Success:** the staged frame turns into the live frame (one 400 ms transition, skipped when Windows animations are off), ON SCREEN NOW updates, a toast "On screen" with **Undo** for 10 s. Undo = take the previous on-screen state again.
+- **Success:** the staged frame turns into the live frame (one 400 ms transition, skipped when Windows animations are off), ON SCREEN NOW updates, a toast "On screen" with **Undo** for 10 s. Undo = take the previous on-screen state again. The first Take on a display that showed nothing has no previous picture, so it offers no Undo (flagged to the product owner).
 - **Failure:** red banner with the hardware's reason and "Nothing changed on screen"; the draft stays intact.
 - **Discard** returns the draft to what is on screen. **Close** keeps the draft (no blocking dialog under time pressure); the card shows the DRAFT chip.
 - **Screen changed elsewhere** (state re-read from hardware, e.g. someone used the BAVM console): ON SCREEN NOW updates, a notice "RX1 was changed elsewhere - your draft is kept", and the change list is recomputed against the new live state.
@@ -135,7 +160,7 @@ Composer typography: body/labels >= 14 px, buttons 16 px semibold, block numbers
 1. **Draft + atomic Take** replaces apply-per-drop: a `MultiViewDraft` per display; Take sends the whole picture in one sequence (scalers, dividers, layout, one `set:multiview`).
 2. **Shared surfaces:** blocks with the same encoder (equal size) reference one surface; `set:multiview` subscriptions are one per distinct encoder.
 3. **Empty blocks stay black:** windows without `target_surface` (API: omitted -> BLACK).
-4. **Per-display layout names** `avas_<rxmac>_<preset>_<W>x<H>`: with shared surfaces the window->surface mapping is per display, so two displays must not overwrite each other's definition. Restore keeps recognising the older `avas_<preset>_<W>x<H>` names.
+4. **Per-display layout names** `avas_<rxmac>_<preset>_<W>x<H>`: with shared surfaces the window->surface mapping is per display, so two displays should not overwrite each other's definition on the server. The lab spike showed a decoder keeps its own copy of a layout, so the per-display names are not strictly required; they are kept as hygiene. Restore keeps recognising the older `avas_<preset>_<W>x<H>` names.
 5. **Undo** keeps the previous live draft per display.
 
 ## 12. Out of scope (this round)
@@ -195,7 +220,7 @@ What the source shows **on screen now** (never its draft):
 | Offline target / the source itself | lock / no affordance | "PAX355S is offline" / "Drop on another display" |
 
 ### Gesture (one grammar, guarded for immediacy)
-- **Drag from a dedicated handle**: each display card gets a **Copy layout** handle (>= 56 px). Dragging starts only from it, so scrolling the card list or tapping the card never starts a copy. While dragging, a ghost of the source's mini picture follows the finger and every other card shows its allowed/blocked state from the table.
+- **Drag from a dedicated handle**: each display card gets a **Copy layout** handle (>= 56 px, on the button row under the card name, beside Layout). Dragging starts only from it, so scrolling the card list or tapping the card never starts a copy. While dragging, a ghost of the source's mini picture follows the finger and every other card shows its allowed/blocked state from the table.
 - **Tap alternative** (WCAG 2.2 dragging alternative): tap **Copy layout** -> the source card is armed (banner "Copying RX1 - Matrix 2x2. Tap a display. Tap Copy layout again to stop."); tapping an allowed card copies immediately; a blocked card shakes nothing and shows its reason.
 - **Keyboard:** focus the handle, Enter arms, Tab to a target, Enter copies, Esc stops.
 - **Mouse extras** (adopted from Antigravity v2): an allowed target sets the copy cursor (`DragDropEffects.Copy`), a blocked one the no-drop cursor (`DragDropEffects.None`) and a tooltip repeating the reason. The visible text on the card stays the primary explanation (touch has no hover).
@@ -213,6 +238,15 @@ flowchart TD
 - The target card shows the copied picture at once and a toast on that card: "PAX355S now shows RX1's Matrix 2x2 - Undo" (10 s). Undo puts back exactly what the target showed before (Single View source, its own MultiView, or nothing).
 - Failure: red banner on the target card, the hardware's reason and "Nothing changed on PAX355S".
 - A Composer draft on the target is kept but marked "Screen changed - draft is based on an older picture".
+- As built: the copy's Undo is withdrawn when the target changes by any other means within the 10 s (Route, Off, a Composer Take, a restore from hardware), so Undo can never overwrite a later deliberate change. A copy of a *recognised* MultiView gets a per-display name `avas_<targetmac12>_<preset>_<W>x<H>` (restores as ours after a restart); only a copy of an *external* layout uses `avas_<targetmac12>_copy_<W>x<H>` and restores as external (read-only). A Composer Take on a target that shows a copy at a different size than its EDID canvas is refused as "display changed" rather than silently resizing.
+
+### Validation status (section 15)
+
+**Not run on hardware.** Copy was exercised only by the tests (`DisplayCopyPlanner`, `ScreenState`, orchestrator copy and Undo tests, card and view smoke tests) and reviews. The lab steps that were skipped by decision of the product owner: copy RX1 (4K Matrix) onto PAX355S (4K) and confirm the same picture; Undo back to PAX355S's previous state; copy a Single View RX1 onto PAX355S.
+
+- The **lower native resolution** block of the table above cannot be shown on hardware with today's two 4K decoders; it is covered by the `DisplayCopyPlanner` tests alone.
+- **Unverified on hardware:** the source output format of a Single View source is the source display's EDID preferred mode (R13); a copied external layout keeps each subscription's stream index as read back (R16, otherwise stream 0 would be subscribed instead of stream 1); EDID modes come only from detailed timing descriptors and the base CTA video data block, so HDMI_VIC and YCbCr 4:2:0-only 4K modes are not seen and such a target is conservatively blocked; real drag, the ghost at a display scale other than 100 %, held keys, a screen reader and Alt-Tab.
+- **Product decisions flagged to the owner:** an external-layout card routes Single View without a drop choice (R12); the Sources row is a compact strip while composing (R20/R21); the first Take on an empty display offers no Undo.
 
 ### Not in scope
 Linked mirroring, copying a draft, copying to several displays in one gesture, and changing Phase 1 Single View drops (they still do not check resolution; see Open questions).

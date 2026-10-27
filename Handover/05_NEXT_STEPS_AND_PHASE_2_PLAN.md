@@ -23,6 +23,8 @@ This document outlines the immediate implementation roadmap for Claude Code to c
   3. **BlueRiver Multiview Subscriptions**:
      * Dispatch Semtech BlueRiver multiview layout configuration commands to position hardware scaler windows.
 
+> **MultiView Composer (2026-10-27): implemented and test-verified, NOT hardware-validated.** The Composer (stage-then-Take, Undo, Layout menu, Copy layout, keyboard path) was built on branch `feat/multiview-composer` (worktree `AVAS-Routing-Tool-composer`, last code commit `e07bfa4`) on top of the layouts above. Spec: [`docs/superpowers/specs/2026-10-25-multiview-composer-ux.md`](../docs/superpowers/specs/2026-10-25-multiview-composer-ux.md); plan: [`docs/superpowers/plans/2026-10-25-multiview-composer.md`](../docs/superpowers/plans/2026-10-25-multiview-composer.md). The branch is **not merged** and the lab validation (plan Task 12 steps 1-2) was **not run**: the product owner skipped it. Known limitations and follow-ups: [04](./04_VERIFIED_FEATURES_AND_KNOWN_LIMITATIONS.md) section 4. How to run the validation later: section 3 below.
+
 ---
 
 ### Task 2: Route & Layout Restore from Hardware (Priority: Medium) - PLANNED
@@ -73,3 +75,33 @@ When starting your session with Claude Code, follow this exact lifecycle:
 6. **Update Memory & Commit**:
    * Update [`memory/active_context.md`](../memory/active_context.md) and [`memory/progress.md`](../memory/progress.md).
    * Commit atomically to git.
+
+---
+
+## 3. MultiView Composer: how to run the lab validation later
+
+Prerequisites: merge decision for `feat/multiview-composer` is the product owner's (not merged yet); the lab needs RX1 (4K) and PAX355S (4K) online with TX2 (AVAS) and VEGA_1100 (non-AVAS) as sources, and someone at the screens to confirm pictures. Never run the `Live*` test classes: they route real hardware.
+
+1. **Automated check first** (no hardware changes): `dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests"` (701 tests). A bare `dotnet test` or the older filter `FullyQualifiedName!~Live` is wrong: the latter silently skips real tests whose names contain "Live".
+2. **Build a Release publish**: `dotnet publish src/AvasRoutingTool/AvasRoutingTool.csproj -c Release -o publish/AvasRoutingTool` (into the worktree or a scratch folder, not over the operators' installed app).
+3. **Task12Harness** (idea carried over from Antigravity's scratch work; it is not in the repository): an interactive console that references the Release publish output `AvasRoutingTool.dll` (rebuild it after every publish, otherwise it uses a stale dll), prints each planned hardware change and asks **y/N before every change**, discovers RX1, PAX355S, TX2 and VEGA read-only, and has a restore option that returns the lab to baseline (genlock RX1 and join TX2 stream 0, stop TX2 stream 1, set the divider off, genlock and leave PAX355S). A copy lived in `C:\Users\POC-615\.gemini\antigravity\brain\8253d2b1-5561-4b79-8db0-ed3a04fe8b76\scratch\Task12Harness`. Someone must drive the console interactively; an agent cannot (no stdin).
+4. **Steps to run** (plan Task 12 steps 1-2), the operator confirming each picture:
+   - RX1 Matrix 2x2 with TX2 in blocks 1 and 3 and VEGA in block 2, **Take**, confirm; **Undo**.
+   - RX1 change to PiP with TX2 in the main block: TX2 must be unavailable for the inset with the spec reason.
+   - RX1 4K 1+3 with Take.
+   - Disconnect a source while staged: Take must be blocked.
+   - Copy RX1 (4K Matrix) onto PAX355S (4K): same picture; **Undo** returns PAX355S to its previous state; copy a Single View RX1 onto PAX355S.
+   - Restore the lab with the harness restore option.
+5. **Watch specifically for** the unverified assumptions in [04](./04_VERIFIED_FEATURES_AND_KNOWN_LIMITATIONS.md) section 4.2: R13 (copy guard vs the real output format of a Single View source), R16 (stream index of a copied external layout), flicker from the per-Take scaler re-send, and Off after a Take. Then record the result in the spec's "Validation status" notes and in `memory/`.
+
+### Follow-ups after the validation (from the build ledger)
+
+- TX egress budget guard in the BAVM style (stream 0 + stream 1 model).
+- Read YCbCr 4:2:0 video data blocks and HDMI_VIC modes from the EDID.
+- Composer Undo after non-copy output-format changes.
+- Drag auto-scroll to second-row display targets at 1008x615.
+- Real mouse, touch, screen reader, held-key and Alt-Tab checks; ghost at DPI other than 100 %.
+- NO SIGNAL chip on blocks; kept-draft "changed elsewhere" notice after Route or restore.
+- Tokenise the ~100 raw hex colours; enlarge Turn Off and the source-card Refresh/Start/Stop buttons.
+- Remove dead code (`FirstEmptySlotIndex`, `ClearSlot`, `WindowSlot.TargetSurface`, `MultiViewPresets.AllocateSurfaces`) together with the tests that use it; de-duplicate the layout titles.
+- Move the EDID read out of the global take gate (up to ~13 s) and make `RestoreDisplayAsync` awaited or observed.
