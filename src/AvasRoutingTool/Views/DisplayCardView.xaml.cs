@@ -155,12 +155,45 @@ namespace AvasRoutingTool.Views
             if (area is { } show) BringIntoView(show);
         }
 
+        public static readonly DependencyProperty IsTouchRevealedProperty =
+            DependencyProperty.Register(nameof(IsTouchRevealed), typeof(bool), typeof(DisplayCardView), new PropertyMetadata(false));
+
+        public bool IsTouchRevealed
+        {
+            get => (bool)GetValue(IsTouchRevealedProperty);
+            set => SetValue(IsTouchRevealedProperty, value);
+        }
+
+        private DispatcherTimer? _touchDimTimer;
+
+        public void RevealActionsOnTouch()
+        {
+            IsTouchRevealed = true;
+            if (_touchDimTimer == null)
+            {
+                _touchDimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+                _touchDimTimer.Tick += (_, _) =>
+                {
+                    _touchDimTimer?.Stop();
+                    IsTouchRevealed = false;
+                };
+            }
+            _touchDimTimer.Stop();
+            _touchDimTimer.Start();
+        }
+
         // ---- tap on the card: MainViewModel.TapDisplayAsync / TapPictureAsync ----
+
+        private void Card_PreviewTouchDown(object? sender, TouchEventArgs e)
+        {
+            RevealActionsOnTouch();
+        }
 
         private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             _tapPending = false;
             _cardTap.Press(e.GetPosition(this));
+            RevealActionsOnTouch();
         }
 
         /// <summary>Movement past the 8 px threshold makes the press a drag (e.g. a scroll), never a tap.</summary>
