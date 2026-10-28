@@ -12,15 +12,15 @@ namespace AvasRoutingTool.Controls
         double VideoAspect)
     {
         /// <summary>
-        /// Tuned for the surgical-touch card: 20px of horizontal padding, ~120px of non-video chrome
-        /// (header, 44px action row, paddings) and a 16:9 video surface.
+        /// Tuned for the surgical-touch card: 20px of horizontal padding, ~96px of non-video chrome
+        /// (header, 36px stream-control footer, paddings) and a 16:9 video surface.
         /// </summary>
         public static GridSpec Default { get; } = new(
             MinCardWidth: 320,
             MaxCardWidth: 600,
             Gap: 16,
             HorizontalPadding: 20,
-            ChromeHeight: 120,
+            ChromeHeight: 96,
             VideoAspect: 16.0 / 9.0);
 
         /// <summary>

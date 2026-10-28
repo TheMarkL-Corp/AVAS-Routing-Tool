@@ -524,6 +524,33 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void SourceCard_HasTouchSafeStreamControls_InfoTooltip_AndHighContrastBadgesInLightMode() =>
+            RunSta(() =>
+            {
+                var device = new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = "TX2", VendorId = 105, IsTransmitter = true, IsActive = true };
+                var vm = new SourceCardViewModel(device);
+                var view = new SourceCardView { DataContext = vm, Width = 340, Height = 260 };
+                Showing(view, () =>
+                {
+                    var refresh = (Button)Named(view, "RefreshStreamButton").Single();
+                    Assert.True(refresh.ActualHeight >= 36, $"refresh height {refresh.ActualHeight}");
+                    Assert.True(refresh.IsTabStop);
+
+                    var streamButton = Named(view, "StopStreamButton").Concat(Named(view, "StartStreamButton"))
+                        .OfType<Button>().First(b => b.IsVisible);
+                    Assert.True(streamButton.ActualHeight >= 36, $"stream button height {streamButton.ActualHeight}");
+                    Assert.True(streamButton.IsTabStop);
+
+                    var badge = Named(view, "SourceInfoBadge").Single();
+                    var tip = Assert.IsType<TextBlock>(badge.ToolTip);
+                    tip.DataContext = badge.DataContext; // WPF hands a tooltip its target's DataContext only when it opens
+                    var text = string.Concat(tip.Inlines.OfType<System.Windows.Documents.Run>().Select(r => r.Text));
+                    Assert.Contains("IP: " + vm.IpAddress, text);
+                    Assert.Contains("MAC: " + vm.MacAddress, text);
+                });
+            });
+
+        [Fact]
         public void VisualRoutingView_SwapsDisplaysForComposerWhenActive() =>
             RunSta(() =>
             {

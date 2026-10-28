@@ -82,7 +82,6 @@ namespace AvasRoutingTool.Tests
         /// <summary>Views still carrying raw literals; each is removed here as its view is cleaned.</summary>
         private static readonly HashSet<string> HexCheckExemptFiles = new(StringComparer.OrdinalIgnoreCase)
         {
-            "SourceCardView.xaml",
             "DisplayCardView.xaml",
         };
 
