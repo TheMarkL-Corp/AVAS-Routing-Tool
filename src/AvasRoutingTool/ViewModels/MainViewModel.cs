@@ -177,7 +177,14 @@ namespace AvasRoutingTool.ViewModels
         public IThemeService ThemeService { get; }
         public ICommand ToggleThemeCommand { get; }
         public ThemeMode CurrentTheme => ThemeService.CurrentTheme;
-        public string ThemeButtonLabel => ThemeService.EffectiveTheme == ThemeMode.Dark ? "☀️  Light" : "🌙  Dark";
+        public bool IsLightMode => ThemeService.EffectiveTheme == ThemeMode.Light;
+
+        /// <summary>Names the theme that is showing now (not the one a click switches to).</summary>
+        public string ThemeButtonLabel => IsLightMode ? "☀️  Light" : "🌙  Dark";
+
+        public string ThemeButtonToolTip => IsLightMode
+            ? "Current theme: Clinical Light. Click to switch to Slate Dark."
+            : "Current theme: Slate Dark. Click to switch to Clinical Light.";
 
         public ICommand RefreshCommand { get; }
         public ICommand OpenSettingsCommand { get; }
@@ -230,7 +237,9 @@ namespace AvasRoutingTool.ViewModels
             ThemeService.ThemeChanged += (_, _) =>
             {
                 OnPropertyChanged(nameof(CurrentTheme));
+                OnPropertyChanged(nameof(IsLightMode));
                 OnPropertyChanged(nameof(ThemeButtonLabel));
+                OnPropertyChanged(nameof(ThemeButtonToolTip));
             };
             ToggleThemeCommand = new RelayCommand(_ => ThemeService.ToggleTheme());
 

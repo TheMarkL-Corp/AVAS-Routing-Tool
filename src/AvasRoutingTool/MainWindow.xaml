@@ -203,7 +203,7 @@
                             Style="{StaticResource Style.Button.Secondary}"
                             Padding="10,6"
                             Margin="0,0,8,0"
-                            ToolTip="Toggle between Clinical Light and Slate Dark mode"
+                            ToolTip="{Binding ThemeButtonToolTip}"
                             AutomationProperties.Name="Toggle theme mode">
                         <TextBlock Text="{Binding ThemeButtonLabel}" FontSize="12" />
                     </Button>

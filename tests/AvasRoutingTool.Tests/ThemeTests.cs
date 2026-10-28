@@ -152,5 +152,42 @@ namespace AvasRoutingTool.Tests
 
                 Assert.True(failures.Count == 0, string.Join("\n", failures));
             });
+
+        [Fact]
+        public void MainViewModel_ThemeButtonLabel_ReportsActiveThemeState_AndUpdatesOnToggle() =>
+            RunSta(() =>
+            {
+                var themeService = new Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(Services.ThemeMode.Dark);
+                    var client = new MockSdvoeClient();
+                    var vm = new ViewModels.MainViewModel(
+                        new Configuration.ConfigService(),
+                        client,
+                        new MockRtpReceiver(),
+                        new Sdvoe.MulticastIpManager(),
+                        new Sdvoe.RoutingOrchestrator(client),
+                        themeService: themeService);
+
+                    Assert.False(vm.IsLightMode);
+                    Assert.Equal("🌙  Dark", vm.ThemeButtonLabel);
+                    Assert.Equal("Current theme: Slate Dark. Click to switch to Clinical Light.", vm.ThemeButtonToolTip);
+
+                    var changed = new System.Collections.Generic.List<string?>();
+                    vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+                    vm.ToggleThemeCommand.Execute(null);
+                    Assert.True(vm.IsLightMode);
+                    Assert.Equal("☀️  Light", vm.ThemeButtonLabel);
+                    Assert.Equal("Current theme: Clinical Light. Click to switch to Slate Dark.", vm.ThemeButtonToolTip);
+                    Assert.Contains(nameof(vm.ThemeButtonLabel), changed);
+                    Assert.Contains(nameof(vm.ThemeButtonToolTip), changed);
+                }
+                finally
+                {
+                    themeService.SetTheme(Services.ThemeMode.Dark);
+                }
+            });
     }
 }
