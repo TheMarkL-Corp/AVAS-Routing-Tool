@@ -138,6 +138,25 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void DisplayCardView_VeryLongDeviceName_EllipsizesAndKeepsModeBadgeInsideTheCard() =>
+            RunSta(() =>
+            {
+                var device = Rx();
+                device.DeviceName = new string('W', 300);
+                var vm = new DisplayCardViewModel(device);
+                vm.ApplyLayout(Sdvoe.MultiView.MultiViewPresets.Build("matrix2x2", 1920, 1080), "MATRIX2X2");
+                var view = new DisplayCardView { Width = 480, DataContext = vm };
+                Layout(view);
+
+                var name = (FrameworkElement)view.FindName("DeviceNameText");
+                var badge = (FrameworkElement)view.FindName("ModeBadge");
+                Assert.True(name.ActualWidth < 480, $"name rendered {name.ActualWidth}px wide");
+                var right = badge.TranslatePoint(new Point(badge.ActualWidth, 0), view).X;
+                Assert.True(badge.ActualWidth > 0, "mode badge not rendered");
+                Assert.True(right <= view.ActualWidth + 0.5, $"mode badge right edge {right} exceeds card width {view.ActualWidth}");
+            });
+
+        [Fact]
         public void VisualRoutingView_WithAMultiViewDisplay_RendersWithoutCrash() =>
             RunSta(() =>
             {
@@ -1702,7 +1721,9 @@ namespace AvasRoutingTool.Tests
                     foreach (var card in cards)
                     {
                         var frame = (FrameworkElement)Named(card, "CardFrame").Single();
-                        AssertTextFits((TextBlock)Named(card, "DeviceNameText").Single());
+                        // The name may ellipsize (full text is its tooltip) but must stay in the card, as must the mode badge.
+                        AssertInside((FrameworkElement)Named(card, "DeviceNameText").Single(), frame);
+                        AssertInside((FrameworkElement)Named(card, "ModeBadge").Single(), frame);
                         AssertTextFits((TextBlock)Named(card, "ModeBadgeText").Single());
                         foreach (var name in new[] { "LayoutButton", "CopyLayoutHandle" })
                         {

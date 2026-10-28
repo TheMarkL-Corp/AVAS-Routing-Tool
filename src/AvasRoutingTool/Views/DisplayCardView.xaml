@@ -69,8 +69,8 @@
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -146,7 +146,8 @@
                     </Border>
 
                     <!-- Routed status pill: the layout and its fill ("MATRIX 2X2 · 3/4") -->
-                    <Border Grid.Column="4"
+                    <Border x:Name="ModeBadge"
+                            Grid.Column="4"
                             VerticalAlignment="Center"
                             CornerRadius="4"
                             Padding="6,2">
@@ -230,7 +231,7 @@
                                       Stretch="Uniform"
                                       VerticalAlignment="Center"
                                       Margin="0,0,0,2" />
-                                <TextBlock Text="Layout ▾" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                <TextBlock Text="Layout &#9662;" VerticalAlignment="Center" FontWeight="SemiBold" />
                             </StackPanel>
                         </Button>
 
@@ -283,7 +284,6 @@
                         <Button x:Name="DraftChip"
                                 Grid.Column="2"
                                 Margin="0,0,4,0"
-                                Width="64"
                                 MinHeight="56"
                                 FontSize="13"
                                 Padding="10,6"

@@ -79,7 +79,10 @@ namespace AvasRoutingTool.Tests
             @"#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?\b",
             RegexOptions.Compiled);
 
-        /// <summary>Views still carrying raw literals; each is removed here as its view is cleaned.</summary>
+        /// <summary>
+        /// All XAML views have been converted to theme tokens, so this exemption set is intentionally and
+        /// permanently empty; any new raw hex literal outside the palette files fails the test below.
+        /// </summary>
         private static readonly HashSet<string> HexCheckExemptFiles = new(StringComparer.OrdinalIgnoreCase);
 
         [Fact]
