@@ -1766,9 +1766,9 @@ namespace AvasRoutingTool.Tests
                     Assert.True(Named(rx3, "CopyTargetLock").Single().IsVisible);
                     AssertTextFits((TextBlock)Named(rx3, "CopyFromBlockedLabel").Single());
 
-                    // Copying / choosing: the layout bar steps aside (Ruling R22); the first row's Layout and Copy layout
+                    // Copying / choosing: the overview has no layout bar any more; the first row's Layout and Copy layout
                     // buttons are in view without scrolling (they sit at the top of the card).
-                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                    Assert.Empty(FindAll<LayoutsBarView>(view));
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
                     // The displays hold drag sources (Copy layout, drops): touch never pans them (the 16 px bar does).
                     Assert.Equal(PanningMode.None, scroll.PanningMode);
@@ -1791,12 +1791,12 @@ namespace AvasRoutingTool.Tests
                             $"{((DisplayCardViewModel)card.DataContext).DeviceName}: picture {preview.ActualWidth:F1}x{preview.ActualHeight:F1} ({aspect:F3})");
                     }
 
-                    // Back to the plain overview: the layout bar is whole again.
+                    // Back to the plain overview.
                     rig.Rx1.CloseDropChoice();
                     rig.Vm.DisarmDisplay();
                     Relayout(view);
                     Assert.False(rig.Vm.IsCopyOrChoiceActive);
-                    AssertInside(FindAll<LayoutsBarView>(view).Single(), view);
+                    Assert.Empty(FindAll<LayoutsBarView>(view));
 
                     // ... and PAX's Undo toast is back, inside its picture, whole.
                     Assert.True(toast.IsVisible, "the Undo toast did not come back");
@@ -1837,15 +1837,15 @@ namespace AvasRoutingTool.Tests
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
                     DisplayCardView CardOf(DisplayCardViewModel d) => FindAll<DisplayCardView>(view).Single(c => c.DataContext == d);
                     FrameworkElement Part(DisplayCardView card, string name) => (FrameworkElement)Named(card, name).Single();
-                    Assert.True(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                    Assert.Empty(FindAll<LayoutsBarView>(view));
 
-                    // Copy armed (with the banner): the sources shrink to the compact palette, the layout bar steps aside.
+                    // Copy armed (with the banner): the full source cards stay in place; there is no layout bar.
                     Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
                     Relayout(view);
                     AssertVisibleText(view, "Copying RX1_c059e_SFPA - ");
-                    Assert.True(Named(view, "CompactSourcePalette").Single().IsVisible);
-                    Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
-                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                    Assert.False(Named(view, "CompactSourcePalette").Single().IsVisible);
+                    Assert.NotEmpty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
+                    Assert.Empty(FindAll<LayoutsBarView>(view));
 
                     // The first target was scrolled to by itself: its words read without touching anything. Its Undo
                     // toast steps aside while it is a target (the target state wins; nothing lies over its words).
@@ -1876,7 +1876,7 @@ namespace AvasRoutingTool.Tests
                     Relayout(view);
                     Assert.True(rig.Rx1.IsDropChoiceOpen);
                     AssertVisibleText(view, "Placing TX2_DUAL LINK_SFPA - ");
-                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                    Assert.Empty(FindAll<LayoutsBarView>(view));
                     var rx1 = CardOf(rig.Rx1);
                     AssertReadable(Part(rx1, "DropChoiceTitle"), scroll, "RX1: the drop choice question");
                     AssertReadable(Part(rx1, "FullScreenButton"), scroll, "RX1: Full screen");
@@ -3537,7 +3537,7 @@ namespace AvasRoutingTool.Tests
         [Theory]
         [InlineData(1264, 755)]
         [InlineData(1008, 615)]
-        public void VisualRoutingView_WithASourceArmed_TheSourcesGoCompact_AndTheCardPictureIsInTheDisplaysView(int width, int height) =>
+        public void VisualRoutingView_WithASourceArmed_TheSourceCardsStayFullHeight_AndTheCardPictureIsInTheDisplaysView(int width, int height) =>
             RunSta(() =>
             {
                 var (vm, _, sources) = Overview();
@@ -3547,22 +3547,30 @@ namespace AvasRoutingTool.Tests
                 {
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
                     var picture = (FrameworkElement)Named(FindAll<DisplayCardView>(view).Single(), "PreviewSurface").Single();
-                    Assert.NotEmpty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
+                    var visibleCards = FindAll<SourceCardView>(view).Where(s => s.IsVisible).ToList();
+                    Assert.NotEmpty(visibleCards);
+                    Assert.Empty(FindAll<LayoutsBarView>(view));
                     double room = scroll.ViewportHeight;
+                    double cardHeight = visibleCards[0].ActualHeight;
 
                     vm.ArmSource(sources[0]);
                     Relayout(view);
 
-                    Assert.True(Named(view, "CompactSourcePalette").Single().IsVisible);
-                    Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
-                    Assert.False(FindAll<LayoutsBarView>(view).Single().IsVisible);
-                    Assert.True(scroll.ViewportHeight > room, $"the displays have {scroll.ViewportHeight} px armed, {room} px otherwise");
-                    AssertReadable(picture, scroll, "the card's picture while a source is armed");
+                    // Arming does not move the sources: the full cards stay at their height. (The displays only give up
+                    // the room of the arm banner that appears above them.)
+                    Assert.False(Named(view, "CompactSourcePalette").Single().IsVisible);
+                    var armedCards = FindAll<SourceCardView>(view).Where(s => s.IsVisible).ToList();
+                    Assert.Equal(visibleCards.Count, armedCards.Count);
+                    Assert.Equal(cardHeight, armedCards[0].ActualHeight, 0.5);
+                    Assert.True(Named(view, "ArmBanner").Single().IsVisible);
+                    // The sources keep their half, so the picture may need the displays' scroll; it still starts in view.
+                    Assert.True(picture.IsVisible && BoundsIn(picture, scroll).Top < scroll.ViewportHeight,
+                        "the card's picture starts below the displays' view while a source is armed");
 
-                    vm.ArmSource(sources[0]); // tap again: stopped, the full cards and the layout bar are back
+                    vm.ArmSource(sources[0]); // tap again: stopped, nothing moves
                     Relayout(view);
-                    Assert.NotEmpty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
-                    Assert.True(FindAll<LayoutsBarView>(view).Single().IsVisible);
+                    Assert.Equal(visibleCards.Count, FindAll<SourceCardView>(view).Count(s => s.IsVisible));
+                    Assert.Equal(room, scroll.ViewportHeight, 0.5);
                 });
             });
 

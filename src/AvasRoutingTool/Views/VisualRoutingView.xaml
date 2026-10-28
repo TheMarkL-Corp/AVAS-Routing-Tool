@@ -15,9 +15,8 @@
             <!--
                 Sources: half the screen in the overview; a compact palette strip while the Composer is open (Ruling R21).
                 No minimum heights: on the real window sizes (1264x755, 1008x615 content) two 330 px minimums pushed
-                the layout bar off the window; each row scrolls its cards instead. While a copy is armed (or dragged) or
-                a drop choice is open, the sources shrink to the compact palette and the layout bar steps aside, so the
-                targets' words fit in the displays' view (Ruling R22).
+                the layout off the window; each row scrolls its cards instead. Arming a source or a copy never changes
+                the layout: the full source cards stay put. Only the Composer swaps in the compact palette.
             -->
             <RowDefinition>
                 <RowDefinition.Style>
@@ -27,21 +26,12 @@
                             <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                                 <Setter Property="Height" Value="Auto" />
                             </DataTrigger>
-                            <!-- A copy armed / dragged or a drop choice open: the displays get the room (Ruling R22) -->
-                            <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
-                                <Setter Property="Height" Value="Auto" />
-                            </DataTrigger>
-                            <!-- A source armed: the displays get the room too, the targets are what is tapped next -->
-                            <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                <Setter Property="Height" Value="Auto" />
-                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </RowDefinition.Style>
             </RowDefinition>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- TOP ROW: Sources (TX) Section (the Composer's palette while it is open) -->
@@ -51,12 +41,6 @@
                     <Setter Property="Margin" Value="16,12,16,6" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                            <Setter Property="Margin" Value="16,8,16,2" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
-                            <Setter Property="Margin" Value="16,8,16,2" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                             <Setter Property="Margin" Value="16,8,16,2" />
                         </DataTrigger>
                     </Style.Triggers>
@@ -134,12 +118,6 @@
                                 <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
-                                <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </ScrollViewer.Style>
@@ -165,12 +143,6 @@
                         <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -370,26 +342,5 @@
                 </Style>
             </views:MultiViewComposerView.Style>
         </views:MultiViewComposerView>
-
-        <!-- BOTTOM ROW: Layouts Bar (the Composer has its own layout rail) -->
-        <views:LayoutsBarView Grid.Row="3">
-            <views:LayoutsBarView.Style>
-                <Style TargetType="views:LayoutsBarView">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                        <!-- Nothing on the bar applies while copying or choosing; its height goes to the displays -->
-                        <DataTrigger Binding="{Binding IsCopyOrChoiceActive, Mode=OneWay}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                        <!-- A source armed: the bar steps aside too (the displays are what is tapped next) -->
-                        <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </views:LayoutsBarView.Style>
-        </views:LayoutsBarView>
     </Grid>
 </UserControl>
