@@ -118,7 +118,7 @@
         </Border>
 
         <!-- Offline: dimmed (the status line says "Offline" in words) -->
-        <Border Background="#990B0F17" CornerRadius="8" IsHitTestVisible="False">
+        <Border Background="{DynamicResource Brush.Surface.OfflineOverlay}" CornerRadius="8" IsHitTestVisible="False">
             <Border.Style>
                 <Style TargetType="Border">
                     <Style.Triggers>

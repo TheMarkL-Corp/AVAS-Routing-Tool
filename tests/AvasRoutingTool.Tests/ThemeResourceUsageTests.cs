@@ -74,6 +74,32 @@ namespace AvasRoutingTool.Tests
             Assert.True(missing.Count == 0, "Palette keys referenced but not defined in both themes:\n" + string.Join("\n", missing));
         }
 
+        /// <summary>#RRGGBB and #AARRGGBB literals; chrome must use Brush.* / Color.* keys so both themes repaint.</summary>
+        private static readonly Regex HexColorLiteral = new(
+            @"#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?\b",
+            RegexOptions.Compiled);
+
+        /// <summary>Views still carrying raw literals; each is removed here as its view is cleaned.</summary>
+        private static readonly HashSet<string> HexCheckExemptFiles = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "SourceCardView.xaml",
+            "DisplayCardView.xaml",
+            "MultiViewComposerView.xaml",
+        };
+
+        [Fact]
+        public void NoXamlOutsideThePaletteFiles_UsesRawHexLiterals()
+        {
+            var offenders = ChromeXaml()
+                .Where(f => !HexCheckExemptFiles.Contains(Path.GetFileName(f.Rel)))
+                .Select(f => (f.Rel, Count: HexColorLiteral.Matches(f.Text).Count))
+                .Where(f => f.Count > 0)
+                .Select(f => $"{f.Rel}: {f.Count}")
+                .ToList();
+
+            Assert.True(offenders.Count == 0, "Raw hex literals bypass the theme palette; use a Brush.* key:\n" + string.Join("\n", offenders));
+        }
+
         [Fact]
         public void NoXamlOutsideThePaletteFiles_HardCodesAPaletteColour()
         {

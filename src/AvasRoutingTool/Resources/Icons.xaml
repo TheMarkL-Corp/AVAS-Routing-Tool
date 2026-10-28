@@ -25,4 +25,7 @@
     <!-- Copy (two sheets, drawn as a stroke): the display card's Copy layout handle -->
     <Geometry x:Key="Icon.Copy">M9,9 L20,9 L20,20 L9,20 Z M15,9 L15,4 L4,4 L4,15 L9,15</Geometry>
 
+    <!-- IEC 60417-5009 Standby / Power symbol (24x24 viewBox, stroked) -->
+    <StreamGeometry x:Key="Icon.Power">M 12,3 L 12,11 M 6.34,6.34 A 8,8 0 1 0 17.66,6.34</StreamGeometry>
+
 </ResourceDictionary>

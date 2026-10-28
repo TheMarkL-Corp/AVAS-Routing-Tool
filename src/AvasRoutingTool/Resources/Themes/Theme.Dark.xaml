@@ -12,8 +12,8 @@
     <Color x:Key="Color.Border.Default">#223049</Color>
     <Color x:Key="Color.Border.Highlight">#3B82F6</Color>
     <Color x:Key="Color.Border.DropTarget">#06B6D4</Color>
-    <Color x:Key="Color.Accent.Primary">#3B82F6</Color>
-    <Color x:Key="Color.Accent.PrimaryHover">#2563EB</Color>
+    <Color x:Key="Color.Accent.Primary">#2563EB</Color>
+    <Color x:Key="Color.Accent.PrimaryHover">#1D4ED8</Color>
     <Color x:Key="Color.Status.Online">#10B981</Color>
     <Color x:Key="Color.Status.Offline">#64748B</Color>
     <Color x:Key="Color.Status.Routed">#3B82F6</Color>
@@ -76,10 +76,25 @@
     <Color x:Key="Color.Surface.PreviewBlack">#050505</Color>
     <Color x:Key="Color.Surface.PreviewMat">#000000</Color>
     <Color x:Key="Color.Text.OnPreview">#CBD5E1</Color>
-    <Color x:Key="Color.Text.OnPreviewMuted">#475569</Color>
+    <Color x:Key="Color.Text.OnPreviewMuted">#94A3B8</Color>
     <Color x:Key="Color.Text.OnScrim">#F1F5F9</Color>
     <Color x:Key="Color.Text.OnScrimAccent">#A5F3FC</Color>
     <Color x:Key="Color.Text.OnScrimDanger">#FCA5A5</Color>
+
+    <!-- Clinical badges, scrims and overlays -->
+    <Color x:Key="Color.Surface.OnlineBadge">#1A10B981</Color>
+    <Color x:Key="Color.Border.OnlineBadge">#4010B981</Color>
+    <Color x:Key="Color.Surface.RoutedBadge">#263B82F6</Color>
+    <Color x:Key="Color.Border.RoutedBadge">#593B82F6</Color>
+    <Color x:Key="Color.Text.OnRoutedBadge">#93C5FD</Color>
+    <Color x:Key="Color.Surface.OfflineOverlay">#990B0F17</Color>
+    <Color x:Key="Color.Surface.ModalScrim">#D90A0E16</Color>
+    <Color x:Key="Color.Surface.Scrim">#D9070A0F</Color>
+    <Color x:Key="Color.Border.Scrim">#33FFFFFF</Color>
+    <Color x:Key="Color.Surface.ScrimAccent">#D904232B</Color>
+    <Color x:Key="Color.Surface.ScrimTint">#2906B6D4</Color>
+    <Color x:Key="Color.Surface.ScrimDanger">#F21F0A0A</Color>
+    <Color x:Key="Color.Surface.FloatingStrip">#F20F1626</Color>
 
     <!-- SolidColorBrushes -->
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Background.Dark" Color="{StaticResource Color.Background.Dark}" />
@@ -146,5 +161,18 @@
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnScrim" Color="{StaticResource Color.Text.OnScrim}" />
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnScrimAccent" Color="{StaticResource Color.Text.OnScrimAccent}" />
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnScrimDanger" Color="{StaticResource Color.Text.OnScrimDanger}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.OnlineBadge" Color="{StaticResource Color.Surface.OnlineBadge}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.OnlineBadge" Color="{StaticResource Color.Border.OnlineBadge}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.RoutedBadge" Color="{StaticResource Color.Surface.RoutedBadge}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.RoutedBadge" Color="{StaticResource Color.Border.RoutedBadge}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Text.OnRoutedBadge" Color="{StaticResource Color.Text.OnRoutedBadge}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.OfflineOverlay" Color="{StaticResource Color.Surface.OfflineOverlay}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.ModalScrim" Color="{StaticResource Color.Surface.ModalScrim}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.Scrim" Color="{StaticResource Color.Surface.Scrim}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Border.Scrim" Color="{StaticResource Color.Border.Scrim}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.ScrimAccent" Color="{StaticResource Color.Surface.ScrimAccent}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.ScrimTint" Color="{StaticResource Color.Surface.ScrimTint}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.ScrimDanger" Color="{StaticResource Color.Surface.ScrimDanger}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.FloatingStrip" Color="{StaticResource Color.Surface.FloatingStrip}" />
 
 </ResourceDictionary>

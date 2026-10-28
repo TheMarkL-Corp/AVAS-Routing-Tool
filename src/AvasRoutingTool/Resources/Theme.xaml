@@ -17,7 +17,7 @@
     <!-- Button Styles -->
     <Style x:Key="Style.Button.Primary" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Padding" Value="14,8" />
@@ -75,13 +75,13 @@
     </Style>
 
     <Style x:Key="Style.Button.Unroute" TargetType="Button">
-        <Setter Property="Background" Value="#33EF4444" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Danger}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.DangerSoft}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Padding" Value="8,4" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="BorderBrush" Value="#66EF4444" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Danger}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
@@ -95,7 +95,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#66EF4444" />
+                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.DangerStrong}" />
                             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDangerHover}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
