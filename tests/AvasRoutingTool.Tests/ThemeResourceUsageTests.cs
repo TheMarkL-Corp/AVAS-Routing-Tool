@@ -84,7 +84,6 @@ namespace AvasRoutingTool.Tests
         {
             "SourceCardView.xaml",
             "DisplayCardView.xaml",
-            "MultiViewComposerView.xaml",
         };
 
         [Fact]

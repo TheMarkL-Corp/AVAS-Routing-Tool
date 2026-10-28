@@ -23,8 +23,8 @@
 
         <!-- Small dark chip over a preview (legible on any picture) -->
         <Style x:Key="Chip" TargetType="Border">
-            <Setter Property="Background" Value="#D9070A0F" />
-            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Scrim}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Scrim}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Padding" Value="8,3" />
@@ -163,9 +163,11 @@
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="1" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding StepLayoutDone, Mode=OneWay}" Value="True">
                                                 <Setter Property="Text" Value="✓" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -272,9 +274,11 @@
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="2" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="True">
                                                 <Setter Property="Text" Value="✓" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -339,9 +343,11 @@
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="3" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding CanTake, Mode=OneWay}" Value="True">
                                                 <Setter Property="Text" Value="✓" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -551,7 +557,7 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </StackPanel.Style>
-                                                <TextBlock x:Name="NoPreviewName" Text="{Binding SourceName, Mode=OneWay}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock x:Name="NoPreviewName" Text="{Binding SourceName, Mode=OneWay}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.OnScrim}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock x:Name="NoPreviewLabel" Text="NO PREVIEW · non-AVAS source" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnPreview}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
                                             </StackPanel>
                                             <!-- Empty block, nothing armed and no move: what a tap does -->
@@ -637,8 +643,8 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Grid.Style>
-                                        <Rectangle RadiusX="6" RadiusY="6" Fill="#2906B6D4" Stroke="{DynamicResource Brush.Border.DropTarget}" StrokeThickness="3" />
-                                        <Border x:Name="PlacePill" Background="#D904232B" CornerRadius="8" Padding="14,8" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8">
+                                        <Rectangle RadiusX="6" RadiusY="6" Fill="{DynamicResource Brush.Surface.ScrimTint}" Stroke="{DynamicResource Brush.Border.DropTarget}" StrokeThickness="3" />
+                                        <Border x:Name="PlacePill" Background="{DynamicResource Brush.Surface.ScrimAccent}" CornerRadius="8" Padding="14,8" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8">
                                             <TextBlock x:Name="PlaceText" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" TextWrapping="Wrap" TextAlignment="Center">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
@@ -655,11 +661,11 @@
                                     </Grid>
 
                                     <!-- 3b. A drag over this block: cyan when it can take it -->
-                                    <Rectangle x:Name="DropRing" RadiusX="6" RadiusY="6" Fill="#2906B6D4" Stroke="{DynamicResource Brush.Border.DropTarget}"
+                                    <Rectangle x:Name="DropRing" RadiusX="6" RadiusY="6" Fill="{DynamicResource Brush.Surface.ScrimTint}" Stroke="{DynamicResource Brush.Border.DropTarget}"
                                                StrokeThickness="4" IsHitTestVisible="False" Visibility="Collapsed" />
 
                                     <!-- 4. Armed and this block cannot take it: lock + the reason, in words (chips hidden meanwhile) -->
-                                    <Border Background="#C7070A0F" CornerRadius="6" IsHitTestVisible="False">
+                                    <Border Background="{DynamicResource Brush.Surface.Scrim}" CornerRadius="6" IsHitTestVisible="False">
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -694,7 +700,7 @@
                                     </Border>
 
                                     <!-- 5. Moving: other blocks are destinations -->
-                                    <Border x:Name="MovePill" Background="#D904232B" CornerRadius="8" Padding="14,8" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                    <Border x:Name="MovePill" Background="{DynamicResource Brush.Surface.ScrimAccent}" CornerRadius="8" Padding="14,8" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Style.Triggers>
@@ -723,7 +729,7 @@
 
                                     <!-- 6. What blocks Take on this block (offline, size conflict) -->
                                     <Border x:Name="IssueBand" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="56,8,56,0"
-                                            Background="#F21F0A0A" BorderBrush="{DynamicResource Brush.Action.Danger}" BorderThickness="1"
+                                            Background="{DynamicResource Brush.Surface.ScrimDanger}" BorderBrush="{DynamicResource Brush.Action.Danger}" BorderThickness="1"
                                             CornerRadius="6" Padding="10,4" IsHitTestVisible="False">
                                         <Border.Style>
                                             <Style TargetType="Border">
@@ -741,7 +747,7 @@
 
                                     <!-- 7. Block number (28 px), top-left -->
                                     <Border x:Name="NumberChip" Style="{StaticResource Chip}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="10,0">
-                                        <TextBlock x:Name="NumberText" Text="{Binding Label, Mode=OneWay}" FontSize="28" FontWeight="Bold" />
+                                        <TextBlock x:Name="NumberText" Text="{Binding Label, Mode=OneWay}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnScrim}" />
                                     </Border>
 
                                     <!-- 8. Source name pill and "Same as N" chip, bottom-left; output size bottom-right -->
@@ -763,7 +769,7 @@
                                         <!-- The name gives way (ellipsis) on small blocks such as the PIP inset -->
                                         <Border x:Name="SourcePill" Grid.Column="0" Style="{StaticResource Chip}" Margin="0,0,6,0" HorizontalAlignment="Left"
                                                 Visibility="{Binding IsPlaced, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                            <TextBlock x:Name="SourcePillText" Text="{Binding SourceName, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock x:Name="SourcePillText" Text="{Binding SourceName, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.OnScrim}" TextTrimming="CharacterEllipsis" />
                                         </Border>
                                         <Border x:Name="SameAsChip" Grid.Column="1" Margin="0,0,6,0">
                                             <Border.Style>
@@ -800,7 +806,7 @@
                                                     <Border x:Name="CornerClearGlyph"
                                                             Width="32" Height="32"
                                                             CornerRadius="16"
-                                                            Background="#EB3B0D0D"
+                                                            Background="{DynamicResource Brush.Surface.ScrimDanger}"
                                                             BorderBrush="{DynamicResource Brush.Text.DangerSoft}"
                                                             BorderThickness="1"
                                                             HorizontalAlignment="Center"
@@ -843,7 +849,7 @@
                                         <Border x:Name="Strip"
                                                 Canvas.Left="{Binding ActualWidth, RelativeSource={RelativeSource Self}, Mode=OneWay, Converter={StaticResource NegativeHalf}}"
                                                 Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Mode=OneWay, Converter={StaticResource NegativeHalf}}"
-                                                Background="#F20F1626" BorderBrush="{DynamicResource Brush.Border.Strong}" BorderThickness="1" CornerRadius="10" Padding="6"
+                                                Background="{DynamicResource Brush.Surface.FloatingStrip}" BorderBrush="{DynamicResource Brush.Border.Strong}" BorderThickness="1" CornerRadius="10" Padding="6"
                                                 Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                             <StackPanel Orientation="Horizontal">
                                                 <Button x:Name="ReplaceButton" Style="{StaticResource Style.Button.Composer}" Content="Replace" MinWidth="104" Margin="0,0,12,0"
@@ -934,10 +940,10 @@
                                         </ItemsControl.ItemContainerStyle>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Margin="1" Background="{DynamicResource Brush.Surface.Inset}" BorderBrush="{DynamicResource Brush.Border.Control}" BorderThickness="1" ClipToBounds="True">
+                                                <Border Margin="1" Background="{DynamicResource Brush.Surface.PreviewTile}" BorderBrush="{DynamicResource Brush.Border.Control}" BorderThickness="1" ClipToBounds="True">
                                                     <Grid>
                                                         <Image Source="{Binding PreviewBitmap, Mode=OneWay}" Stretch="Uniform" RenderOptions.BitmapScalingMode="LowQuality" />
-                                                        <TextBlock Text="{Binding SourceName, Mode=OneWay}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Soft}"
+                                                        <TextBlock Text="{Binding SourceName, Mode=OneWay}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnPreview}"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
@@ -949,7 +955,7 @@
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
-                                                        <TextBlock Text="{Binding Label, Mode=OneWay}" FontSize="12" FontWeight="Bold" Margin="4,2" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                                        <TextBlock Text="{Binding Label, Mode=OneWay}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnScrim}" Margin="4,2" HorizontalAlignment="Left" VerticalAlignment="Top" />
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
@@ -1066,11 +1072,26 @@
                             <TextBlock x:Name="BannerText" Grid.Column="1" Text="{Binding Banner.Text, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                                         <Setter Property="AutomationProperties.LiveSetting" Value="Polite" />
                                         <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.UndoToast}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Danger}" />
                                                 <Setter Property="AutomationProperties.LiveSetting" Value="Assertive" />
                                             </DataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Info" />
+                                                    <Condition Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnCopyTarget}" />
+                                            </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
@@ -1213,12 +1234,13 @@
                                             Click="PickerTile_Click">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
-                                                <Border x:Name="bd" Background="{DynamicResource Brush.Surface.Popup}" BorderBrush="{DynamicResource Brush.Border.DropTarget}" BorderThickness="2" CornerRadius="10" Padding="10">
+                                                <Border x:Name="bd" Background="{DynamicResource Brush.Surface.Popup}" BorderBrush="{DynamicResource Brush.Border.Control}" BorderThickness="2" CornerRadius="10" Padding="10">
                                                     <ContentPresenter />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
                                                         <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                                                        <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
                                                     </Trigger>
                                                     <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                                                         <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />

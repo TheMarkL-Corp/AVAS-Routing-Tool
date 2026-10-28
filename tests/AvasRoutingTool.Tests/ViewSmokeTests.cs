@@ -3720,6 +3720,57 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void Composer_InLightMode_ScrimLabels_StepDots_LiveBlocks_AndPickerTiles_KeepHighContrast() =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Light);
+                    var rig = new ComposerRig();
+                    var c = rig.Composer("matrix2x2");
+                    c.Arm(rig.Vega); // non-AVAS source (IsPreviewSupported == false)
+                    c.TapBlock(0);
+                    c.Disarm();
+                    Pump(c.TakeAsync); // puts LiveBlocks on screen and marks Step 1 & Step 2 done
+                    c.TapBlock(1);     // opens PickerPopup on empty block 2
+                    var view = rig.View(c);
+
+                    Showing(view, () =>
+                    {
+                        var onScrim = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.OnScrim")).Color;
+                        var onAction = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.OnAction")).Color;
+                        var controlBorder = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.Control")).Color;
+
+                        // 1. Scrim labels over dark video blocks use light Brush.Text.OnScrim, never dark Brush.Text.Primary
+                        foreach (var name in new[] { "NumberText", "SourcePillText", "NoPreviewName" })
+                        {
+                            var tb = FindAll<TextBlock>(view).First(t => t.Name == name && t.IsVisible);
+                            Assert.Equal(onScrim, ((SolidColorBrush)tb.Foreground).Color);
+                        }
+
+                        // 2. Completed StepDot checkmarks use Brush.Text.OnAction on Brush.Action.Take
+                        var checks = FindAll<TextBlock>(view).Where(t => t.Text == "✓" && t.IsVisible && t.Parent is Border { Width: 28, Height: 28 }).ToList(); // StepDots only, not the Success banner glyph
+                        Assert.NotEmpty(checks);
+                        Assert.All(checks, t => Assert.Equal(onAction, ((SolidColorBrush)t.Foreground).Color));
+
+                        // 3. PickerPopup resting tiles use neutral Brush.Border.Control, not cyan DropTarget
+                        var popup = (Popup)Named(view, "PickerPopup").Single();
+                        Assert.True(popup.IsOpen);
+                        var pickerMenu = (FrameworkElement)popup.Child;
+                        Relayout(pickerMenu);
+                        var tile = Named(pickerMenu, "PickerTile").Cast<Button>().First(b => b.IsEnabled);
+                        var bd = (Border)tile.Template.FindName("bd", tile);
+                        Assert.Equal(controlBorder, ((SolidColorBrush)bd.BorderBrush).Color);
+                    });
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
+        [Fact]
         public void App_ThemeToggle_RepaintsEveryRenderedView_NoDarkChromeLeftInLightMode() =>
             RunSta(() =>
             {
