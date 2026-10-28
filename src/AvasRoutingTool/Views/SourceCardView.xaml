@@ -74,6 +74,9 @@
 
                 <!-- Info badge: network telemetry lives in its tooltip -->
                 <Border x:Name="SourceInfoBadge"
+                        Focusable="True"
+                        KeyboardNavigation.IsTabStop="True"
+                        AutomationProperties.Name="Device network telemetry: IP, MAC, multicast"
                         Grid.Column="2"
                         CornerRadius="10"
                         Padding="6,1"
@@ -141,7 +144,7 @@
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Text" Value="OFFLINE" />
-                                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Offline}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
                                         <Setter Property="Text" Value="ONLINE" />

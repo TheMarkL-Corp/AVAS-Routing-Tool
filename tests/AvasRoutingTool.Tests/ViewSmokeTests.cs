@@ -527,6 +527,10 @@ namespace AvasRoutingTool.Tests
         public void SourceCard_HasTouchSafeStreamControls_InfoTooltip_AndHighContrastBadgesInLightMode() =>
             RunSta(() =>
             {
+              var themeService = new AvasRoutingTool.Services.ThemeService();
+              try
+              {
+                themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Light);
                 var device = new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = "TX2", VendorId = 105, IsTransmitter = true, IsActive = true };
                 var vm = new SourceCardViewModel(device);
                 var view = new SourceCardView { DataContext = vm, Width = 340, Height = 260 };
@@ -547,7 +551,25 @@ namespace AvasRoutingTool.Tests
                     var text = string.Concat(tip.Inlines.OfType<System.Windows.Documents.Run>().Select(r => r.Text));
                     Assert.Contains("IP: " + vm.IpAddress, text);
                     Assert.Contains("MAC: " + vm.MacAddress, text);
+
+                    Assert.True(badge.Focusable);
+                    Assert.True(KeyboardNavigation.GetIsTabStop(badge));
+                    Assert.Equal("Device network telemetry: IP, MAC, multicast", System.Windows.Automation.AutomationProperties.GetName(badge));
                 });
+
+                var offlineVm = new SourceCardViewModel(new AvasDevice { DeviceId = "74fe488b07bc", DeviceName = "TX3", VendorId = 105, IsTransmitter = true, IsActive = false });
+                var offlineView = new SourceCardView { DataContext = offlineVm, Width = 340, Height = 260 };
+                Showing(offlineView, () =>
+                {
+                    var secondary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
+                    var offline = FindAll<TextBlock>(offlineView).First(t => t.Text == "OFFLINE" && t.IsVisible);
+                    Assert.Equal(secondary, ((SolidColorBrush)offline.Foreground).Color);
+                });
+              }
+              finally
+              {
+                themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+              }
             });
 
         [Fact]
