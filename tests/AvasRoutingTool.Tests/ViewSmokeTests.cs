@@ -3781,6 +3781,25 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void MainWindow_ThemeButton_ToolTip_BindsToActiveTheme() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var window = new MainWindow { DataContext = rig.Vm, Width = 1024, Height = 768, ShowInTaskbar = false, Left = -10000 };
+                window.Show();
+                try
+                {
+                    Relayout(window);
+                    var btn = FindAll<Button>(window).First(b => AutomationProperties.GetName(b) == "Toggle theme mode");
+                    Assert.Equal(rig.Vm.ThemeButtonToolTip, btn.ToolTip);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+
+        [Fact]
         public void App_ThemeToggle_RepaintsEveryRenderedView_NoDarkChromeLeftInLightMode() =>
             RunSta(() =>
             {
