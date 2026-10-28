@@ -457,7 +457,7 @@
                                                 </Style>
                                             </Border.Style>
                                             <TextBlock Text="{Binding SourceName, Mode=OneWay}"
-                                                       Foreground="{DynamicResource Brush.Text.Primary}"
+                                                       Foreground="{DynamicResource Brush.Text.OnScrim}"
                                                        FontSize="9"
                                                        FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" />
@@ -466,7 +466,7 @@
                                         <!-- Assigned but no preview (non-AVAS source) -->
                                         <TextBlock Text="Preview not available"
                                                    FontSize="9"
-                                                   Foreground="{DynamicResource Brush.Text.Muted}"
+                                                   Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center">
                                             <TextBlock.Style>
@@ -555,7 +555,7 @@
                             </Border.Style>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="● " Foreground="{DynamicResource Brush.Status.Online}" FontSize="9" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Primary}" FontSize="10" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.OnScrim}" FontSize="10" FontWeight="SemiBold" />
                             </StackPanel>
                         </Border>
 
@@ -583,18 +583,18 @@
                                   HorizontalAlignment="Center" />
                             <TextBlock Text="Routed to Source"
                                        FontSize="10"
-                                       Foreground="{DynamicResource Brush.Text.Muted}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,6,0,2" />
                             <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}"
                                        FontSize="13"
                                        FontWeight="Bold"
-                                       Foreground="{DynamicResource Brush.Text.Primary}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreview}"
                                        HorizontalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="Preview Not Available (Non-AVAS Device)"
                                        FontSize="10"
-                                       Foreground="{DynamicResource Brush.Text.Muted}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,4,0,0" />
                         </StackPanel>
@@ -653,7 +653,7 @@
                             <TextBlock Text="Drop Source Here to Route"
                                        FontSize="11"
                                        FontWeight="Medium"
-                                       Foreground="{DynamicResource Brush.Text.Muted}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,8,0,0" />
                             <TextBlock Text="Drag any TX card above or 'Off' to turn off"

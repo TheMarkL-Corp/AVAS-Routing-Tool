@@ -740,7 +740,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
-                                        <TextBlock x:Name="IssueTextBlock" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Danger}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis">
+                                        <TextBlock x:Name="IssueTextBlock" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.OnAction}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis">
                                             <Run Text="✕ " /><Run Text="{Binding IssueText, Mode=OneWay}" />
                                         </TextBlock>
                                     </Border>
@@ -782,10 +782,10 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
-                                            <TextBlock x:Name="SameAsText" Text="{Binding SameAsText, Mode=OneWay}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Status.StagedChipText}" />
+                                            <TextBlock x:Name="SameAsText" Text="{Binding SameAsText, Mode=OneWay}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnScrim}" />
                                         </Border>
                                         <Border x:Name="SizeChip" Grid.Column="2" Style="{StaticResource Chip}" Padding="6,2">
-                                            <TextBlock Text="{Binding SizeText, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Soft}" />
+                                            <TextBlock Text="{Binding SizeText, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.OnScrim}" />
                                         </Border>
                                     </Grid>
 
@@ -961,7 +961,7 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <TextBlock Text="No MultiView on this screen" FontSize="14" Foreground="{DynamicResource Brush.Text.Secondary}"
+                                    <TextBlock Text="No MultiView on this screen" FontSize="14" Foreground="{DynamicResource Brush.Text.OnPreview}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">

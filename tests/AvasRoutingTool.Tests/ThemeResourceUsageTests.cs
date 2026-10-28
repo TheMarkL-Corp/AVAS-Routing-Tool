@@ -53,7 +53,38 @@ namespace AvasRoutingTool.Tests
             Assert.True(offenders.Count == 0, "StaticResource palette references would not repaint on a theme switch:\n" + string.Join("\n", offenders));
         }
 
-        private static readonly Regex PaletteKeyRef = new(@"\{DynamicResource\s+((?:Brush|Color)\.[\w.]+)\}", RegexOptions.Compiled);
+        /// <summary>Text drawn over video / scrims is on a dark surface in BOTH themes, so it must use the On* tokens, never chrome text tokens.</summary>
+        [Theory]
+        [InlineData("DisplayCardView.xaml", "{Binding SourceName, Mode=OneWay}", null, "Brush.Text.OnScrim")]
+        [InlineData("DisplayCardView.xaml", "Preview not available", null, "Brush.Text.OnPreviewMuted")]
+        [InlineData("DisplayCardView.xaml", "{Binding ActiveSourceName, Mode=OneWay}", "10", "Brush.Text.OnScrim")]
+        [InlineData("DisplayCardView.xaml", "{Binding ActiveSourceName, Mode=OneWay}", "13", "Brush.Text.OnPreview")]
+        [InlineData("DisplayCardView.xaml", "Routed to Source", null, "Brush.Text.OnPreviewMuted")]
+        [InlineData("DisplayCardView.xaml", "Preview Not Available (Non-AVAS Device)", null, "Brush.Text.OnPreviewMuted")]
+        [InlineData("DisplayCardView.xaml", "Drop Source Here to Route", null, "Brush.Text.OnPreviewMuted")]
+        [InlineData("MultiViewComposerView.xaml", "IssueTextBlock", "name", "Brush.Text.OnAction")]
+        [InlineData("MultiViewComposerView.xaml", "SameAsText", "name", "Brush.Text.OnScrim")]
+        [InlineData("MultiViewComposerView.xaml", "{Binding SizeText, Mode=OneWay}", null, "Brush.Text.OnScrim")]
+        [InlineData("MultiViewComposerView.xaml", "No MultiView on this screen", null, "Brush.Text.OnPreview")]
+        [InlineData("SourceCardView.xaml", "Preview not supported", null, "Brush.Text.OnPreview")]
+        [InlineData("SourceCardView.xaml", "Non-AVAS Device", null, "Brush.Text.OnPreviewMuted")]
+        [InlineData("SourceCardView.xaml", "Preview Standby", null, "Brush.Text.OnPreviewMuted")]
+        public void VideoOverlayText_UsesOnPreviewOrOnScrimTokens(string file, string anchor, string? selector, string expectedBrush)
+        {
+            var path = Path.Combine(SourceRoot(), "Views", file);
+            var doc = System.Xml.Linq.XDocument.Load(path);
+            var xName = System.Xml.Linq.XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml");
+            var matches = doc.Descendants()
+                .Where(e => e.Name.LocalName == "TextBlock")
+                .Where(e => selector == "name" ? (string?)e.Attribute(xName) == anchor : (string?)e.Attribute("Text") == anchor)
+                .Where(e => selector is null or "name" || (string?)e.Attribute("FontSize") == selector)
+                .ToList();
+
+            Assert.NotEmpty(matches);
+            Assert.All(matches, e => Assert.Equal("{DynamicResource " + expectedBrush + "}", (string?)e.Attribute("Foreground")));
+        }
+
+        private static readonly Regex PaletteKeyRef =new(@"\{DynamicResource\s+((?:Brush|Color)\.[\w.]+)\}", RegexOptions.Compiled);
         private static readonly Regex PaletteKeyDef = new(@"x:Key=""((?:Brush|Color)\.[\w.]+)""", RegexOptions.Compiled);
 
         [Fact]

@@ -192,12 +192,12 @@
                         <TextBlock Text="Preview not supported"
                                    FontSize="11"
                                    FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.Text.Secondary}"
+                                   Foreground="{DynamicResource Brush.Text.OnPreview}"
                                    HorizontalAlignment="Center"
                                    Margin="0,6,0,0" />
                         <TextBlock Text="Non-AVAS Device"
                                    FontSize="10"
-                                   Foreground="{DynamicResource Brush.Text.Muted}"
+                                   Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                    HorizontalAlignment="Center"
                                    Margin="0,2,0,0" />
                     </StackPanel>
@@ -227,7 +227,7 @@
                               HorizontalAlignment="Center" />
                         <TextBlock Text="Preview Standby"
                                    FontSize="10"
-                                   Foreground="{DynamicResource Brush.Text.Muted}"
+                                   Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                    HorizontalAlignment="Center"
                                    Margin="0,4,0,0" />
                     </StackPanel>
