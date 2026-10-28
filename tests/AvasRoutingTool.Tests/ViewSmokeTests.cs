@@ -3762,6 +3762,16 @@ namespace AvasRoutingTool.Tests
                         var tile = Named(pickerMenu, "PickerTile").Cast<Button>().First(b => b.IsEnabled);
                         var bd = (Border)tile.Template.FindName("bd", tile);
                         Assert.Equal(controlBorder, ((SolidColorBrush)bd.BorderBrush).Color);
+
+                        // 4. LiveBlocks schematic tile uses PreviewTile, Text.OnPreview, and Text.OnScrim
+                        var previewTile = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.PreviewTile")).Color;
+                        var onPreview = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.OnPreview")).Color;
+                        var liveTile = FindAll<Border>(view).First(b => b.Background is SolidColorBrush scb && scb.Color == previewTile);
+                        Assert.NotNull(liveTile);
+                        var liveSourceName = FindAll<TextBlock>(liveTile).First(t => t.HorizontalAlignment == HorizontalAlignment.Center);
+                        Assert.Equal(onPreview, ((SolidColorBrush)liveSourceName.Foreground).Color);
+                        var liveLabel = FindAll<TextBlock>(liveTile).First(t => t.HorizontalAlignment == HorizontalAlignment.Left);
+                        Assert.Equal(onScrim, ((SolidColorBrush)liveLabel.Foreground).Color);
                     });
                 }
                 finally
