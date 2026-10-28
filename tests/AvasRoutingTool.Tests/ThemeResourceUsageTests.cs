@@ -80,10 +80,7 @@ namespace AvasRoutingTool.Tests
             RegexOptions.Compiled);
 
         /// <summary>Views still carrying raw literals; each is removed here as its view is cleaned.</summary>
-        private static readonly HashSet<string> HexCheckExemptFiles = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "DisplayCardView.xaml",
-        };
+        private static readonly HashSet<string> HexCheckExemptFiles = new(StringComparer.OrdinalIgnoreCase);
 
         [Fact]
         public void NoXamlOutsideThePaletteFiles_UsesRawHexLiterals()

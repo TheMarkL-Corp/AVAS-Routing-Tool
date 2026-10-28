@@ -103,18 +103,16 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void Compute_DisplayCardSpec_Has87PxChrome_YieldingLargerVideoPreview()
+        public void Compute_DisplayCardSpec_Has178PxChrome_ForTheNonOccludingActionBarAndStatusDock()
         {
-            Assert.Equal(87, GridSpec.DisplayCard.ChromeHeight);
+            // Frame 2 + padding 24 + header 24 + action bar 64 + status dock 64: nothing lies on the 16:9 picture.
+            Assert.Equal(178, GridSpec.DisplayCard.ChromeHeight);
             Assert.Equal(26, GridSpec.DisplayCard.HorizontalPadding);
 
-            var oldPlan = AdaptiveGridLayout.Compute(2, 1888, 435, GridSpec.DisplayCard with { ChromeHeight = 175 });
-            var newPlan = AdaptiveGridLayout.Compute(2, 1888, 435, GridSpec.DisplayCard);
-
-            // With chrome reduced from 175px to 87px, video height is significantly larger
-            double oldVideoHeight = (oldPlan.CardWidth - 26) * 9.0 / 16.0;
-            double newVideoHeight = (newPlan.CardWidth - 26) * 9.0 / 16.0;
-            Assert.True(newPlan.CardWidth >= oldPlan.CardWidth);
+            var plan = AdaptiveGridLayout.Compute(2, 1888, 435, GridSpec.DisplayCard);
+            double videoHeight = plan.CardHeight - GridSpec.DisplayCard.ChromeHeight;
+            double videoWidth = plan.CardWidth - GridSpec.DisplayCard.HorizontalPadding;
+            Assert.InRange(videoWidth / videoHeight, 16.0 / 9 * 0.96, 16.0 / 9 * 1.04);
         }
     }
 }

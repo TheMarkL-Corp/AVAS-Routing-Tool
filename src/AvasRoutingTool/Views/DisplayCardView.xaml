@@ -14,8 +14,7 @@
              PreviewMouseLeftButtonUp="Card_PreviewMouseLeftButtonUp"
              MouseLeftButtonUp="Card_MouseLeftButtonUp"
              PreviewKeyDown="Card_PreviewKeyDown"
-             KeyDown="Card_KeyDown"
-             PreviewTouchDown="Card_PreviewTouchDown">
+             KeyDown="Card_KeyDown">
 
     <UserControl.Resources>
         <!-- A dark panel over the card body that states a choice or a copy target state in words -->
@@ -52,23 +51,27 @@
             </Border.Style>
 
             <!--
-                Rows:
-                0: Header (Status dot, device name, draft chip when staged, mode badge)
-                1: Live video preview surface (occupies all remaining vertical height; hosts floating action strip)
-                2: Telemetry info (IP, MAC, SOURCE, Canvas EDID info)
+                Rows (nothing but the picture ever lies on the 16:9 video):
+                0: Header (status dot, device name, info badge, copy-source tag, mode badge)
+                1: Action bar (Layout, Copy layout, draft chip, Turn Off) - always visible
+                2: Live video preview surface (16:9; only its own state overlays lie on it)
+                3: Status and toast dock (SOURCE / output format / notices, or the Undo toast)
             -->
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="24" />
+                    <RowDefinition Height="64" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="64" />
                 </Grid.RowDefinitions>
 
-                <!-- Card header: name and mode badge -->
+                <!-- Card header: name, network info badge, copy-source tag and mode badge -->
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
@@ -94,15 +97,56 @@
                                Grid.Column="1"
                                Text="{Binding DeviceName, Mode=OneWay}"
                                ToolTip="{Binding DeviceName, Mode=OneWay}"
-                               FontWeight="SemiBold"
+                               FontWeight="Bold"
                                FontSize="14"
                                Foreground="{DynamicResource Brush.Text.Primary}"
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center"
-                               Margin="0,0,8,0" />
+                               Margin="0,0,6,0" />
+
+                    <!-- Network telemetry (IP, MAC) lives in this badge's tooltip, reachable by keyboard -->
+                    <Border x:Name="DeviceInfoBadge"
+                            Grid.Column="2"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Focusable="True"
+                            KeyboardNavigation.IsTabStop="True"
+                            FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
+                            AutomationProperties.Name="Device network telemetry: IP, MAC"
+                            Background="Transparent"
+                            Cursor="Help">
+                        <Border.ToolTip>
+                            <TextBlock>
+                                <Run Text="IP: " /><Run Text="{Binding IpAddress, Mode=OneWay}" /><Run Text=" &#183; MAC: " /><Run Text="{Binding MacAddress, Mode=OneWay}" />
+                            </TextBlock>
+                        </Border.ToolTip>
+                        <TextBlock Text="&#9432;" FontSize="14" Foreground="{DynamicResource Brush.Text.Secondary}" Padding="2,0" />
+                    </Border>
+
+                    <!-- This display is the copy source (armed by a tap, or being dragged): the tag lies outside the picture -->
+                    <Border x:Name="CopySourceChip"
+                            Grid.Column="3"
+                            Margin="0,0,6,0"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource Brush.Border.DropTarget}"
+                            CornerRadius="4"
+                            Padding="8,2"
+                            IsHitTestVisible="False">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="COPYING FROM HERE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
+                    </Border>
 
                     <!-- Routed status pill: the layout and its fill ("MATRIX 2X2 · 3/4") -->
-                    <Border Grid.Column="2"
+                    <Border Grid.Column="4"
                             VerticalAlignment="Center"
                             CornerRadius="4"
                             Padding="6,2">
@@ -111,13 +155,13 @@
                                 <Setter Property="Background" Value="{DynamicResource Brush.Border.Default}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
-                                        <Setter Property="Background" Value="#263B82F6" />
-                                        <Setter Property="BorderBrush" Value="#4D3B82F6" />
+                                        <Setter Property="Background" Value="{DynamicResource Brush.Surface.RoutedBadge}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.RoutedBadge}" />
                                         <Setter Property="BorderThickness" Value="1" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
-                                        <Setter Property="Background" Value="#263B82F6" />
-                                        <Setter Property="BorderBrush" Value="#4D3B82F6" />
+                                        <Setter Property="Background" Value="{DynamicResource Brush.Surface.RoutedBadge}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.RoutedBadge}" />
                                         <Setter Property="BorderThickness" Value="1" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -130,10 +174,10 @@
                                     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnRoutedBadge}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnRoutedBadge}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -143,14 +187,190 @@
                 </Grid>
 
                 <!--
-                    Live Video Preview Surface (Row 1).
+                    Action bar (Row 1): always visible, never on the picture. Hosts Layout, Copy layout, the draft chip and Turn Off.
+                -->
+                <Border x:Name="FloatingActionDock"
+                        Grid.Row="1"
+                        Height="56"
+                        Margin="0,4,0,4"
+                        Background="Transparent"
+                        IsHitTestVisible="True"
+                        Opacity="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Layout ▾ Button -->
+                        <Button x:Name="LayoutButton"
+                                Grid.Column="0"
+                                MinHeight="56"
+                                Margin="0,0,4,0"
+                                FontSize="13"
+                                AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
+                                ToolTip="Choose a layout for this display"
+                                PreviewKeyDown="LayoutButton_PreviewKeyDown"
+                                PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
+                                PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
+                                Click="LayoutButton_Click">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+                                    <Setter Property="Padding" Value="4,4" />
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                                <Path x:Name="LayoutIcon"
+                                      Data="{StaticResource Icon.Grid}"
+                                      Fill="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Width="16" Height="16"
+                                      Stretch="Uniform"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,0,2" />
+                                <TextBlock Text="Layout ▾" VerticalAlignment="Center" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Copy layout Button: its full label always shows (no trimming) -->
+                        <Button x:Name="CopyLayoutHandle"
+                                Grid.Column="1"
+                                MinHeight="56"
+                                Margin="0,0,4,0"
+                                FontSize="13"
+                                IsEnabled="{Binding CanCopyFrom, Mode=OneWay}"
+                                AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
+                                ToolTip="Drag onto another display to copy this picture there - or tap, then tap a display"
+                                ToolTipService.ShowOnDisabled="True"
+                                Click="CopyHandle_Click"
+                                PreviewMouseLeftButtonDown="CopyHandle_PreviewMouseLeftButtonDown"
+                                PreviewMouseMove="CopyHandle_PreviewMouseMove"
+                                PreviewMouseLeftButtonUp="CopyHandle_PreviewMouseLeftButtonUp">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+                                    <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
+                                    <Setter Property="Padding" Value="4,4" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                                <Path x:Name="CopyIcon"
+                                      Data="{StaticResource Icon.Copy}"
+                                      Stroke="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      StrokeThickness="2"
+                                      StrokeLineJoin="Round"
+                                      Width="16" Height="16"
+                                      Stretch="Uniform"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,0,2" />
+                                <TextBlock Text="Copy layout" VerticalAlignment="Center" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+
+                        <!--
+                            Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15).
+                            Placed in the action bar, keeps touch height >= 56.
+                        -->
+                        <Button x:Name="DraftChip"
+                                Grid.Column="2"
+                                Margin="0,0,4,0"
+                                Width="64"
+                                MinHeight="56"
+                                FontSize="13"
+                                Padding="10,6"
+                                Cursor="Hand"
+                                AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
+                                ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
+                                Click="DraftChip_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Grid>
+                                        <Rectangle x:Name="DraftFrame"
+                                                   Fill="{DynamicResource Brush.Surface.Staged}"
+                                                   Stroke="{DynamicResource Brush.Status.Staged}"
+                                                   StrokeThickness="1.5"
+                                                   StrokeDashArray="4 3"
+                                                   RadiusX="8" RadiusY="8" />
+                                        <ContentPresenter Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="DraftFrame" Property="Fill" Value="{DynamicResource Brush.Surface.StagedHover}" />
+                                        </Trigger>
+                                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                                            <Setter TargetName="DraftFrame" Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
+                                            <Setter TargetName="DraftFrame" Property="StrokeThickness" Value="2" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="DRAFT &#183; Resume"
+                                       FontSize="13"
+                                       FontWeight="Bold"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       Foreground="{DynamicResource Brush.Status.StagedChipText}" />
+                        </Button>
+
+                        <!-- Quick Power / Turn Off Button: a vector power icon, 56 x 56 -->
+                        <Button x:Name="TurnOffButton"
+                                Grid.Column="4"
+                                Width="56" Height="56"
+                                Padding="0"
+                                Command="{Binding UnrouteCommand, Mode=OneWay}"
+                                ToolTip="Turn off display feed / Unroute video"
+                                FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
+                                AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Unroute}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Path Data="{StaticResource Icon.Power}"
+                                  Width="18" Height="18"
+                                  Stretch="Uniform"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!--
+                    Live Video Preview Surface (Row 2).
                     Takes all remaining vertical height.
                     On a MultiView card a tap (or Enter when focused) opens the Composer on
                     what is on screen (MainViewModel.TapPictureAsync, spec 5.1); otherwise it is a tap on the card.
                 -->
                 <Border x:Name="PreviewSurface"
-                        Grid.Row="1"
-                        Margin="0,6,0,0"
+                        Grid.Row="2"
                         Focusable="True"
                         FocusVisualStyle="{x:Null}"
                         KeyDown="PreviewSurface_KeyDown"
@@ -221,8 +441,8 @@
                                         <!-- Source tag -->
                                         <Border HorizontalAlignment="Left" VerticalAlignment="Top"
                                                 Margin="4"
-                                                Background="#D90B0F17"
-                                                BorderBrush="#33FFFFFF"
+                                                Background="{DynamicResource Brush.Surface.Scrim}"
+                                                BorderBrush="{DynamicResource Brush.Border.Scrim}"
                                                 BorderThickness="1"
                                                 CornerRadius="3"
                                                 Padding="4,1">
@@ -314,8 +534,8 @@
                         <!-- Active Source overlay tag (visible when video is playing, docked bottom-left) -->
                         <Border HorizontalAlignment="Left" VerticalAlignment="Bottom"
                                 Margin="8,0,0,8"
-                                Background="#D90B0F17"
-                                BorderBrush="#33FFFFFF"
+                                Background="{DynamicResource Brush.Surface.Scrim}"
+                                BorderBrush="{DynamicResource Brush.Border.Scrim}"
                                 BorderThickness="1"
                                 CornerRadius="4"
                                 Padding="6,2">
@@ -448,8 +668,8 @@
                     <Border x:Name="ErrorBanner"
                             VerticalAlignment="Bottom"
                             Margin="6"
-                            Background="#E61F0A0A"
-                            BorderBrush="#4DEF4444"
+                            Background="{DynamicResource Brush.Surface.ScrimDanger}"
+                            BorderBrush="{DynamicResource Brush.Border.Danger}"
                             BorderThickness="1"
                             CornerRadius="4"
                             Padding="6,3">
@@ -471,373 +691,99 @@
                                    TextWrapping="Wrap" />
                     </Border>
 
-                    <!--
-                        Progressive Disclosure: Auto-hiding Floating Action Dock on the video surface.
-                        Hosts Layout, Copy layout, Turn Off, and blocked reason.
-                        Appears on hover, focus, touch tap, or when a menu/copy is active.
-                    -->
-                    <Border x:Name="FloatingActionDock"
-                            VerticalAlignment="Top"
-                            HorizontalAlignment="Stretch"
-                            Margin="6"
-                            Padding="6"
-                            Background="{DynamicResource Brush.Surface.Overlay}"
-                            BorderBrush="{DynamicResource Brush.Border.Control}"
-                            BorderThickness="1"
-                            CornerRadius="8">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <!-- Any reason to show the dock sets Tag; the one Tag trigger below fades it in and out and makes it touchable. -->
-                                <Setter Property="Opacity" Value="0" />
-                                <Setter Property="IsHitTestVisible" Value="False" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMouseOver, ElementName=CardFrame}" Value="True">
-                                        <Setter Property="Tag" Value="Revealed" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=CardFrame}" Value="True">
-                                        <Setter Property="Tag" Value="Revealed" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                        <Setter Property="Tag" Value="Revealed" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsLayoutMenuOpen, Mode=OneWay}" Value="True">
-                                        <Setter Property="Tag" Value="Revealed" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsTouchRevealed, RelativeSource={RelativeSource AncestorType=views:DisplayCardView}}" Value="True">
-                                        <Setter Property="Tag" Value="Revealed" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
-                                        <Setter Property="Tag" Value="Revealed" />
-                                    </DataTrigger>
-                                    <Trigger Property="Tag" Value="Revealed">
-                                        <Setter Property="IsHitTestVisible" Value="True" />
-                                        <Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" /></Storyboard></BeginStoryboard></Trigger.EnterActions>
-                                        <Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25" /></Storyboard></BeginStoryboard></Trigger.ExitActions>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
+                  </Grid>
+                </Border>
 
+                <!--
+                    Status dock (Row 3): line 1 SOURCE and the output format; line 2 the stale-draft notice and why Copy layout is off.
+                    The Undo toast takes this row while it shows - never the picture.
+                -->
+                <Grid Grid.Row="3" Margin="0,8,0,0" Height="56">
+                    <StackPanel VerticalAlignment="Center">
                         <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="6" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Layout ▾ Button -->
-                            <Button x:Name="LayoutButton"
-                                    Grid.Row="0" Grid.Column="0"
-                                    MinHeight="56"
-                                    AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
-                                    ToolTip="Choose a layout for this display"
-                                    PreviewKeyDown="LayoutButton_PreviewKeyDown"
-                                    PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
-                                    PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
-                                    Click="LayoutButton_Click">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
-                                        <Setter Property="Padding" Value="8,6" />
-                                    </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <Path x:Name="LayoutIcon"
-                                          Data="{StaticResource Icon.Grid}"
-                                          Fill="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
-                                          Width="16" Height="16"
-                                          Stretch="Uniform"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,6,0" />
-                                    <TextBlock Text="Layout ▾" VerticalAlignment="Center" FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Button>
+                            <!-- Active Source Label / Status -->
+                            <TextBlock Grid.Column="0" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Muted}" TextTrimming="CharacterEllipsis">
+                                <Run Text="SOURCE: " />
+                                <Run Text="{Binding SourceLabel, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                            </TextBlock>
 
-                            <!-- Copy layout Button -->
-                            <Button x:Name="CopyLayoutHandle"
-                                    Grid.Row="0" Grid.Column="2"
-                                    MinHeight="56"
-                                    IsEnabled="{Binding CanCopyFrom, Mode=OneWay}"
-                                    AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
-                                    ToolTip="Drag onto another display to copy this picture there - or tap, then tap a display"
-                                    ToolTipService.ShowOnDisabled="True"
-                                    Click="CopyHandle_Click"
-                                    PreviewMouseLeftButtonDown="CopyHandle_PreviewMouseLeftButtonDown"
-                                    PreviewMouseMove="CopyHandle_PreviewMouseMove"
-                                    PreviewMouseLeftButtonUp="CopyHandle_PreviewMouseLeftButtonUp">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
-                                        <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
-                                        <Setter Property="Padding" Value="8,6" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <Path x:Name="CopyIcon"
-                                          Data="{StaticResource Icon.Copy}"
-                                          Stroke="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
-                                          StrokeThickness="2"
-                                          StrokeLineJoin="Round"
-                                          Width="16" Height="16"
-                                          Stretch="Uniform"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,6,0" />
-                                    <TextBlock Text="Copy layout" VerticalAlignment="Center" FontWeight="SemiBold" />
-                                </StackPanel>
-                            </Button>
-
-                            <!--
-                                Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15).
-                                Placed in the action strip, keeps touch height >= 56.
-                            -->
-                            <Button x:Name="DraftChip"
-                                    Grid.Row="0" Grid.Column="3"
-                                    Margin="6,0,0,0"
-                                    Width="84"
-                                    MinHeight="56"
-                                    Cursor="Hand"
-                                    AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
-                                    ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
-                                    Click="DraftChip_Click">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Grid>
-                                            <Rectangle x:Name="DraftFrame"
-                                                       Fill="{DynamicResource Brush.Surface.Staged}"
-                                                       Stroke="{DynamicResource Brush.Status.Staged}"
-                                                       StrokeThickness="1.5"
-                                                       StrokeDashArray="4 3"
-                                                       RadiusX="8" RadiusY="8" />
-                                            <ContentPresenter Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Grid>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="DraftFrame" Property="Fill" Value="{DynamicResource Brush.Surface.StagedHover}" />
-                                            </Trigger>
-                                            <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                                                <Setter TargetName="DraftFrame" Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
-                                                <Setter TargetName="DraftFrame" Property="StrokeThickness" Value="2" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                                <TextBlock Text="DRAFT &#183; Resume"
-                                           FontSize="14"
-                                           FontWeight="Bold"
-                                           TextWrapping="Wrap"
-                                           TextAlignment="Center"
-                                           Foreground="{DynamicResource Brush.Status.StagedChipText}" />
-                            </Button>
-
-                            <!-- Quick Power / Turn Off Button -->
-                            <Button x:Name="TurnOffButton"
-                                    Grid.Row="0" Grid.Column="4"
-                                    Margin="6,0,0,0"
-                                    MinHeight="48"
-                                    MinWidth="48"
-                                    HorizontalAlignment="Center"
-                                    Command="{Binding UnrouteCommand, Mode=OneWay}"
-                                    ToolTip="Turn off display feed / Unroute video"
-                                    FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
-                                    AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
-                                    Background="#26EF4444"
-                                    Foreground="{DynamicResource Brush.Action.Danger}"
-                                    BorderBrush="#4DEF4444"
-                                    BorderThickness="1"
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Padding="10,6"
-                                    Cursor="Hand">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="⏻" FontSize="14" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Off" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-
-                            <!-- Why Copy layout is off, in words ("RX1 shows nothing to copy") -->
-                            <TextBlock x:Name="CopyFromBlockedLabel"
-                                       Grid.Row="1" Grid.ColumnSpan="5"
-                                       Text="{Binding CopyFromBlockedText, Mode=OneWay}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource Brush.Text.Secondary}"
-                                       TextWrapping="Wrap"
-                                       TextAlignment="Right"
-                                       Margin="0,4,0,0">
+                            <!-- Decoder output format from the display's EDID (multiview and Single View) -->
+                            <TextBlock x:Name="OutputLine" Grid.Column="1"
+                                       Text="{Binding CanvasInfo, Mode=OneWay}"
+                                       ToolTip="{Binding CanvasInfo, Mode=OneWay}"
+                                       Margin="8,0,0,0"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.Text.Accent}"
+                                       TextTrimming="CharacterEllipsis">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            <!-- Hidden, not collapsed: the line keeps its height so every card has the same chrome -->
+                                            <DataTrigger Binding="{Binding CanvasInfo, Mode=OneWay}" Value="">
+                                                <Setter Property="Visibility" Value="Hidden" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
                         </Grid>
-                    </Border>
-                  </Grid>
-                </Border>
 
-                <!--
-                    Card Telemetry (Row 2): line 1 IP / MAC and SOURCE - or, while a kept draft is based on an older picture, that
-                    notice (one line, outside the picture, same height); line 2 the output format (always reserved).
-                -->
-                <Grid Grid.Row="2" Margin="0,6,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                        <!-- A copy replaced the screen the kept draft was made on -->
+                        <TextBlock x:Name="DraftNoticeLine"
+                                   Text="{Binding DraftNotice, Mode=OneWay}"
+                                   ToolTip="{Binding DraftNotice, Mode=OneWay}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.Status.StagedText}"
+                                   TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <!-- The copy tag takes the notice's place while this display is the copy source -->
+                                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" FontSize="11" Foreground="{DynamicResource Brush.Text.Secondary}" TextTrimming="CharacterEllipsis">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Hidden" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}" />
-                                            <Condition Binding="{Binding IsCopySource, Mode=OneWay}" Value="False" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                        <Run Text="{Binding IpAddress, Mode=OneWay}" />
-                        <Run Text=" &#183; " Foreground="{DynamicResource Brush.Text.Muted}" />
-                        <Run Text="{Binding MacAddress, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Muted}" />
-                    </TextBlock>
-
-                    <!-- Active Source Label / Status -->
-                    <TextBlock Grid.Row="0" Grid.Column="1" FontSize="10" Foreground="{DynamicResource Brush.Text.Muted}"
-                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,1,0,0">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Hidden" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}" />
-                                            <Condition Binding="{Binding IsCopySource, Mode=OneWay}" Value="False" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                        <Run Text="SOURCE: " />
-                        <Run Text="{Binding SourceLabel, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Secondary}" FontWeight="Medium" />
-                    </TextBlock>
-
-                    <!-- A copy replaced the screen the kept draft was made on -->
-                    <TextBlock x:Name="DraftNoticeLine"
-                               Grid.Row="0" Grid.ColumnSpan="2"
-                               Text="{Binding DraftNotice, Mode=OneWay}"
-                               ToolTip="{Binding DraftNotice, Mode=OneWay}"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Brush.Status.StagedText}"
-                               TextTrimming="CharacterEllipsis">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                    <!-- The copy tag takes the line while this display is the copy source -->
-                                    <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <!-- This display is the copy source (armed by a tap, or being dragged): the tag takes line 1, outside the picture -->
-                    <Border x:Name="CopySourceChip"
-                            Grid.Row="0" Grid.ColumnSpan="2"
-                            HorizontalAlignment="Left"
-                            Background="{DynamicResource Brush.Border.DropTarget}"
-                            CornerRadius="4"
-                            Padding="8,0"
-                            IsHitTestVisible="False">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <TextBlock Text="COPYING FROM HERE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
-                    </Border>
-
-                    <!-- Decoder output format from the display's EDID (multiview and Single View) -->
-                    <TextBlock x:Name="OutputLine" Grid.Row="1" Grid.ColumnSpan="2"
-                               Text="{Binding CanvasInfo, Mode=OneWay}"
-                               ToolTip="{Binding CanvasInfo, Mode=OneWay}"
-                               FontSize="10"
-                               Foreground="{DynamicResource Brush.Text.Accent}"
-                               TextTrimming="CharacterEllipsis">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <!-- Hidden, not collapsed: the line keeps its height so every card has the same chrome -->
-                                    <DataTrigger Binding="{Binding CanvasInfo, Mode=OneWay}" Value="">
-                                        <Setter Property="Visibility" Value="Hidden" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                        <!-- Why Copy layout is off, in words ("RX1 shows nothing to copy") -->
+                        <TextBlock x:Name="CopyFromBlockedLabel"
+                                   Text="{Binding CopyFromBlockedText, Mode=OneWay}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource Brush.Text.Secondary}"
+                                   TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
                 </Grid>
 
                 <!--
-                    Card body overlays (picture and telemetry rows), above the live picture: the drop choice
+                    Card body overlays, above the live picture and exactly its size: the drop choice
                     and the copy target states. Always words, never colour alone.
                 -->
 
                 <!-- A source dropped / tapped on a MultiView card: it asks; nothing is replaced silently -->
                 <Border x:Name="DropChoicePanel"
-                        Grid.Row="1" Grid.RowSpan="2"
+                        Grid.Row="2"
                         Background="{DynamicResource Brush.Surface.Overlay}"
                         BorderBrush="{DynamicResource Brush.Border.DropTarget}"
                         BorderThickness="1">
@@ -893,7 +839,7 @@
 
                 <!-- Copy target, allowed: "Release to copy here" + what will be copied (the view model's text) -->
                 <Border x:Name="CopyTargetAllowedPanel"
-                        Grid.Row="1" Grid.RowSpan="2"
+                        Grid.Row="2"
                         Background="{DynamicResource Brush.Surface.CopyTarget}">
                     <Border.Style>
                         <Style TargetType="Border" BasedOn="{StaticResource BodyOverlay}">
@@ -923,7 +869,7 @@
 
                 <!-- Copy target, blocked: lock + the reason; no ring -->
                 <Border x:Name="CopyTargetBlockedPanel"
-                        Grid.Row="1" Grid.RowSpan="2"
+                        Grid.Row="2"
                         Background="{DynamicResource Brush.Surface.Overlay}">
                     <Border.Style>
                         <Style TargetType="Border" BasedOn="{StaticResource BodyOverlay}">
@@ -953,16 +899,17 @@
                     </StackPanel>
                 </Border>
 
-                <!-- After a copy onto this display: what it shows now, and Undo for 10 s (on top: Undo stays reachable) -->
+                <!-- After a copy onto this display: what it shows now, and Undo for 10 s (in the status dock, below the picture, never on it) -->
                 <Border x:Name="UndoToast"
-                        Grid.Row="1"
-                        VerticalAlignment="Bottom"
-                        Margin="6"
+                        Grid.Row="3"
+                        MinHeight="56"
+                        VerticalAlignment="Stretch"
+                        Margin="0,4,0,0"
                         Background="{DynamicResource Brush.Surface.UndoToast}"
                         BorderBrush="{DynamicResource Brush.Status.Online}"
                         BorderThickness="2"
                         CornerRadius="8"
-                        Padding="10,4,4,4">
+                        Padding="10,0,0,0">
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
@@ -1011,8 +958,7 @@
                     here rather than as a focus adorner so it also renders (and so a copy target reads as focused).
                 -->
                 <Border x:Name="PictureFocusRing"
-                        Grid.Row="1"
-                        Margin="0,6,0,0"
+                        Grid.Row="2"
                         BorderBrush="{DynamicResource Brush.Focus.Ring}"
                         BorderThickness="2"
                         CornerRadius="6"

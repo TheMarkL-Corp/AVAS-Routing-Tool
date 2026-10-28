@@ -24,11 +24,11 @@ namespace AvasRoutingTool.Controls
             VideoAspect: 16.0 / 9.0);
 
         /// <summary>
-        /// The display card: its header carries the 56 px Layout and Copy layout buttons, so its chrome is taller;
-        /// with it the picture keeps 16:9 in every state (a smoke test measures the real card: Single View, MultiView,
-        /// a draft chip on the picture).
+        /// The display card: a 24 px header, a 64 px action bar (56 px buttons), the 16:9 picture and a 64 px status dock.
+        /// Chrome = frame 2 + padding 24 + 24 + 64 + 64 = 178, so the picture keeps 16:9 in every state (a smoke test
+        /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
         /// </summary>
-        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 87, HorizontalPadding = 26 };
+        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 178, HorizontalPadding = 26 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>

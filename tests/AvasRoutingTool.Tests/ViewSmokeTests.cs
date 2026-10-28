@@ -1782,7 +1782,7 @@ namespace AvasRoutingTool.Tests
                     AssertInside(toast, (FrameworkElement)Named(pax, "CardFrame").Single());
                     var tb = BoundsIn(toast, view);
                     var pb = BoundsIn(paxPreview, view);
-                    Assert.True(tb.Top >= pb.Top - 0.5 && tb.Bottom <= pb.Bottom + 0.5, $"the toast {tb} leaves the picture {pb}");
+                    Assert.False(tb.IntersectsWith(pb), $"the toast {tb} overlaps the picture {pb}");
                     AssertTextFits((TextBlock)Named(pax, "UndoToastLabel").Single());
                     AssertInside((FrameworkElement)Named(pax, "UndoScreenButton").Single(), toast);
                 });
@@ -3891,7 +3891,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void DisplayCard_ActionDock_IsUntouchableUntilRevealed_AndATapKeepsItUpForFourSeconds_UntilTheCardUnloads() =>
+        public void DisplayCard_ActionBar_IsAlwaysVisibleOutsideThePicture_AndTurnOffUsesVectorIcon() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -3899,20 +3899,12 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var dock = (Border)Named(view, "FloatingActionDock").Single();
-                    Assert.False(dock.IsHitTestVisible, "a hidden dock must not catch the first tap");
-                    Assert.False(view.IsTouchRevealed);
-                    Assert.Equal(TimeSpan.FromSeconds(4), DisplayCardView.TouchRevealDuration);
-
-                    view.RevealActionsOnTouch();
-                    Assert.True(view.IsTouchRevealed);
-                    Assert.True(view.TouchRevealTimerRunning);
-                    Assert.True(dock.IsHitTestVisible);
-
-                    // A card that leaves the tree takes its timer with it.
-                    view.RaiseEvent(new RoutedEventArgs(FrameworkElement.UnloadedEvent));
-                    Assert.False(view.TouchRevealTimerRunning);
-                    Assert.False(view.IsTouchRevealed);
-                    Assert.False(dock.IsHitTestVisible);
+                    var picture = (FrameworkElement)Named(view, "PreviewSurface").Single();
+                    var turnOff = (Button)Named(view, "TurnOffButton").Single();
+                    Assert.True(dock.IsVisible && dock.IsHitTestVisible && dock.Opacity == 1.0);
+                    Assert.False(BoundsIn(dock, view).IntersectsWith(BoundsIn(picture, view)), "the action bar overlaps the 16:9 picture");
+                    Assert.True(turnOff.IsVisible && turnOff.ActualHeight >= 48 && turnOff.ActualWidth >= 48);
+                    Assert.NotEmpty(FindAll<System.Windows.Shapes.Path>(turnOff));
                 });
             });
     }
