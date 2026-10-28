@@ -194,6 +194,24 @@ namespace AvasRoutingTool.ViewModels
 
         public bool StepPlaceDone => _draft != null && _draft.Placements.Count > 0;
 
+        // The step markers show a number or a check; these say the same in words for a screen reader.
+        public string StepLayoutText => $"Step 1, Layout: {(StepLayoutDone ? "done" : "to do")}";
+
+        public string StepPlaceText => $"Step 2, Place sources: {(StepPlaceDone ? "done" : "to do")}";
+
+        public string StepTakeText => $"Step 3, Check, then take: {(CanTake ? "ready" : "not ready")}";
+
+        /// <summary>What the ON SCREEN NOW picture shows, in words (the thumbnail itself has no text for a screen reader).</summary>
+        public string OnScreenSummary
+        {
+            get
+            {
+                if (LiveBlocks.Count == 0) return "On screen now: no MultiView on this screen";
+                var blocks = LiveBlocks.Select(b => b.IsPlaced ? $"{(b.Number == 1 ? "Block" : "block")} {b.Number} {b.SourceName}" : $"block {b.Number} empty");
+                return $"On screen now: {LiveBlocks.Count} blocks. {string.Join("; ", blocks)}";
+            }
+        }
+
         public bool IsBusy { get => _busy; private set { if (Set(ref _busy, value)) RaiseDerived(); } }
 
         public ComposerBanner Banner
@@ -1150,7 +1168,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes), nameof(ChangeLines),
                 nameof(ChangeCount), nameof(IsStaged), nameof(IsOnScreen),
-                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
+                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(StepLayoutText), nameof(StepPlaceText), nameof(StepTakeText), nameof(OnScreenSummary), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
                 nameof(CanUndo), nameof(UnplacedSources), nameof(OutputText), nameof(RateNote), nameof(HeaderNotice),
             })
                 Raise(name);
