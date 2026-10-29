@@ -4,7 +4,6 @@
 
   // Every view file that breaks a rule today -> owner and task (plan task ids). A file is enforced as soon as it leaves this list.
   "pending": {
-    "MainWindow.xaml": "Main Window session: A6 (Logs tab; the app bar and brand are done in A5)",
     "Views/VisualRoutingView.xaml": "Main Window session: A7",
     "Views/SourceCardView.xaml": "Main Window session: A8",
     "Views/DisplayCardView.xaml": "Main Window session: A9-A11",
