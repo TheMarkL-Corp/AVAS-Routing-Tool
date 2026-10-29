@@ -32,21 +32,6 @@
             <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
 
-        <Style x:Key="RailCard" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="12" />
-            <Setter Property="Margin" Value="0,0,4,12" />
-        </Style>
-
-        <Style x:Key="RailHeading" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-            <Setter Property="AutomationProperties.HeadingLevel" Value="Level2" />
-        </Style>
     </UserControl.Resources>
 
     <!-- Transparent background: a tap on any empty area stops placing / moving (spec 6) -->
@@ -66,35 +51,13 @@
 
             <StackPanel VerticalAlignment="Center">
                 <WrapPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding HeaderNotice, Mode=OneWay}"
-                               FontSize="20"
-                               FontWeight="SemiBold"
-                               Margin="0,0,12,0"
-                               VerticalAlignment="Center" />
-                    <Border Background="{DynamicResource Brush.Surface.Elevated}" CornerRadius="12" Padding="10,3" Margin="0,2,8,2" VerticalAlignment="Center">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding OutputText, Mode=OneWay}" Value="">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <TextBlock Text="{Binding OutputText, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Soft}" />
-                    </Border>
-                    <Border Background="{DynamicResource Brush.Surface.Elevated}" CornerRadius="12" Padding="10,3" Margin="0,2" VerticalAlignment="Center">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding RateNote, Mode=OneWay}" Value="">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <TextBlock Text="{Binding RateNote, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Soft}" />
-                    </Border>
+                    <TextBlock Text="{Binding HeaderNotice, Mode=OneWay}" Style="{StaticResource Style.Text.Lead}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                    <ui:Badge Style="{StaticResource Style.Badge.Info}" Margin="0,2,8,2"
+                              Content="{Binding OutputText, Mode=OneWay}"
+                              Visibility="{Binding OutputText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                    <ui:Badge Style="{StaticResource Style.Badge.Info}" Margin="0,2"
+                              Content="{Binding RateNote, Mode=OneWay}"
+                              Visibility="{Binding RateNote, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
                 </WrapPanel>
                 <TextBlock x:Name="PreviewCaption"
                            Style="{StaticResource Style.Text.ComposerLabel}"
@@ -107,10 +70,14 @@
                     Grid.Column="1"
                     Margin="12,0,0,0"
                     Style="{StaticResource Style.Button.Composer}"
-                    Content="Back to displays"
                     ToolTip="Close the Composer. Changes that are not on screen are kept as a draft on the display card."
                     AutomationProperties.Name="Back to displays"
-                    Click="Close_Click" />
+                    Click="Close_Click">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="{StaticResource Size.Icon.M}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Back to displays" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
         </Grid>
 
         <!-- ===== Body: left rail | canvas | right rail ===== -->
@@ -126,16 +93,7 @@
 
             <!-- ===== Left rail: Step 1 layout, Step 2 place, Step 3 check and take ===== -->
             <ScrollViewer x:Name="LeftRailScroll" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-                <StackPanel Margin="0,0,4,0">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
-                                    <Setter Property="IsEnabled" Value="False" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
+                <StackPanel Margin="0,0,4,0" Style="{StaticResource Style.Panel.BusyDisables}">
 
                     <!-- Step 1 -->
                     <controls:StepHeader x:Name="StepLayoutHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,6"
@@ -180,19 +138,9 @@
                                Text="Tap a source above, then its blocks - or tap an empty block." />
 
                     <!-- Sources a layout change left without a block -->
-                    <StackPanel Margin="0,0,0,6">
-                        <StackPanel.Style>
-                            <Style TargetType="StackPanel">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding UnplacedSources, Mode=OneWay, Converter={StaticResource HasItems}}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </StackPanel.Style>
-                        <TextBlock Text="Unplaced after the layout change - tap to place again:" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.Status.StagedText}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <StackPanel Margin="0,0,0,6"
+                                Visibility="{Binding UnplacedSources, Mode=OneWay, Converter={StaticResource Converter.Visible.HasItems}}">
+                        <TextBlock Text="Unplaced after the layout change - tap to place again:" Style="{StaticResource Style.Text.Notice.Staged}" Margin="0,0,0,6" />
                         <ItemsControl ItemsSource="{Binding UnplacedSources, Mode=OneWay}" Focusable="False">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -202,11 +150,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button x:Name="UnplacedChip"
-                                            Style="{StaticResource Style.Button.Composer}"
-                                            Margin="0,0,8,8"
-                                            Background="{DynamicResource Brush.Surface.Staged}"
-                                            BorderBrush="{DynamicResource Brush.Status.Staged}"
-                                            Foreground="{DynamicResource Brush.Status.StagedChipText}"
+                                            Style="{StaticResource Style.Button.UnplacedChip}"
                                             Content="{Binding SourceName, Mode=OneWay}"
                                             AutomationProperties.Name="{Binding SourceName, Mode=OneWay, StringFormat='Place {0} again - it has no block in this layout'}"
                                             Click="Unplaced_Click" />
@@ -240,55 +184,20 @@
                     <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
                         <TextBlock x:Name="StagedLabel"
                                    Text="STAGED - not on screen yet"
-                                   FontSize="16"
-                                   FontWeight="Bold"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource Brush.Status.StagedText}"
+                                   Style="{StaticResource Style.Text.Status.Staged}"
                                    Visibility="{Binding IsStaged, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock x:Name="OnScreenLabel"
                                    Text="ON SCREEN - this is what the surgeon sees"
-                                   FontSize="16"
-                                   FontWeight="Bold"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource Brush.Text.Accent}"
+                                   Style="{StaticResource Style.Text.Status.OnScreen}"
                                    Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
 
                     <!-- Done placing / Cancel move (Disarm stops both) -->
-                    <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Center">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Setter Property="Content" Value="Done placing" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding MovingFromIndex, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Setter Property="Content" Value="Cancel move" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Setter Property="Content" Value="Done placing" />
-                                        <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                    <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Center" Style="{StaticResource Style.Button.Done}" />
                 </Grid>
 
                 <!-- The screen: black canvas at the display's real aspect, framed by its state -->
-                <Grid Grid.Row="1" x:Name="CanvasHost" Margin="8" Background="Transparent">
-                    <Grid.Style>
-                        <Style TargetType="Grid">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
-                                    <Setter Property="IsEnabled" Value="False" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Grid.Style>
+                <Grid Grid.Row="1" x:Name="CanvasHost" Margin="8" Background="Transparent" Style="{StaticResource Style.Panel.BusyDisables}">
 
                     <controls:FractionalLayoutPanel>
                         <controls:FractionalLayoutPanel.AspectRatio>
@@ -778,9 +687,9 @@
 
                 <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                     <StackPanel>
-                        <Border Style="{StaticResource RailCard}">
+                        <ui:Card Style="{StaticResource Style.Card.Rail}">
                             <StackPanel>
-                                <TextBlock Text="ON SCREEN NOW" Style="{StaticResource RailHeading}" Margin="0,0,0,8" />
+                                <TextBlock Text="ON SCREEN NOW" Style="{StaticResource Style.Text.RailHeading}" Margin="0,0,0,8" />
                                 <Grid x:Name="OnScreenPicture" AutomationProperties.Name="{Binding OnScreenSummary, Mode=OneWay}">
                                     <controls:FractionalLayoutPanel AspectRatio="1.7777777777777777" MinHeight="120">
                                         <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1"
@@ -839,33 +748,24 @@
                                 </Grid>
                                 <TextBlock Text="{Binding OutputText, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,8,0,0" />
                             </StackPanel>
-                        </Border>
+                        </ui:Card>
 
-                        <Border Style="{StaticResource RailCard}">
+                        <ui:Card Style="{StaticResource Style.Card.Rail}">
                             <StackPanel>
-                                <TextBlock FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Status.StagedText}" Margin="0,0,0,6">
+                                <TextBlock Style="{StaticResource Style.Text.RailHeading.Staged}" Margin="0,0,0,6">
                                     <Run Text="CHANGES (" /><Run Text="{Binding ChangeCount, Mode=OneWay}" /><Run Text=")" />
                                 </TextBlock>
-                                <TextBlock Text="No staged changes.">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource HasItems}}" Value="True">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                <TextBlock Text="No staged changes." Style="{StaticResource Style.Text.ComposerLabel}"
+                                           Visibility="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}" />
                                 <ItemsControl ItemsSource="{Binding ChangeLines, Mode=OneWay}" Focusable="False">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Mode=OneWay}" FontSize="14" Foreground="{DynamicResource Brush.Text.Strong}" TextWrapping="Wrap" Margin="0,2" />
+                                            <TextBlock Text="{Binding Mode=OneWay}" Style="{StaticResource Style.Text.Change}" />
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                        </Border>
+                        </ui:Card>
                     </StackPanel>
                 </ScrollViewer>
 

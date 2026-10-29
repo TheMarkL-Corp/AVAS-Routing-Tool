@@ -1638,5 +1638,87 @@ namespace AvasRoutingTool.Tests
                 }
                 finally { window.Close(); }
             });
+
+        // ---- UI v2 Task 6: header, rail cards, status line ----
+
+        [Fact]
+        public void Composer_BackButton_HasArrowIcon_AndKeepsName() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                Showing(view, () =>
+                {
+                    var back = (Button)Named(view, "CloseComposerButton").Single();
+                    Assert.Equal("Back to displays", AutomationProperties.GetName(back));
+                    Assert.True(back.ActualHeight >= 48);
+                    var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(back).Single();
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.ArrowLeft24, icon.Symbol);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.FontSize);
+                    Assert.Contains(FindAll<TextBlock>(back), t => t.Text == "Back to displays");
+                });
+            });
+
+        [Fact]
+        public void Composer_RailCards_AreUiCards_WithAppBackground() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                Showing(view, () =>
+                {
+                    var cards = FindAll<Wpf.Ui.Controls.Card>(view);
+                    Assert.Equal(2, cards.Count); // ON SCREEN NOW and CHANGES
+                    var surface = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Card")).Color;
+                    Assert.All(cards, c =>
+                    {
+                        Assert.Same(Application.Current.FindResource("Style.Card.Rail"), c.Style);
+                        Assert.Equal(surface, ((SolidColorBrush)c.Background).Color);
+                        Assert.False(c.Focusable);
+                    });
+                    Assert.Contains(FindAll<TextBlock>(view), t => t.Text == "ON SCREEN NOW" && t.IsVisible);
+                });
+            });
+
+        [Fact]
+        public void Composer_HeaderChips_AreBadges_AndCollapseWhenEmpty() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var chosen = rig.View(rig.Composer("matrix2x2"));
+                var none = rig.View(rig.Composer());
+
+                Showing(chosen, () =>
+                {
+                    var badges = FindAll<Wpf.Ui.Controls.Badge>(chosen);
+                    Assert.NotEmpty(badges);
+                    Assert.All(badges, b => Assert.Same(Application.Current.FindResource("Style.Badge.Info"), b.Style));
+                    Assert.Contains(badges, b => b.IsVisible && b.Content is string s && s.Length > 0);
+                });
+                Showing(none, () =>
+                {
+                    // no layout chosen yet: the output chip has nothing to say and takes no room
+                    Assert.All(FindAll<Wpf.Ui.Controls.Badge>(none), b => Assert.False(b.IsVisible && string.IsNullOrEmpty(b.Content as string)));
+                });
+            });
+
+        [Fact]
+        public void Composer_UnplacedChips_UseTheSharedStagedChipLook() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx2);
+                c.TapBlock(2);
+                c.Disarm();
+                Pump(() => c.SelectLayoutAsync("side_by_side"));
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var chip = (Button)Named(view, "UnplacedChip").First(e => e.IsVisible);
+                    Assert.IsType<System.Windows.Shapes.Rectangle>(chip.Template.FindName("DraftFrame", chip));
+                    Assert.Equal((double)Application.Current.FindResource("Size.Touch.Min"), chip.MinHeight);
+                });
+            });
     }
 }

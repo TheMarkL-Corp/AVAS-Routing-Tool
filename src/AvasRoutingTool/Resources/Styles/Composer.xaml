@@ -138,4 +138,90 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- ===== Converter instances owned by the Composer (the shared ones live in Converters.xaml) ===== -->
+    <views:IsNullConverter x:Key="Converter.Composer.IsNull" />
+
+    <!-- ===== Header, rail cards, status line ===== -->
+    <Style x:Key="Style.Card.Rail" TargetType="{x:Type ui:Card}" BasedOn="{StaticResource {x:Type ui:Card}}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Border.CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="Margin" Value="0,0,4,12" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Focusable" Value="False" />
+    </Style>
+
+    <Style x:Key="Style.Text.RailHeading" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Section}">
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <Style x:Key="Style.Text.RailHeading.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.RailHeading}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Status.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Status.OnScreen" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Notice.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="Style.Text.Change" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Strong}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,2" />
+    </Style>
+
+    <!-- A panel whose children stop taking input while the view model is busy (a layout change or a Take is in flight) -->
+    <Style x:Key="Style.Panel.BusyDisables" TargetType="FrameworkElement">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- A source a layout change left without a block: the shared staged chip, 48 px high -->
+    <Style x:Key="Style.Button.UnplacedChip" TargetType="Button" BasedOn="{StaticResource Style.Button.Chip.Staged}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Margin" Value="0,0,8,8" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+    </Style>
+
+    <!-- Done placing / Cancel move (Disarm stops both) -->
+    <Style x:Key="Style.Button.Done" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Setter Property="Content" Value="Done placing" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding MovingFromIndex, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Visible" />
+                <Setter Property="Content" Value="Cancel move" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Visible" />
+                <Setter Property="Content" Value="Done placing" />
+                <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
 </ResourceDictionary>

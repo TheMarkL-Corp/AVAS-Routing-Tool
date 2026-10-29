@@ -237,7 +237,9 @@ namespace AvasRoutingTool.Tests
                     {
                         foreach (var setter in s.Setters.OfType<Setter>().Where(x => x.Property.Name == "FontSize"))
                         {
-                            Assert.True(setter.Value is double size && size >= 12, $"{key} sets FontSize {setter.Value}");
+                            // A style based on a WPF-UI control (ui:Card) inherits its FontSize as a theme resource: judge the size it resolves to.
+                            var value = setter.Value is DynamicResourceExtension dynamic ? Application.Current.FindResource(dynamic.ResourceKey) : setter.Value;
+                            Assert.True(value is double size && size >= 12, $"{key} sets FontSize {setter.Value}");
                         }
                     }
                 }
