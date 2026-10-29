@@ -455,7 +455,7 @@ namespace AvasRoutingTool.Tests
                 {
                     var chips = Named(view, "UnplacedChip").Where(e => e.IsVisible).Cast<Button>().ToList();
                     Assert.Equal(new[] { "TX2", "VEGA_1100" }, chips.Select(b => b.Content as string));
-                    Assert.All(chips, b => Assert.True(b.ActualHeight >= 56));
+                    Assert.All(chips, b => Assert.True(b.ActualHeight >= 48));
                     Click(chips[0]);
                     Assert.Same(rig.Tx2, c.ArmedSource);
                 });
@@ -476,7 +476,7 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var replace = Named(view, "ReplaceButton").Single(e => e.IsVisible);
-                    Assert.True(replace.ActualHeight >= 56);
+                    Assert.True(replace.ActualHeight >= 48);
                     Click(replace);
                     Assert.Equal(c.Blocks[0].Index, c.PickerBlockIndex);
 

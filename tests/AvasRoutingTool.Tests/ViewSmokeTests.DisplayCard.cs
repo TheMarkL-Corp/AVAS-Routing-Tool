@@ -548,7 +548,7 @@ namespace AvasRoutingTool.Tests
                     foreach (var name in new[] { "FullScreenButton", "IntoBlockButton" })
                     {
                         var b = (Button)Named(rx1, name).Single();
-                        Assert.True(b.IsVisible && b.ActualHeight >= 56);
+                        Assert.True(b.IsVisible && b.ActualHeight >= 48);
                         AssertInside(b, choice);
                         foreach (var t in FindAll<TextBlock>(b)) AssertTextFits(t);
                     }

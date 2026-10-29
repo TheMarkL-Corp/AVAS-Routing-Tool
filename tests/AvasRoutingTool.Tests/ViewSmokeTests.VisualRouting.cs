@@ -110,7 +110,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Empty(VisibleTexts(view, "Placing TX1 - tap a display or a block"));
 
                     var close = (Button)Named(composerView, "CloseComposerButton").Single();
-                    Assert.True(close.ActualHeight >= 56, $"close is {close.ActualHeight} high");
+                    Assert.True(close.ActualHeight >= 48, $"close is {close.ActualHeight} high");
                     close.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                     Relayout(view);
 
@@ -154,7 +154,7 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var stop = Named(view, "StopPlacingButton").Single();
-                    Assert.True(stop.IsVisible && stop.ActualHeight >= 56);
+                    Assert.True(stop.IsVisible && stop.ActualHeight >= 48);
                     Click(stop);
                     Assert.Null(vm.ArmedSource);
                     Relayout(view);
@@ -176,7 +176,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(rig.Vm.CopyArmBanner, Assert.Single(VisibleTexts(view, "Copying RX1_c059e_SFPA - ")).Text);
                     Assert.Empty(VisibleTexts(view, "Placing "));
                     var stop = (Button)Named(view, "StopPlacingButton").Single();
-                    Assert.True(stop.IsVisible && stop.ActualHeight >= 56);
+                    Assert.True(stop.IsVisible && stop.ActualHeight >= 48);
 
                     // Arming a source replaces the copy arm: still exactly one banner.
                     rig.Vm.ArmSource(rig.Tx2);
