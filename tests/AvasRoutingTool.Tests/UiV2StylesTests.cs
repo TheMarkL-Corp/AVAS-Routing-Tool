@@ -87,8 +87,8 @@ namespace AvasRoutingTool.Tests
             ("Converter.Visible.True", "Converters.xaml"), ("Converter.Visible.False", "Converters.xaml"), ("Converter.Visible.NotNull", "Converters.xaml"),
             ("Converter.Visible.Null", "Converters.xaml"), ("Converter.Visible.NotEmpty", "Converters.xaml"), ("Converter.Visible.HasItems", "Converters.xaml"),
             ("Converter.Visible.NoItems", "Converters.xaml"), ("Converter.WidthAtLeast", "Converters.xaml"), ("Converter.BoolToGridLength", "Converters.xaml"),
-            // Left where they were: only the Composer takes Take (X7), and the scroll bar family belongs with the implicit ScrollViewer.
-            ("Style.Button.Take", "Theme.xaml"), ("Style.RepeatButton.ScrollPage", "Theme.xaml"), ("Style.Thumb.Scroll", "Theme.xaml"),
+            // Take moved to Composer.xaml (X7: only the Composer uses it); the scroll bar family belongs with the implicit ScrollViewer.
+            ("Style.Button.Take", "Composer.xaml"), ("Style.RepeatButton.ScrollPage", "Theme.xaml"), ("Style.Thumb.Scroll", "Theme.xaml"),
             ("Style.ScrollBar.Thin", "Theme.xaml"),
         }.Select(t => new object[] { t.Item1, t.Item2 });
 
@@ -138,11 +138,11 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void ThemeXaml_HoldsOnlyTakeAndTheScrollBarFamily()
+        public void ThemeXaml_HoldsOnlyTheScrollBarFamily()
         {
             var xaml = File.ReadAllText(Path.Combine(SourceRoot(), "Resources", "Theme.xaml"));
             var keys = System.Text.RegularExpressions.Regex.Matches(xaml, "<Style x:Key=\"([^\"]+)\"").Select(m => m.Groups[1].Value).OrderBy(k => k).ToArray();
-            Assert.Equal(new[] { "Style.Button.Take", "Style.RepeatButton.ScrollPage", "Style.ScrollBar.Thin", "Style.Thumb.Scroll" }, keys);
+            Assert.Equal(new[] { "Style.RepeatButton.ScrollPage", "Style.ScrollBar.Thin", "Style.Thumb.Scroll" }, keys);
         }
 
         [Theory]

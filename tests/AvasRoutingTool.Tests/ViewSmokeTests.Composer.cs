@@ -365,7 +365,7 @@ namespace AvasRoutingTool.Tests
                 ShowingAt(view, 1008, 615, () =>
                 {
                     var undo = (Button)Named(view, "UndoButton").Single();
-                    Assert.True(undo.IsVisible && undo.ActualHeight >= 56);
+                    Assert.True(undo.IsVisible && undo.ActualHeight >= 48);
                     var ub = BoundsIn(undo, view);
                     Assert.True(ub.Bottom <= view.ActualHeight + 0.5, $"Undo at {ub}");
 
@@ -1799,6 +1799,102 @@ namespace AvasRoutingTool.Tests
                     var locks = Named(view, "LockIcon").Where(e => e.IsVisible).ToList();
                     Assert.Equal(3, locks.Count);
                     Assert.All(locks, l => Assert.Equal(Wpf.Ui.Controls.SymbolRegular.LockClosed24, ((Wpf.Ui.Controls.SymbolIcon)l).Symbol));
+                });
+            });
+
+        // ---- UI v2 Task 8: right rail ----
+
+        [Theory]
+        [InlineData(BannerKind.Info, "Info24")]
+        [InlineData(BannerKind.Success, "CheckmarkCircle24")]
+        [InlineData(BannerKind.Warning, "Warning24")]
+        [InlineData(BannerKind.Error, "ErrorCircle24")]
+        public void Composer_Banner_ShowsASeverityIconPerKind(BannerKind kind, string symbol) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                // the banner kinds Warning and Error come from hardware failures: set them the way the view model does (its setter is private)
+                typeof(MultiViewComposerViewModel).GetProperty(nameof(MultiViewComposerViewModel.Banner))!.SetValue(c, new ComposerBanner("Something to read", kind));
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var host = Named(view, "BannerHost").Single();
+                    Assert.True(host.IsVisible);
+                    var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(host).Single();
+                    Assert.Equal(symbol, icon.Symbol.ToString());
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.FontSize);
+                    Assert.DoesNotContain(FindAll<TextBlock>(host), t => t.Text is "i" or "!" or "✓" or "✕");
+                    var text = (TextBlock)Named(host, "BannerText").Single();
+                    Assert.Equal("Something to read", text.Text);
+                    Assert.Equal(kind == BannerKind.Error ? AutomationLiveSetting.Assertive : AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(text));
+                });
+            });
+
+        [Fact]
+        public void Composer_Undo_HasUndoIcon_AndTheLabelStillWraps() =>
+            RunSta(() =>
+            {
+                var now = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
+                var (vm, rx, sources) = Overview(() => now);
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[0]);
+                c.TapBlock(c.Blocks[0].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                c.Arm(sources[1]);
+                c.TapBlock(c.Blocks[1].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                var view = new VisualRoutingView { DataContext = vm };
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var undo = (Button)Named(view, "UndoButton").Single();
+                    Assert.True(undo.IsVisible && undo.ActualHeight >= 48);
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.ArrowUndo24, FindAll<Wpf.Ui.Controls.SymbolIcon>(undo).Single().Symbol);
+                    var label = FindAll<TextBlock>(undo).Single(t => t.Text.StartsWith("Undo", StringComparison.Ordinal));
+                    Assert.Equal(TextWrapping.Wrap, label.TextWrapping);
+                });
+            });
+
+        [Fact]
+        public void Composer_OnScreenPicture_KeepsItsSpokenName_AndMiniCanvasFollowsWidth() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var picture = Named(view, "OnScreenPicture").Single();
+                    Assert.Equal("On screen now: no MultiView on this screen", AutomationProperties.GetName(picture));
+                    var panel = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(picture).First();
+                    Assert.True(panel.ActualWidth > 150, $"mini canvas {panel.ActualWidth}");
+                    Assert.InRange(panel.ActualHeight, panel.ActualWidth / (16.0 / 9.0) - 1, panel.ActualWidth / (16.0 / 9.0) + 4); // the live-block layer has a 2 px margin
+                });
+            });
+
+        [Fact]
+        public void Composer_Take_IsTheOnlyControlAbove48() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+                ShowingAt(view, 976, 700, () =>
+                {
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    Assert.True(take.ActualHeight >= (double)Application.Current.FindResource("Size.Composer.Take.Min"));
+                    Assert.IsType<string>(((Button)take).Content);
+                    foreach (var name in new[] { "CloseComposerButton", "DiscardButton", "ClearAllButton" })
+                    {
+                        var b = (FrameworkElement)Named(view, name).Single();
+                        Assert.InRange(b.ActualHeight, 36, 55.9);
+                    }
+                    Assert.Same(Application.Current.FindResource("Style.Button.Take"), ((Button)take).Style);
                 });
             });
     }

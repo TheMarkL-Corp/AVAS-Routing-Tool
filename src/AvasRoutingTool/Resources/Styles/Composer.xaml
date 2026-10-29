@@ -694,4 +694,212 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ===== Right rail: ON SCREEN NOW, banner, Take and the actions ===== -->
+    <sys:Double x:Key="Size.Composer.Take.Min">72</sys:Double>
+
+    <!-- MultiView Composer: Take (primary; the one content-specific touch exception: 72 px, because it is the only action that changes what the surgeon sees). Disabled keeps a readable label (no opacity fade). -->
+    <Style x:Key="Style.Button.Take" TargetType="Button">
+        <Setter Property="MinHeight" Value="{StaticResource Size.Composer.Take.Min}" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Action.Take}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False">
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                    <Setter Property="TextAlignment" Value="Center" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource Brush.Action.TakeHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource Brush.Action.TakePressed}" />
+                        </Trigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Style.Surface.LiveTile" TargetType="Border">
+        <Setter Property="Margin" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.PreviewTile}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
+    <Style x:Key="Style.Text.Tile.Name" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Margin" Value="4" />
+    </Style>
+
+    <Style x:Key="Style.Text.Tile.Label" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="4,2" />
+    </Style>
+
+    <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
+    <Style x:Key="Style.Banner.Composer" TargetType="Border">
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Info}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="None">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.UndoToast}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.Staged}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Staged}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.DangerStrong}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Danger}" />
+            </DataTrigger>
+            <!-- An armed source draws the cyan of the blocks it can fill -->
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Info" />
+                    <Condition Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- A severity icon (shape, not colour alone): info, success, warning, error -->
+    <Style x:Key="Style.Icon.Banner" TargetType="ui:SymbolIcon">
+        <Setter Property="Symbol" Value="Info24" />
+        <Setter Property="FontSize" Value="{StaticResource Size.Icon.M}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                <Setter Property="Symbol" Value="CheckmarkCircle24" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.UndoToast}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                <Setter Property="Symbol" Value="Warning24" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                <Setter Property="Symbol" Value="ErrorCircle24" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Danger}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Banner" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="AutomationProperties.LiveSetting" Value="Polite" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.UndoToast}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Danger}" />
+                <Setter Property="AutomationProperties.LiveSetting" Value="Assertive" />
+            </DataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Info" />
+                    <Condition Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnCopyTarget}" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Reason" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Soft}" />
+        <Setter Property="Margin" Value="0,6,0,0" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding TakeBlockedReason, Mode=OneWay}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Button.Undo" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+        <Setter Property="Margin" Value="0,8,0,0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Online}" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding CanUndo, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Button.Discard" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Draft, Mode=OneWay}" Value="{x:Null}">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Button.ClearAll" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="False">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
 </ResourceDictionary>
