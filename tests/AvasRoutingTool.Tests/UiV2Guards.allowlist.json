@@ -4,7 +4,6 @@
 
   // Every view file that breaks a rule today -> owner and task (plan task ids). A file is enforced as soon as it leaves this list.
   "pending": {
-    "Views/SettingsDialog.xaml": "Main Window session: A12",
     "Views/MultiViewComposerView.xaml": "Composer session: Tasks 4-10 (ratchet until Task 12)",
     "Views/CompactSourceCardView.xaml": "Composer session: Task 11",
     "Views/LayoutSchematic.xaml": "Composer session: Tasks 5b and 11"
