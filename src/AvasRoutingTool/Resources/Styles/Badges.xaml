@@ -41,6 +41,23 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
+    <!-- Device state on the source card: ONLINE (green on its badge surface) and OFFLINE (neutral, secondary text for contrast) -->
+    <Style x:Key="Style.Badge.Online" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.OnlineBadge}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.OnlineBadge}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Online}" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="Style.Badge.Offline" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
     <Style x:Key="Style.Badge.Staged" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Staged}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Staged}" />

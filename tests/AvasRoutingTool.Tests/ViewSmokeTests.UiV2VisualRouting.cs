@@ -106,7 +106,7 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var info = Application.Current.FindResource("Style.Badge.Info");
-                    var badges = FindAll<Badge>(view).Where(b => b.IsVisible).ToList();
+                    var badges = FindAll<Badge>(view).Where(b => b.IsVisible && FindAll<TextBlock>(b).Any(t => t.Text.Contains("DISCOVERED"))).ToList();
                     Assert.Equal(2, badges.Count);
                     Assert.All(badges, b => Assert.Same(info, b.Style));
                     Assert.All(badges, b => Assert.Contains(FindAll<TextBlock>(b), t => t.Text.Contains("DISCOVERED")));
