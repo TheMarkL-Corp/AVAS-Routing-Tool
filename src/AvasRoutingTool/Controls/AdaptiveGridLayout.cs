@@ -24,11 +24,14 @@ namespace AvasRoutingTool.Controls
             VideoAspect: 16.0 / 9.0);
 
         /// <summary>
-        /// The display card: a 24 px header, a 64 px action bar (56 px buttons), the 16:9 picture and a 64 px status dock.
-        /// Chrome = frame 2 + padding 24 + 24 + 64 + 64 = 178, so the picture keeps 16:9 in every state (a smoke test
+        /// The display card: a 24 px header, a 56 px action bar (48 px buttons), the 16:9 picture and a 64 px status dock.
+        /// Chrome = frame 2 + padding 24 + 24 + 56 + 64 = 170, so the picture keeps 16:9 in every state (a smoke test
         /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
         /// </summary>
-        public static GridSpec DisplayCard { get; } = Default with { ChromeHeight = 178, HorizontalPadding = 26 };
+        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 760, ChromeHeight = 170, HorizontalPadding = 26 };
+
+        /// <summary>Source cards are passive drag/tap handles: capped narrower so the displays get the room.</summary>
+        public static GridSpec SourceCard { get; } = Default with { MaxCardWidth = 420 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>

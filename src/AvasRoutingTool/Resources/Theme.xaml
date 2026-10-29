@@ -205,6 +205,15 @@
         </Setter>
     </Style>
 
+    <!-- Display-card action bar: one button family (48 px, 1 px border, icon beside a 13 px semibold label) -->
+    <Style x:Key="Style.Button.CardAction" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="MinWidth" Value="48" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12,4" />
+    </Style>
+
     <!-- MultiView Composer: body and label text (>= 14 px, >= 4.5:1 on the card and background colours) -->
     <Style x:Key="Style.Text.ComposerLabel" TargetType="TextBlock">
         <Setter Property="FontSize" Value="14" />

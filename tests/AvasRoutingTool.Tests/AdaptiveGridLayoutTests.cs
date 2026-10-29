@@ -103,16 +103,24 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void Compute_DisplayCardSpec_Has178PxChrome_ForTheNonOccludingActionBarAndStatusDock()
+        public void Compute_DisplayCardSpec_Has170PxChrome_ForTheNonOccludingActionBarAndStatusDock()
         {
-            // Frame 2 + padding 24 + header 24 + action bar 64 + status dock 64: nothing lies on the 16:9 picture.
-            Assert.Equal(178, GridSpec.DisplayCard.ChromeHeight);
+            // Frame 2 + padding 24 + header 24 + action bar 56 (48 px buttons) + status dock 64: nothing lies on the 16:9 picture.
+            Assert.Equal(170, GridSpec.DisplayCard.ChromeHeight);
             Assert.Equal(26, GridSpec.DisplayCard.HorizontalPadding);
 
             var plan = AdaptiveGridLayout.Compute(2, 1888, 435, GridSpec.DisplayCard);
             double videoHeight = plan.CardHeight - GridSpec.DisplayCard.ChromeHeight;
             double videoWidth = plan.CardWidth - GridSpec.DisplayCard.HorizontalPadding;
             Assert.InRange(videoWidth / videoHeight, 16.0 / 9 * 0.96, 16.0 / 9 * 1.04);
+        }
+
+        [Fact]
+        public void DisplayCardSpec_AllowsWiderCardsThanSources_SoDisplaysFillTheScreen()
+        {
+            Assert.True(GridSpec.DisplayCard.MaxCardWidth > GridSpec.SourceCard.MaxCardWidth);
+            Assert.Equal(420, GridSpec.SourceCard.MaxCardWidth);
+            Assert.Equal(GridSpec.Default.ChromeHeight, GridSpec.SourceCard.ChromeHeight);
         }
     }
 }

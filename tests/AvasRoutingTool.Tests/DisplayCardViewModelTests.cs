@@ -8,6 +8,16 @@ namespace AvasRoutingTool.Tests
 {
     public class DisplayCardViewModelTests
     {
+        [Theory]
+        [InlineData("", "")]
+        [InlineData("OUT 3840x2160@60 (VP3268-4K)", "OUT 3840x2160@60 (VP3268-4K)")]
+        [InlineData("OUT 3840x2160@60 (running) · sources at half frame rate (~6.0 Gbps instead of ~12.0)", "OUT 3840x2160@60 (running) · half rate")]
+        [InlineData("OUT 3840x2160@60 · ~11.0 Gbps even at half frame rate (>10 Gbps recommended)", "OUT 3840x2160@60 · over bandwidth")]
+        public void ShortenCanvasInfo_KeepsTheOutputFormatAndDropsTheBandwidthSentence(string full, string expected)
+        {
+            Assert.Equal(expected, DisplayCardViewModel.ShortenCanvasInfo(full));
+        }
+
         [Fact]
         public void UnrouteCommand_WhenExecuted_CallsUnrouteActionAndClearsState()
         {

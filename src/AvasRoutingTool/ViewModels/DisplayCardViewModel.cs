@@ -139,6 +139,19 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The decoder output format read from the display EDID (and a bandwidth note), shown on the card.</summary>
         public string CanvasInfo => !string.IsNullOrEmpty(_canvasInfo) ? _canvasInfo : IsRouted ? _singleViewOutput : string.Empty;
 
+        /// <summary>The card's one-line output summary: the format plus a short bandwidth note; the full text is the tooltip.</summary>
+        public string CanvasInfoShort => ShortenCanvasInfo(CanvasInfo);
+
+        public static string ShortenCanvasInfo(string full)
+        {
+            if (string.IsNullOrEmpty(full)) return string.Empty;
+            int cut = full.IndexOf(" · sources at half frame rate", System.StringComparison.Ordinal);
+            if (cut >= 0) return full.Substring(0, cut) + " · half rate";
+            cut = full.IndexOf(" · ~", System.StringComparison.Ordinal);
+            if (cut >= 0 && full.Contains("even at half frame rate")) return full.Substring(0, cut) + " · over bandwidth";
+            return full;
+        }
+
         /// <summary>The output format of a multiview or external layout only (what the Composer reuses); empty in Single View.</summary>
         public string LayoutCanvasInfo => _canvasInfo;
 
@@ -147,6 +160,7 @@ namespace AvasRoutingTool.ViewModels
         {
             _singleViewOutput = info ?? string.Empty;
             OnPropertyChanged(nameof(CanvasInfo));
+            OnPropertyChanged(nameof(CanvasInfoShort));
         }
 
         /// <summary>Width / height of the multiview canvas, so the window surface is letterboxed like the real output.</summary>
@@ -466,6 +480,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(IsMultiView));
             OnPropertyChanged(nameof(ModeBadge));
             OnPropertyChanged(nameof(CanvasInfo));
+            OnPropertyChanged(nameof(CanvasInfoShort));
             OnPropertyChanged(nameof(CanvasAspect));
             OnPropertyChanged(nameof(SourceLabel));
             OnPropertyChanged(nameof(IsRouted));
@@ -519,6 +534,7 @@ namespace AvasRoutingTool.ViewModels
             // The route changed: a Single View format shown for the earlier one is not known to hold. The caller that knows it sets it again.
             _singleViewOutput = string.Empty;
             OnPropertyChanged(nameof(CanvasInfo));
+            OnPropertyChanged(nameof(CanvasInfoShort));
             OnPropertyChanged(nameof(ActiveSourceId));
             OnPropertyChanged(nameof(ActiveSourceName));
             OnPropertyChanged(nameof(IsRouted));

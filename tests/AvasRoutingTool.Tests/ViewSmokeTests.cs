@@ -1295,7 +1295,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void DisplayCard_LayoutMenu_OpensWithSixSchematicTiles_AndHeaderButtonIsAtLeast56High() =>
+        public void DisplayCard_LayoutMenu_OpensWithSixSchematicTiles_AndHeaderButtonIsAtLeast48High() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -1303,7 +1303,7 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var button = (Button)Named(view, "LayoutButton").Single();
-                    Assert.True(button.IsVisible && button.ActualHeight >= 56, $"Layout button is {button.ActualHeight} high");
+                    Assert.True(button.IsVisible && button.ActualHeight >= 48, $"Layout button is {button.ActualHeight} high");
                     Assert.Contains(FindAll<TextBlock>(button), t => t.Text.StartsWith("Layout", StringComparison.Ordinal));
                     Assert.True(BoundsIn(button, view).Top < 80, "the Layout button is not in the card header");
 
@@ -1374,7 +1374,7 @@ namespace AvasRoutingTool.Tests
                     rig.Rx1.DraftNotice = MainViewModel.StaleDraftNotice;
                     Relayout(view);
                     var chip = (Button)Named(view, "DraftChip").Single();
-                    Assert.True(chip.IsVisible && chip.ActualHeight >= 56, $"draft chip is {chip.ActualHeight} high");
+                    Assert.True(chip.IsVisible && chip.ActualHeight >= 48, $"draft chip is {chip.ActualHeight} high");
                     AssertVisibleText(chip, "DRAFT · Resume");
                     Assert.Contains("not on screen", chip.ToolTip as string ?? string.Empty);
                     var notice = (FrameworkElement)Named(view, "DraftNoticeLine").Single();
@@ -1397,7 +1397,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void DisplayCard_CopyHandle_IsAtLeast56High_AndDisabledTextShowsWhenNothingToCopy() =>
+        public void DisplayCard_CopyHandle_IsAtLeast48High_AndDisabledTextShowsWhenNothingToCopy() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -1407,14 +1407,14 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var handle = (Button)Named(rx1, "CopyLayoutHandle").Single();
-                    Assert.True(handle.IsVisible && handle.IsEnabled && handle.ActualHeight >= 56, $"handle is {handle.ActualHeight} high");
+                    Assert.True(handle.IsVisible && handle.IsEnabled && handle.ActualHeight >= 48, $"handle is {handle.ActualHeight} high");
                     Assert.Contains(FindAll<TextBlock>(handle), t => t.Text == "Copy layout");
                     Assert.Empty(VisibleTexts(rx1, "RX1_c059e_SFPA shows nothing to copy"));
 
                     // RX3 shows nothing: the handle is disabled and the card says why in words.
                     var blocked = (Button)Named(rx3, "CopyLayoutHandle").Single();
                     Assert.False(blocked.IsEnabled);
-                    Assert.True(blocked.ActualHeight >= 56);
+                    Assert.True(blocked.ActualHeight >= 48);
                     AssertVisibleText(rx3, "RX3_1080P_SFPA shows nothing to copy");
 
                     // Tap alternative: a tap on the handle arms RX1 and every other card shows its target state; again stops.
@@ -1728,7 +1728,7 @@ namespace AvasRoutingTool.Tests
                         foreach (var name in new[] { "LayoutButton", "CopyLayoutHandle" })
                         {
                             var b = (Button)Named(card, name).Single();
-                            Assert.True(b.ActualHeight >= 56, $"{name} is {b.ActualHeight} high");
+                            Assert.True(b.ActualHeight >= 48, $"{name} is {b.ActualHeight} high");
                             AssertInside(b, frame);
                             foreach (var t in FindAll<TextBlock>(b)) AssertTextFits(t);
                         }
@@ -1749,7 +1749,7 @@ namespace AvasRoutingTool.Tests
                     }
                     AssertTextFits((TextBlock)Named(rx1, "DropChoiceTitle").Single());
                     var chip = (FrameworkElement)Named(rx1, "DraftChip").Single();
-                    Assert.True(chip.IsVisible && chip.ActualHeight >= 56);
+                    Assert.True(chip.IsVisible && chip.ActualHeight >= 48);
                     AssertInside(chip, rx1Frame);
                     AssertVisibleText(rx1, "COPYING FROM HERE");
 
@@ -2086,7 +2086,7 @@ namespace AvasRoutingTool.Tests
                     var frame = (FrameworkElement)Named(rx1, "CardFrame").Single();
                     var picture = (FrameworkElement)Named(rx1, "PreviewSurface").Single();
                     var chip = (Button)Named(rx1, "DraftChip").Single();
-                    Assert.True(chip.IsVisible && chip.ActualHeight >= 56, $"draft chip is {chip.ActualHeight} high");
+                    Assert.True(chip.IsVisible && chip.ActualHeight >= 48, $"draft chip is {chip.ActualHeight} high");
                     Assert.Contains("not on screen", chip.ToolTip as string ?? string.Empty);
                     Assert.Contains("not on screen", System.Windows.Automation.AutomationProperties.GetName(chip));
                     var chipText = FindAll<TextBlock>(chip).Single(t => t.Text.StartsWith("DRAFT", StringComparison.Ordinal));
@@ -2114,7 +2114,7 @@ namespace AvasRoutingTool.Tests
                         {
                             Assert.False(BoundsIn(parts[i].El, rx1).IntersectsWith(BoundsIn(parts[j].El, rx1)), $"{parts[i].Name} and {parts[j].Name} overlap");
                         }
-                        Assert.True(parts[i].El.ActualHeight >= 56, $"{parts[i].Name} is {parts[i].El.ActualHeight} high");
+                        Assert.True(parts[i].El.ActualHeight >= 48, $"{parts[i].Name} is {parts[i].El.ActualHeight} high");
                     }
                     AssertSixteenByNine(picture, "draft chip");
 
@@ -2165,7 +2165,7 @@ namespace AvasRoutingTool.Tests
                     var chip = (FrameworkElement)Named(pax, "DraftChip").Single();
                     var toast = (FrameworkElement)Named(pax, "UndoToast").Single();
                     Assert.True(chip.IsVisible && toast.IsVisible, "the chip and the toast do not both show");
-                    Assert.True(chip.ActualHeight >= 56);
+                    Assert.True(chip.ActualHeight >= 48);
                     AssertInside(chip, (FrameworkElement)Named(pax, "CardFrame").Single());
                     Assert.False(BoundsIn(chip, pax).IntersectsWith(BoundsIn(toast, pax)), "the draft chip at top does not intersect the undo toast at bottom");
                     AssertInside((FrameworkElement)Named(pax, "UndoScreenButton").Single(), toast);

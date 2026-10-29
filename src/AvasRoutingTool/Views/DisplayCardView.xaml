@@ -60,7 +60,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="24" />
-                    <RowDefinition Height="64" />
+                    <RowDefinition Height="56" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="64" />
                 </Grid.RowDefinitions>
@@ -192,7 +192,7 @@
                 -->
                 <Border x:Name="FloatingActionDock"
                         Grid.Row="1"
-                        Height="56"
+                        Height="48"
                         Margin="0,4,0,4"
                         Background="Transparent"
                         IsHitTestVisible="True"
@@ -209,8 +209,8 @@
                         <!-- Layout ▾ Button -->
                         <Button x:Name="LayoutButton"
                                 Grid.Column="0"
-                                MinHeight="56"
-                                Margin="0,0,4,0"
+                                MinHeight="48"
+                                Margin="0,0,6,0"
                                 FontSize="13"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
                                 ToolTip="Choose a layout for this display"
@@ -219,18 +219,18 @@
                                 PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
                                 Click="LayoutButton_Click">
                             <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
-                                    <Setter Property="Padding" Value="4,4" />
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.CardAction}">
+                                    <Setter Property="Padding" Value="6,2" />
                                 </Style>
                             </Button.Style>
                             <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                                 <Path x:Name="LayoutIcon"
                                       Data="{StaticResource Icon.Grid}"
                                       Fill="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Width="16" Height="16"
+                                      Width="14" Height="14"
                                       Stretch="Uniform"
                                       VerticalAlignment="Center"
-                                      Margin="0,0,0,2" />
+                                      Margin="0,0,0,1" />
                                 <TextBlock Text="Layout &#9662;" VerticalAlignment="Center" FontWeight="SemiBold" />
                             </StackPanel>
                         </Button>
@@ -238,8 +238,8 @@
                         <!-- Copy layout Button: its full label always shows (no trimming) -->
                         <Button x:Name="CopyLayoutHandle"
                                 Grid.Column="1"
-                                MinHeight="56"
-                                Margin="0,0,4,0"
+                                MinHeight="48"
+                                Margin="0,0,6,0"
                                 FontSize="13"
                                 IsEnabled="{Binding CanCopyFrom, Mode=OneWay}"
                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
@@ -250,11 +250,11 @@
                                 PreviewMouseMove="CopyHandle_PreviewMouseMove"
                                 PreviewMouseLeftButtonUp="CopyHandle_PreviewMouseLeftButtonUp">
                             <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.CardAction}">
                                     <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
                                     <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
                                     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
-                                    <Setter Property="Padding" Value="4,4" />
+                                    <Setter Property="Padding" Value="6,2" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
                                             <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
@@ -269,10 +269,10 @@
                                       Stroke="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
                                       StrokeThickness="2"
                                       StrokeLineJoin="Round"
-                                      Width="16" Height="16"
+                                      Width="14" Height="14"
                                       Stretch="Uniform"
                                       VerticalAlignment="Center"
-                                      Margin="0,0,0,2" />
+                                      Margin="0,0,0,1" />
                                 <TextBlock Text="Copy layout" VerticalAlignment="Center" FontWeight="SemiBold" />
                             </StackPanel>
                         </Button>
@@ -283,10 +283,10 @@
                         -->
                         <Button x:Name="DraftChip"
                                 Grid.Column="2"
-                                Margin="0,0,4,0"
-                                MinHeight="56"
+                                Margin="0,0,6,0"
+                                MinHeight="48"
                                 FontSize="13"
-                                Padding="10,6"
+                                Padding="10,4"
                                 Cursor="Hand"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
                                 ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
@@ -307,8 +307,7 @@
                                         <Rectangle x:Name="DraftFrame"
                                                    Fill="{DynamicResource Brush.Surface.Staged}"
                                                    Stroke="{DynamicResource Brush.Status.Staged}"
-                                                   StrokeThickness="1.5"
-                                                   StrokeDashArray="4 3"
+                                                   StrokeThickness="1"
                                                    RadiusX="8" RadiusY="8" />
                                         <ContentPresenter Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Grid>
@@ -331,10 +330,10 @@
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />
                         </Button>
 
-                        <!-- Quick Power / Turn Off Button: a vector power icon, 56 x 56 -->
+                        <!-- Quick Power / Turn Off Button: a vector power icon, 48 x 48 -->
                         <Button x:Name="TurnOffButton"
                                 Grid.Column="4"
-                                Width="56" Height="56"
+                                Width="48" Height="48"
                                 Padding="0"
                                 Command="{Binding UnrouteCommand, Mode=OneWay}"
                                 ToolTip="Turn off display feed / Unroute video"
@@ -714,7 +713,7 @@
 
                             <!-- Decoder output format from the display's EDID (multiview and Single View) -->
                             <TextBlock x:Name="OutputLine" Grid.Column="1"
-                                       Text="{Binding CanvasInfo, Mode=OneWay}"
+                                       Text="{Binding CanvasInfoShort, Mode=OneWay}"
                                        ToolTip="{Binding CanvasInfo, Mode=OneWay}"
                                        Margin="8,0,0,0"
                                        FontSize="12"

@@ -21,7 +21,7 @@
             <RowDefinition>
                 <RowDefinition.Style>
                     <Style TargetType="RowDefinition">
-                        <Setter Property="Height" Value="*" />
+                        <Setter Property="Height" Value="2*" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
                                 <Setter Property="Height" Value="Auto" />
@@ -31,7 +31,7 @@
                 </RowDefinition.Style>
             </RowDefinition>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="3.4*" />
         </Grid.RowDefinitions>
 
         <!-- TOP ROW: Sources (TX) Section (the Composer's palette while it is open) -->
@@ -151,7 +151,7 @@
                     <ItemsControl ItemsSource="{Binding Sources}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <controls:AdaptiveCardPanel />
+                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.SourceCard}" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
@@ -165,7 +165,7 @@
         </Border>
 
         <!-- Subtle Divider -->
-        <Border Grid.Row="1" Height="1" Background="{DynamicResource Brush.Border.Default}" Margin="16,4" />
+        <Border Grid.Row="1" Height="1" Background="{DynamicResource Brush.Border.Default}" Margin="12,2" />
 
         <!-- MIDDLE ROW: Displays (RX) Section - replaced by the Composer while one is open -->
         <Border Grid.Row="2" Margin="16,6,16,12">
