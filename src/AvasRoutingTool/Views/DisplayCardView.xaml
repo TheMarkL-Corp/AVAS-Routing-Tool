@@ -292,7 +292,7 @@
                                 ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
                                 Click="DraftChip_Click">
                             <Button.Style>
-                                <Style TargetType="Button">
+                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Chip.Staged}">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
@@ -301,27 +301,6 @@
                                     </Style.Triggers>
                                 </Style>
                             </Button.Style>
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Grid>
-                                        <Rectangle x:Name="DraftFrame"
-                                                   Fill="{DynamicResource Brush.Surface.Staged}"
-                                                   Stroke="{DynamicResource Brush.Status.Staged}"
-                                                   StrokeThickness="1"
-                                                   RadiusX="8" RadiusY="8" />
-                                        <ContentPresenter Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Grid>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="DraftFrame" Property="Fill" Value="{DynamicResource Brush.Surface.StagedHover}" />
-                                        </Trigger>
-                                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                                            <Setter TargetName="DraftFrame" Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
-                                            <Setter TargetName="DraftFrame" Property="StrokeThickness" Value="2" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
                             <TextBlock Text="DRAFT &#183; Resume"
                                        FontSize="13"
                                        FontWeight="Bold"

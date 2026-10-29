@@ -20,14 +20,7 @@ namespace AvasRoutingTool.Tests
             {
                 try
                 {
-                    var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                    foreach (var path in new[] { "Themes/Theme.Dark", "Theme", "Icons" })
-                    {
-                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
-                        {
-                            Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/{path}.xaml")
-                        });
-                    }
+                    TestResources.Ensure();
                     var window = new MainWindow { WindowState = WindowState.Normal, Width = width, Height = height, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000 };
                     window.Show();
                     window.UpdateLayout();

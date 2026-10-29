@@ -1,0 +1,8 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Overlay styles (Style.Overlay.Body, arm banner, toast, popup frame). Empty until the Main Window session adds them.
+    -->
+
+</ResourceDictionary>

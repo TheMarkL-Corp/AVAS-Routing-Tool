@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:AvasRoutingTool.Converters">
+
+    <!--
+        Shared converter instances (UI v2). A view shows or hides on one flag without an inline DataTrigger style:
+            Visibility="{Binding IsStreaming, Converter={StaticResource Converter.Visible.True}}"
+        Rules: True, False, NotNull, Null, NotEmpty, HasItems, NoItems (Collapsed when the rule fails).
+    -->
+    <conv:VisibilityConverter x:Key="Converter.Visible.True" Rule="True" />
+    <conv:VisibilityConverter x:Key="Converter.Visible.False" Rule="False" />
+    <conv:VisibilityConverter x:Key="Converter.Visible.NotNull" Rule="NotNull" />
+    <conv:VisibilityConverter x:Key="Converter.Visible.Null" Rule="Null" />
+    <conv:VisibilityConverter x:Key="Converter.Visible.NotEmpty" Rule="NotEmpty" />
+    <conv:VisibilityConverter x:Key="Converter.Visible.HasItems" Rule="HasItems" />
+    <conv:VisibilityConverter x:Key="Converter.Visible.NoItems" Rule="NoItems" />
+
+    <!-- ActualWidth against a Size.Breakpoint.* token passed as the ConverterParameter: Visible when at least that wide -->
+    <conv:WidthAtLeastConverter x:Key="Converter.WidthAtLeast" />
+
+    <!-- A bool picks a row or column length. Default: true = *, false = Auto; a parameter "true;false" (for example "Auto;2*") overrides it -->
+    <conv:BoolToGridLengthConverter x:Key="Converter.BoolToGridLength" />
+
+</ResourceDictionary>
