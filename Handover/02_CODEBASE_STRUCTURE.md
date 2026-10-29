@@ -94,10 +94,9 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
 * **[`RelayCommand.cs`](../src/AvasRoutingTool/ViewModels/RelayCommand.cs)**: `ICommand` implementation for clean MVVM binding.
 
 ### 2.9 Views (`Views/`)
-* **[`VisualRoutingView.xaml`](../src/AvasRoutingTool/Views/VisualRoutingView.xaml)**: The primary visual routing canvas with top TX row, middle RX row, and bottom Layouts bar.
+* **[`VisualRoutingView.xaml`](../src/AvasRoutingTool/Views/VisualRoutingView.xaml)**: The primary visual routing canvas with top TX row and middle RX row (layouts are chosen in each display card's Layout menu).
 * **[`SourceCardView.xaml`](../src/AvasRoutingTool/Views/SourceCardView.xaml)**: Transmitter card rendering live video preview, telemetry badges, and initiating drag operations.
 * **[`DisplayCardView.xaml`](../src/AvasRoutingTool/Views/DisplayCardView.xaml)**: Receiver card handling drop events, showing mirrored video or non-AVAS fallback banners, and unroute button.
-* **[`LayoutsBarView.xaml`](../src/AvasRoutingTool/Views/LayoutsBarView.xaml)**: Bottom bar with layout presets and drag-to-unroute from the "Off" tile.
 * **[`BavmConsoleView.xaml`](../src/AvasRoutingTool/Views/BavmConsoleView.xaml)**: WebView2 browser control hosting official BAVM web UI.
 * **[`DiagnosticsView.xaml`](../src/AvasRoutingTool/Views/DiagnosticsView.xaml)**: Real-time searchable log table.
 * **[`SettingsDialog.xaml`](../src/AvasRoutingTool/Views/SettingsDialog.xaml)**: Connection settings configuration modal.

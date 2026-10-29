@@ -481,27 +481,6 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
-        [Fact]
-        public void LayoutsBarView_ShowsSixSchematicTiles_InTheBarOrder_AtTheMinimumWidth() =>
-            RunSta(() =>
-            {
-                var rig = new CopyRig();
-                var bar = new LayoutsBarView { DataContext = rig.Vm };
-                ShowingAt(bar, 1008, 110, () =>
-                {
-                    var tiles = Named(bar, "LayoutTile").ToList();
-                    Assert.Equal(new[] { "off", "single", "matrix2x2", "pip", "side_by_side", "quad_1_3" },
-                        tiles.Select(t => ((LayoutItemViewModel)t.DataContext).Id));
-                    Assert.Equal(new[] { 0, 1, 4, 2, 2, 4 }, tiles.Select(t => FindAll<LayoutSchematic>(t).Single().CellCount));
-                    foreach (var t in tiles)
-                    {
-                        Assert.True(t.IsVisible);
-                        AssertInside(t, bar);
-                        AssertTextFits(FindAll<TextBlock>(t).Single(tb => tb.Name == "LayoutTileTitle"));
-                    }
-                });
-            });
-
         [Theory]
         [InlineData(1008, 615)]  // MainWindow minimum 1024x720: its content area
         [InlineData(1264, 755)]  // MainWindow default 1280x860
@@ -573,7 +552,6 @@ namespace AvasRoutingTool.Tests
 
                     // Copying / choosing: the overview has no layout bar any more; the first row's Layout and Copy layout
                     // buttons are in view without scrolling (they sit at the top of the card).
-                    Assert.Empty(FindAll<LayoutsBarView>(view));
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
                     // The displays hold drag sources (Copy layout, drops): touch never pans them (the 16 px bar does).
                     Assert.Equal(PanningMode.None, scroll.PanningMode);
@@ -601,7 +579,6 @@ namespace AvasRoutingTool.Tests
                     rig.Vm.DisarmDisplay();
                     Relayout(view);
                     Assert.False(rig.Vm.IsCopyOrChoiceActive);
-                    Assert.Empty(FindAll<LayoutsBarView>(view));
 
                     // ... and PAX's Undo toast is back, inside its picture, whole.
                     Assert.True(toast.IsVisible, "the Undo toast did not come back");
@@ -631,7 +608,6 @@ namespace AvasRoutingTool.Tests
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
                     DisplayCardView CardOf(DisplayCardViewModel d) => FindAll<DisplayCardView>(view).Single(c => c.DataContext == d);
                     FrameworkElement Part(DisplayCardView card, string name) => (FrameworkElement)Named(card, name).Single();
-                    Assert.Empty(FindAll<LayoutsBarView>(view));
 
                     // Copy armed (with the banner): the full source cards stay in place; there is no layout bar.
                     Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
@@ -639,7 +615,6 @@ namespace AvasRoutingTool.Tests
                     AssertVisibleText(view, "Copying RX1_c059e_SFPA - ");
                     Assert.False(Named(view, "CompactSourcePalette").Single().IsVisible);
                     Assert.NotEmpty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
-                    Assert.Empty(FindAll<LayoutsBarView>(view));
 
                     // The first target was scrolled to by itself: its words read without touching anything. Its Undo
                     // toast steps aside while it is a target (the target state wins; nothing lies over its words).
@@ -670,7 +645,6 @@ namespace AvasRoutingTool.Tests
                     Relayout(view);
                     Assert.True(rig.Rx1.IsDropChoiceOpen);
                     AssertVisibleText(view, "Placing TX2_DUAL LINK_SFPA - ");
-                    Assert.Empty(FindAll<LayoutsBarView>(view));
                     var rx1 = CardOf(rig.Rx1);
                     AssertReadable(Part(rx1, "DropChoiceTitle"), scroll, "RX1: the drop choice question");
                     AssertReadable(Part(rx1, "FullScreenButton"), scroll, "RX1: Full screen");
