@@ -1897,5 +1897,29 @@ namespace AvasRoutingTool.Tests
                     Assert.Same(Application.Current.FindResource("Style.Button.Take"), ((Button)take).Style);
                 });
             });
+
+        // ---- UI v2 Task 9: ON SCREEN NOW follows the live plan's aspect ----
+
+        [Fact]
+        public void Composer_OnScreenPicture_UsesTheLiveAspect() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                rig.Client.DisplayEdid = TestEdids.Build((1920, 1200, 60, false)); // a 16:10 panel
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var picture = Named(view, "OnScreenPicture").Single();
+                    var panels = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(picture);
+                    Assert.Equal(2, panels.Count); // the mat and the live blocks
+                    Assert.All(panels, p => Assert.Equal(c.LiveAspectRatio, p.AspectRatio, 5));
+                    Assert.NotEqual(16.0 / 9.0, c.LiveAspectRatio, 3);
+                });
+            });
     }
 }

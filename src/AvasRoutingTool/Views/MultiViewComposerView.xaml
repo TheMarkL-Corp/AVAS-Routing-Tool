@@ -402,7 +402,7 @@
                             <StackPanel>
                                 <TextBlock Text="ON SCREEN NOW" Style="{StaticResource Style.Text.RailHeading}" Margin="0,0,0,8" />
                                 <Grid x:Name="OnScreenPicture" AutomationProperties.Name="{Binding OnScreenSummary, Mode=OneWay}">
-                                    <controls:FractionalLayoutPanel AspectRatio="{x:Static views:AspectRatioConverter.Default}">
+                                    <controls:FractionalLayoutPanel AspectRatio="{Binding LiveAspectRatio, Mode=OneWay}">
                                         <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1"
                                                 Background="{DynamicResource Brush.Surface.PreviewMat}" BorderBrush="{DynamicResource Brush.Status.Routed}" BorderThickness="2" CornerRadius="6" />
                                     </controls:FractionalLayoutPanel>
@@ -410,7 +410,7 @@
                                                   ItemContainerStyle="{StaticResource Style.Item.Fractional.Block}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <controls:FractionalLayoutPanel AspectRatio="{x:Static views:AspectRatioConverter.Default}" />
+                                                <controls:FractionalLayoutPanel AspectRatio="{Binding LiveAspectRatio, Mode=OneWay}" />
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>

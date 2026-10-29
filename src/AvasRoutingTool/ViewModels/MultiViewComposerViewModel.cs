@@ -201,6 +201,10 @@ namespace AvasRoutingTool.ViewModels
 
         public string StepTakeText => $"Step 3, Check, then take: {(CanTake ? "ready" : "not ready")}";
 
+        /// <summary>Width / height of the plan that is on screen now (the ON SCREEN NOW picture follows it); 16:9 when nothing is live.</summary>
+        public double LiveAspectRatio =>
+            _live is { Plan: { Width: > 0, Height: > 0 } plan } ? (double)plan.Width / plan.Height : 16.0 / 9.0;
+
         /// <summary>What the ON SCREEN NOW picture shows, in words (the thumbnail itself has no text for a screen reader).</summary>
         public string OnScreenSummary
         {
@@ -1168,7 +1172,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes), nameof(ChangeLines),
                 nameof(ChangeCount), nameof(IsStaged), nameof(IsOnScreen),
-                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(StepLayoutText), nameof(StepPlaceText), nameof(StepTakeText), nameof(OnScreenSummary), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
+                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(StepLayoutText), nameof(StepPlaceText), nameof(StepTakeText), nameof(OnScreenSummary), nameof(LiveAspectRatio), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
                 nameof(CanUndo), nameof(UnplacedSources), nameof(OutputText), nameof(RateNote), nameof(HeaderNotice),
             })
                 Raise(name);
