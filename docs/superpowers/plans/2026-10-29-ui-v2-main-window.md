@@ -1,7 +1,9 @@
-# UI v2 Revamp, Session A: Main Window Plan (revision 2)
+# UI v2 Revamp, Session A: Main Window Plan (revision 3, cross-review applied)
 
-Status: **planning only** (no source, test or git changes made by this session). Branch context: `ui-v2/integration` (tag `pre-ui-v2`; `main` untouched).
-Binding input: `docs/superpowers/specs/2026-10-29-ui-v2-master-guidelines.md` **section 0 (D1-D12, locked, overrides everything)**, then G1-G5 and sections 3-6. Also read: `docs/superpowers/plans/2026-10-29-ui-v2-multiview-composer.md` (session B).
+Status: **planning only** (no source, test or git changes made by this session). Branch context: `ui-v2/integration` (tag `pre-ui-v2`; `main` untouched). Implementation happens in worktree `ui-v2/main-window`, branched from the **foundation tip** (checkpoint 1).
+Binding input: `docs/superpowers/specs/2026-10-29-ui-v2-master-guidelines.md` **section 0 (D1-D12, locked, overrides everything)**, `docs/superpowers/specs/2026-10-29-ui-v2-cross-review.md` (X1-X11, user-approved reconciliation; **overrides this plan where they differ**), then G1-G5 and sections 3-6. Also read: `docs/superpowers/plans/2026-10-29-ui-v2-multiview-composer.md` (session B).
+
+**Revision 3 changes (cross-review section 5):** one shared `Style.Button.Chip.Staged` (own `Chip.Draft` dropped, X3); foundation badges `Style.Badge.Info/Staged/Armed` (own `Style.Badge.*` dropped, X4); shared converters and the single guard class + allowlist are built by the foundation, A1 only adds allowlist entries (X5, X6); text roles Lead 16 / Title 14 / Section 14 caps / Body 13 / Caption 12 / Mono 12 (X2); icon sizes S 16 / M 22 / L 28 confirmed (X1); the `Icon.Lock` use in `DisplayCardView` moves to `ui:SymbolIcon LockClosed24` in A10 (X8); `Style.Button.Take` untouched (X7); merge order A first, then B, and A3 is a dependency of B's Task 11 (X9, X10); Full HD question decided: option (a), restyle only, no left rail (O1); every task states the foundation items it needs.
 Scope (files this plan owns): `MainWindow.xaml(.cs)`, `Views/VisualRoutingView.xaml`, `Views/SourceCardView.xaml`, `Views/DisplayCardView.xaml`, `Views/SettingsDialog.xaml(.cs)`, the Logs tab, deleting `Views/LayoutsBarView.xaml(.cs)` (D5). Out of scope: `MultiViewComposerView`, `LayoutSchematic`, `CompactSourceCardView` (B); `App.xaml`, csproj, `Resources/**`, `ThemeService`, `Controls/*` (foundation / B). View-model changes are additive read-only view-state properties only (A3, A4).
 
 ## 0. What changed from the first draft
@@ -84,7 +86,7 @@ Findings: **at Full HD the overview is bound by height, so raising `MaxCardWidth
 1. **Labels back** on the theme/Refresh/Settings actions (section 2.2), plus the connection readout keeps its full text.
 2. **Tokenised card chrome** so the 170 px display chrome is a single sum of named row tokens (guarded), and the `GridSpec` caps become `DisplayCard` 960 / `SourceCard` 480 so a taller or more spacious window (portrait, larger screen) is not capped. No effect at 1080p, no regression at the floor.
 3. **12 px text floor** and Lead 16 / Title 14 / Body 13 / Caption 12: larger overlay and chip text; this is the main visible change at Full HD (overlay widths are the risk R5).
-4. **Not done, needs a decision (O1 below):** using the unused horizontal slack by moving the Sources into a left rail when the window is at least about 1600 wide would free about 350 px of height for the displays (display preview about 676x380 -> about 1000x560 for two displays). That is a layout change, not a restyle; the plan does not include it.
+4. **Decided (O1 = option a): restyle only.** Moving the Sources into a left rail at about 1600+ px (display preview about 676x380 -> about 1000x560 for two displays) is a layout change and is **not** part of v2; it stays a possible follow-up after the checkpoint screenshots.
 
 At the 1024x720 floor nothing is optimised: all existing floor tests stay (`DisplayCard_InTheOverview_AtRealWindowSizes_...`, `Composer_InVisualRoutingView_AtRealWindowSizes_...`, `AppBar_FitsAtMinimumWindowWidth`), and the 12 px floor must not make them fail (the tests are the judge).
 
@@ -97,7 +99,7 @@ With the plain `Window` kept (D1) nothing structural changes: the island sits in
 | Element | Tests that touch it | Decision |
 |---|---|---|
 | Card frames (`SourceCardView` outer `Border`, `DisplayCardView.CardFrame`) | `CardFrame` is only used as a `FrameworkElement` for bounds (`ViewSmokeTests` 1753, 1769, 1833, 2116, 2199) | `ui:Card` with `Style.Card.Source` / `Style.Card.Display` (stretch content, our tokens, state border via `Tag`). Fallback `Border` + same style if the 16:9 measurement test fails (R2). |
-| DUAL LINK / ONLINE / OFFLINE / mode badge / DISCOVERED count / "in N blocks" | tests read their `TextBlock` text and `Foreground` (`OFFLINE` secondary brush 576), `ModeBadge`/`ModeBadgeText` names (141) | `ui:Badge` with central `Style.Badge.*` where the content is plain text over chrome. Chips lying **over video** (`UsedInBlocksBadge`, "Placing", "TAP OR DRAG", active-source tag) keep `Border` with explicit token attributes (same call as session B). |
+| DUAL LINK / ONLINE / OFFLINE / mode badge / DISCOVERED count / "in N blocks" | tests read their `TextBlock` text and `Foreground` (`OFFLINE` secondary brush 576), `ModeBadge`/`ModeBadgeText` names (141) | `ui:Badge` consuming the **foundation's** `Style.Badge.Info`, `Style.Badge.Staged`, `Style.Badge.Armed` (X4). A defines no badge style of its own; a state with no foundation badge is sent to the master first. Chips lying **over video** (`UsedInBlocksBadge`, "Placing", "TAP OR DRAG", active-source tag) keep `Border` with explicit token attributes (same call as session B). |
 | Settings fields and toggle | `ReleaseDefaultsTests` casts `ChkShowLogs` to `CheckBox` | `ui:TextBox` (x6), `ui:ToggleSwitch` (test updated to `ToggleButton`) |
 | All stock glyphs | header test wants a vector icon | `ui:SymbolIcon` (test accepts `Path` or `SymbolIcon`, still rejects emoji) |
 | Buttons and tabs | `bd` part, `FocusVisualStyle`, `Template` | **native**, central styles (D12) |
@@ -117,16 +119,16 @@ With the plain `Window` kept (D1) nothing structural changes: the island sits in
 | `:54` `Style.Button.AppBar` | `Style.Button.AppBar` | `Buttons.xaml` | ghost, 48 px, label hidden below the breakpoint via the content, not the style |
 | `:72` `Style.Icon.AppBar` | deleted | - | `ui:SymbolIcon` inherits the button foreground |
 | `DisplayCardView.xaml:21` `BodyOverlay` (+3 BasedOn users) | `Style.Overlay.Body` | `Overlays.xaml` | |
-| `:305` draft chip `ControlTemplate` | `Style.Button.Chip.Draft` | `Resources/Styles/DisplayCard.xaml` (A-owned) | keeps `InputModality.ShowsFocus` trigger. Renamed from `Chip.Staged`: **B's plan already uses `Style.Button.Chip.Staged` and `Style.Button.LayoutTile` in `Composer.xaml`** (section 8 conflict list). |
+| `:305` draft chip `ControlTemplate` | `Style.Button.Chip.Staged` | `Buttons.xaml`: the **foundation** extracts it from this very template (X3); A defines nothing | keeps the `InputModality.ShowsFocus` trigger; A and B consume the same key |
 | `:1041` layout-tile `ControlTemplate` | `Style.Button.LayoutMenuTile` | `DisplayCard.xaml` | keeps part `bd` (tests 1929); the `IsRouted` ancestor binding is replaced by a per-tile `IsOnScreen` (A4) |
 
 ### 3.2 Inline (unkeyed) styles
 
 | Pattern | Occurrences | Replacement |
 |---|---|---|
-| Show/hide on one flag | VisualRoutingView 83,115,143,201,227,244,336; SourceCard 109; DisplayCard 136,386,422,449,676 and similar | `Visibility="{Binding X, Converter={StaticResource Converter.Visible.True}}"` etc. (the converter instances of F4; session B's `VisibilityConverter` with `Rule` is the shared implementation, see section 8) |
+| Show/hide on one flag | VisualRoutingView 83,115,143,201,227,244,336; SourceCard 109; DisplayCard 136,386,422,449,676 and similar | `Visibility="{Binding X, Converter={StaticResource Converter.Visible.True}}"` etc.: the foundation's shared `VisibilityConverter { Rule }` instances in `Resources/Converters.xaml` (X5); A builds none |
 | Show/hide on 2+ flags | SourceCard Start 394, standby 210, unsupported 177, usage chips 249/279/297; DisplayCard preview states 490/564/605/635, toast 913, notice lines 724/745/766 | new read-only view-model properties (A3/A4): `SourceCardViewModel.ShowRefresh/ShowStop/ShowStart/ShowStandby/ShowUnsupported/HasUsage/UsedInText/ShowTapHint/StreamStatusText`; `DisplayCardViewModel.HasRoutedBadge/ShowSingleViewPicture/ShowRoutedNonAvasNotice/ShowUnroutedPlaceholder/ShowUndoToast`, tile `IsOnScreen`, `MainViewModel.IsComposing`; truth tables tested against the trigger they replace |
-| Colour by state | status dots (MainWindow 215, SourceCard 55, DisplayCard 84), badges (SourceCard 132/145, DisplayCard 155/174), card borders (SourceCard 24, DisplayCard 35), log level (MainWindow 344), rings (SourceCard 421/439, DisplayCard 966/986) | central styles reading `Tag` (plain `Trigger Property="Tag"`; colours stay `DynamicResource Brush.*`): `Style.StatusDot`, `Style.Badge.*`, `Style.Card.Source/Display`, `Style.Text.LogLevel`, `Style.Ring.Armed/Focus` |
+| Colour by state | status dots (MainWindow 215, SourceCard 55, DisplayCard 84), badge text/border colours (SourceCard 132/145, DisplayCard 155/174: move to the foundation `Style.Badge.*` of X4), card borders (SourceCard 24, DisplayCard 35), log level (MainWindow 344), rings (SourceCard 421/439, DisplayCard 966/986) | central styles reading `Tag` (plain `Trigger Property="Tag"`; colours stay `DynamicResource Brush.*`): `Style.StatusDot`, `Style.Card.Source/Display`, `Style.Text.LogLevel`, `Style.Ring.Armed/Focus` |
 | `RowDefinition` height by composer | VisualRoutingView 23 | `Converter.BoolToGridLength` on `IsComposing`; if binding a `RowDefinition` proves unreliable, ONE allowlisted `RowDefinition.Style` |
 | `ItemContainerStyle` for `FractionalLayoutPanel` | DisplayCard 402 | allowlisted, central key `Style.Slot.Fractional` in `DisplayCard.xaml` |
 
@@ -136,6 +138,7 @@ With the plain `Window` kept (D1) nothing structural changes: the island sits in
 |---|---|---|
 | `Style.Text.Lead` | 16 | 15-18 px: brand, arm banner, Undo label, dialog title |
 | `Style.Text.Title` | 14 | 14 px: card/menu titles, field titles |
+| `Style.Text.Section` (new, X2) | 14, SemiBold, uppercase, letter-spaced, `Brush.Text.Secondary` | "VIDEO SOURCES (TX)" / "TARGET DISPLAYS (RX)" headers (today 13 px bold caps), Settings group labels |
 | `Style.Text.Body` | 13 | 13 px: buttons, status text |
 | `Style.Text.Caption` | 12 | 9-12 px: footers, chips, hints, overlays (the 28 literals below 12 become 12); includes the Logs toolbar 11 px text |
 | `Style.Text.Mono` | 12 | Logs (Consolas) |
@@ -154,9 +157,10 @@ Overlay texts over video keep an **explicit `Foreground` attribute** (`ThemeReso
 | `↻ Refresh`, `■ Stop`, `▶ Start` | `ArrowSync24`, `Stop24`, `Play24` + the word, inside a `StackPanel` content (native button) | SourceCard 352/372/392 |
 | `●`, `✓ On screen` | `Style.StatusDot` ellipse; `Checkmark24` + "On screen" | DisplayCard 556, 1083 |
 | brand `Canvas` (40 lines) | extracted to `Views/BrandMark.xaml` (static icon, allowlisted); `BrandLogo` host name kept | MainWindow 107-154 |
-| **keep** `Icon.Power` (tests need a `Path`), `Icon.Monitor/Video/Grid/Copy/Lock`, brand geometries | StreamGeometry in `Icons.xaml` | - |
+| `Icon.Lock` path in the copy-target-blocked panel (`CopyTargetLock`) | `ui:SymbolIcon LockClosed24`, `FontSize` `Size.Icon.L` (X8; done in **A10**) | DisplayCard 884 |
+| **keep** `Icon.Power` (tests need a `Path`), `Icon.Monitor/Video/Grid/Copy`, brand geometries | StreamGeometry in `Icons.xaml` | - |
 
-`Icon.Sun/Moon/Refresh/Settings` have no user in my files afterwards (Foundation may delete them once B confirms).
+After A, `Icon.Sun/Moon/Refresh/Settings` and `Icon.Lock` have no user in my files; the foundation deletes them once both A and B have landed (X8; B does not use the four).
 
 ## 4. Layout de-hardcoding table
 
@@ -226,7 +230,7 @@ Other existing tests that change: delete `ViewSmokeTests.cs:1710-1721` and the s
 
 ## 7. TDD task list
 
-**Sequencing (D7, D10).** Foundation checkpoint first (master): WPF-UI package, dictionaries, `Resources/Styles/*` with the keys of section 8, `ThemeService` bridge, icon policy test, shared `TestResources.Ensure()`. Foundation task zero is the pure-move split of `ViewSmokeTests.cs` into partial class files (795 tests unchanged). Then A implements **in its own worktree off `ui-v2/integration`** and merges back at **checkpoint 2 (Main Window)**.
+**Sequencing (D7, D10, cross-review sections 6-7).** A **separate foundation session** builds checkpoint 1 first on `ui-v2/foundation` (tasks F0-F6 of the cross-review: F0 partial split of `ViewSmokeTests.cs`, F1 WPF-UI 4.3.0 + merge order + ThemeService bridge, F2 `TestResources.Ensure()`, F3 tokens, F4 central styles + converters + empty `SourceCard/DisplayCard/Composer.xaml`, F5 `UiV2Guards` + the single allowlist, F6 icon-font and implicit-style leakage check). A starts **from the foundation tip in its own worktree `ui-v2/main-window`** and merges at **checkpoint 2 (Main Window)**; B follows at checkpoint 3 (merge order A, then B). Section 8.1 lists what each A task needs from the foundation.
 
 Partial files I expect to own (names are a proposal; B proposed `.Composer.cs`; shared helpers and rigs stay in a master-owned `.Support.cs`, theme/scrollbar/contrast tests in `.Theme.cs`):
 
@@ -247,59 +251,86 @@ One commit per task, including `memory/active_context.md` and `memory/progress.m
 
 | # | Task | Failing test first | Files | Done when |
 |---|---|---|---|---|
-| A1 | Hard guards + the single allowlist (D6) | `UiV2GuardTests` over the A files (and a shared `UiV2Allowlist` file with sections: `Pending` = file -> task id, `StaticIcons`, `UnvirtualizedLists` with reasons, `InlineStyleExceptions`). Rules, no budgets: no `<ControlTemplate`; no keyed `<Style`; inline `<Style` must have `BasedOn` or be allowlisted; no numeric `Width/Height/Min*/Max*` (incl. Row/ColumnDefinition) unless `{StaticResource Size.*}` or allowlisted static icon; no `FontSize` literal and nothing below 12 (resolved text roles); no bitmap/emoji/Unicode-glyph icon (ranges U+2190-27BF, 2B00-2BFF, 24B6-24FF, 25A0-25FF, surrogates; `·` `…` allowed; `AppIcon.ico` and `PreviewBitmap` images exempt); every list virtualized or allowlisted. **Red-first:** the test is committed with every A file in `Pending` (suite green); each later task deletes its file from `Pending` first (red) and migrates until green. | new tests only | all A files listed, all rules red when `Pending` is emptied |
+| A1 | Register A's files in the foundation guards (D6, X6) | The foundation's `UiV2Guards` already holds the hard rules (no `<ControlTemplate`; no keyed `<Style`; inline `<Style` only with `BasedOn` or allowlisted; no numeric `Width/Height/Min*/Max*` incl. Row/ColumnDefinition unless `{StaticResource Size.*}` or an allowlisted static icon; no `FontSize` literal, nothing below 12; no bitmap/emoji/Unicode-glyph icon with `AppIcon.ico` and `PreviewBitmap` exempt; every list virtualized or allowlisted). A1 only **adds entries** to the single allowlist file: `Pending` rows `MainWindow.xaml -> A5/A6`, `VisualRoutingView.xaml -> A7`, `SourceCardView.xaml -> A8`, `DisplayCardView.xaml -> A9-A11`, `SettingsDialog.xaml -> A12`; `StaticIcons`: `BrandMark.xaml` (written in A5); `UnvirtualizedLists` with the five reasons of section 5; `InlineStyleExceptions`: the `RowDefinition` style (if needed) and `Style.Slot.Fractional`. **Red-first:** a test `AllowlistEntriesPointToExistingFiles_AndOnlyShrink` fails until the entries exist; afterwards each task deletes its file from `Pending` first (red) and migrates until green. | allowlist file only (+ one small test) | foundation guards stay green with the A rows present |
 | A2 | Delete `LayoutsBarView` (D5) | remove the standalone test (1710) and the six absence asserts; add `Overview_HasNoLayoutsBar` (no element named `LayoutTile`) | delete `LayoutsBarView.xaml(.cs)`, edit tests, `Handover/02_CODEBASE_STRUCTURE.md` line 100 | full suite green, `grep LayoutsBarView` empty outside history |
-| A3 | `SourceCardViewModel` view state | `SourceCardViewStateTests`: truth tables for the 9 properties, `PropertyChanged` on `IsStreaming`/`IsPreviewSupported`/`UsedInBlocks`/`IsArmed`/`Fps` | `ViewModels/SourceCardViewModel.cs` | focused + full |
+| A3 | `SourceCardViewModel` view state (**dependency of B's Task 11**: `UsedInText`/`HasUsage`; A merges first, X10) | `SourceCardViewStateTests`: truth tables for the 9 properties, `PropertyChanged` on `IsStreaming`/`IsPreviewSupported`/`UsedInBlocks`/`IsArmed`/`Fps` | `ViewModels/SourceCardViewModel.cs` | focused + full |
 | A4 | `DisplayCardViewModel` / `MainViewModel` view state | `DisplayCardViewStateTests`: `HasRoutedBadge`, `ShowSingleViewPicture`, `ShowRoutedNonAvasNotice`, `ShowUnroutedPlaceholder`, `ShowUndoToast`, per-tile `IsOnScreen`, `MainViewModel.IsComposing`, notifications | `DisplayCardViewModel.cs`, `MainViewModel.cs` | focused + full |
 | A5 | App bar and brand | `MainWindow` removed from `Pending` (red: keyed styles, template, glyphs, sizes); `AppBar_ShowsLabelsAtFullHd_AndHidesThemAtTheFloor` (1920 wide: labels visible, text >= 12; 1024: hidden and still fits); `BrandMark` extraction keeps `BrandLogo` >= 28 px; header tests updated (`SymbolIcon` accepted) | `MainWindow.xaml`, new `Views/BrandMark.xaml(.cs)` | `MainWindowHeaderTests`, `AppVersionTests`, theme tests green |
 | A6 | Logs tab | `UiV2LogsViewTests`: 5000 entries -> realized `ListBoxItem`s < 100; Recycling + Pixel; no `ScrollViewer` ancestor; toolbar buttons >= 48 with icons, no emoji, text >= 12; level colours per `Warn/Error/Debug` in both themes | `MainWindow.xaml` (Logs section) | focused |
 | A7 | `VisualRoutingView` | file removed from `Pending`; `UiV2VisualRoutingTests`: composer/overview rows, arm banner show/hide + still announced, `Stop`, section headers on role styles; existing `VisualRoutingView_*` unchanged | `VisualRoutingView.xaml` | VisualRouting partial green |
 | A8 | `SourceCardView` | file removed from `Pending`; `ui:Card` frame fills the 16:9 preview (measured), footer buttons >= 36 with >= 8 px spacing, info badge focusable with the same name/tooltip, offline badge `Brush.Text.Secondary`, placeholders >= 12 | `SourceCardView.xaml` (+ `Resources/Styles/SourceCard.xaml`) | SourceCard partial green |
-| A9 | `DisplayCardView` part 1: frame, header, action bar | `DisplayCard_ChromeHeight_EqualsTheSumOfTheRowTokens`; buttons >= 48; draft chip via `Style.Button.Chip.Draft`; `ModeBadge`/`ModeBadgeText`/`DeviceNameText` names kept; long-name test still passes | `DisplayCardView.xaml`, `Resources/Styles/DisplayCard.xaml` | DisplayCard subset green |
-| A10 | `DisplayCardView` part 2: picture states and overlays | overlay truth tables via A4; `Style.Overlay.Body`; overlay text >= 12 on `OnPreview*`/`OnScrim` tokens; readability tests at 1008x615 and 1264x755 pass | `DisplayCardView.xaml` | + `ThemeResourceUsageTests` |
+| A9 | `DisplayCardView` part 1: frame, header, action bar | `DisplayCard_ChromeHeight_EqualsTheSumOfTheRowTokens`; buttons >= 48; draft chip consumes the foundation `Style.Button.Chip.Staged` (X3); `ModeBadge`/`ModeBadgeText`/`DeviceNameText` names kept; long-name test still passes | `DisplayCardView.xaml`, `Resources/Styles/DisplayCard.xaml` | DisplayCard subset green |
+| A10 | `DisplayCardView` part 2: picture states and overlays | overlay truth tables via A4; `Style.Overlay.Body`; overlay text >= 12 on `OnPreview*`/`OnScrim` tokens; `CopyTargetLock` is a `ui:SymbolIcon LockClosed24` at `Size.Icon.L` and `DisplayCardView` no longer references `Icon.Lock` (X8); readability tests at 1008x615 and 1264x755 pass | `DisplayCardView.xaml` | + `ThemeResourceUsageTests` |
 | A11 | `DisplayCardView` part 3: dock, Undo toast, layout menu | `Style.Button.LayoutMenuTile` keeps `bd`; popup width from token; selected tile marked by border and words; toast never overlaps the picture | `DisplayCardView.xaml` | layout-menu + Undo tests green |
 | A12 | `SettingsDialog` | `UiV2SettingsDialogTests`: fields >= 48 high with automation names; `ChkShowLogs` is a `ToggleButton` and persists (update `ReleaseDefaultsTests.cs:134`); dialog fits 1024x720; normal chrome kept | `SettingsDialog.xaml(.cs)` | `ReleaseDefaultsTests`, `AppVersionTests`, new tests |
 | A13 | Full HD pass (D9) | step 1: a measuring test at a maximized 1920x1080 window records card and preview sizes for 1-6 displays and 3-6 sources (replace the estimates in section 2.3); then failing assertions: previews >= the recorded baseline, `GridSpec` caps 960 / 480, labels visible | `AdaptiveGridLayoutTests` (new caps), `GridSpec` | measured table added to this plan's checkpoint notes |
 | A14 | Close-out and exemptions | `CardGrids_AreNotVirtualized_EveryCardIsRealized`, `NoListOutsideTheVirtualizedStyle`; `Pending` empty; allowlist reviewed; memory docs updated | tests, `memory/*` | full suite 795+ green, guards green |
 
-Task count: **14** (A1-A14), plus Foundation task zero (D10) owned by the master.
+Task count: **14** (A1-A14). The foundation tasks are built by the separate foundation session (cross-review section 6), not by A.
+
+**Foundation items each task needs** (cross-review ids F0-F6; "keys" are the additional names A reads from F3/F4):
+
+| Task | Needs | Keys / notes |
+|---|---|---|
+| A1 | F0, F5 | allowlist file and `UiV2Guards` exist |
+| A2 | F0 | `DisplayCard`/`MainWindow` partials exist so the removed asserts are edited in A's files |
+| A3, A4 | F0 | pure view-model work; none of F1-F4 is required (can start at once); A3 must land before B's Task 11 |
+| A5 | F1, F2, F3, F4, F6 | `Style.Tab.Nav` (part `bd`), `Style.Button.AppBar`, `Size.AppBar.Height`, `Size.Tab.MinWidth`, `Size.Breakpoint.AppBarLabels` (1400), `Converter.WidthAtLeast`, `Size.Icon.S/L`, icon font check |
+| A6 | F2, F3, F4 | `Style.ListBox.Virtualized` (plain ScrollViewer template), `Style.Text.Mono`, `Style.Text.LogLevel`, `Size.Log.Col.*` (GridLength), `Style.Button.Secondary` |
+| A7 | F2, F3, F4 | `VisibilityConverter` instances, `Converter.BoolToGridLength`, `Style.Text.Section`, `Style.Icon.Section`, `Style.Banner.Arm`, `Style.Badge.Info` (DISCOVERED count) |
+| A8 | F2, F3, F4 | `Style.Card.Source` on `ui:Card`, `Style.StatusDot(.Small)`, `Style.Badge.Info/Staged/Armed`, `Style.Ring.Armed/Focus`, `Size.Touch.Compact`, `Size.Card.Min`, `Style.Icon.Placeholder`, `Style.Button.Primary/Secondary/Unroute` |
+| A9 | F2, F3, F4 | `Style.Card.Display`, `Style.Button.CardAction`, `Style.Button.Chip.Staged`, `Size.Card.Row.*`, `Style.Icon.Section/Power`, `Style.FocusVisual.Ring`, empty `DisplayCard.xaml` |
+| A10 | F2, F3, F4, F6 | `Style.Overlay.Body`, `Style.Icon.State`, `Size.Icon.L`, `Size.Notice.Max`, `ui:SymbolIcon LockClosed24` glyph available |
+| A11 | F2, F3, F4 | popup/toast tokens, `Size.LayoutTile.Min`, `Size.Schematic.Menu.*`; `Style.Button.LayoutMenuTile` is A's, in `DisplayCard.xaml` |
+| A12 | F2, F3, F4 | `Style.TextBox.Field`, `Style.ToggleSwitch.Setting`, `Size.Dialog.Settings.Width`, `Size.Button.Dialog.Min` |
+| A13 | F1-F4 | none beyond the above; edits `GridSpec` caps (960 / 480) and `AdaptiveGridLayoutTests` |
+| A14 | F5 | `Pending` empty, allowlist entries have reasons |
+
+Merge order for the integration branch: **A first, then B** (X9). After B merges, re-run the `DisplayCard` layout-menu and slot tests (A sizes `LayoutSchematic` by tokens, B adds an aspect rule that only applies to unbounded axes). `Style.Button.Take` is not touched by A (X7); its only user is B's Composer.
 
 **Checkpoint 2 deliverables (Main Window, on `ui-v2/integration`):** (1) screenshots in `ui_screenshots/Version 4/` at **1920x1080 and 1024x720, each in Dark and Light**: overview idle, source armed, copy armed with the banner, display with Undo toast, layout menu open, drop-choice panel, Logs tab (ShowLogs on), BAVM Console tab, Settings dialog; (2) non-live test count (795+ plus new, expected about 850) and the guard report (Pending empty, allowlist entries with reasons); (3) the measured Full HD table (A13); (4) a runnable branch (`dotnet run`), plus the manual checklist: native caption keeps title/icon after toggling the theme (R1), Console tab works maximized, touch drag of a source onto a display, one lab routing regression.
 
 ## 8. Foundation requests, alignment with session B, and risks
 
-### 8.1 Foundation requests (accepted in principle by the master; this is the final list)
+### 8.1 Foundation requests (final, aligned with cross-review F0-F6)
 
-| Id | Request | Same as B |
+The cross-review accepted the earlier F1-F9; they are now owned by the foundation session under these ids. Additional keys A reads (to be included in F3/F4):
+
+| Cross-review item | A's requirements |
+|---|---|
+| F0 split | partial names `.Support`, `.Theme`, `.MainWindow`, `.VisualRouting`, `.SourceCard`, `.DisplayCard`, `.Composer` (A owns the four view partials, section 7) |
+| F1 package, merge order, ThemeService | WPF-UI 4.3.0; order ThemesDictionary, ControlsDictionary, palette, `Styles/*`, `Theme.xaml`, `Icons.xaml`; never `ApplicationThemeManager.Apply(theme, ...)` while `Application.MainWindow` is set (verified: it strips native caption text, icon and system menu from a plain `Window`) |
+| F2 `TestResources.Ensure()` | merges exactly what `App.xaml` merges; used by the four bootstrap sites |
+| F3 tokens | `Size.Touch.Min` 48, `Size.Touch.Compact` 36, `Size.Icon.S/M/L` 16/22/28, `Size.Dot.S/M` 8/10, `Size.AppBar.Height`, `Size.Tab.MinWidth`, `Size.Breakpoint.AppBarLabels` 1400, `Size.Window.Default/Min.*`, `Size.Card.Min` 320, `Size.Card.Row.Header/ActionBar/Dock` 24/56/64, `Size.Dock.Content`, `Size.Toast.Min`, `Size.Notice.Max`, `Size.Popup.LayoutMenu`, `Size.LayoutTile.Min`, `Size.Schematic.Menu.Width/Height`, `Size.Dialog.Settings.Width`, `Size.Button.Dialog.Min`, GridLength `Size.Log.Col.Time/Level/Category`, `Font.Size.Lead/Title/Body/Caption` 16/14/13/12 |
+| F4 styles | `Buttons.xaml` (`Primary`, `Secondary`, `Unroute`, `CardAction`, `Composer` at 48, `Chip.Staged`, `AppBar`; `Take` stays in `Theme.xaml`), `Tabs.xaml` (`Style.Tab.Nav`, part `bd`), `Text.xaml` (Lead, Title, Section, Body, Caption, Mono, `Style.Text.LogLevel`), `Cards.xaml` (`Style.Card.Source/Display` on `ui:Card`), `Badges.xaml` (`Info`, `Staged`, `Armed`), `Inputs.xaml` (`Style.TextBox.Field`, `Style.ToggleSwitch.Setting`), `Lists.xaml` (`Style.ListBox.Virtualized`), `Overlays.xaml` (`Style.Overlay.Body`, `Style.Banner.Arm`, toast, popup frame), dot/ring/icon styles (`Style.StatusDot`, `.Small`, `Style.Ring.Armed/Focus`, `Style.Icon.Section/State/Placeholder/Power`), `Converters.xaml` (`VisibilityConverter` rules, `Converter.WidthAtLeast`, `Converter.BoolToGridLength`), empty `SourceCard.xaml`/`DisplayCard.xaml`/`Composer.xaml`. All brushes `DynamicResource`; state styles read `Tag`; keys of B's R6 stay stable. |
+| F5 guards | single `UiV2Guards` class + single allowlist; A only adds rows (A1) |
+| F6 icon font and leakage | rendered `ui:SymbolIcon` has a glyph and a resolved `FluentSystemIcons` family; notes on implicit WPF-UI styles for `Button`, `ScrollViewer`, `ToolTip`, `Popup` |
+| X11 | `Style.Button.Composer` goes to 48 px; the foundation commit adjusts the Stop-button assertion (`VisualRoutingView_StopButton_Disarms` area) once |
+| X8 cleanup | after A and B land, the foundation deletes `Icon.Lock` and `Icon.Sun/Moon/Refresh/Settings` (A no longer uses them after A5 and A10) |
+
+### 8.2 Conflicts with session B: status after the cross-review
+
+| Topic | Resolution (cross-review) | Effect on A |
 |---|---|---|
-| F1 | `WPF-UI` **4.3.0** package reference. | B 2.4 |
-| F2 | Merge order: `ui:ThemesDictionary`, `ui:ControlsDictionary`, palette, `Resources/Styles/*`, `Theme.xaml`, `Icons.xaml` so our implicit `ScrollViewer` and button styles win. **`ThemeService` must not call `ApplicationThemeManager.Apply(theme, ...)` while `Application.MainWindow` is set (R1, strips native caption text/icon/sysmenu from a plain `Window`)**; swap `ThemesDictionary.Theme` directly and set the accent from the app token. | B R8, R10 |
-| F3 | Tokens: `Size.Touch.Min` 48, `Size.Touch.Compact` 36 (only these two, D4), `Size.AppBar.Height`, `Size.Tab.MinWidth`, `Size.Breakpoint.AppBarLabels` 1400, `Size.Window.*`, `Size.Icon.S/M/L` = **16 / 22 / 28** (S, M as in B R4; A adds L), `Size.Dot.S/M` 8/10, `Size.Card.Min` 320, `Size.Card.Row.Header/ActionBar/Dock` 24/56/64, `Size.Dock.Content`, `Size.Toast.Min`, `Size.Notice.Max`, `Size.Popup.LayoutMenu`, `Size.LayoutTile.Min`, `Size.Schematic.Menu.*`, `Size.Dialog.Settings.Width`, `Size.Button.Dialog.Min`, `GridLength` tokens `Size.Log.Col.*`; `Font.Size.Lead/Title/Body/Caption` = 16/14/13/12. | B R4 (Comfort 56 / Primary 72 dropped by D4) |
-| F4 | Central styles: `Buttons.xaml` (`Primary`, `Secondary`, `Unroute`, `CardAction`, `Composer`, `Take`, `AppBar`), `Tabs.xaml` (`Style.Tab.Nav`, part `bd`), `Text.xaml` (roles of 3.3, `Style.Text.LogLevel`), `Cards.xaml` (`Style.Card.*` on `{x:Type ui:Card}`), `Inputs.xaml` (`Style.TextBox.Field`, `Style.ToggleSwitch.Setting`), `Lists.xaml` (`Style.ListBox.Virtualized`), `Overlays.xaml` (`Style.Overlay.Body`, `Style.Banner.Arm`, toast, popup frame), badge/dot/ring/icon styles, `Resources/Converters.xaml`. All brushes `DynamicResource`; state styles read `Tag`; keys listed in B R6 stay stable (`Style.Button.Composer/Take/CardAction`, `Style.Text.ComposerLabel`, `Style.FocusVisual.Ring`, `Style.ScrollBar.Thin`, implicit `ScrollViewer`, `Icon.Lock`). | B R5, R6 |
-| F5 | Empty merged `Styles/SourceCard.xaml` and `Styles/DisplayCard.xaml` (A content) next to B's `Composer.xaml`. | B R3 |
-| F6 | One shared test helper (`TestResources.Ensure()` in my draft, `UiTestApp.EnsureResources` in B's; master picks the name) merging exactly what `App.xaml` merges, adopted in the four bootstrap sites. | B R1 |
-| F7 | Delete `Icon.Sun/Moon/Refresh/Settings` after A lands (B confirms no use). | - |
-| F8 | One converter set: adopt B's `VisibilityConverter { Rule }` (True, False, NotNull, Null, NotEmpty, HasItems, NoItems) as the shared implementation, hoisted by the foundation to `Resources/Converters.xaml` instances (B plans to add it in its own Task 6 inside `ComposerConverters.cs`); plus `Converter.WidthAtLeast` and `Converter.BoolToGridLength`. | B Task 6 |
-| F9 | The single guard allowlist file (D6): one file, sections per session, so A and B do not both own it. | B Task 3 |
-
-### 8.2 Overlaps and conflicts with session B (for the cross-review)
-
-1. **Duplicate style keys.** B plans `Style.Button.LayoutTile` and `Style.Button.Chip.Staged` in `Composer.xaml`; my layout-menu tile and draft chip use the same ideas. Resolved here by distinct keys (`Style.Button.LayoutMenuTile`, `Style.Button.Chip.Draft` in `DisplayCard.xaml`); the master may later unify (both keep part `bd`, same triggers).
-2. **Text roles.** B R5 asks for `Style.Text.Title` 20 / `Heading` 18 / `Body` 14; D8 allows only 16/14/13/12 and my `Body` is 13. One of us must rename: suggested `Lead` 16, `Title` 14, `Body` 13, `Caption` 12 for everyone, B's 20/18 headings mapped to `Lead` (master decision).
-3. **Icon sizes.** B: S 16, M 22. A needs 14-28 px icons; mapped to S 16 / M 22 / new L 28 (a +2 px change for the 14 px icons).
-4. **Guards.** B Task 3 uses ratchet baselines; D6 wants hard guards + one allowlist. A follows D6 (`Pending` per file); B should do the same.
-5. **Converters** (F8) and **test bootstrap** (F6) are requested twice with different names; one implementation each.
-6. **Shared files.** `ViewSmokeTests` partial ownership (section 7) must be agreed with B's R2 (their `.Composer.cs` line ranges 277-560, 700-1010, 1139-1230, 2287-2700 do not overlap the A ranges listed above). `Icon.Lock` is shared and stays; `Controls/FractionalLayoutPanel` change by B affects `DisplayCardView` slots (A9/A10 run the multi-window tests after B's change merges; the integration branch resolves the order).
-7. **Implicit WPF-UI styles** (B R10) apply to anything unstyled in A's views too; A has no unstyled `Button`/`TextBox`/`ToolTip` after the migration except `ToolTip` content, which the Fluent look will restyle (visual check at the checkpoint).
+| Duplicate chip/tile keys | X3: one `Style.Button.Chip.Staged`; B keeps `Style.Button.LayoutTile`, A keeps `Style.Button.LayoutMenuTile` (no overlap) | A9 consumes `Chip.Staged` |
+| Badges | X4: foundation `Style.Badge.Info/Staged/Armed` | A8 consumes, defines none |
+| Text roles | X2: Lead 16, Title 14, Section 14 caps, Body 13, Caption 12, Mono 12 | section 3.3 updated |
+| Icon sizes | X1: S 16 / M 22 / L 28 | unchanged |
+| Converters, test helper, guards | X5, X6, F2: built once by the foundation | A1 only adds allowlist rows |
+| `Style.Button.Take`, `Icon.Lock` | X7: B moves `Take`; X8: A moves its `Icon.Lock` use in A10 | A10 |
+| `LayoutSchematic` sizing, merge order | X9: A first, then B; re-run layout-menu tests after B | section 7 |
+| `UsedInText`/`HasUsage` | X10: A3 is a dependency of B Task 11 | A3 flagged |
+| Implicit WPF-UI styles | F6 leakage notes; visual check at the checkpoints | A has no unstyled `Button`/`TextBox` left; `ToolTip` look changes |
 
 ### 8.3 Risks and open questions
 
-* **R1 ThemeService caption stripping** (verified in WPF-UI source, section 2.1): would blank the native title bar text/icon on the plain `Window`. Needs an explicit foundation test and the manual check.
+* **R1 ThemeService caption stripping** (verified in WPF-UI source, section 2.1): would blank the native title bar text/icon on the plain `Window`. The foundation (F1) implements the avoidance and tests it; A repeats the manual check at checkpoint 2 (title text and icon intact after toggling the theme both ways).
 * **R2 `ui:Card` fit**: template padding/stretch may break the 4-row layout; A8/A9 measure first, fallback `Border` + the same style.
 * **R3 WPF-UI font resource**: `ui:SymbolIcon` needs the embedded Fluent System Icons font; without the dictionary in the harness it renders blank but does not throw (B R9). A5 adds a test that a rendered icon has a glyph and a resolved font family.
 * **R4 Implicit style leakage** into B's unmigrated controls and the Console tab chrome: review both plans together before F2 merges.
 * **R5 12 px floor**: overlay and chip text grows from 9-11 px to 12 px (28 literals); card readability tests at 1008x615 and 1264x755 are the judge, strings wrap.
 * **R6 Accent contrast**: WPF-UI derives hover/pressed shades from the accent; the contrast test must cover `ui:Badge`/`ui:Card` text as well as our buttons, in both themes.
 * **R7 `RowDefinition` binding** may not update reliably; one allowlisted style is the fallback.
-* **O1 (user decision, Full HD)**: the overview is height-bound at 1920x1080. Options: (a) accept and rely on labels, 12 px text and higher caps (this plan); (b) move Sources into a left rail at about 1600+ px wide (+about 350 px for displays; layout change, new tests); (c) slim the per-card non-video chrome. Recommend (a) now, (b) as a follow-up if the lab wants bigger previews.
+* **O1 Full HD: decided, option (a)**: the overview is height-bound at 1920x1080; v2 restyles only (labels, 12 px text, higher caps). A left rail for Sources or slimmer card chrome is a possible follow-up if the lab wants bigger previews after the checkpoint.
+* **Cross-review exceptions (section 3 there)**: Take button stays 72 px and the 28 px block number are Composer-only (B); the 16 px title cap affects my Settings title and the brand name (Lead 16), checked in the checkpoint screenshots.
 * **O2** Deferred, not in this plan: Logs level filter/follow-tail, Settings/Refresh feedback, `BavmWebView.DefaultBackgroundColor` from the theme (avoids a white flash on the Console tab).

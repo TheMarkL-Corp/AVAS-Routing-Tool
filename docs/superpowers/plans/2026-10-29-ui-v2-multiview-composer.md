@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-29-ui-v2-master-guidelines.md` (section 0 locked decisions D1-D12 override everything else; G1-G5; sections 3-6). Session A's plan: `docs/superpowers/plans/2026-10-29-ui-v2-main-window.md` (its F1-F7 are aligned with in section 8). Composer behaviour that must not regress: `Handover/04_VERIFIED_FEATURES_AND_KNOWN_LIMITATIONS.md`.
 
-**Branch and execution (D2, D7):** work happens on `ui-v2/integration`'s descendants only; `main` is untouched, revert tag `pre-ui-v2`. The Composer is implemented in its own worktree (branch `ui-v2/composer`, cut from `ui-v2/integration`) **after checkpoint 1 (Foundation) and checkpoint 2 (Main Window) are merged**, and merged back at checkpoint 3 (section 7.3).
+**Branch and execution (D2, D7, cross-review section 7):** work happens on `ui-v2/integration`'s descendants only; `main` is untouched, revert tag `pre-ui-v2`. After the Foundation checkpoint (checkpoint 1) is merged, the Composer is implemented **in parallel with the Main Window** in its own worktree (branch `ui-v2/composer`, cut from the new `ui-v2/integration` tip). Session A merges at checkpoint 2, this plan at checkpoint 3 (merge order A, then B; section 7.3). The master's cross-review (`docs/superpowers/specs/2026-10-29-ui-v2-cross-review.md`, X1-X11) overrides this plan; the user approved the three exceptions (Take 72 px, block number 28 px, 20 px titles dropped to 16 px with a possible second font exception decided by the screenshots) and chose Full HD option (a): **restyle only, no Sources left rail**.
 
 ## Locked decisions and where they land in this plan
 
@@ -19,7 +19,7 @@
 | D1 | Theme + controls only. Composer is a `UserControl` inside the existing `Window`; no `FluentWindow`/`TitleBar`/`NavigationView` anywhere in these files. |
 | D3 | Stock glyphs -> `ui:SymbolIcon` (section 3.3); no custom brand icon is needed in the Composer. Icon guard allowlist in 6.3. |
 | D4 | Touch tokens are exactly `Size.Touch.Min` 48 and `Size.Touch.Compact` 36. Section 2.5 lists which control uses which. Comfort 56 / Primary 72 are dropped; Take keeps a content-specific `Size.Composer.Take.Min` (justified in 2.5). |
-| D6 | Hard guards from the master + ONE shared allowlist. Composer entries and reasons in 6.3. Task 3 registers the three files as "pending migration" and keeps a per-task progress ratchet that is deleted in Task 12. |
+| D6 | The foundation creates ONE `UiV2Guards` test class and ONE allowlist file (sections `Pending`, `StaticIcons`, `UnvirtualizedLists`, `InlineStyleExceptions`). This plan only adds Composer entries (6.3). Task 3 registers the three files under `Pending` and keeps a TEMPORARY per-metric ratchet that Task 12 deletes. |
 | D8 | Font floor 12. Composer text maps onto A's tokens 16/14/13/12 (`Font.Size.Lead/Title/Body/Caption`); no 11 px; the 20/18/17/15 sizes are dropped; one content-specific exception (block number 28). Section 3.4. |
 | D9 | Design target 1920x1080 at 100%, maximized; 1024x720 stays a safety floor with the existing tests. Section 2.3. |
 | D10 | Splitting `ViewSmokeTests.cs` is foundation task zero. Composer partial: `ViewSmokeTests.Composer.cs`. |
@@ -28,7 +28,7 @@
 
 ## Global Constraints
 
-- TDD; every XAML change is verified on an STA thread by view tests. Run tests with a fresh `-p:BaseOutputPath=bin/<name>/`. Baseline: **795 non-live tests pass** (plus whatever the Foundation and Main Window checkpoints add). Test names must not contain `Live`.
+- TDD; every XAML change is verified on an STA thread by view tests. Run tests with a fresh `-p:BaseOutputPath=bin/<name>/`. Baseline: **795 non-live tests pass** (plus whatever the Foundation checkpoint adds). Test names must not contain `Live`.
 - Theme contract: Dark/Light dictionaries keep identical keys; palette refs are `DynamicResource`; no raw `#RRGGBB` outside `Resources/Themes/`; `HexCheckExemptFiles` stays empty. No `Dispatcher.Invoke` in `ThemeService`.
 - Clinical OR ergonomics: WCAG AA (>= 4.5:1), touch targets per D4, visible focus rings, spoken `AutomationProperties` names, 1024x720 safety floor, nothing occludes the 16:9 video canvas.
 - Zero socket leaks: the Composer only mirrors `PreviewBitmap` references of source cards; this plan adds no receiver, socket or multicast code.
@@ -141,14 +141,14 @@ The staged canvas is a deliberate layout algorithm, not view sizing. These stay 
 | `PickerMaxHeight = max(320, 70 % of work area)` in code-behind | Computed from the work area, cannot be a token; already tested (`Composer_PickerPopup_WithTwelveEncoders_...`). |
 | 8 px drag-start distance (`TapGesture`) | Input algorithm, tested in `TapGestureTests`. |
 | Mini-picture ratio: the literal `1.7777777777777777` becomes `{x:Static views:AspectRatioConverter.Default}` (16/9), and in Task 9 the live plan's ratio | Removes the magic number; a ratio is not a size. |
-| `Font.Size.Composer.BlockNumber` 28 (the only font exception) | The block number is read from across the room on a 560 px block at Full HD and on a 215 px block at 1024x720; it sits on video, so it cannot be a smaller chrome role. Compact blocks use `Font.Size.Lead` (16; was 18). |
-| `Size.Composer.Take.Min` 72 (the only touch exception) | See 2.5. |
+| `Font.Size.Composer.BlockNumber` 28 (the only font exception; **accepted by the user**) | The block number is read from across the room on a 560 px block at Full HD and on a 215 px block at 1024x720; it sits on video, so it cannot be a smaller chrome role. Compact blocks use `Font.Size.Lead` (16; was 18). Dropping the 20 px titles to 16 is also accepted; the checkpoint screenshots decide whether a second exception is needed. |
+| `Size.Composer.Take.Min` 72 (the only touch exception; **accepted by the user**) | See 2.5. |
 
 What goes away: every fixed pixel on chrome (rails, tiles, schematics, steps, picker, palette card) as listed in section 4.
 
 ### 2.3 Behaviour at sizes (D9: Full HD is the design target)
 
-**Estimates, to be measured by Task 5a's 1920x1080 test** (VisualRoutingView at a maximized 1920x1080 client): Composer about 1888 wide and 800 high; header about 75, body about 725; status row 48; canvas area about 1160 wide x 655 high.
+**Full HD decision (cross-review section 4, option (a)): restyle only; no Sources left rail and no change to session A's rows.** **Estimates, to be measured by Task 5a's 1920x1080 test** (VisualRoutingView at a maximized 1920x1080 client): Composer about 1888 wide and 800 high; header about 75, body about 725; status row 48; canvas area about 1160 wide x 655 high.
 
 | Area | Today at 1920x1080 | UI v2 at 1920x1080 | Why |
 |---|---|---|---|
@@ -170,7 +170,7 @@ Verified on 2026-10-29 against NuGet (`WPF-UI` **4.3.0**, targets net8.0) and `l
 |---|---|---|---|
 | All glyph icons (✓ ✕ i ! lock, back, undo) | `ui:SymbolIcon` | **Adopt** | D3; sized by `FontSize` (so no Width/Height). Foreground always from our tokens. |
 | Right-rail cards (`RailCard`) | `ui:Card` | **Adopt** as `Style.Card.Rail` (`BasedOn {x:Type ui:Card}`, our `Brush.Surface.Card`/`Border.Default`) | Template exposes what we need; non-focusable, so tab order is untouched. |
-| Chrome chips (header output/rate chips; palette "in N blocks" and "Placing") | `ui:Badge` | **Adopt** as `Style.Badge.Info`, `Style.Badge.Staged`, `Style.Badge.Armed` (`BasedOn {x:Type ui:Badge}`, our Surface/Border/Text tokens, `Appearance` left at default) | D12; no test coupling. Chips drawn **over video** (number, source pill, SameAs, size, issue band, pills) stay `Border` (`Style.Chip.*`): they need the Scrim surfaces and hit-test off. |
+| Chrome chips (header output/rate chips; palette "in N blocks" and "Placing") | `ui:Badge` | **Adopt, consuming the foundation's `Style.Badge.Info`, `Style.Badge.Staged`, `Style.Badge.Armed`** (`BasedOn {x:Type ui:Badge}`; **defined by the foundation, not in `Composer.xaml`**, cross-review X4) | D12; no test coupling. Chips drawn **over video** (number, source pill, SameAs, size, issue band, pills) stay `Border` (`Style.Chip.*`, in `Composer.xaml`): they need the Scrim surfaces and hit-test off. |
 | `ui:ToggleSwitch`, `ui:TextBox` | - | **Not needed** | The Composer has no toggle and no text input (`HandleKey` only guards against `TextBoxBase` defensively). |
 | Picker frame | `ui:Card` / `ui:Flyout` | **Keep `Border`** (`Style.Surface.Popup`) and the native `Popup` | The code-behind anchors `PickerPopup.PlacementTarget` to the block container, handles `Closed`, `StaysOpen=False`, and tests cast `Named(view,"PickerPopup")` to `Popup` and read `popup.Child`. |
 | Buttons (`Style.Button.Composer/Take`, strip, tiles) | `ui:Button` | **Native `Button` + central templates** (D12) | The 2 px border, `InputModality.ShowsFocus` ring (pixel-tested), `Take.Content as string` and `bd` template part names are contractual. Icon+text buttons use `StackPanel(ui:SymbolIcon, TextBlock)` as content. |
@@ -187,7 +187,7 @@ Verified on 2026-10-29 against NuGet (`WPF-UI` **4.3.0**, targets net8.0) and `l
 | Back to displays, Done placing / Cancel move, Discard, Clear all, Undo, picker Cancel | 48 | `Size.Touch.Min` (via `Style.Button.Composer`, which becomes 48 in the foundation) | Were 56. |
 | Replace / Move strip buttons on a normal block | 48 | `Size.Touch.Min` | Were 56. |
 | Replace / Move on a **compact** block (< 240 px wide: PIP inset, 2x2 on a small window) | 36 | `Size.Touch.Compact`, 8 px gap between the buttons | The strip is a dense secondary overlay centred on a tiny block; 48 would cover most of a 215x120 inset. |
-| Unplaced-source chips | 48 | `Size.Touch.Min` (consume A's `Style.Button.Chip.Staged`) | Were 56. |
+| Unplaced-source chips | 48 | `Size.Touch.Min` (consume the foundation's `Style.Button.Chip.Staged`, extracted from `DisplayCardView`'s draft chip; this plan defines no chip button, X3) | Were 56. |
 | Corner clear | 48 hit area, 32 glyph | `Size.Touch.Min`; glyph `Size.Composer.Badge.Round` | Unchanged; stays out of the tab order. |
 | Layout tiles | 96 | `Size.Composer.Tile.Min` (content-specific) | A tile is a card with a schematic; also a test. |
 | **Take** | 72 | `Size.Composer.Take.Min` (**content-specific, not global**) | The only action that changes what the surgeon sees; it is pinned alone at the bottom of a rail that has the room at Full HD, kept 8+ px from every neighbour, and pinned by an existing test (`take.ActualHeight >= 72`, also at 1008x615). `Style.Button.Take` moves into `Composer.xaml` (it has no other user) so no global token is needed. |
@@ -199,7 +199,7 @@ Spacing: all adjacent controls keep >= 8 px (Discard/Clear all 12; compact strip
 
 ## 3. Style/icon migration map
 
-Dictionary key: **C** = `Resources/Styles/Composer.xaml` (contents owned by this plan); **T** = foundation `Text.xaml` (A's roles `Lead/Title/Body/Caption/Section`); **B** = foundation `Buttons.xaml`; **V** = value converter in `Views/ComposerConverters.cs`. Where a style needs the compact state it triggers on the inherited `views:BlockDensity.IsCompact`.
+Dictionary key: **C** = `Resources/Styles/Composer.xaml` (contents owned by this plan); **T** = foundation `Text.xaml` (roles exactly `Lead` 16, `Title` 14, `Section` 14 caps, `Body` 13, `Caption` 12, `Mono` 12; no `Micro`; `Section` is foundation-defined, X2); **B** = foundation `Buttons.xaml`; **V** = the foundation's shared `VisibilityConverter { Rule }` and `Converter.*` instances from `Resources/Converters.xaml` (X5; this plan creates no converter). Where a style needs the compact state it triggers on the inherited `views:BlockDensity.IsCompact`.
 
 ### 3.1 Keyed and inline styles in `MultiViewComposerView.xaml`
 
@@ -207,15 +207,15 @@ Dictionary key: **C** = `Resources/Styles/Composer.xaml` (contents owned by this
 |---|---|---|
 | L25-32 `Chip` | keyed Border, scrim | `Style.Chip.Scrim` (C; compact trigger: padding) |
 | L34-41 `RailCard` | keyed Border | `Style.Card.Rail` (C; `ui:Card` based) |
-| L43-48 `RailHeading` | keyed TextBlock, HeadingLevel2 | `Style.Text.RailHeading` (C; `BasedOn Style.Text.Section` + HeadingLevel2) |
+| L43-48 `RailHeading` | keyed TextBlock, HeadingLevel2 | `Style.Text.RailHeading` (C; `BasedOn` the foundation's `Style.Text.Section` + HeadingLevel2) |
 | L51-59 `StepDot` + L154/266/336 triggers + L165/277/347 number/check TextBlocks | 3 copies of ~30 lines | `StepHeader` control + `Style.StepHeader` (C); ✓ becomes `ui:SymbolIcon Checkmark24` |
-| L85-93, L97-105 header chips collapse when empty | inline Style | `ui:Badge` + `Style.Badge.Info` (C) + `Visibility` via `VisibilityConverter` rule `NotEmpty` (V) |
+| L85-93, L97-105 header chips collapse when empty | inline Style | `ui:Badge` + foundation `Style.Badge.Info` + `Visibility` via the foundation `VisibilityConverter` rule `NotEmpty` (V) |
 | L79 title, L94/L106 chip text | literal fonts | `Style.Text.Lead` (T, bold), `Style.Text.Title` (T) |
 | L110, L293, L363, L981 hints | `Style.Text.ComposerLabel` (existing) | unchanged key, 14 px; moved to T by the foundation |
 | L141-148, L425-432 disable when `IsBusy` | 2 identical inline Styles | `Style.Panel.BusyDisables` (C) |
 | L185-257 `LayoutTile` Button + inline ControlTemplate + 2 inline text styles (L233, L245) | template + 2 styles | `Style.Button.ComposerLayoutOption` (C; **renamed so it does not clash with A's `Style.Button.LayoutTile`**; template part `bd` kept), `Style.Text.Selected` (C), `Style.Text.Pending` (C); visibility by `BoolToVisibility` binding |
 | L299-307 unplaced panel visibility | inline | `VisibilityConverter` rule `HasItems` (V) |
-| L308 notice, L320-326 chip | literal, local brushes | `Style.Text.Notice.Staged` (C); chip uses A's `Style.Button.Chip.Staged` (B) |
+| L308 notice, L320-326 chip | literal, local brushes | `Style.Text.Notice.Staged` (C); chip uses the foundation's `Style.Button.Chip.Staged` (B, X3) |
 | L401-418 `DoneButton` | inline BasedOn | `Style.Button.Done` (C, triggers on `MovingFromIndex`/`ArmedSource`) |
 | L383-395 STAGED/ON SCREEN labels | literal fonts | `Style.Text.Status.Staged`, `Style.Text.Status.OnScreen` (C) |
 | L442-462 `CanvasFrame` | inline Rectangle style | `Style.Shape.CanvasFrame` (C) |
@@ -260,23 +260,23 @@ Dictionary key: **C** = `Resources/Styles/Composer.xaml` (contents owned by this
 | `LayoutSchematic.xaml` L12 aspect literal | `1.7777777777777777` | `{x:Static views:AspectRatioConverter.Default}` |
 | `CompactSourceCardView.xaml` L37-45 NO PREVIEW | inline | `Style.Text.Block.Tiny` (C, `Font.Size.Caption`) with `Foreground` attr kept; visibility via `VisibilityConverter` rule `False` |
 | `CompactSourceCardView.xaml` L53-66 name + status lines | inline + literals | `Style.Text.Palette.Name` (`Font.Size.Title`, SemiBold), `Style.Text.Palette.Status` (C) |
-| `CompactSourceCardView.xaml` L70-118 badges | inline Border/TextBlock styles | `ui:Badge` + `Style.Badge.Staged`, `Style.Badge.Armed` (C; **shared keys, see 8.2**); text from A's `SourceCardViewModel.UsedInText` / `HasUsage` (A's T2) instead of the two triggers |
+| `CompactSourceCardView.xaml` L70-118 badges | inline Border/TextBlock styles | `ui:Badge` + the foundation's `Style.Badge.Staged` / `Style.Badge.Armed` (X4; not defined here); text from `SourceCardViewModel.UsedInText` / `HasUsage` (A's A3, X10) instead of the two triggers, with the trigger fallback if A3 is not merged |
 | `CompactSourceCardView.xaml` L121-134 offline overlay, L137-150 focus ring, L153-166 armed ring | inline | `Style.Shape.OfflineOverlay`, `Style.Shape.CardFocusRing`, `Style.Shape.ArmedRing` (C) |
 
 ### 3.3 Icon inventory (D3)
 
 | Old | New | Task |
 |---|---|---|
-| ✓ in `StepDot` (L170, L282, L352) | `ui:SymbolIcon Checkmark24`, `FontSize={StaticResource Size.Icon.M}`, `Foreground=Brush.Text.OnAction` | 4 |
+| ✓ in `StepDot` (L170, L282, L352) | `ui:SymbolIcon Checkmark24`, `FontSize={StaticResource Size.Icon.M}` (22), `Foreground=Brush.Text.OnAction`; the `StepHeader` marker grows to 32 so the 22 px icon fits | 4 |
 | `✓ Selected` text (L231) | `StackPanel(ui:SymbolIcon Checkmark24 Size.Icon.S, TextBlock "Selected")` | 5b |
 | ✕ in IssueBand (L748) | `ui:SymbolIcon Dismiss24` (`Size.Icon.S`) + text | 7b |
-| ✕ in CornerClear (L818) | `ui:SymbolIcon Dismiss24` (`Size.Icon.M`) in the 32 px round glyph | 7b |
-| Banner `i`, `!`, `✓`, `✕` (L1056-1068) | `Info24`, `Warning24`, `CheckmarkCircle24`, `ErrorCircle24` by `Banner.Kind` (`Size.Icon.M`) | 8 |
-| `Path Icon.Lock` 22/16/14 (L687, L883, L1291) | `ui:SymbolIcon LockClosed24`, `Size.Icon.L` (26) normal / `Size.Icon.S` (14) compact and picker | 7b, 10 |
-| Back button (text only) | `ArrowLeft24` (`Size.Icon.M`) + "Back to displays" | 6 |
-| Undo (text only) | `ArrowUndo24` (`Size.Icon.M`) + wrapped text | 8 |
+| ✕ in CornerClear (L818) | `ui:SymbolIcon Dismiss24` (`Size.Icon.S`, 16 as before) in the 32 px round glyph | 7b |
+| Banner `i`, `!`, `✓`, `✕` (L1056-1068) | `Info24`, `Warning24`, `CheckmarkCircle24`, `ErrorCircle24` by `Banner.Kind` (`Size.Icon.M`, 22) | 8 |
+| `Path Icon.Lock` 22/16/14 (L687, L883, L1291) | `ui:SymbolIcon LockClosed24`, `Size.Icon.L` (28) overlay on normal blocks / `Size.Icon.S` (16) on compact blocks and in the picker | 7b, 10 |
+| Back button (text only) | `ArrowLeft24` (`Size.Icon.M`, 22) + "Back to displays" | 6 |
+| Undo (text only) | `ArrowUndo24` (`Size.Icon.M`, 22) + wrapped text | 8 |
 
-`Icon.Lock` stays in `Icons.xaml` until session A also stops using it (`DisplayCardView` L884); once both have moved to `ui:SymbolIcon`, the foundation deletes it (section 8.2). Icon tokens are A's F3 values (`Size.Icon.S/M/L` = 14/18/26).
+`Icon.Lock` (X8): session A moves `DisplayCardView`'s last use (~L884) to `ui:SymbolIcon LockClosed24` (its A10); after Tasks 7b and 10 **the Composer does not use `Icon.Lock`** (Task 12 greps to confirm, and also confirms no use of `Icon.Sun/Moon/Refresh/Settings`), and the foundation then deletes all five. Icon tokens are the foundation's final values (`Size.Icon.S/M/L` = **16/22/28**, X1).
 
 ### 3.4 Typography (D8): 53 literals -> four tokens plus one exception
 
@@ -299,7 +299,7 @@ Tokens are A's F3 `Font.Size.Lead/Title/Body/Caption` = 16/14/13/12 (`Micro` 11 
 
 ## 4. Layout de-hardcoding table
 
-`Size.*` tokens may be used for `Width`/`Height`/`Min*`/`Max*` (the shared guard accepts `{StaticResource Size.*}`, section 8). Foundation tokens: `Size.Touch.Min` 48, `Size.Touch.Compact` 36, `Size.Icon.S/M/L` 14/18/26. Composer tokens (defined in `Composer.xaml`): `Size.Composer.*`, `Font.Size.Composer.BlockNumber`.
+`Size.*` tokens may be used for `Width`/`Height`/`Min*`/`Max*` (the shared guard accepts `{StaticResource Size.*}`, section 8). Foundation tokens (`Resources/Tokens.xaml`): `Size.Touch.Min` 48, `Size.Touch.Compact` 36, `Size.Icon.S/M/L` **16/22/28**. Composer tokens (defined in `Composer.xaml`): `Size.Composer.*`, `Font.Size.Composer.BlockNumber`.
 
 | Where | Literal | Replacement |
 |---|---|---|
@@ -313,7 +313,7 @@ Tokens are A's F3 `Font.Size.Lead/Title/Body/Caption` = 16/14/13/12 (`Micro` 11 
 | XAML L375 status line `MinHeight="56"` | MinHeight | `Size.Touch.Min` (48) |
 | XAML L466 `MaxWidth="560"` placeholder | MaxWidth | `Size.Composer.Text.Measure.Max` |
 | XAML L684 `MaxWidth="380"` reason | MaxWidth | `Size.Composer.Overlay.Text.Max` |
-| XAML L691 LockIcon 22x22 (+compact 16x16 L883-884) | Width/Height | `ui:SymbolIcon` `FontSize` `Size.Icon.L` / `Size.Icon.S` in compact |
+| XAML L691 LockIcon 22x22 (+compact 16x16 L883-884) | Width/Height | `ui:SymbolIcon` `FontSize` `Size.Icon.L` (28) / `Size.Icon.S` (16) in compact |
 | XAML L798 CornerClear 48x48 | Width/Height | `MinWidth/MinHeight = Size.Touch.Min` |
 | XAML L811 CornerClearGlyph 32x32 | Width/Height | `Size.Composer.Badge.Round` (32; test asserts 32) |
 | XAML L852 `Canvas Width="0" Height="0"` | zero-size anchor | **keep**: a layout anchor that centres the strip (allowlist 6.3) |
@@ -325,7 +325,7 @@ Tokens are A's F3 `Font.Size.Lead/Title/Body/Caption` = 16/14/13/12 (`Micro` 11 
 | XAML L1260 thumbnail `Height="112"` | Height | `FractionalLayoutPanel AspectRatio=16:9` child (height = tile width / 16:9) |
 | XAML L1291 picker lock 14x14 | Width/Height | `ui:SymbolIcon` `Size.Icon.S` |
 | XAML L1303 `MaxWidth="180"` note | MaxWidth | removed (tile width bounds it) |
-| XAML L52-53 `StepDot 28x28` | Width/Height | `StepHeader` marker `MinWidth/MinHeight = Size.Composer.StepMarker` (28) |
+| XAML L52-53 `StepDot 28x28` | Width/Height | `StepHeader` marker `MinWidth/MinHeight = Size.Composer.StepMarker` (**32**: the 22 px check icon needs it; was 28) |
 | Compact L5-6 `Width="292" Height="96"` | Width/Height | `MinWidth="{StaticResource Size.Composer.Palette.Card.Min}"` (**340**); height is content-sized (strip limit <= 160 stays tested) |
 | Compact L34 thumbnail `112x63` | Width/Height | thumbnail column `Width="{StaticResource Size.Composer.Palette.Thumb}"` (**144**) + aspect panel for the 16:9 height |
 | `LayoutSchematic` | none | n/a |
@@ -383,18 +383,18 @@ Source/display card grids are not Composer files and stay exempt per G5.
 | `Composer_StepHeadings_AreHeadings_...` | assertions unchanged; `Named(...)` now returns `StepHeader` | 4 (stays green) |
 | All other Composer tests (tab order, focus ring, drag/drop, keyboard, automation names, picker, PIP z-order, real window sizes, SourceCards keyboard) | **no change**; they are the regression net | all |
 | `MultiViewComposerViewModelTests` | unchanged, except one new test for `LiveAspectRatio` if Task 9 is kept | 9 |
-| New: `BlockDensityTests`, `StepHeaderTests`, `VisibilityConverterTests`, `ComposerUiV2GuardTests` (deleted in Task 12), `ComposerCheckpointShots` (manual) | new files | 2, 3, 4, 6, 13 |
+| New: `BlockDensityTests`, `StepHeaderTests`, `ComposerUiV2GuardTests` (temporary ratchet, deleted in Task 12), `ComposerCheckpointShots` (manual) | new files | 2, 3, 4, 13 |
 
 ### 6.3 Shared allowlist entries (D6, D3, D11) for the Composer files
 
-The master owns the ONE allowlist file; these are the entries this plan needs, each with its reason. Anything not listed here must be zero when Task 12 removes the three files from the "pending migration" list.
+The foundation owns the ONE allowlist file and the `UiV2Guards` class; these are the entries this plan adds (allowlist section named in the first column), each with its reason. Anything not listed here must be zero when Task 12 removes the three files from `Pending`.
 
-| Entry | File | Guard | Reason |
+| Entry (allowlist section) | File | Guard | Reason |
 |---|---|---|---|
-| `Canvas Width="0" Height="0"` (1x) | `MultiViewComposerView.xaml` | G4 literal size | Zero-size anchor that centres the Replace/Move strip on its block (`NegativeHalfConverter`), so the strip may overhang a small block unclipped. It is a layout anchor, not a size. |
-| `<Image Source="{Binding PreviewBitmap}">` (4x: block L545, live tile L949, picker thumbnail L1262, palette thumbnail Compact L39) | Composer, Compact | icon guard (D3) | Live-video surfaces; explicitly not icons. |
+| `Canvas Width="0" Height="0"` (1x; `InlineStyleExceptions`, or the guard's size-exception section) | `MultiViewComposerView.xaml` | G4 literal size | Zero-size anchor that centres the Replace/Move strip on its block (`NegativeHalfConverter`), so the strip may overhang a small block unclipped. It is a layout anchor, not a size. |
+| `<Image Source="{Binding PreviewBitmap}">` (`StaticIcons`; 4x: block L545, live tile L949, picker thumbnail L1262, palette thumbnail Compact L39) | Composer, Compact | icon guard (D3) | Live-video surfaces; explicitly not icons. |
 | `FractionalLayoutPanel` usage (5 instances) and `AspectRatio` attributes | Composer, Schematic | G4 | Not literals: the aspect algorithm (2.2). Listed so reviewers see that the canvas is deliberately not `*`/`Auto` sizing. The panel's C# is not scanned (no XAML literal). |
-| `ItemsControl` x6 (section 5 rows) | Composer, Schematic (1) | D11 virtualization | Small bounded lists / live-preview blocks; each with the reason in section 5. |
+| `ItemsControl` x6 (`UnvirtualizedLists`; section 5 rows) | Composer, Schematic (1) | D11 virtualization | Small bounded lists / live-preview blocks; each with the reason in section 5. |
 | U+00B7 `·` text separator (4x) | Composer L477, L565, L1273; Compact L58 | icon guard (D3), only if the guard's character set includes it | Punctuation in visible strings, not an icon. If the guard is limited to symbol/emoji ranges this entry is unnecessary. |
 | `Foreground`/`Background` token attributes on overlay elements | Composer, Compact | none (it is not a guard) | Listed for review only: the video-overlay rule (6.1 #2), pinned by `VideoOverlayText_...`. |
 
@@ -407,8 +407,8 @@ Code constants kept (not XAML, not scanned): `BlockDensity.CompactBelow` 240, `P
 ### 7.1 Preconditions and conventions
 
 - **Foundation task zero (D10):** `ViewSmokeTests.cs` is split into `partial class ViewSmokeTests` files by area, pure move, 795 tests unchanged. This plan expects to own **`ViewSmokeTests.Composer.cs`** (Composer region lines 277-560, 700-1010, 1139-1230, 2287-2700, plus the Compact/Schematic cases). New pure unit tests get their own files.
-- Foundation checkpoint (1) and Main Window checkpoint (2) are merged into `ui-v2/integration` (D7). Foundation provides: WPF-UI 4.3.0 merged per A's F2 order, `TestResources.Ensure()`, `Size.Touch.Min/Compact`, `Size.Icon.S/M/L`, `Font.Size.*`, empty `Resources/Styles/Composer.xaml` merged last among the styles, the shared hard guards + allowlist file with a "pending migration" list, `Style.Button.Composer` at 48, A's `Style.Button.Chip.Staged`, `Style.Text.Lead/Title/Body/Caption/Section`.
-- Work in a worktree: `git worktree add ../AVAS-composer -b ui-v2/composer ui-v2/integration`. Merge back only at checkpoint 3.
+- **Only the Foundation checkpoint (1) must be merged** into `ui-v2/integration` (cross-review section 7); the Main Window is implemented in parallel by session A and is NOT a precondition. The foundation provides: WPF-UI 4.3.0 merged in the cross-review order (`ui:ThemesDictionary`, `ui:ControlsDictionary`, palette, `Styles/*`, `Theme.xaml`, `Icons.xaml`), `TestResources.Ensure()`, `Resources/Tokens.xaml` (`Size.Touch.Min/Compact`, `Size.Icon.S/M/L` = 16/22/28, `Font.Size.Lead/Title/Body/Caption`), empty `Resources/Styles/Composer.xaml` merged last among the styles, `UiV2Guards` + the allowlist file, `Style.Button.Composer` at 48, `Style.Button.Chip.Staged`, `Style.Badge.Info/Staged/Armed`, `Style.Text.Lead/Title/Section/Body/Caption/Mono`, and the shared `VisibilityConverter { Rule }` / `Converter.*`. `Style.Button.Take` stays in `Theme.xaml` until Task 8 moves it (X7). Tasks 1-3 can start right after the foundation; Task 11 needs A's A3 (`UsedInText/HasUsage`) or uses its fallback (X10).
+- Work in a worktree cut from the foundation tip: `git worktree add ../AVAS-composer -b ui-v2/composer ui-v2/integration`. Merge back at checkpoint 3, **after session A's checkpoint 2** (merge `ui-v2/integration` into `ui-v2/composer` first; re-run the `DisplayCard` layout-menu tests after the merge because `LayoutSchematic` and `FractionalLayoutPanel` are shared, X9).
 - Common verification command (from the worktree root; fresh output folder per task):
 
 ```bash
@@ -416,7 +416,7 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 ```
 
 - Full-suite gate at the end of each task: same command with `--filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests"`; expected `0 failed` and a count >= the checkpoint-2 count + the task's new tests.
-- Tasks 1-3 do not depend on the foundation's styles but follow D7 and also run in the worktree.
+- Tasks 1-3 can start right after the foundation checkpoint (they need no style dictionaries); Tasks 4-13 follow in order because each lowers the ratchet. Task 11 needs session A's A3 or uses its fallback.
 
 ### 7.2 Tasks
 
@@ -464,22 +464,22 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 - [ ] **Step 4: Run.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(ui-v2/composer): BlockDensity inherited property for compact overlays`.
 
-### Task 3: Register the Composer files with the shared guards and add a progress ratchet
+### Task 3: Register the Composer files with the shared guards and add a TEMPORARY progress ratchet
 
 **Files:**
-- Modify: the master's shared allowlist / pending-migration file (add the three Composer files and the 6.3 entries; the exact file name is the master's)
+- Modify: the foundation's allowlist file (add the three Composer files under `Pending` and the 6.3 entries); the guard class `UiV2Guards` and the allowlist file already exist (X6)
 - Create: `tests/AvasRoutingTool.Tests/ComposerUiV2GuardTests.cs`
 
 **Interfaces:**
-- Produces: `static class ComposerMetrics { static int KeyedStyles(string xaml); InlineStyles; ControlTemplates; NumericSizeAttrs; GlyphIcons; TargetNameSetters; FontSizeLiterals; }` over the raw XAML text, and a `Baseline` dictionary `{ file -> metric -> max }`. Metric definitions: keyed = `<Style x:Key`; inline = `<Style ` or `<Style>` minus keyed; templates = `<ControlTemplate ` and `<ControlTemplate>`; numeric size = `(Min|Max)?(Width|Height)="<digits>"` attributes plus `Property="(Min|Max)?(Width|Height)" Value="<digits>"` setters (except `Width="0" Height="0"` on a `Canvas`); glyph icons = `✓ ✕ ⓘ` characters in `Text`/`Value` plus `Text="i"`/`"!"`; target-name setters = `<Setter TargetName=` inside `DataTemplate.Triggers`; font literals = `FontSize="<digits>"` and `Property="FontSize" Value="<digits>"`.
+- Produces: `static class ComposerMetrics { static int KeyedStyles(string xaml); InlineStyles; ControlTemplates; NumericSizeAttrs; GlyphIcons; TargetNameSetters; FontSizeLiterals; }` over the raw XAML text, and a `Baseline` dictionary `{ file -> metric -> max }`. This class is TEMPORARY: it gives a red per task for the 1315-line Composer while the shared guard only knows `Pending`; Task 12 deletes it. Metric definitions: keyed = `<Style x:Key`; inline = `<Style ` or `<Style>` minus keyed; templates = `<ControlTemplate ` and `<ControlTemplate>`; numeric size = `(Min|Max)?(Width|Height)="<digits>"` attributes plus `Property="(Min|Max)?(Width|Height)" Value="<digits>"` setters (except `Width="0" Height="0"` on a `Canvas`); glyph icons = `✓ ✕ ⓘ` characters in `Text`/`Value` plus `Text="i"`/`"!"`; target-name setters = `<Setter TargetName=` inside `DataTemplate.Triggers`; font literals = `FontSize="<digits>"` and `Property="FontSize" Value="<digits>"`.
 
 - [ ] **Step 1: Failing test** `Metrics_MeasureTheRealFiles`: asserts today's exact values: Composer keyed 4, inline 44, templates 4, glyph 10, numeric size 31 (25 attributes + 6 setters, Canvas anchor excluded), target-name setters >= 28, font literals 46; Compact inline 8, numeric 4, font literals 5; Schematic inline 1, font literals 2. Fails (type missing).
 - [ ] **Step 2: Run** `--filter "FullyQualifiedName~ComposerUiV2GuardTests"`. Expected: FAIL.
-- [ ] **Step 3: Implement** `ComposerMetrics` (regex, file read via the existing `SourceRoot()` pattern from `ThemeResourceUsageTests`). Add `Guard_NeverExceedsBaseline` theory comparing each metric to `Baseline` (today's values). Add the three files to the shared pending-migration list.
+- [ ] **Step 3: Implement** `ComposerMetrics` (regex, file read via the existing `SourceRoot()` pattern from `ThemeResourceUsageTests`). Add `Guard_NeverExceedsBaseline` theory comparing each metric to `Baseline` (today's values). Add the three files and the 6.3 entries to the foundation's allowlist file.
 - [ ] **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Commit** `test(ui-v2/composer): register Composer files with the shared guards, progress ratchet`.
+- [ ] **Step 5: Commit** `test(ui-v2/composer): register Composer files with the shared guards, temporary progress ratchet`.
 
-> From here on every task's **Step 1** also lowers the affected baseline numbers (that is the red); Task 12 deletes the ratchet and removes the files from the pending list so the hard guards take over.
+> From here on every task's **Step 1** also lowers the affected baseline numbers (that is the red); Task 12 deletes the temporary ratchet and removes the files from `Pending` so the hard guards take over.
 
 ### Task 4: StepHeader control, replacing the three StepDot blocks
 
@@ -489,7 +489,7 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 - Test: `tests/AvasRoutingTool.Tests/StepHeaderTests.cs`, `ViewSmokeTests.Composer.cs`
 
 **Interfaces:**
-- Produces: `public class StepHeader : Control` with DPs `int Number`, `bool IsDone`, `string Title`; ctor sets `Focusable=false`, `IsTabStop=false`; `OnCreateAutomationPeer` returns a peer with `ControlType.Text`. Used as `<controls:StepHeader x:Name="StepLayoutHeading" Style="{StaticResource Style.StepHeader}" Number="1" Title="LAYOUT" IsDone="{Binding StepLayoutDone}" AutomationProperties.Name="{Binding StepLayoutText}" />` (HeadingLevel2 set by the style). Step 3 binds `IsDone` to `CanTake`. The title uses A's `Style.Text.Section`.
+- Produces: `public class StepHeader : Control` with DPs `int Number`, `bool IsDone`, `string Title`; ctor sets `Focusable=false`, `IsTabStop=false`; `OnCreateAutomationPeer` returns a peer with `ControlType.Text`. Used as `<controls:StepHeader x:Name="StepLayoutHeading" Style="{StaticResource Style.StepHeader}" Number="1" Title="LAYOUT" IsDone="{Binding StepLayoutDone}" AutomationProperties.Name="{Binding StepLayoutText}" />` (HeadingLevel2 set by the style). Step 3 binds `IsDone` to `CanTake`. The title uses the foundation's `Style.Text.Section`; the marker is `Size.Composer.StepMarker` (32) and the check icon is `Size.Icon.M` (22).
 
 - [ ] **Step 1: Failing tests**
   - `StepHeader_IsNotAFocusStop`: `Focusable == false && IsTabStop == false`.
@@ -528,18 +528,18 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 - [ ] **Step 4: Run** + `Composer_FocusRing_ShowsOnEveryControlThatTakesFocus` + full suite. Expected: PASS.
 - [ ] **Step 5: Commit** `refactor(ui-v2/composer): central layout option style, proportional schematic`.
 
-### Task 6: Header, rail cards, status line, visibility converter
+### Task 6: Header, rail cards, status line (shared converter and badge style consumed)
 
 **Files:**
-- Modify: `Views/ComposerConverters.cs` (add `VisibilityConverter`), `Views/MultiViewComposerView.xaml` (L24-60 keyed styles, L70-124 header, L222-260 cards, L374-420 status/Done, L986-1009 changes), `Resources/Styles/Composer.xaml` (`Style.Card.Rail`, `Style.Badge.Info`, `Style.Button.Done`, `Style.Text.Status.*`, `Style.Text.RailHeading`, `Style.Panel.BusyDisables`)
-- Test: `tests/AvasRoutingTool.Tests/VisibilityConverterTests.cs`, `ViewSmokeTests.Composer.cs`
+- Modify: `Views/MultiViewComposerView.xaml` (L24-60 keyed styles, L70-124 header, L222-260 cards, L374-420 status/Done, L986-1009 changes), `Resources/Styles/Composer.xaml` (`Style.Card.Rail`, `Style.Button.Done`, `Style.Text.Status.*`, `Style.Text.RailHeading`, `Style.Panel.BusyDisables`). No converter and no badge style is created here (X4, X5).
+- Test: `ViewSmokeTests.Composer.cs`
 
 **Interfaces:**
-- Produces: `public sealed class VisibilityConverter : IValueConverter { public VisibilityRule Rule { get; set; } }` with `enum VisibilityRule { True, False, NotNull, Null, NotEmpty, HasItems, NoItems }`, collapsing otherwise. Declared in `UserControl.Resources` as instances (converters are not styles). Session A's foundation `Converter.*` set may already cover `True/False/Null/NotNull`; reuse those and add only `NotEmpty/HasItems/NoItems` if missing.
+- Consumes: the foundation's shared `VisibilityConverter { Rule }` (rules `True, False, NotNull, Null, NotEmpty, HasItems, NoItems`) and the `Converter.*` instances from `Resources/Converters.xaml`, used from `UserControl.Resources` or the central styles; `Style.Badge.Info`; `Style.Text.Lead/Title/Section`. The foundation already unit-tests the converter, so this task adds none.
 
-- [ ] **Step 1: Failing tests**: `VisibilityConverterTests` (one assertion per rule incl. `null`, `""`, empty array, non-empty list). View tests: `Composer_BackButton_HasArrowIcon_AndKeepsName` (contains `SymbolIcon` `ArrowLeft24`; name "Back to displays"; `ActualHeight >= 48`); `Composer_RailCards_AreUiCards_WithAppBackground` (both are `Wpf.Ui.Controls.Card`, `Background` equals `Brush.Surface.Card`); `Composer_HeaderChips_AreBadges_AndCollapseWhenEmpty` (`Wpf.Ui.Controls.Badge`; with no layout chosen the `OutputText` chip is not visible). Edit line ~658 (`close >= 56` -> `>= 48`). Ratchet: keyed 3 -> 1 here (`Chip` goes in 7a); inline lowered by the number removed.
-- [ ] **Step 2: Run** `--filter "FullyQualifiedName~VisibilityConverter|FullyQualifiedName~Composer_BackButton|FullyQualifiedName~Composer_RailCards|FullyQualifiedName~Composer_HeaderChips"`. Expected: FAIL.
-- [ ] **Step 3: Implement** converter and the XAML/styles; `Style.Card.Rail` is `BasedOn="{StaticResource {x:Type ui:Card}}"` with our `Background`, `BorderBrush`, `Border.CornerRadius`, margin `0,0,4,12`; `Style.Badge.Info` is `BasedOn="{StaticResource {x:Type ui:Badge}}"` with our tokens and `Appearance` unchanged.
+- [ ] **Step 1: Failing tests**: `Composer_BackButton_HasArrowIcon_AndKeepsName` (contains `SymbolIcon` `ArrowLeft24`; name "Back to displays"; `ActualHeight >= 48`); `Composer_RailCards_AreUiCards_WithAppBackground` (both are `Wpf.Ui.Controls.Card`, `Background` equals `Brush.Surface.Card`); `Composer_HeaderChips_AreBadges_AndCollapseWhenEmpty` (`Wpf.Ui.Controls.Badge` with the foundation's `Style.Badge.Info`; with no layout chosen the `OutputText` chip is not visible). Edit line ~658 (`close >= 56` -> `>= 48`). Ratchet: keyed 3 -> 1 here (`Chip` goes in 7a); inline lowered by the number removed.
+- [ ] **Step 2: Run** `--filter "FullyQualifiedName~Composer_BackButton|FullyQualifiedName~Composer_RailCards|FullyQualifiedName~Composer_HeaderChips"`. Expected: FAIL.
+- [ ] **Step 3: Implement** the XAML and styles; `Style.Card.Rail` is `BasedOn="{StaticResource {x:Type ui:Card}}"` with our `Background`, `BorderBrush`, `Border.CornerRadius`, margin `0,0,4,12`; the header chips use the foundation's `ui:Badge` style and its `VisibilityConverter` rule `NotEmpty`.
 - [ ] **Step 4: Run** filter + `Composer_AutomationNames_*` + `Composer_Esc_*` + full suite. Expected: PASS.
 - [ ] **Step 5: Commit** `refactor(ui-v2/composer): ui:Card rails, ui:Badge chips, icon Back button, central header styles`.
 
@@ -573,7 +573,7 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 ### Task 8: Right rail: ON SCREEN NOW, banner, Take and action buttons
 
 **Files:**
-- Modify: `Views/MultiViewComposerView.xaml` (L920-1190), `Resources/Styles/Composer.xaml` (`Style.Surface.LiveTile`, `Style.Text.Tile.*`, `Style.Banner.Composer`, `Style.Icon.Banner`, `Style.Text.Banner`, `Style.Text.Reason`, `Style.Button.Undo|Discard|ClearAll`, `Style.Button.Take` moved here, `Size.Composer.Take.Min`)
+- Modify: `Views/MultiViewComposerView.xaml` (L920-1190), `Resources/Styles/Composer.xaml` (`Style.Surface.LiveTile`, `Style.Text.Tile.*`, `Style.Banner.Composer`, `Style.Icon.Banner`, `Style.Text.Banner`, `Style.Text.Reason`, `Style.Button.Undo|Discard|ClearAll`, `Style.Button.Take` **moved here from `Theme.xaml`** (the foundation leaves it, X7), `Size.Composer.Take.Min`)
 - Test: `ViewSmokeTests.Composer.cs`
 
 - [ ] **Step 1: Failing tests**: `Composer_Banner_ShowsASeverityIconPerKind` (Info -> `Info24`, Success -> `CheckmarkCircle24`, Warning -> `Warning24`, Error -> `ErrorCircle24`; no `TextBlock` with Text `i`, `!`, `✓`, `✕` remains in the banner); `Composer_Undo_HasUndoIcon_AndTheLabelStillWraps` (`ArrowUndo24`; the 1008x615 test now asserts `>= 48`); `Composer_OnScreenPicture_KeepsItsSpokenName_AndMiniCanvasFollowsWidth` (height == width / (16/9) +- 1 at the 264 rail); `Composer_Take_IsTheOnlyControlAbove48` (Take `ActualHeight >= 72`, every other Composer button `ActualHeight` in [36, 56)). `Composer_TakeButton_IsAtLeast72High_...` (Take `Content` stays a `string`) and `Composer_AutomationNames_...` (live regions Polite/Assertive) unchanged. Ratchet: glyph 4 -> 0.
@@ -612,7 +612,8 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 ### Task 11: CompactSourceCardView and LayoutSchematic cleanup
 
 **Files:**
-- Modify: `Views/CompactSourceCardView.xaml`, `Views/LayoutSchematic.xaml`, `Resources/Styles/Composer.xaml` (`Style.Text.Palette.*`, `Style.Badge.Staged|Armed`, `Style.Shape.*`, `Size.Composer.Palette.Card.Min` 340, `Size.Composer.Palette.Thumb` 144), `tests/AvasRoutingTool.Tests/ThemeResourceUsageTests.cs`
+- Modify: `Views/CompactSourceCardView.xaml`, `Views/LayoutSchematic.xaml`, `Resources/Styles/Composer.xaml` (`Style.Text.Palette.*`, `Style.Shape.*`, `Size.Composer.Palette.Card.Min` 340, `Size.Composer.Palette.Thumb` 144; the badges use the foundation's `Style.Badge.Staged|Armed`), `tests/AvasRoutingTool.Tests/ThemeResourceUsageTests.cs`
+- Depends on: session A's A3 (`SourceCardViewModel.UsedInText/HasUsage`); if A3 is not merged when this task starts, keep the two text triggers (same strings "in 1 block" / "in N blocks") and switch to `UsedInText` after the merge (X10).
 - Test: `ViewSmokeTests.Composer.cs`
 
 - [ ] **Step 1: Failing tests**: `CompactSourceCard_HasNoFixedSize_AndKeepsAThumbnailAt16x9` (`ReadLocalValue(WidthProperty)` and `HeightProperty` are `DependencyProperty.UnsetValue`; `ActualWidth >= token`; thumbnail `Image` ratio 16/9 +- 0.05; strip still `<= 160` in the 1008x615 `VisualRoutingView` test); `CompactSourceCard_Badges_AreUiBadges` (`UsedInBlocksBadge` is a `Wpf.Ui.Controls.Badge` showing "in 1 block"/"in 2 blocks" from `UsedInText`, "Placing" visible when armed). Extend `VideoOverlayText_...` `InlineData` with the new anchors. `SourceCards_Keyboard_...` (focus ring pixels, names) must stay green. Ratchet: Compact inline 8 -> 0, numeric 4 -> 0, font literals 5 -> 0.
@@ -627,8 +628,8 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 - Modify: shared allowlist / pending-migration file (remove the three Composer files from "pending", keep the 6.3 entries), delete `tests/AvasRoutingTool.Tests/ComposerUiV2GuardTests.cs`, `Handover/02_CODEBASE_STRUCTURE.md` (add `Controls/StepHeader`, `Views/BlockDensity`, `Resources/Styles/Composer.xaml`), `memory/active_context.md`, `memory/progress.md`
 
 - [ ] **Step 1: Failing test**: remove the three files from the pending list. The shared hard guards (templates, keyed styles, literal Width/Height, `FontSize` literals and floor, glyph icons) run on them and must pass with only the 6.3 allowlist entries. Fails if anything regressed.
-- [ ] **Step 2: Run** the shared guard tests. Expected: PASS if Tasks 4-11 are complete; fix any leftover.
-- [ ] **Step 3: Delete** the progress ratchet; update handover docs.
+- [ ] **Step 2: Run** the shared guard tests. Expected: PASS if Tasks 4-11 are complete; fix any leftover. Also run `grep -rn "Icon.Lock\|Icon.Sun\|Icon.Moon\|Icon.Refresh\|Icon.Settings" src/AvasRoutingTool/Views/MultiViewComposerView.xaml src/AvasRoutingTool/Views/LayoutSchematic.xaml src/AvasRoutingTool/Views/CompactSourceCardView.xaml` and confirm no match (X8); report the result to the master so the foundation can delete the five icons once A has landed.
+- [ ] **Step 3: Delete** the TEMPORARY progress ratchet (`ComposerUiV2GuardTests.cs`); update handover docs.
 - [ ] **Step 4: Full suite** with the non-live filter. Expected: `0 failed`.
 - [ ] **Step 5: Commit** `chore(ui-v2/composer): hard guards take over, handover docs and memory`.
 
@@ -648,8 +649,8 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 
 ### 7.3 Checkpoint 3 deliverable list (D7)
 
-1. Branch `ui-v2/composer`, merged into `ui-v2/integration` on the user's approval; `main` untouched.
-2. Full non-live test count (>= checkpoint 2 + new tests), `0 failed`; ViewSmokeTests STA green.
+1. Branch `ui-v2/composer`, cut from the foundation tip, merged into `ui-v2/integration` on the user's approval **after session A's checkpoint 2**; `main` untouched. After the merge, the `DisplayCard` layout-menu tests are re-run (X9).
+2. Full non-live test count (>= the integration tip at merge time + new tests), `0 failed`; ViewSmokeTests STA green.
 3. Hard guards green for the Composer files with only the 6.3 allowlist entries.
 4. 20 screenshots in `ui_screenshots/UI-v2/composer/` (5 states x 1920x1080 and 1024x720 x Dark and Light).
 5. Keyboard and Narrator walk-through notes; known limits.
@@ -663,33 +664,36 @@ dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutp
 
 | Mine | A's | Status | Detail |
 |---|---|---|---|
-| R1 shared test resource helper | F6 `TestResources.Ensure()` | **Same request.** | One helper merging exactly what `App.xaml` merges (WPF-UI dictionaries, palette, `Styles/*`, `Theme.xaml`, `Icons.xaml`), idempotent, adopted once by the master in the 4 bootstrap sites. I need `Composer.xaml` and `Converters.xaml` in its list. |
-| R2 split `ViewSmokeTests.cs` | D10 | **Foundation task zero**, decided. | I own `ViewSmokeTests.Composer.cs`. |
-| R3 empty `Composer.xaml` | F5 | **Same request.** | Merged **last** among `Styles/*` so it can use `BasedOn` of `Buttons/Text/Cards` keys. |
-| R4 tokens | F3 | **Use A's list.** | I need `Size.Touch.Min/Compact`, `Size.Icon.S/M/L` (14/18/26 - I adopted A's values, my earlier 16/22 are dropped), `Font.Size.Lead/Title/Body/Caption` (16/14/13/12). **Dropped:** my Comfort 56 / Primary 72. **Conflict to resolve:** F3's `Font.Size.Micro` 11 violates D8 and should go. G4 guard must accept `{StaticResource Size.*}` in Width/Height/Min/Max. Everything else (`Size.Composer.*`, `Font.Size.Composer.BlockNumber`) is mine, in `Composer.xaml`. |
-| R5 text roles | F4 `Text.xaml` | **Use A's roles** `Style.Text.Lead/Title/Body/Caption/Section`; my 20/18 roles and `SectionHeading` are dropped. `Style.Text.ComposerLabel` (14) stays, moved by the foundation. |
-| R6 stable keys | F4 `Buttons.xaml` | **Changed.** `Style.Button.Composer` becomes 48 (D4; A's Stop button test line ~1130 changes too). `Style.Button.Take` is **not** moved to the foundation: it moves into `Composer.xaml` (only user; keeps the content-specific 72). Keep `Style.Button.CardAction`, `Style.FocusVisual.Ring`, `Style.ScrollBar.Thin`, the implicit `ScrollViewer` style stable. |
+| R1 shared test resource helper | F6 / cross-review F2 `TestResources.Ensure()` | **Same request; in the foundation scope.** | One helper merging exactly what `App.xaml` merges (WPF-UI dictionaries, palette, `Tokens.xaml`, `Styles/*`, `Converters.xaml`, `Theme.xaml`, `Icons.xaml`), idempotent, adopted by the master in the 4 bootstrap sites. |
+| R2 split `ViewSmokeTests.cs` | D10 / cross-review F0 | **Foundation task zero**, decided. | I own `ViewSmokeTests.Composer.cs`. |
+| R3 empty `Composer.xaml` | F5 / cross-review F4 | **Same request.** | Merged **last** among `Styles/*` so it can use `BasedOn` of `Buttons/Text/Cards/Badges` keys. |
+| R4 tokens | F3 / cross-review F3 `Resources/Tokens.xaml` | **Use the foundation list (X1).** | I need `Size.Touch.Min/Compact`, `Size.Icon.S/M/L` = **16/22/28**, `Font.Size.Lead/Title/Body/Caption` = 16/14/13/12 (no `Micro`). **Dropped:** my Comfort 56 / Primary 72. The guard must accept `{StaticResource Size.*}` in Width/Height/Min/Max. Everything else (`Size.Composer.*`, `Font.Size.Composer.BlockNumber`) is mine, in `Composer.xaml`. |
+| R5 text roles | F4 `Text.xaml` | **Use the foundation roles (X2)**: `Lead` 16, `Title` 14, `Section` 14 caps (foundation-defined; HeadingLevel2 is set by users such as my `Style.Text.RailHeading` and `StepHeader`), `Body` 13, `Caption` 12, `Mono` 12. My 20/18 roles and `SectionHeading` are dropped. `Style.Text.ComposerLabel` (14) stays, moved by the foundation. |
+| R6 stable keys | F4 `Buttons.xaml` | **Changed (X7, X11).** `Style.Button.Composer` becomes 48 (D4; A's Stop button test line ~1130 changes in the foundation commit). `Style.Button.Take` **stays in `Theme.xaml` until my Task 8 moves it** into `Composer.xaml` (only user; keeps the content-specific 72). Keep `Style.Button.CardAction`, `Style.FocusVisual.Ring`, `Style.ScrollBar.Thin`, the implicit `ScrollViewer` style stable. |
 | R7 overlay Foreground rule | A §3.3 | **Same rule**, already adopted by A. |
-| R8 merge order | F2 | **Same**: `ui:ThemesDictionary`, `ui:ControlsDictionary`, palette, `Styles/*`, `Theme.xaml`, `Icons.xaml`. `Style.Card.Rail`/`Style.Badge.*` use `{StaticResource {x:Type ui:Card|Badge}}`. |
+| R8 merge order | F2 / cross-review F1 | **Same**: `ui:ThemesDictionary`, `ui:ControlsDictionary`, palette, `Styles/*`, `Theme.xaml`, `Icons.xaml`. `Style.Card.Rail` uses `{StaticResource {x:Type ui:Card}}`; the foundation's badge styles use `{x:Type ui:Badge}`. |
 | R9 icon font | - | **Mine only**: confirm `ui:ControlsDictionary` supplies `FluentSystemIcons` (SymbolIcon uses `SetResourceReference`); `TestResources.Ensure()` must include it. Missing font = blank icons, no exception. |
 | R10 implicit WPF-UI styles | A's R4 | **Same concern.** The Composer is the un-migrated-controls case A names: master and B review the visible effect before F2 merges (plain `Button`, `ScrollViewer`, `ToolTip`, `Popup`). All Composer buttons with local templates get explicit styles with `OverridesDefaultStyle=True`. |
 | R11 hoist overlay styles | - | Optional at cross-review: if `DisplayCardView` ends with the same scrim chip/overlay text styles, hoist `Style.Chip.Scrim` and `Style.Text.Block.*` to `Overlays.xaml`. |
+| R12 shared converters | cross-review X5 | **Foundation builds** `VisibilityConverter { Rule }` and `Converter.*`; I create none (Task 6 consumes them). |
+| R13 chip and badge styles | cross-review X3, X4 | **Foundation builds** `Style.Button.Chip.Staged` (extracted from `DisplayCardView`'s draft chip) and `Style.Badge.Info/Staged/Armed`; I define neither. |
+| R14 guards | cross-review X6 | **Foundation builds** `UiV2Guards` + the single allowlist file; Task 3 only adds Composer entries and a temporary ratchet. |
 
 ### 8.2 Overlaps and conflicts found against session A's plan
 
-1. **`Style.Button.LayoutTile`** is A's (display-card layout menu, `MinHeight` 88, part `bd`). Mine is renamed **`Style.Button.ComposerLayoutOption`** (96, part `bd`). Both must keep part `bd` because two tests read it (lines ~1929, ~3871).
-2. **`Style.Button.Chip.Staged`** (A, `Buttons.xaml`): I consume it for the unplaced-source chips instead of defining my own.
-3. **Staged / Armed badges.** CompactSourceCardView's "in N blocks" and "Placing" are the same visual as `SourceCardView`'s usage and armed chips. Proposal: ONE pair `Style.Badge.Staged` and `Style.Badge.Armed` (`ui:Badge`-based) in the foundation badge section, used by both; I define them in `Composer.xaml` only if A has not by the time Task 11 starts. I reuse A's `SourceCardViewModel.UsedInText`/`HasUsage` (A's T2) instead of two triggers; if T2 is not merged, Task 11 keeps the trigger text.
-4. **`Icon.Lock`.** A says it is shared and stays. After Tasks 7b/10 the Composer no longer uses it; `DisplayCardView` L884 is the last user. D3 says stock glyphs use `ui:SymbolIcon`: ask A to move that one to `LockClosed24` too so the foundation can delete `Icon.Lock`. **F7 confirmation:** the Composer does not use `Icon.Sun/Moon/Refresh/Settings`.
-5. **Icon sizes**: A's `Size.Icon.S/M/L` 14/18/26 replace my earlier 16/22 (lock overlay is 26, picker/compact lock 14, banner/back/undo/step 18).
-6. **`Style.Text.Section`** (A) is reused as the base of my `Style.Text.RailHeading`.
+1. **`Style.Button.LayoutTile`** is A's (display-card layout menu, `MinHeight` 88, part `bd`). Mine is renamed **`Style.Button.ComposerLayoutOption`** (96, part `bd`). Both must keep part `bd` because two tests read it (lines ~1929, ~3871). `LayoutSchematic` sizing is compatible (X9): A bounds both axes by tokens; my aspect rule only applies when an axis is unbounded.
+2. **`Style.Button.Chip.Staged`** (X3): ONE style, extracted by the foundation from `DisplayCardView`'s draft chip (keeps `InputModality.ShowsFocus`); A's `Chip.Draft` is dropped. I consume it for the unplaced-source chips and define none.
+3. **Staged / Armed / Info badges** (X4): defined once by the foundation (`Style.Badge.Info/Staged/Armed`, `BasedOn {x:Type ui:Badge}`); the Composer's header chips and `CompactSourceCardView`'s "in N blocks" / "Placing" consume them. I reuse `SourceCardViewModel.UsedInText`/`HasUsage` from A's A3 (X10); fallback in Task 11 if A3 has not merged.
+4. **`Icon.Lock`** (X8): A moves `DisplayCardView`'s last use to `ui:SymbolIcon LockClosed24` (its A10). After Tasks 7b/10 the Composer does not use it (Task 12 confirms by grep); the foundation then deletes `Icon.Lock` and `Icon.Sun/Moon/Refresh/Settings`. The Composer does not use `Icon.Sun/Moon/Refresh/Settings` either.
+5. **Icon sizes** (X1): the foundation's final values are `Size.Icon.S/M/L` = **16/22/28**: step marker, banner, Back and Undo icons use M (22); the lock overlay uses L (28); compact and picker locks, the Selected check and the issue-band icon use S (16).
+6. **`Style.Text.Section`** (X2) is foundation-defined (14, caps, `Brush.Text.Secondary`); my `Style.Text.RailHeading` and the `StepHeader` title are based on it.
 7. **`Style.Button.Composer` at 48** affects A's Stop button and its test; flagged as a shared consequence of D4.
 8. **Test file**: both sessions' new tests live in their own partial files after D10, so no `ViewSmokeTests.cs` collisions.
 
 ### 8.3 Risks and open questions
 
-1. **Canvas cannot grow at Full HD without vertical room (D9).** At 1920x1080 the canvas is height-bound (about 655 px tall); wider rails and bigger thumbnails use the spare width, but the canvas stays the same size. A larger canvas needs height from session A's rows (palette strip <= 160, header). Master/user: is that trade worth discussing? Estimates are verified by Task 5a's test.
-2. **Hierarchy at 16 px max.** D8's 16/14/13/12 flattens the 20 px title and 28 px number. I kept one exception (block number 28); compact block number falls from 18 to 16. The checkpoint screenshots decide whether a second exception (title 20) is needed; it would be one more content-specific token.
+1. **Canvas cannot grow at Full HD without vertical room (D9) - decided.** At 1920x1080 the canvas is height-bound (about 655 px tall); wider rails and bigger thumbnails use the spare width, but the canvas stays the same size. The user chose cross-review option (a): restyle only, no Sources left rail. Estimates are verified by Task 5a's test.
+2. **Hierarchy at 16 px max (exceptions accepted).** The user accepted Take 72 px, block number 28 px and the drop of 20 px titles to 16. The checkpoint screenshots decide whether a second content-specific font exception (title 20) is needed; it would be one more token.
 3. **Compact strip at 36 px (D4).** Replace/Move on blocks narrower than 240 px are 36 px high. Touch-glove use on a PIP inset is the doubt; fallback is 48 with the strip overhanging the inset (already allowed by the zero-size Canvas anchor).
 4. **`ui:SymbolIcon` is a font glyph**, not a path (allowed by D3/G2). It depends on the `FluentSystemIcons` font being available (R9). Icons are sized only by `FontSize`.
 5. **`StepHeader` automation.** A custom `Control` replaces a `TextBlock` for step headings. The custom peer reports `ControlType.Text` with the bound name and HeadingLevel2; confirm with Narrator (Task 13).
