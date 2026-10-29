@@ -2,7 +2,26 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Card styles on ui:Card (Style.Card.*). Empty until the Main Window session adds them.
+        Shared card and chrome pieces (owner: Main Window session): status dots and icon sizes.
+        Card frames (Style.Card.*) follow with the card views. State is passed in through Tag, colours stay DynamicResource palette keys.
     -->
+
+    <!-- Online / offline dot: Tag="{Binding IsActive}" (true = online). Two sizes. -->
+    <Style x:Key="Style.StatusDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.StatusDot.Small" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.S}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.S}" />
+    </Style>
 
 </ResourceDictionary>

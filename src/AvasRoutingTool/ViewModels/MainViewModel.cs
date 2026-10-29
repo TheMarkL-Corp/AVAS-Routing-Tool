@@ -191,7 +191,7 @@ namespace AvasRoutingTool.ViewModels
         public bool IsLightMode => ThemeService.EffectiveTheme == ThemeMode.Light;
 
         /// <summary>Names the theme that is showing now (not the one a click switches to).</summary>
-        public string ThemeButtonLabel => IsLightMode ? "☀️  Light" : "🌙  Dark";
+        public string ThemeButtonLabel => IsLightMode ? "Light" : "Dark";
 
         public string ThemeButtonToolTip => IsLightMode
             ? "Current theme: Clinical Light. Click to switch to Slate Dark."
