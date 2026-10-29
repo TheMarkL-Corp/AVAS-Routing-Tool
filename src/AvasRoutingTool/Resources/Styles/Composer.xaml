@@ -1007,4 +1007,92 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ===== Palette card (a source in the strip above the Composer) ===== -->
+    <sys:Double x:Key="Size.Composer.Palette.Card.Min">340</sys:Double>
+    <GridLength x:Key="Size.Composer.Palette.Thumb">144</GridLength>
+
+    <Style x:Key="Style.Surface.PaletteCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="8" />
+    </Style>
+
+    <Style x:Key="Style.Text.Palette.Name" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="Style.Text.Palette.Status" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Text" Value="{Binding LinkMode, Mode=OneWay, StringFormat='Online · {0}'}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="False">
+                <Setter Property="Text" Value="Offline" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- "in N blocks": hidden while the source is in none (switches to SourceCardViewModel.UsedInText once the Main Window's A3 is merged) -->
+    <Style x:Key="Style.Badge.UsedIn" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Staged}">
+        <Setter Property="ContentStringFormat" Value="in {0} blocks" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="1">
+                <Setter Property="ContentStringFormat" Value="in 1 block" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="0">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Shape.OfflineOverlay" TargetType="Border">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Keyboard focus: a 2 px ring just inside the edge (inside the armed ring), drawn here so it also renders -->
+    <Style x:Key="Style.Shape.CardFocusRing" TargetType="Border">
+        <Setter Property="Margin" Value="3" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding (views:InputModality.ShowsFocus), RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Armed ring (cyan), drawn over the edge so nothing moves -->
+    <Style x:Key="Style.Shape.ArmedRing" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+        <Setter Property="BorderThickness" Value="3" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Tiny" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
 </ResourceDictionary>

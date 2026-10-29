@@ -10,8 +10,7 @@
     "Views/DisplayCardView.xaml": "Main Window session: A9-A11",
     "Views/SettingsDialog.xaml": "Main Window session: A12",
     "Views/LayoutsBarView.xaml": "Main Window session: A2 (file is deleted, D5)",
-    "Views/MultiViewComposerView.xaml": "Composer session: Tasks 4-10 (ratchet until Task 12)",
-    "Views/CompactSourceCardView.xaml": "Composer session: Task 11"
+    "Views/MultiViewComposerView.xaml": "Composer session: Tasks 4-10 (ratchet until Task 12)"
   },
 
   // An element with a literal Width/Height that is a vector icon host (brand mark canvas, geometry placeholders).

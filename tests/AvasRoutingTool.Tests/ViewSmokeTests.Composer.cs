@@ -2006,5 +2006,53 @@ namespace AvasRoutingTool.Tests
                     }
                 });
             });
+
+        // ---- UI v2 Task 11: palette card ----
+
+        [Fact]
+        public void CompactSourceCard_HasNoFixedSize_AndKeepsAThumbnailAt16x9() =>
+            RunSta(() =>
+            {
+                var (_, _, sources) = Overview();
+                var card = new CompactSourceCardView { DataContext = sources[0] };
+                Assert.Same(DependencyProperty.UnsetValue, card.ReadLocalValue(FrameworkElement.WidthProperty));
+                Assert.Same(DependencyProperty.UnsetValue, card.ReadLocalValue(FrameworkElement.HeightProperty));
+                Showing(card, () =>
+                {
+                    var min = (double)Application.Current.FindResource("Size.Composer.Palette.Card.Min");
+                    Assert.True(card.ActualWidth >= min, $"palette card is {card.ActualWidth} wide");
+                    var thumb = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(card).Single();
+                    Assert.InRange(thumb.ActualWidth / thumb.ActualHeight, 16.0 / 9.0 - 0.05, 16.0 / 9.0 + 0.05);
+                    Assert.True(thumb.ActualWidth >= 140, $"thumbnail {thumb.ActualWidth}x{thumb.ActualHeight}");
+                    Assert.True(card.DesiredSize.Height <= 160, $"palette card wants {card.DesiredSize.Height} high"); // content-sized: it stretches in a bare window
+                });
+            });
+
+        [Fact]
+        public void CompactSourceCard_Badges_AreUiBadges() =>
+            RunSta(() =>
+            {
+                var (_, _, sources) = Overview();
+                sources[0].IsArmed = true;
+                sources[0].UsedInBlocks = 1;
+                sources[1].UsedInBlocks = 2;
+                var one = new CompactSourceCardView { DataContext = sources[0] };
+                var two = new CompactSourceCardView { DataContext = sources[1] };
+                Showing(one, () =>
+                {
+                    var used = Assert.IsType<Wpf.Ui.Controls.Badge>(Named(one, "UsedInBlocksBadge").Single());
+                    Assert.True(used.IsVisible);
+                    AssertVisibleText(one, "in 1 block");
+                    var placing = FindAll<Wpf.Ui.Controls.Badge>(one).Single(b => !ReferenceEquals(b, used));
+                    Assert.True(placing.IsVisible);
+                    Assert.Same(Application.Current.FindResource("Style.Badge.Armed"), placing.Style);
+                    Assert.Same(Application.Current.FindResource("Style.Badge.Staged"), ((Style)used.Style).BasedOn);
+                });
+                Showing(two, () =>
+                {
+                    AssertVisibleText(two, "in 2 blocks");
+                    Assert.False(FindAll<Wpf.Ui.Controls.Badge>(two).Single(b => b.Name != "UsedInBlocksBadge").IsVisible);
+                });
+            });
     }
 }

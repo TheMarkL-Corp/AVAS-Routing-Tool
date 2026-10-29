@@ -68,8 +68,8 @@ namespace AvasRoutingTool.Tests
             },
             [Compact] = new()
             {
-                ["KeyedStyles"] = 0, ["InlineStyles"] = 8, ["ControlTemplates"] = 0, ["NumericSizeAttrs"] = 4,
-                ["GlyphIcons"] = 0, ["TargetNameSetters"] = 0, ["FontSizeLiterals"] = 5,
+                ["KeyedStyles"] = 0, ["InlineStyles"] = 0, ["ControlTemplates"] = 0, ["NumericSizeAttrs"] = 0,
+                ["GlyphIcons"] = 0, ["TargetNameSetters"] = 0, ["FontSizeLiterals"] = 0,
             },
             [Schematic] = new()
             {
