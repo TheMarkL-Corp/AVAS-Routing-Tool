@@ -58,6 +58,20 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
+    <!-- Display card mode pill: neutral until a source is routed or a layout is active (Tag="{Binding HasRoutedBadge}"), then the Info look -->
+    <Style x:Key="Style.Badge.Mode" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Info}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.RoutedBadge}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.RoutedBadge}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnRoutedBadge}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="Style.Badge.Staged" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Staged}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Staged}" />

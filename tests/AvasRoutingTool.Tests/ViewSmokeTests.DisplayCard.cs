@@ -160,7 +160,7 @@ namespace AvasRoutingTool.Tests
                         tiles.Select(t => FindAll<TextBlock>(t).First(tb => tb.Name == "LayoutMenuTitle").Text));
 
                     // The layout on screen is marked, in words (never colour only).
-                    var marked = tiles.Where(t => VisibleTexts(t, "✓ On screen").Count > 0).ToList();
+                    var marked = tiles.Where(t => VisibleTexts(t, "On screen").Count > 0).ToList();
                     Assert.Equal("matrix2x2", ((LayoutItemViewModel)Assert.Single(marked).DataContext).Id);
 
                     // A MultiView preset opens the Composer with it staged (nothing reaches the screen); the menu closes.
@@ -675,7 +675,7 @@ namespace AvasRoutingTool.Tests
                     Relayout(menu);
                     var single = tiles.Single(t => ((LayoutItemViewModel)t.DataContext).Id == "single");
                     Assert.Equal(accent, Edge(single));
-                    AssertVisibleText(single, "✓ On screen");
+                    AssertVisibleText(single, "On screen");
                     Assert.All(tiles.Where(t => t != single), t => Assert.NotEqual(accent, Edge(t)));
                 });
             });

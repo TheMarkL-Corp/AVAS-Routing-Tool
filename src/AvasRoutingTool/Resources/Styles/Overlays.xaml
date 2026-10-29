@@ -5,6 +5,11 @@
         Overlay styles (owner: Main Window session): the arm banner here; Style.Overlay.Body, toast and popup frame follow with the display card.
     -->
 
+    <!-- A dark panel over the card body that states a choice or a copy target state in words; the view shows it with a Visibility binding -->
+    <Style x:Key="Style.Overlay.Body" TargetType="Border">
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
     <!-- One line above the displays while a source or a display is armed (tapped, waiting for a target): words, never colour alone -->
     <Style x:Key="Style.Banner.Arm" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
