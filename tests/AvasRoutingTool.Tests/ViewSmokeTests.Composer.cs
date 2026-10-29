@@ -1492,5 +1492,85 @@ namespace AvasRoutingTool.Tests
                     themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
                 }
             });
+
+        // ---- UI v2 Task 5a: rails are token-clamped star columns ----
+
+        [Fact]
+        public void Composer_Rails_AreStarColumnsClampedByTokens() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                var leftMin = (double)Application.Current.FindResource("Size.Composer.Rail.Left.Min");
+                var leftMax = (double)Application.Current.FindResource("Size.Composer.Rail.Left.Max");
+                var rightMin = (double)Application.Current.FindResource("Size.Composer.Rail.Right.Min");
+                var rightMax = (double)Application.Current.FindResource("Size.Composer.Rail.Right.Max");
+                Assert.Equal((240d, 320d, 264d, 360d), (leftMin, leftMax, rightMin, rightMax));
+
+                var left = (ColumnDefinition)view.FindName("LeftRailColumn");
+                var right = (ColumnDefinition)view.FindName("RightRailColumn");
+                Assert.True(left.Width.IsStar && right.Width.IsStar, "the rails are star columns");
+                Assert.Equal(leftMin, left.MinWidth);
+                Assert.Equal(leftMax, left.MaxWidth);
+                Assert.Equal(rightMin, right.MinWidth);
+                Assert.Equal(rightMax, right.MaxWidth);
+
+                // 1024x720 floor: identical to the old narrow rails, the canvas keeps its 440 px
+                ShowingAt(view, 976, 600, () =>
+                {
+                    Assert.Equal(240, left.ActualWidth, 1);
+                    Assert.Equal(264, right.ActualWidth, 1);
+                    var canvas = Named(view, "CanvasHost").Single();
+                    Assert.InRange(canvas.ActualWidth, 420, 470); // the centre column minus its 16 px margins and the host margin
+                });
+
+                // In between the rails grow with the window instead of jumping at 1200
+                ShowingAt(view, 1100, 700, () =>
+                {
+                    Assert.InRange(left.ActualWidth, 250.5, leftMax - 0.5);
+                    Assert.InRange(right.ActualWidth, rightMin, rightMax);
+                });
+
+                // Full HD: both rails at their caps
+                ShowingAt(view, 1888, 800, () =>
+                {
+                    Assert.Equal(leftMax, left.ActualWidth, 1);
+                    Assert.Equal(rightMax, right.ActualWidth, 1);
+                });
+            });
+
+        [Fact]
+        public void Composer_At1920x1080_UsesTheFullHdSpace() =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[1]);
+                foreach (var b in c.Blocks.ToList()) c.TapBlock(b.Index);
+                c.Disarm();
+                var view = new VisualRoutingView { DataContext = vm };
+
+                // A maximized Window at 1920x1080 and 100%: the content area is about 1904 x 940 under the title bar and the app header.
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var composer = FindAll<MultiViewComposerView>(view).Single(v => v.IsVisible);
+                    var left = (ColumnDefinition)composer.FindName("LeftRailColumn");
+                    var right = (ColumnDefinition)composer.FindName("RightRailColumn");
+                    Assert.Equal(320, left.ActualWidth, 1);
+                    Assert.Equal(360, right.ActualWidth, 1);
+
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    Assert.True(take.IsVisible);
+                    var tr = BoundsIn(take, view);
+                    Assert.True(tr.Top >= 0 && tr.Bottom <= view.ActualHeight + 0.5, $"Take at {tr} in a {view.ActualHeight} high view");
+
+                    var blocks = Named(view, "BlockSurface").Where(e => e.IsVisible).ToList();
+                    Assert.Equal(4, blocks.Count);
+                    Assert.All(blocks, b => Assert.True(b.ActualWidth >= 480, $"block is {b.ActualWidth} wide"));
+                    var canvas = Named(view, "CanvasHost").Single();
+                    Assert.True(canvas.ActualWidth >= 1000 && canvas.ActualHeight >= 560, $"canvas host is {canvas.ActualWidth}x{canvas.ActualHeight}");
+                });
+            });
     }
 }

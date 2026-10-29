@@ -63,7 +63,7 @@ namespace AvasRoutingTool.Tests
         {
             [Composer] = new()
             {
-                ["KeyedStyles"] = 3, ["InlineStyles"] = 38, ["ControlTemplates"] = 4, ["NumericSizeAttrs"] = 31,
+                ["KeyedStyles"] = 3, ["InlineStyles"] = 38, ["ControlTemplates"] = 4, ["NumericSizeAttrs"] = 25,
                 ["GlyphIcons"] = 7, ["TargetNameSetters"] = 31, ["FontSizeLiterals"] = 43,
             },
             [Compact] = new()

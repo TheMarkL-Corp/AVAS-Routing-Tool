@@ -115,12 +115,12 @@
         <!-- ===== Body: left rail | canvas | right rail ===== -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <!-- 280 / 320 (spec 5.2); narrower on a small window so the canvas keeps usable blocks (see code-behind) -->
-                <ColumnDefinition x:Name="LeftRailColumn" Width="280" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition x:Name="RightRailColumn" Width="320" />
+                <!-- Rails are star columns clamped by tokens (240-320 / 264-360): they grow with the window and the canvas keeps the rest -->
+                <ColumnDefinition x:Name="LeftRailColumn" Width="24*"
+                                  MinWidth="{StaticResource Size.Composer.Rail.Left.Min}" MaxWidth="{StaticResource Size.Composer.Rail.Left.Max}" />
+                <ColumnDefinition Width="52*" />
+                <ColumnDefinition x:Name="RightRailColumn" Width="24*"
+                                  MinWidth="{StaticResource Size.Composer.Rail.Right.Min}" MaxWidth="{StaticResource Size.Composer.Rail.Right.Max}" />
             </Grid.ColumnDefinitions>
 
             <!-- ===== Left rail: Step 1 layout, Step 2 place, Step 3 check and take ===== -->
@@ -273,14 +273,14 @@
             </ScrollViewer>
 
             <!-- ===== Centre: the staged canvas ===== -->
-            <Grid Grid.Column="2">
+            <Grid Grid.Column="1" Margin="16,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
                 <!-- Status line: what the frame shows, and Done placing / Cancel move -->
-                <Grid Grid.Row="0" MinHeight="56" Margin="0,0,0,6">
+                <Grid Grid.Row="0" MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -819,7 +819,7 @@
             </Grid>
 
             <!-- ===== Right rail: ON SCREEN NOW and changes scroll; the banner, Take and its actions stay pinned ===== -->
-            <Grid Grid.Column="4">
+            <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
@@ -1055,13 +1055,8 @@
                     </Button>
 
                     <!-- Tab order of the right rail: Undo, Discard, Clear all, and Take last (review the changes, then take) -->
-                    <Grid Margin="0,8,0,0" KeyboardNavigation.TabIndex="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="DiscardButton" Grid.Column="0" Content="Discard"
+                    <UniformGrid Columns="2" Margin="0,8,0,0" KeyboardNavigation.TabIndex="2">
+                        <Button x:Name="DiscardButton" Margin="0,0,6,0" Content="Discard"
                                 ToolTip="Go back to what is on screen now"
                                 Click="Discard_Click">
                             <Button.Style>
@@ -1077,7 +1072,7 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                        <Button x:Name="ClearAllButton" Grid.Column="2" Content="Clear all"
+                        <Button x:Name="ClearAllButton" Margin="6,0,0,0" Content="Clear all"
                                 ToolTip="Empty every block (staged only)"
                                 Click="ClearAll_Click">
                             <Button.Style>
@@ -1093,7 +1088,7 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                    </Grid>
+                    </UniformGrid>
                 </StackPanel>
             </Grid>
         </Grid>

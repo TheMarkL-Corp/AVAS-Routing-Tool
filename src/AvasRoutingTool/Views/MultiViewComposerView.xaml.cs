@@ -52,7 +52,7 @@ namespace AvasRoutingTool.Views
         public static readonly DependencyProperty SchematicHeightProperty = DependencyProperty.Register(
             nameof(SchematicHeight), typeof(double), typeof(MultiViewComposerView), new PropertyMetadata(70.0));
 
-        /// <summary>Below this width the rails narrow (280 -> 240, 320 -> 264) so the canvas keeps usable blocks.</summary>
+        /// <summary>Below this width the schematics narrow (temporary, see FitSchematics).</summary>
         internal const double NarrowWidth = 1200;
 
         private MultiViewComposerViewModel? _watched;
@@ -89,7 +89,7 @@ namespace AvasRoutingTool.Views
         public MultiViewComposerView()
         {
             InitializeComponent();
-            SizeChanged += (_, e) => FitRails(e.NewSize.Width);
+            SizeChanged += (_, e) => FitSchematics(e.NewSize.Width);
             DataContextChanged += (_, _) => Watch(DataContext as MultiViewComposerViewModel);
             Loaded += (_, _) => SchedulePicker();
             Unloaded += (_, _) => ClosePicker();
@@ -126,12 +126,10 @@ namespace AvasRoutingTool.Views
 
         private MultiViewComposerViewModel? Composer => DataContext as MultiViewComposerViewModel;
 
-        /// <summary>Layout only: on a small window (MainWindow minimum 1024 px) the rails give the canvas room.</summary>
-        private void FitRails(double width)
+        /// <summary>Layout only (removed with the proportional schematic in the next task): the layout tiles' schematics are smaller on a small window.</summary>
+        private void FitSchematics(double width)
         {
             bool narrow = width > 0 && width < NarrowWidth;
-            LeftRailColumn.Width = new GridLength(narrow ? 240 : 280);
-            RightRailColumn.Width = new GridLength(narrow ? 264 : 320);
             SchematicWidth = narrow ? 96 : 120;
             SchematicHeight = narrow ? 56 : 70;
         }

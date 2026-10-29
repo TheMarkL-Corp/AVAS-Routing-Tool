@@ -11,6 +11,10 @@
 
     <!-- ===== Tokens (content-specific) ===== -->
     <sys:Double x:Key="Size.Composer.StepMarker">32</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Left.Min">240</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Left.Max">320</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Right.Min">264</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Right.Max">360</sys:Double>
 
     <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN TAKE) ===== -->
     <Style x:Key="Style.StepHeader" TargetType="controls:StepHeader">
