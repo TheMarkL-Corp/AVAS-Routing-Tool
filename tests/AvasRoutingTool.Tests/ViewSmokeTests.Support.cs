@@ -37,14 +37,7 @@ namespace AvasRoutingTool.Tests
                 {
                     // The input mode is process-wide: every test starts as a pointer user (the start state) and sets what it needs.
                     InputModality.IsKeyboard = false;
-                    var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                    foreach (var path in new[] { "Themes/Theme.Dark", "Theme", "Icons" })
-                    {
-                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
-                        {
-                            Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/{path}.xaml")
-                        });
-                    }
+                    TestResources.Ensure();
                     body();
                 }
                 catch (Exception ex) { failure = ex; }

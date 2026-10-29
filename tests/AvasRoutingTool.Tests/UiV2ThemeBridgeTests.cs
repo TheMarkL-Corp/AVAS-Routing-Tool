@@ -19,8 +19,6 @@ namespace AvasRoutingTool.Tests
     [Collection("WpfSta")]
     public class UiV2ThemeBridgeTests
     {
-        private static readonly object AppLock = new();
-
         private static void RunSta(Action body)
         {
             Exception? failure = null;
@@ -28,14 +26,7 @@ namespace AvasRoutingTool.Tests
             {
                 try
                 {
-                    lock (AppLock)
-                    {
-                        if (Application.Current is null)
-                        {
-                            new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                        }
-                    }
-                    EnsureWpfUi();
+                    TestResources.Ensure();
                     body();
                 }
                 catch (Exception ex) { failure = ex; }
@@ -44,29 +35,6 @@ namespace AvasRoutingTool.Tests
             t.Start();
             t.Join();
             if (failure != null) throw new Xunit.Sdk.XunitException("Theme bridge failure: " + failure);
-        }
-
-        /// <summary>What App.xaml merges first: WPF-UI's theme and control dictionaries, then the app palette.</summary>
-        private static void EnsureWpfUi()
-        {
-            lock (AppLock)
-            {
-                var merged = Application.Current.Resources.MergedDictionaries;
-                if (!merged.OfType<ThemesDictionary>().Any())
-                {
-                    merged.Insert(0, new ThemesDictionary { Theme = ApplicationTheme.Dark });
-                    merged.Insert(1, new ControlsDictionary());
-                }
-                if (!merged.Any(d => d.Source?.OriginalString.EndsWith("Theme.Dark.xaml", StringComparison.OrdinalIgnoreCase) == true ||
-                                     d.Source?.OriginalString.EndsWith("Theme.Light.xaml", StringComparison.OrdinalIgnoreCase) == true))
-                {
-                    merged.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/AvasRoutingTool;component/Resources/Themes/Theme.Dark.xaml") });
-                }
-                if (!merged.Any(d => d.Source?.OriginalString.EndsWith("WpfUiOverrides.xaml", StringComparison.OrdinalIgnoreCase) == true))
-                {
-                    merged.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/AvasRoutingTool;component/Resources/Styles/WpfUiOverrides.xaml") });
-                }
-            }
         }
 
         private static double Luminance(Color c) => (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0;
