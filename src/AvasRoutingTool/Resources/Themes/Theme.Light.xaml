@@ -175,4 +175,24 @@
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.ScrimDanger" Color="{StaticResource Color.Surface.ScrimDanger}" />
     <SolidColorBrush po:Freeze="True" x:Key="Brush.Surface.FloatingStrip" Color="{StaticResource Color.Surface.FloatingStrip}" />
 
+    <!-- Brand Mark (P1B 'AV' Clasp) Palette & Gradients -->
+    <Color x:Key="Color.Logo.AChevron.Start">#06B6D4</Color>
+    <Color x:Key="Color.Logo.AChevron.End">#38BDF8</Color>
+    <Color x:Key="Color.Logo.VChevron.Start">#3B82F6</Color>
+    <Color x:Key="Color.Logo.VChevron.End">#1D4ED8</Color>
+    <Color x:Key="Color.Logo.StreamIn">#06B6D4</Color>
+    <Color x:Key="Color.Logo.StreamOut">#60A5FA</Color>
+    <Color x:Key="Color.Logo.TileBorder">#38BDF8</Color>
+    <LinearGradientBrush po:Freeze="True" x:Key="Brush.Logo.AChevron" StartPoint="0.2,0.8" EndPoint="0.5,0.2">
+        <GradientStop Color="#06B6D4" Offset="0.0" />
+        <GradientStop Color="#38BDF8" Offset="1.0" />
+    </LinearGradientBrush>
+    <LinearGradientBrush po:Freeze="True" x:Key="Brush.Logo.VChevron" StartPoint="0.2,0.2" EndPoint="0.5,0.8">
+        <GradientStop Color="#3B82F6" Offset="0.0" />
+        <GradientStop Color="#1D4ED8" Offset="1.0" />
+    </LinearGradientBrush>
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Logo.StreamIn" Color="{StaticResource Color.Logo.StreamIn}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Logo.StreamOut" Color="{StaticResource Color.Logo.StreamOut}" />
+    <SolidColorBrush po:Freeze="True" x:Key="Brush.Logo.TileBorder" Color="{StaticResource Color.Logo.TileBorder}" />
+
 </ResourceDictionary>

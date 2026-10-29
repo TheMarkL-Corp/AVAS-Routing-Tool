@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:AvasRoutingTool.Views"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Icon="Assets/AppIcon.ico"
         Title="AVAS Routing Tool - Advantech AVAS-223 Video Management"
         Height="860" Width="1280"
         MinHeight="720" MinWidth="1024"
@@ -101,6 +102,55 @@
 
                 <!-- Brand Title -->
                 <StackPanel x:Name="BrandBlock" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Brand mark: tile follows P1B ('AV' Clasp) with gradient chevrons and medical cross. -->
+                    <Border x:Name="BrandLogo" Width="28" Height="28" CornerRadius="6" Margin="0,0,8,0"
+                            Background="{DynamicResource Brush.Background.Dark}"
+                            BorderBrush="{DynamicResource Brush.Logo.TileBorder}"
+                            BorderThickness="1"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="AVAS Routing Tool logo">
+                        <Viewbox Margin="2">
+                            <Canvas Width="64" Height="64">
+                                <!-- Upward Chevron "A" (Cyan to Sky Blue Gradient) -->
+                                <Path Data="{StaticResource Icon.Logo.AChevron}"
+                                      Stroke="{DynamicResource Brush.Logo.AChevron}"
+                                      StrokeThickness="4"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+
+                                <!-- Downward Chevron "V" (Cobalt Blue Gradient) -->
+                                <Path Data="{StaticResource Icon.Logo.VChevron}"
+                                      Stroke="{DynamicResource Brush.Logo.VChevron}"
+                                      StrokeThickness="4"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+
+                                <!-- Horizontal Routing Stream Bus (Left Input, Right Output) -->
+                                <Path Data="{StaticResource Icon.Logo.StreamIn}"
+                                      Stroke="{DynamicResource Brush.Logo.StreamIn}"
+                                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Ellipse Canvas.Left="7" Canvas.Top="30" Width="4" Height="4" Fill="{DynamicResource Brush.Logo.StreamIn}" />
+
+                                <Path Data="{StaticResource Icon.Logo.StreamOut}"
+                                      Stroke="{DynamicResource Brush.Logo.StreamOut}"
+                                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Ellipse Canvas.Left="53" Canvas.Top="30" Width="4" Height="4" Fill="{DynamicResource Brush.Logo.StreamOut}" />
+
+                                <!-- Central Surgical Cross Core Node -->
+                                <Border Canvas.Left="26" Canvas.Top="26" Width="12" Height="12" CornerRadius="3"
+                                        Background="{DynamicResource Brush.Accent.Primary}"
+                                        BorderBrush="{DynamicResource Brush.Text.OnAction}"
+                                        BorderThickness="1.2">
+                                    <Path Data="{StaticResource Icon.Logo.Cross}"
+                                          Stroke="{DynamicResource Brush.Text.OnAction}"
+                                          StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                </Border>
+
+                                <!-- Chevrons Apex Accents -->
+                                <Ellipse Canvas.Left="30" Canvas.Top="11" Width="4" Height="4" Fill="{DynamicResource Brush.Text.OnAction}" />
+                                <Ellipse Canvas.Left="30" Canvas.Top="49" Width="4" Height="4" Fill="{DynamicResource Brush.Text.OnAction}" />
+                            </Canvas>
+                        </Viewbox>
+                    </Border>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="AVAS ROUTING TOOL"
                                    FontSize="15"
@@ -114,7 +164,7 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Stretch"
-                            Margin="20,0,0,0">
+                            Margin="8,0,0,0">
                     <RadioButton x:Name="TabVisualRouting"
                                  Style="{StaticResource Style.Tab.Nav}"
                                  Content="Visual Routing"

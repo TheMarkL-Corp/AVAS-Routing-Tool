@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVAS Routing Tool - Logo Design Proposals</title>
+  <style>
+    :root {
+      --bg: #0B0F17;
+      --card-bg: #151E2E;
+      --card-border: #223049;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --accent: #2563EB;
+      --accent-cyan: #06B6D4;
+      --accent-emerald: #10B981;
+      --hover-bg: #1E293B;
+      --highlight-border: #3B82F6;
+    }
+
+    [data-theme="light"] {
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --card-border: #CBD5E1;
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --accent: #2563EB;
+      --accent-cyan: #0E7490;
+      --accent-emerald: #047857;
+      --hover-bg: #F1F5F9;
+      --highlight-border: #2563EB;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      padding: 40px 24px;
+      line-height: 1.5;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(37, 99, 235, 0.3);
+      margin-bottom: 8px;
+    }
+
+    .new-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-emerald);
+      border-color: rgba(16, 185, 129, 0.3);
+      margin-left: 8px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    p.subtitle {
+      color: var(--text-secondary);
+      font-size: 15px;
+      margin-top: 6px;
+      max-width: 780px;
+    }
+
+    .theme-toggle-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-primary);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+    }
+    .theme-toggle-btn:hover {
+      background: var(--hover-bg);
+      border-color: var(--accent);
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 32px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: -8px;
+      margin-bottom: 20px;
+    }
+
+    .proposals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .proposal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .proposal-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+      border-color: var(--accent);
+    }
+    .proposal-card.featured {
+      border: 2px solid var(--highlight-border);
+    }
+
+    .recommended-pill {
+      position: absolute;
+      top: -10px;
+      right: 20px;
+      background: linear-gradient(135deg, #2563EB, #06B6D4);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.4);
+    }
+
+    .icon-hero-wrapper {
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 12px;
+      padding: 28px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      border: 1px dashed var(--card-border);
+    }
+
+    .card-title {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .concept-tagline {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .card-desc {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      flex-grow: 1;
+    }
+
+    .avas-breakdown {
+      background: rgba(37, 99, 235, 0.06);
+      border-left: 3px solid var(--accent);
+      padding: 8px 12px;
+      border-radius: 0 6px 6px 0;
+      font-size: 12px;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+    .avas-breakdown b {
+      color: var(--accent);
+    }
+
+    .size-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 16px;
+    }
+    .size-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .size-label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* Mockups section */
+    .mockup-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    @media (max-width: 900px) {
+      .mockup-grid { grid-template-columns: 1fr; }
+    }
+
+    .mockup-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .mockup-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .taskbar-mockup {
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 8px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    .taskbar-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+    .taskbar-item.active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .taskbar-item.active::after {
+      content: '';
+      position: absolute;
+      bottom: 1px;
+      width: 14px;
+      height: 3px;
+      background: #3B82F6;
+      border-radius: 2px;
+    }
+
+    .appbar-mockup {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .appbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .desktop-mockup {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      padding: 16px;
+      background: radial-gradient(circle at 50% 50%, rgba(37,99,235,0.08), transparent 70%);
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .desktop-icon-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 90px;
+      text-align: center;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 6px 4px;
+      border-radius: 6px;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .desktop-icon-cell:hover {
+      background: rgba(37, 99, 235, 0.15);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <span class="badge">Advantech AVAS-223 SDVoE Ecosystem</span>
+        <span class="badge new-badge">Round 2: AVAS Integration</span>
+        <h1>AVAS Routing Tool &mdash; App Logo Concepts</h1>
+        <p class="subtitle">
+          Derived from Proposal 1 (Surgical Matrix Nexus), these new evolutions deeply weave the word and letterforms of 
+          <strong>"AVAS"</strong> (the iconic <strong>A</strong>, <strong>AV</strong> audio-video inversion, and <strong>S</strong> routing curves) 
+          directly into the mission-critical medical cross and SDVoE 10GbE matrix streams.
+        </p>
+      </div>
+      <button class="theme-toggle-btn" onclick="toggleTheme()">
+        <span id="theme-icon">☀️</span> <span id="theme-label">Switch to Clinical Light</span>
+      </button>
+    </header>
+
+    <!-- SECTION 1: NEW P1 EVOLUTIONS WITH "AVAS" IDENTITY -->
+    <div class="section-title">✨ New P1 Evolutions &mdash; Infusing the "AVAS" Identity</div>
+    <p class="section-desc">Each concept retains the beloved medical cross core and matrix stream physics of P1 while transforming the overall architecture into the signature "AVAS" lettermark.</p>
+
+    <div class="proposals-grid">
+      
+      <!-- PROPOSAL 1A: THE SURGICAL "A" NEXUS (TOP RECOMMENDATION) -->
+      <div class="proposal-card featured">
+        <span class="recommended-pill">Top Recommendation</span>
+        <div class="icon-hero-wrapper">
+          <!-- Proposal 1A SVG (128x128) -->
+          <svg id="svg-p1a" width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="p1a-tile-grad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#1E3A8A" />
+                <stop offset="100%" stop-color="#0B132B" />
+              </linearGradient>
+              <linearGradient id="p1a-left-stream" x1="28" y1="98" x2="64" y2="24" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#06B6D4" />
+                <stop offset="60%" stop-color="#38BDF8" />
+                <stop offset="100%" stop-color="#FFFFFF" />
+              </linearGradient>
+              <linearGradient id="p1a-right-stream" x1="64" y1="24" x2="100" y2="98" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#FFFFFF" />
+                <stop offset="40%" stop-color="#3B82F6" />
+                <stop offset="100%" stop-color="#1D4ED8" />
+              </linearGradient>
+              <linearGradient id="p1a-core-grad" x1="52" y1="56" x2="76" y2="80" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#2563EB" />
+                <stop offset="100%" stop-color="#0E7490" />
+              </linearGradient>
+            </defs>
+            <!-- Background Tile -->
+            <rect width="128" height="128" rx="28" fill="url(#p1a-tile-grad)" />
+            <rect x="1.5" y="1.5" width="125" height="125" rx="26.5" stroke="#3B82F6" stroke-width="2" stroke-opacity="0.35" />
+
+            <!-- The Architectural "A" Frame formed by Vector Stream Rails -->
+            <!-- Left Leg (Input Path / Cyan) -->
+            <path d="M 28 98 L 64 24" stroke="url(#p1a-left-stream)" stroke-width="7" stroke-linecap="round" />
+            
+            <!-- Right Leg (Output Path / Cobalt) -->
+            <path d="M 64 24 L 100 98" stroke="url(#p1a-right-stream)" stroke-width="7" stroke-linecap="round" />
+
+            <!-- Dynamic Input Stream Curves feeding into Crossbar (from P1) -->
+            <path d="M 20 68 Q 36 68 52 68" stroke="#06B6D4" stroke-width="4.5" stroke-linecap="round" />
+            <circle cx="20" cy="68" r="4.5" fill="#06B6D4" />
+
+            <!-- Dynamic Output Stream Curves branching from Crossbar (from P1) -->
+            <!-- Branch 1 (Upper Output) -->
+            <path d="M 76 68 Q 92 68 108 52" stroke="#60A5FA" stroke-width="4" stroke-linecap="round" />
+            <circle cx="108" cy="52" r="4" fill="#60A5FA" />
+
+            <!-- Branch 2 (Lower Output) -->
+            <path d="M 76 68 Q 92 68 108 84" stroke="#3B82F6" stroke-width="4" stroke-linecap="round" />
+            <circle cx="108" cy="84" r="4" fill="#3B82F6" />
+
+            <!-- Inner Inverted Chevron forming letter "V" (Audio/Video) -->
+            <path d="M 44 48 L 64 74 L 84 48" stroke="#38BDF8" stroke-width="2.5" stroke-opacity="0.4" stroke-linecap="round" stroke-linejoin="round" />
+
+            <!-- The P1 Surgical Crossbar Nexus Core -->
+            <rect x="52" y="56" width="24" height="24" rx="7" fill="url(#p1a-core-grad)" stroke="#FFFFFF" stroke-width="2.5" />
+            <!-- Inner Surgical Cross Glyph -->
+            <path d="M 64 61 L 64 75 M 57 68 L 71 68" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+
+            <!-- Apex Source Beacon (Top of the A) -->
+            <circle cx="64" cy="24" r="5" fill="#FFFFFF" />
+            
+            <!-- Base Terminal Anchors -->
+            <circle cx="28" cy="98" r="4.5" fill="#06B6D4" />
+            <circle cx="100" cy="98" r="4.5" fill="#1D4ED8" />
+          </svg>
+        </div>
+        <div class="card-title">1A. The Surgical "A" Nexus</div>
+        <div class="concept-tagline">Flagship "A" Lettermark + P1 Crossbar Core</div>
+        <div class="card-desc">
+          Morphs P1 directly into a prominent capital <strong>"A"</strong>. The left leg is an optical input rail (cyan), the right leg is a display distribution rail (cobalt), and the crossbar is the <strong>P1 Surgical Cross Core</strong> with dynamic branches. The inner negative space creates an inverted <strong>"V"</strong> (for Video/AV).
+        </div>
+        <div class="avas-breakdown">
+          <b>A:</b> Dominant outer lettermark &bull; 
+          <b>V:</b> Inner negative-space wedge &bull; 
+          <b>S:</b> Curved output routing branches &bull; 
+          <b>Cross:</b> Medical OR core
+        </div>
+        <!-- Size Scalability Strip -->
+        <div class="size-strip">
+          <div class="size-item">
+            <span class="size-label">64px</span>
+            <svg width="36" height="36" viewBox="0 0 128 128"><use href="#svg-p1a" /></svg>
+          </div>
+          <div class="size-item">
+            <span class="size-label">32px (App)</span>
+            <svg width="24" height="24" viewBox="0 0 128 128"><use href="#svg-p1a" /></svg>
+          </div>
+          <div class="size-item">
+            <span class="size-label">16px (Tray)</span>
+            <svg width="16" height="16" viewBox="0 0 128 128"><use href="#svg-p1a" /></svg>
+          </div>
+        </div>
+        <div class="tags-row">
+          <span class="tag">P1 DNA</span>
+          <span class="tag">Clear "A" Lettermark</span>
+          <span class="tag">AV Negative Space</span>
+          <span class="tag">16px Readable</span>
+        </div>
+      </div>
+
+      <!-- PROPOSAL 1B: "AV" INTERLOCK CHEVRON MATRIX -->
+      <div class="proposal-card">
+        <div class="icon-hero-wrapper">
+          <!-- Proposal 1B SVG (128x128) -->
+          <svg id="svg-p1b" width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="p1b-tile-grad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#0F172A" />
+                <stop offset="100%" stop-color="#1E293B" />
+              </linearGradient>
+              <linearGradient id="p1b-a-chevron" x1="32" y1="56" x2="64" y2="24" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#06B6D4" />
+                <stop offset="100%" stop-color="#38BDF8" />
+              </linearGradient>
+              <linearGradient id="p1b-v-chevron" x1="32" y1="72" x2="64" y2="104" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#3B82F6" />
+                <stop offset="100%" stop-color="#1D4ED8" />
+              </linearGradient>
+            </defs>
+            <!-- Background Tile -->
+            <rect width="128" height="128" rx="28" fill="url(#p1b-tile-grad)" />
+            <rect x="1.5" y="1.5" width="125" height="125" rx="26.5" stroke="#38BDF8" stroke-width="2" stroke-opacity="0.3" />
+
+            <!-- Upward Chevron "A" (Top half) -->
+            <path d="M 30 60 L 64 26 L 98 60" stroke="url(#p1b-a-chevron)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+            
+            <!-- Downward Chevron "V" (Bottom half) -->
+            <path d="M 30 68 L 64 102 L 98 68" stroke="url(#p1b-v-chevron)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+
+            <!-- Horizontal Routing Stream Bus passing through center (from P1) -->
+            <path d="M 18 64 L 48 64" stroke="#06B6D4" stroke-width="4" stroke-linecap="round" />
+            <circle cx="18" cy="64" r="4" fill="#06B6D4" />
+
+            <path d="M 80 64 L 110 64" stroke="#60A5FA" stroke-width="4" stroke-linecap="round" />
+            <circle cx="110" cy="64" r="4" fill="#60A5FA" />
+
+            <!-- Central Surgical Cross Core Node (from P1) -->
+            <rect x="52" y="52" width="24" height="24" rx="6" fill="#2563EB" stroke="#FFFFFF" stroke-width="2.5" />
+            <!-- Inner Cross Emblem -->
+            <path d="M 64 57 L 64 71 M 57 64 L 71 64" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+
+            <!-- Chevrons Apex Accents -->
+            <circle cx="64" cy="26" r="4" fill="#FFFFFF" />
+            <circle cx="64" cy="102" r="4" fill="#FFFFFF" />
+          </svg>
+        </div>
+        <div class="card-title">1B. "AV" Interlock Matrix</div>
+        <div class="concept-tagline">Interlocking "A" & "V" Chevrons + P1 Cross</div>
+        <div class="card-desc">
+          Directly spells the first two letters of AVAS through an upward <strong>"A"</strong> chevron interlocking with a downward <strong>"V"</strong> (Video) chevron. They clasp at the center around the <strong>P1 Surgical Cross</strong>, with horizontal SDVoE routing lines penetrating the core.
+        </div>
+        <div class="avas-breakdown">
+          <b>A:</b> Upward cyan chevron &bull; 
+          <b>V:</b> Downward cobalt chevron &bull; 
+          <b>Cross:</b> Medical nexus at intersection
+        </div>
+        <!-- Size Scalability Strip -->
+        <div class="size-strip">
+          <div class="size-item">
+            <span class="size-label">64px</span>
+            <svg width="36" height="36" viewBox="0 0 128 128"><use href="#svg-p1b" /></svg>
+          </div>
+          <div class="size-item">
+            <span class="size-label">32px (App)</span>
+            <svg width="24" height="24" viewBox="0 0 128 128"><use href="#svg-p1b" /></svg>
+          </div>
+          <div class="size-item">
+            <span class="size-label">16px (Tray)</span>
+            <svg width="16" height="16" viewBox="0 0 128 128"><use href="#svg-p1b" /></svg>
+          </div>
+        </div>
+        <div class="tags-row">
+          <span class="tag">Dual Chevron</span>
+          <span class="tag">Audio-Video (AV)</span>
+          <span class="tag">High Symmetry</span>
+          <span class="tag">P1 Cross Core</span>
+        </div>
+      </div>
+
+      <!-- PROPOSAL 1C: THE "AVAS" SIGMOID STREAM -->
+      <div class="proposal-card">
+        <div class="icon-hero-wrapper">
+          <!-- Proposal 1C SVG (128x128) -->
+          <svg id="svg-p1c" width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="p1c-tile-grad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#0F172A" />
+                <stop offset="100%" stop-color="#1E1E2E" />
+              </linearGradient>
+              <linearGradient id="p1c-s-curve" x1="24" y1="40" x2="104" y2="88" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#06B6D4" />
+                <stop offset="50%" stop-color="#3B82F6" />
+                <stop offset="100%" stop-color="#10B981" />
+              </linearGradient>
+            </defs>
+            <!-- Background Tile -->
+            <rect width="128" height="128" rx="28" fill="url(#p1c-tile-grad)" />
+            <rect x="1.5" y="1.5" width="125" height="125" rx="26.5" stroke="#2563EB" stroke-width="2" stroke-opacity="0.3" />
+
+            <!-- Background Architectural "A" Outline -->
+            <path d="M 32 98 L 64 26 L 96 98" stroke="#334155" stroke-width="6" stroke-linecap="round" />
+            <path d="M 44 72 L 84 72" stroke="#334155" stroke-width="4" stroke-linecap="round" />
+
+            <!-- Dynamic "S" Routing Stream (for AVAS / Switching) flowing through the "A" -->
+            <path d="M 24 44 C 44 44 46 64 64 64 C 82 64 84 84 104 84" 
+                  stroke="url(#p1c-s-curve)" stroke-width="8" stroke-linecap="round" fill="none" />
+
+            <!-- P1 Medical Cross mounted right at the inflection point (64, 64) -->
+            <rect x="52" y="52" width="24" height="24" rx="6" fill="#2563EB" stroke="#FFFFFF" stroke-width="2.5" />
+            <path d="M 64 57 L 64 71 M 57 64 L 71 64" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+
+            <!-- Terminating Nodes -->
+            <circle cx="24" cy="44" r="5" fill="#06B6D4" />
+            <circle cx="104" cy="84" r="5" fill="#10B981" />
+            <circle cx="64" cy="26" r="4" fill="#FFFFFF" />
+          </svg>
+        </div>
+        <div class="card-title">1C. The "AVAS" Sigmoid Stream</div>
+        <div class="concept-tagline">"A" Chassis + Flowing "S" Stream + P1 Cross</div>
+        <div class="card-desc">
+          Encloses a flowing <strong>"S"</strong> routing wave (representing <strong>S</strong>DVoE / Switching / Streaming) traversing directly through an architectural <strong>"A"</strong> chassis. The <strong>P1 Surgical Cross</strong> acts as the central fulcrum where the signal switches seamlessly.
+        </div>
+        <div class="avas-breakdown">
+          <b>A:</b> Structural backplate chassis &bull; 
+          <b>S:</b> Prominent flowing sigmoid stream &bull; 
+          <b>Cross:</b> Central switching gate
+        </div>
+        <!-- Size Scalability Strip -->
+        <div class="size-strip">
+          <div class="size-item">
+            <span class="size-label">64px</span>
+            <svg width="36" height="36" viewBox="0 0 128 128"><use href="#svg-p1c" /></svg>
+          </div>
+          <div class="size-item">
+            <span class="size-label">32px (App)</span>
+            <svg width="24" height="24" viewBox="0 0 128 128"><use href="#svg-p1c" /></svg>
+          </div>
+          <div class="size-item">
+            <span class="size-label">16px (Tray)</span>
+            <svg width="16" height="16" viewBox="0 0 128 128"><use href="#svg-p1c" /></svg>
+          </div>
+        </div>
+        <div class="tags-row">
+          <span class="tag">"A" + "S" Fusion</span>
+          <span class="tag">Sigmoid Wave</span>
+          <span class="tag">SDVoE Flow</span>
+          <span class="tag">P1 Cross</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COMPARISON WITH ORIGINAL PROPOSALS -->
+    <div class="section-title">Original Proposal 1 &amp; System Mockups</div>
+    <div class="mockup-grid">
+      
+      <!-- Original P1 Reference Box -->
+      <div class="mockup-box">
+        <div class="mockup-header">Original Proposal 1 Reference (Pure Cross Matrix)</div>
+        <div style="display: flex; align-items: center; gap: 20px;">
+          <!-- Original P1 SVG -->
+          <svg id="svg-p1" width="72" height="72" viewBox="0 0 128 128" fill="none">
+            <rect width="128" height="128" rx="28" fill="#0F172A" />
+            <rect x="1.5" y="1.5" width="125" height="125" rx="26.5" stroke="#3B82F6" stroke-width="2" stroke-opacity="0.35" />
+            <rect x="58" y="24" width="12" height="80" rx="6" fill="#1E293B" />
+            <rect x="24" y="58" width="80" height="12" rx="6" fill="#1E293B" />
+            <path d="M 26 42 Q 46 42 64 64" stroke="#06B6D4" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <circle cx="26" cy="42" r="4.5" fill="#06B6D4" />
+            <path d="M 26 86 Q 46 86 64 64" stroke="#06B6D4" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <circle cx="26" cy="86" r="4.5" fill="#06B6D4" />
+            <path d="M 64 64 Q 82 42 102 42" stroke="#60A5FA" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <circle cx="102" cy="42" r="4.5" fill="#60A5FA" />
+            <path d="M 64 64 L 102 64" stroke="#3B82F6" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <circle cx="102" cy="64" r="4.5" fill="#3B82F6" />
+            <path d="M 64 64 Q 82 86 102 86" stroke="#60A5FA" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <circle cx="102" cy="86" r="4.5" fill="#60A5FA" />
+            <rect x="52" y="52" width="24" height="24" rx="7" fill="#2563EB" stroke="#FFFFFF" stroke-width="2.5" />
+            <path d="M 64 57 L 64 71 M 57 64 L 71 64" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+          </svg>
+          <div>
+            <div style="font-weight: 700; font-size: 15px;">Proposal 1: Surgical Matrix Nexus</div>
+            <div style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">
+              The pure medical cross + routing stream topology. Notice how <strong>Proposal 1A</strong> takes this exact same routing logic and sculpts it into the letter <strong>"A"</strong>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Application Bar Live Mockup with Proposal 1A -->
+      <div class="mockup-box">
+        <div class="mockup-header">App Bar Header Mockup (Featuring Proposal 1A)</div>
+        <div class="appbar-mockup">
+          <div class="appbar-brand">
+            <div style="width: 32px; height: 32px;">
+              <svg width="32" height="32" viewBox="0 0 128 128"><use href="#svg-p1a" /></svg>
+            </div>
+            <div>
+              <div style="font-size: 14px; font-weight: 700; letter-spacing: 0.03em;">AVAS ROUTING TOOL</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">v1.0.0 &bull; Advantech AVAS-223</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; font-size: 12px; font-weight: 600;">
+            <span style="color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 4px;">Visual Routing</span>
+            <span style="color: var(--text-secondary);">BAVM Console</span>
+            <span style="color: var(--text-secondary);">Logs</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Windows 11 Taskbar Mockup with Proposal 1A -->
+      <div class="mockup-box">
+        <div class="mockup-header">Windows 11 Taskbar (Proposal 1A Active)</div>
+        <div class="taskbar-mockup">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="#0078D4"><rect x="2" y="2" width="9" height="9"/><rect x="13" y="2" width="9" height="9"/><rect x="2" y="13" width="9" height="9"/><rect x="13" y="13" width="9" height="9"/></svg>
+          <div class="taskbar-item">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#F59E0B"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+          </div>
+          <div class="taskbar-item">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#3B82F6"><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <!-- AVAS Routing Tool (1A) -->
+          <div class="taskbar-item active" title="AVAS Routing Tool">
+            <svg width="28" height="28" viewBox="0 0 128 128"><use href="#svg-p1a" /></svg>
+          </div>
+          <div class="taskbar-item">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#0F172A"><rect width="24" height="24" rx="4" fill="#1E293B"/><path d="M6 8l4 4-4 4M12 16h6" stroke="#10B981" stroke-width="2"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop Shortcuts Side-by-Side -->
+      <div class="mockup-box">
+        <div class="mockup-header">Desktop Shortcut Presence (P1 vs P1A vs P1B)</div>
+        <div class="desktop-mockup">
+          <div class="desktop-icon-cell">
+            <svg width="56" height="56" viewBox="0 0 128 128"><use href="#svg-p1" /></svg>
+            <span>Original P1</span>
+          </div>
+          <div class="desktop-icon-cell" style="background: rgba(37,99,235,0.18); border-radius: 6px;">
+            <svg width="56" height="56" viewBox="0 0 128 128"><use href="#svg-p1a" /></svg>
+            <span style="font-weight: 700; color: var(--accent);">P1A (Nexus 'A')</span>
+          </div>
+          <div class="desktop-icon-cell">
+            <svg width="56" height="56" viewBox="0 0 128 128"><use href="#svg-p1b" /></svg>
+            <span>P1B ('AV' Clasp)</span>
+          </div>
+          <div class="desktop-icon-cell">
+            <svg width="56" height="56" viewBox="0 0 128 128"><use href="#svg-p1c" /></svg>
+            <span>P1C ('A'+'S' Wave)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.body.getAttribute('data-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      document.body.setAttribute('data-theme', next);
+      document.getElementById('theme-icon').textContent = next === 'light' ? '🌙' : '☀️';
+      document.getElementById('theme-label').textContent = next === 'light' ? 'Switch to Deep Dark' : 'Switch to Clinical Light';
+    }
+  </script>
+</body>
+</html>

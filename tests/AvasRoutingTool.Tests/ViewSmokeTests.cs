@@ -3908,6 +3908,27 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void MainWindow_HasWindowIcon_AndAppBarLogoMark() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var window = new MainWindow { DataContext = rig.Vm, Width = 1024, Height = 768, ShowInTaskbar = false, Left = -10000 };
+                window.Show();
+                try
+                {
+                    Relayout(window);
+                    Assert.NotNull(window.Icon);
+                    var mark = (FrameworkElement)window.FindName("BrandLogo");
+                    Assert.NotNull(mark);
+                    Assert.True(mark.ActualWidth >= 28);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+
+        [Fact]
         public void App_ThemeToggle_RepaintsEveryRenderedView_NoDarkChromeLeftInLightMode() =>
             RunSta(() =>
             {
