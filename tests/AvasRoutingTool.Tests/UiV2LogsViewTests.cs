@@ -62,49 +62,47 @@ namespace AvasRoutingTool.Tests
             }
         }
 
+        [Fact]
+        public void LogsTab_IsVirtualized_Tokenised_TouchSafe_AndColoursTheLevels() => RunSta((w, vm) =>
+        {
+            Check_ThousandEntries_RealizeOnlyTheVisibleRows(w, vm);
+            Check_TheList_IsVirtualized_Recycling_ByPixel(w, vm);
+            Check_TheList_HasNoScrollViewerAncestor_WhichWouldSwitchVirtualizationOff(w, vm);
+            Check_TheToolbar_HasTouchSizedButtons_WithVectorIcons_AndReadableText(w, vm);
+            Check_TheLogFilePath_IsTruncatedByTheColumn_NotByAFixedMaxWidth(w, vm);
+            Check_TheRowColumns_ComeFromTheLogColumnTokens(w, vm);
+            Check_TheLevelColours_FollowWarnErrorDebug_InBothThemes(w, light: false);
+            Check_TheLevelColours_FollowWarnErrorDebug_InBothThemes(w, light: true);
+        });
+
         private static ListBox Logs(MainWindow w) => (ListBox)w.FindName("LogList");
 
-        [Fact]
-        public void ThousandEntries_RealizeOnlyTheVisibleRows()
+        private static void Check_ThousandEntries_RealizeOnlyTheVisibleRows(MainWindow w, MainViewModel vm)
         {
-            RunSta((w, vm) =>
-            {
                 var list = Logs(w);
                 Assert.Equal(1000, vm.Logs.Count);
                 var realized = Descendants<ListBoxItem>(list).Count();
                 Assert.InRange(realized, 1, 99);
-            });
         }
 
-        [Fact]
-        public void TheList_IsVirtualized_Recycling_ByPixel()
+        private static void Check_TheList_IsVirtualized_Recycling_ByPixel(MainWindow w, MainViewModel _)
         {
-            RunSta((w, _) =>
-            {
                 var list = Logs(w);
                 Assert.True(VirtualizingPanel.GetIsVirtualizing(list));
                 Assert.Equal(VirtualizationMode.Recycling, VirtualizingPanel.GetVirtualizationMode(list));
                 Assert.Equal(ScrollUnit.Pixel, VirtualizingPanel.GetScrollUnit(list));
                 Assert.True(ScrollViewer.GetCanContentScroll(list));
                 Assert.Same(Application.Current.FindResource("Style.ListBox.Virtualized"), list.Style);
-            });
         }
 
-        [Fact]
-        public void TheList_HasNoScrollViewerAncestor_WhichWouldSwitchVirtualizationOff()
+        private static void Check_TheList_HasNoScrollViewerAncestor_WhichWouldSwitchVirtualizationOff(MainWindow w, MainViewModel _)
         {
-            RunSta((w, _) =>
-            {
                 for (DependencyObject? d = VisualTreeHelper.GetParent(Logs(w)); d != null; d = VisualTreeHelper.GetParent(d))
                     Assert.False(d is ScrollViewer, "the Logs list sits inside a ScrollViewer");
-            });
         }
 
-        [Fact]
-        public void TheToolbar_HasTouchSizedButtons_WithVectorIcons_AndReadableText()
+        private static void Check_TheToolbar_HasTouchSizedButtons_WithVectorIcons_AndReadableText(MainWindow w, MainViewModel _)
         {
-            RunSta((w, _) =>
-            {
                 foreach (var name in new[] { "ClearLogsButton", "OpenLogFolderButton" })
                 {
                     var button = (Button)w.FindName(name);
@@ -119,40 +117,27 @@ namespace AvasRoutingTool.Tests
                     }
                     Assert.False(string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(button)) && Descendants<TextBlock>(button).All(t => string.IsNullOrWhiteSpace(t.Text)));
                 }
-            });
         }
 
-        [Fact]
-        public void TheLogFilePath_IsTruncatedByTheColumn_NotByAFixedMaxWidth()
+        private static void Check_TheLogFilePath_IsTruncatedByTheColumn_NotByAFixedMaxWidth(MainWindow w, MainViewModel vm)
         {
-            RunSta((w, vm) =>
-            {
                 var path = Descendants<TextBlock>((FrameworkElement)w.FindName("ViewLogs")).First(t => t.Text == vm.LogFilePath);
                 Assert.True(double.IsPositiveInfinity(path.MaxWidth), $"MaxWidth {path.MaxWidth}");
                 Assert.Equal(TextTrimming.CharacterEllipsis, path.TextTrimming);
                 Assert.True(path.FontSize >= 12);
-            });
         }
 
-        [Fact]
-        public void TheRowColumns_ComeFromTheLogColumnTokens()
+        private static void Check_TheRowColumns_ComeFromTheLogColumnTokens(MainWindow w, MainViewModel _)
         {
-            RunSta((w, _) =>
-            {
                 var grid = Descendants<Grid>(Logs(w)).First(g => g.ColumnDefinitions.Count == 4);
                 Assert.Equal(((GridLength)Application.Current.FindResource("Size.Log.Col.Time")).Value, grid.ColumnDefinitions[0].Width.Value);
                 Assert.Equal(((GridLength)Application.Current.FindResource("Size.Log.Col.Level")).Value, grid.ColumnDefinitions[1].Width.Value);
                 Assert.Equal(((GridLength)Application.Current.FindResource("Size.Log.Col.Category")).Value, grid.ColumnDefinitions[2].Width.Value);
                 Assert.True(grid.ColumnDefinitions[3].Width.IsStar);
-            });
         }
 
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public void TheLevelColours_FollowWarnErrorDebug_InBothThemes(bool light)
+        private static void Check_TheLevelColours_FollowWarnErrorDebug_InBothThemes(MainWindow w, bool light)
         {
-            RunSta((w, vm) =>
             {
                 var theme = new ThemeService();
                 try
@@ -170,7 +155,7 @@ namespace AvasRoutingTool.Tests
                     }
                 }
                 finally { theme.SetTheme(ThemeMode.Dark); }
-            });
+            }
         }
     }
 }

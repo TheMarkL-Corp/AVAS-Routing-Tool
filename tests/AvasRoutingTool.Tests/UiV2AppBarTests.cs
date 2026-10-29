@@ -40,6 +40,20 @@ namespace AvasRoutingTool.Tests
 
         public sealed record ThemeContext(bool IsLightMode);
 
+        [Fact]
+        public void AppBar_AtFullHd_ShowsLabels_SymbolIcons_BrandMark_AndTokenSizes() => RunSta(w =>
+        {
+            Check_AppBar_ShowsLabelsAtFullHd(w);
+            Check_ActionIcons_AreSymbolIcons_WithAGlyph_AndTheButtonColour(w);
+            Check_TheBrandMark_IsItsOwnView_InsideTheBrandLogoHost(w);
+            Check_TheWindow_TakesItsSizesFromTokens(w);
+            Check_TheBrandNameIsALeadRole_AndTheVersionACaption(w);
+            Check_TheConnectionDot_IsAStatusDot_FromTheCentralStyle(w);
+        }, 1920, 1040);
+
+        [Fact]
+        public void AppBar_AtTheFloor_HidesTheLabels_AndStillFits() => RunSta(w => Check_AppBar_HidesTheLabelsAtTheFloor_AndStillFits(w), 1024, 720);
+
         private static readonly string[] LabelNames = { "ThemeToggleLabel", "RefreshLabel", "SettingsLabel" };
 
         private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
@@ -52,8 +66,7 @@ namespace AvasRoutingTool.Tests
             }
         }
 
-        [Fact]
-        public void AppBar_ShowsLabelsAtFullHd() => RunSta(w =>
+        private static void Check_AppBar_ShowsLabelsAtFullHd(MainWindow w)
         {
             foreach (var name in LabelNames)
             {
@@ -66,10 +79,9 @@ namespace AvasRoutingTool.Tests
             }
             var theme = ((TextBlock)w.FindName("ThemeToggleLabel")).Text;
             Assert.True(theme is "Light" or "Dark", $"theme label is '{theme}'");
-        }, 1920, 1040);
+        }
 
-        [Fact]
-        public void AppBar_HidesTheLabelsAtTheFloor_AndStillFits() => RunSta(w =>
+        private static void Check_AppBar_HidesTheLabelsAtTheFloor_AndStillFits(MainWindow w)
         {
             foreach (var name in LabelNames)
                 Assert.False(((TextBlock)w.FindName(name)).IsVisible, $"{name} is visible at 1024 wide");
@@ -77,10 +89,9 @@ namespace AvasRoutingTool.Tests
             var buttons = new[] { "ThemeToggleButton", "RefreshButton", "SettingsButton" }.Select(n => (Button)w.FindName(n)).ToArray();
             Assert.True(buttons.Max(b => b.TranslatePoint(new Point(b.ActualWidth, 0), w).X) <= w.ActualWidth, "actions are clipped");
             Assert.All(buttons, b => Assert.True(b.ActualWidth >= 48 && b.ActualHeight >= 48));
-        }, 1024, 720);
+        }
 
-        [Fact]
-        public void ActionIcons_AreSymbolIcons_WithAGlyph_AndTheButtonColour() => RunSta(w =>
+        private static void Check_ActionIcons_AreSymbolIcons_WithAGlyph_AndTheButtonColour(MainWindow w)
         {
             foreach (var name in new[] { "ThemeToggleButton", "RefreshButton", "SettingsButton" })
             {
@@ -91,10 +102,10 @@ namespace AvasRoutingTool.Tests
                 Assert.True(icon.ActualWidth >= 16 && icon.ActualHeight >= 16);
                 Assert.Same(button.Foreground, icon.Foreground);
             }
-        });
+        }
 
         [Fact]
-        public void TheThemeIcon_NamesTheActiveTheme_SunInLightMoonInDark() => RunSta(w =>
+        public void TheThemeIcon_NamesTheActiveTheme_SunInLightMoonInDark() => RunSta(_ =>
         {
             var style = (Style)Application.Current.FindResource("Style.Icon.ThemeToggle");
             var icon = new SymbolIcon { Style = style };
@@ -111,42 +122,38 @@ namespace AvasRoutingTool.Tests
             finally { host.Close(); }
         });
 
-        [Fact]
-        public void TheBrandMark_IsItsOwnView_InsideTheBrandLogoHost() => RunSta(w =>
+        private static void Check_TheBrandMark_IsItsOwnView_InsideTheBrandLogoHost(MainWindow w)
         {
             var logo = (FrameworkElement)w.FindName("BrandLogo");
             Assert.True(logo.ActualWidth >= 28 && logo.ActualHeight >= 28);
             Assert.Equal((double)Application.Current.FindResource("Size.Icon.Brand"), logo.ActualWidth);
             var mark = Descendants<BrandMark>(logo).Single();
             Assert.True(mark.ActualWidth > 0 && mark.ActualHeight > 0);
-        });
+        }
 
-        [Fact]
-        public void TheWindow_TakesItsSizesFromTokens() => RunSta(w =>
+        private static void Check_TheWindow_TakesItsSizesFromTokens(MainWindow w)
         {
             Assert.Equal((double)Application.Current.FindResource("Size.Window.Min.Width"), w.MinWidth);
             Assert.Equal((double)Application.Current.FindResource("Size.Window.Min.Height"), w.MinHeight);
             Assert.Equal(1024, w.MinWidth);
             Assert.Equal(720, w.MinHeight);
-        });
+        }
 
-        [Fact]
-        public void TheBrandNameIsALeadRole_AndTheVersionACaption() => RunSta(w =>
+        private static void Check_TheBrandNameIsALeadRole_AndTheVersionACaption(MainWindow w)
         {
             var name = Descendants<TextBlock>((FrameworkElement)w.FindName("BrandBlock")).First(t => t.Text == "AVAS ROUTING TOOL");
             Assert.Equal((double)Application.Current.FindResource("Font.Size.Lead"), name.FontSize);
             var version = (TextBlock)w.FindName("AppVersionText");
             Assert.Equal((double)Application.Current.FindResource("Font.Size.Caption"), version.FontSize);
-        });
+        }
 
-        [Fact]
-        public void TheConnectionDot_IsAStatusDot_FromTheCentralStyle() => RunSta(w =>
+        private static void Check_TheConnectionDot_IsAStatusDot_FromTheCentralStyle(MainWindow w)
         {
             var badge = (FrameworkElement)w.FindName("ConnectionBadge");
             var dot = Descendants<System.Windows.Shapes.Ellipse>(badge).Single();
             Assert.Equal((double)Application.Current.FindResource("Size.Dot.M"), dot.ActualWidth);
             Assert.Equal(dot.ActualWidth, dot.ActualHeight);
             Assert.Equal((double)Application.Current.FindResource("Size.Touch.Min"), badge.MinHeight);
-        });
+        }
     }
 }
