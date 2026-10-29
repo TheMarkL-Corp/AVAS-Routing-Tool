@@ -409,7 +409,8 @@
                     Status dock (Row 3): line 1 SOURCE and the output format; line 2 the stale-draft notice and why Copy layout is off.
                     The Undo toast takes this row while it shows - never the picture.
                 -->
-                <Grid Grid.Row="3" Margin="0,8,0,0" Height="{StaticResource Size.Dock.Content}">
+                <Grid Grid.Row="3" Margin="0,8,0,0" Height="{StaticResource Size.Dock.Content}"
+                      Visibility="{Binding ShowUndoToast, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
                     <StackPanel VerticalAlignment="Center">
                         <Grid>
                             <Grid.ColumnDefinitions>
