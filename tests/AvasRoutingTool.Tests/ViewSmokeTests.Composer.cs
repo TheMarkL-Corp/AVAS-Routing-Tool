@@ -187,7 +187,8 @@ namespace AvasRoutingTool.Tests
                     var glyph = Named(clear[0], "CornerClearGlyph").Single();
                     Assert.Equal(32, glyph.ActualWidth);
                     Assert.Equal(32, glyph.ActualHeight);
-                    Assert.Contains(FindAll<TextBlock>(clear[0]), t => t.Text == "✕");
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.Dismiss24, FindAll<Wpf.Ui.Controls.SymbolIcon>(clear[0]).Single().Symbol);
+                    Assert.False(((Button)clear[0]).IsTabStop);
 
                     ((Button)clear[0]).Command.Execute(null);
                     Assert.Empty(c.Draft!.Placements);
@@ -1718,6 +1719,86 @@ namespace AvasRoutingTool.Tests
                     var chip = (Button)Named(view, "UnplacedChip").First(e => e.IsVisible);
                     Assert.IsType<System.Windows.Shapes.Rectangle>(chip.Template.FindName("DraftFrame", chip));
                     Assert.Equal((double)Application.Current.FindResource("Size.Touch.Min"), chip.MinHeight);
+                });
+            });
+
+        // ---- UI v2 Tasks 7a/7b: block overlays, density, surface, corner clear, strip ----
+
+        [Fact]
+        public void Composer_SmallBlocks_AreCompact_ThroughBlockDensity() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("quad_1_3")); // block 1 is large, blocks 2-4 are small
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var roots = Named(view, "BlockRoot").Where(e => e.IsVisible).ToList();
+                    Assert.Equal(4, roots.Count);
+                    var small = roots.Where(r => r.ActualWidth < BlockDensity.CompactBelow).ToList();
+                    var large = roots.Except(small).ToList();
+                    Assert.NotEmpty(small);
+                    Assert.Single(large);
+
+                    var lead = (double)Application.Current.FindResource("Font.Size.Lead");
+                    var number = (double)Application.Current.FindResource("Font.Size.Composer.BlockNumber");
+                    foreach (var r in small)
+                    {
+                        Assert.True(BlockDensity.GetIsCompact(r));
+                        Assert.Equal(lead, Named(r, "NumberText").Single().GetValue(TextBlock.FontSizeProperty));
+                        Assert.False(Named(r, "SizeChip").Single().IsVisible);
+                        Assert.False(Named(r, "EmptyHint").Single().IsVisible);
+                    }
+                    var big = large.Single();
+                    Assert.False(BlockDensity.GetIsCompact(big));
+                    Assert.Equal(number, Named(big, "NumberText").Single().GetValue(TextBlock.FontSizeProperty));
+                    Assert.True(Named(big, "SizeChip").Single().IsVisible);
+                    Assert.True(Named(big, "EmptyHint").Single().IsVisible);
+
+                    // nothing on a block is smaller than the 12 px floor
+                    Assert.All(roots.SelectMany(r => FindAll<TextBlock>(r)).Where(t => t.IsVisible), t => Assert.True(t.FontSize >= 12, $"text {t.Text} is {t.FontSize}"));
+                });
+            });
+
+        [Fact]
+        public void Composer_ReplaceMoveStrip_IsCompactOnSmallBlocks_AndEqualWidthOnNormalOnes() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("pip");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0); // the PIP inset (window 0) is small
+                c.Disarm();
+                c.TapBlock(0); // a placed block: the strip opens
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var replace = (Button)Named(view, "ReplaceButton").Single(e => e.IsVisible);
+                    var move = (Button)Named(view, "MoveButton").Single(e => e.IsVisible);
+                    var compact = (double)Application.Current.FindResource("Size.Touch.Compact");
+                    var min = (double)Application.Current.FindResource("Size.Touch.Min");
+                    Assert.InRange(replace.ActualHeight, compact, min - 0.5);
+                    Assert.InRange(move.ActualHeight, compact, min - 0.5);
+                    Assert.Equal(replace.ActualWidth, move.ActualWidth, 1);
+                    var gap = BoundsIn(move, view).Left - BoundsIn(replace, view).Right;
+                    Assert.InRange(gap, 7.5, 9);
+                });
+            });
+
+        [Fact]
+        public void Composer_UnavailableBlock_LockIsASymbolIcon() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("quad_1_3");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var locks = Named(view, "LockIcon").Where(e => e.IsVisible).ToList();
+                    Assert.Equal(3, locks.Count);
+                    Assert.All(locks, l => Assert.Equal(Wpf.Ui.Controls.SymbolRegular.LockClosed24, ((Wpf.Ui.Controls.SymbolIcon)l).Symbol));
                 });
             });
     }
