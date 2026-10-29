@@ -198,27 +198,8 @@
                             </MultiBinding>
                         </controls:FractionalLayoutPanel.AspectRatio>
                         <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" Background="{DynamicResource Brush.Surface.PreviewMat}" />
-                        <Rectangle x:Name="CanvasFrame"
-                                   controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1"
-                                   Margin="-6"
-                                   RadiusX="10" RadiusY="10"
-                                   StrokeThickness="3"
-                                   IsHitTestVisible="False">
-                            <Rectangle.Style>
-                                <Style TargetType="Rectangle">
-                                    <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Default}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
-                                            <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Routed}" />
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsStaged, Mode=OneWay}" Value="True">
-                                            <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Staged}" />
-                                            <Setter Property="StrokeDashArray" Value="4 2" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Rectangle.Style>
-                        </Rectangle>
+                        <Rectangle x:Name="CanvasFrame" Style="{StaticResource Style.Shape.CanvasFrame}"
+                                   controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" />
                     </controls:FractionalLayoutPanel>
 
                     <!-- Step 1 not done: say what to do -->
@@ -515,12 +496,7 @@
                PopupAnimation="None"
                Closed="PickerPopup_Closed">
             <Border x:Name="PickerFrame"
-                    Background="{DynamicResource Brush.Surface.Card}"
-                    BorderBrush="{DynamicResource Brush.Border.Strong}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="16"
-                    MaxWidth="760"
+                    Style="{StaticResource Style.Surface.Popup}"
                     KeyboardNavigation.TabNavigation="Cycle"
                     KeyboardNavigation.DirectionalNavigation="Contained"
                     PreviewKeyDown="PickerFrame_PreviewKeyDown">
@@ -530,7 +506,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="PickerTitle" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Primary}"
+                        <TextBlock x:Name="PickerTitle" Style="{StaticResource Style.Text.Lead}"
                                    TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
                         <Button Grid.Column="1" Style="{StaticResource Style.Button.Composer}" Content="Cancel" Click="PickerCancel_Click" />
                     </Grid>
@@ -539,85 +515,31 @@
                         <ItemsControl x:Name="PickerItems" Focusable="False" Margin="0,0,4,0">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel />
+                                    <WrapPanel ItemWidth="{StaticResource Size.Composer.Picker.Tile}" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button x:Name="PickerTile"
-                                            Foreground="{DynamicResource Brush.Text.Primary}"
-                                            Width="220"
-                                            MinHeight="160"
-                                            Margin="0,0,12,12"
-                                            Cursor="Hand"
+                                            Style="{StaticResource Style.Button.PickerTile}"
                                             IsEnabled="{Binding IsEnabled, Mode=OneWay}"
                                             AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
                                             Click="PickerTile_Click">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="bd" Background="{DynamicResource Brush.Surface.Popup}" BorderBrush="{DynamicResource Brush.Border.Control}" BorderThickness="2" CornerRadius="10" Padding="10">
-                                                    <ContentPresenter />
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
-                                                        <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                                    </Trigger>
-                                                    <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                                                        <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsEnabled" Value="False">
-                                                        <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
-                                                        <Setter Property="Cursor" Value="Arrow" />
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Button.Template>
                                         <StackPanel>
-                                            <Border Height="112" Background="{DynamicResource Brush.Surface.PreviewBlack}" CornerRadius="6" ClipToBounds="True">
-                                                <Grid>
-                                                    <Image Source="{Binding Source.PreviewBitmap, Mode=OneWay}" Stretch="Uniform" RenderOptions.BitmapScalingMode="LowQuality">
-                                                        <Image.Style>
-                                                            <Style TargetType="Image">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
-                                                                        <Setter Property="Opacity" Value="0.4" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Image.Style>
-                                                    </Image>
-                                                    <TextBlock Text="NO PREVIEW · non-AVAS" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnPreview}"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                </Grid>
-                                            </Border>
-                                            <TextBlock Text="{Binding Source.DeviceName, Mode=OneWay}" FontSize="16" FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" Margin="0,8,0,0" />
+                                            <controls:FractionalLayoutPanel AspectRatio="{x:Static views:AspectRatioConverter.Default}">
+                                                <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1"
+                                                        Background="{DynamicResource Brush.Surface.PreviewBlack}" CornerRadius="6" ClipToBounds="True">
+                                                    <Grid>
+                                                        <Image Source="{Binding Source.PreviewBitmap, Mode=OneWay}" Style="{StaticResource Style.Image.Preview}" />
+                                                        <TextBlock Text="NO PREVIEW · non-AVAS" Style="{StaticResource Style.Text.Picker.NoPreview}" Foreground="{DynamicResource Brush.Text.OnPreview}" />
+                                                    </Grid>
+                                                </Border>
+                                            </controls:FractionalLayoutPanel>
+                                            <TextBlock Text="{Binding Source.DeviceName, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Name}" />
                                             <TextBlock Text="{Binding Source.LinkMode, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
                                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                <Path Data="{StaticResource Icon.Lock}" Stroke="{DynamicResource Brush.Text.Strong}" StrokeThickness="2" Width="14" Height="14" Stretch="Uniform"
-                                                      Margin="0,2,6,0" VerticalAlignment="Top">
-                                                    <Path.Style>
-                                                        <Style TargetType="Path">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Path.Style>
-                                                </Path>
-                                                <TextBlock Text="{Binding Note, Mode=OneWay}" FontSize="14" Foreground="{DynamicResource Brush.Text.Strong}" TextWrapping="Wrap" MaxWidth="180" />
+                                                <ui:SymbolIcon Symbol="LockClosed24" Style="{StaticResource Style.Icon.PickerLock}" />
+                                                <TextBlock Text="{Binding Note, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Note}" />
                                             </StackPanel>
                                         </StackPanel>
                                     </Button>

@@ -1921,5 +1921,90 @@ namespace AvasRoutingTool.Tests
                     Assert.NotEqual(16.0 / 9.0, c.LiveAspectRatio, 3);
                 });
             });
+
+        // ---- UI v2 Task 10: picker popup from tokens ----
+
+        private static (ComposerRig Rig, MultiViewComposerViewModel C) PickerRig()
+        {
+            var rig = new ComposerRig();
+            var c = rig.Composer("quad_1_3");
+            c.Arm(rig.Tx1);
+            c.TapBlock(0);   // TX1 takes the big block
+            c.Disarm();
+            c.TapBlock(1);   // an empty small block: the picker opens, TX1 cannot go here
+            return (rig, c);
+        }
+
+        [Fact]
+        public void Composer_PickerTile_UsesCentralStyle_AndKeepsPartBd() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Assert.True(popup.IsOpen);
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    Assert.Same(Application.Current.FindResource("Style.Surface.Popup"), ((Border)content).Style);
+                    var tiles = Named(content, "PickerTile").Cast<Button>().ToList();
+                    Assert.NotEmpty(tiles);
+                    var controlBorder = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.Control")).Color;
+                    Assert.All(tiles, t =>
+                    {
+                        Assert.Same(Application.Current.FindResource("Style.Button.PickerTile"), t.Style);
+                        var bd = Assert.IsType<Border>(t.Template.FindName("bd", t));
+                        Assert.Equal(controlBorder, ((SolidColorBrush)bd.BorderBrush).Color);
+                    });
+                });
+            });
+
+        [Fact]
+        public void Composer_PickerPopup_TilesAreTokenWide_AndThumbnailsAre16x9() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    var slot = (double)Application.Current.FindResource("Size.Composer.Picker.Tile");
+                    var frameMax = (double)Application.Current.FindResource("Size.Composer.Picker.Frame.Max");
+                    Assert.Equal(frameMax, ((Border)content).MaxWidth);
+                    foreach (var tile in Named(content, "PickerTile").Cast<Button>())
+                    {
+                        Assert.Equal(slot, tile.ActualWidth + tile.Margin.Right, 1);
+                        var thumb = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(tile).Single();
+                        Assert.InRange(thumb.ActualWidth / thumb.ActualHeight, 16.0 / 9.0 - 0.05, 16.0 / 9.0 + 0.05);
+                        Assert.True(thumb.ActualWidth >= 160 && thumb.ActualHeight >= 90, $"thumbnail {thumb.ActualWidth}x{thumb.ActualHeight}");
+                    }
+                });
+            });
+
+        [Fact]
+        public void Composer_PickerPopup_DisabledTile_ShowsLockSymbol() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    var tiles = Named(content, "PickerTile").Cast<Button>().ToList();
+                    var disabled = tiles.Where(t => !t.IsEnabled).ToList();
+                    Assert.NotEmpty(disabled);
+                    foreach (var t in tiles)
+                    {
+                        var locks = FindAll<Wpf.Ui.Controls.SymbolIcon>(t).Where(i => i.Symbol == Wpf.Ui.Controls.SymbolRegular.LockClosed24).ToList();
+                        Assert.Single(locks);
+                        Assert.Equal(!t.IsEnabled, locks[0].IsVisible);
+                    }
+                });
+            });
     }
 }
