@@ -92,6 +92,33 @@ namespace AvasRoutingTool.Tests
                 finally { window.Close(); }
             });
 
+        /// <summary>
+        /// WPF-UI's implicit ListBox/ListBoxItem styles (12 px item padding, a PassiveScrollViewer without the app's 16 px gutters) would
+        /// double the height of every Logs row until the list moves to Style.ListBox.Virtualized (Main Window session, A6).
+        /// </summary>
+        [Fact]
+        public void WpfUiControlsDictionary_DoesNotRestyleAPlainListBox_SoTheLogsKeepTheirRows() =>
+            RunSta(() =>
+            {
+                foreach (var type in new[] { typeof(System.Windows.Controls.ListBox), typeof(System.Windows.Controls.ListBoxItem) })
+                {
+                    var style = (Style)Application.Current.FindResource(type);
+                    Assert.Empty(style.Setters);
+                    Assert.Null(style.BasedOn);
+                }
+
+                var list = new System.Windows.Controls.ListBox { ItemsSource = new[] { "row" }, Width = 200, Height = 100 };
+                var window = new Window { Content = list, Width = 300, Height = 200, ShowInTaskbar = false, Left = -10000 };
+                try
+                {
+                    window.Show();
+                    window.UpdateLayout();
+                    var item = (System.Windows.Controls.ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
+                    Assert.Equal(new Thickness(4, 1, 4, 1), item.Padding);
+                }
+                finally { window.Close(); }
+            });
+
         [Theory]
         [InlineData(ThemeMode.Light, "Light")]
         [InlineData(ThemeMode.Dark, "Dark")]

@@ -10,4 +10,11 @@
     -->
     <Style TargetType="{x:Type Window}" />
 
+    <!--
+        ListBox / ListBoxItem: WPF-UI gives items 12 px of padding (a Logs row would grow from 22 to 44 px) and a PassiveScrollViewer that
+        bypasses the app's 16 px scroll gutters. Empty implicit styles keep the stock list until it uses Style.ListBox.Virtualized (Lists.xaml).
+    -->
+    <Style TargetType="{x:Type ListBox}" />
+    <Style TargetType="{x:Type ListBoxItem}" />
+
 </ResourceDictionary>
