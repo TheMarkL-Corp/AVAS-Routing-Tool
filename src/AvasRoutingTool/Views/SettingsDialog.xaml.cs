@@ -25,6 +25,7 @@ namespace AvasRoutingTool.Views
             TxtMcastEnd.Text = _config.MulticastEndIp;
             TxtBasePort.Text = _config.BasePort.ToString();
         }
+            ChkShowLogs.IsChecked = _config.ShowLogs;
 
         private void TxtBavmUrl_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -44,6 +45,13 @@ namespace AvasRoutingTool.Views
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
+        {
+            SaveSettings();
+            DialogResult = true;
+            Close();
+        }
+
+        private void SaveSettings()
             _config.BavmUrl = TxtBavmUrl.Text.Trim();
 
             if (int.TryParse(TxtTelnetPort.Text, out int telnetPort))
@@ -59,8 +67,8 @@ namespace AvasRoutingTool.Views
                 _config.BasePort = basePort;
 
             _configService.Save(_config);
-            DialogResult = true;
-            Close();
+            _config.ShowLogs = ChkShowLogs.IsChecked == true;
+
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)

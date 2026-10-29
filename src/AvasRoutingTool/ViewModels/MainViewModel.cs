@@ -114,6 +114,14 @@ namespace AvasRoutingTool.ViewModels
 
         public string LogFilePath => AppLogger.LogFilePath;
 
+        private bool _showLogs;
+        /// <summary>Whether the Logs tab is offered. Off by default; switched on in Settings.</summary>
+        public bool ShowLogs
+        {
+            get => _showLogs;
+            set { if (_showLogs == value) return; _showLogs = value; OnPropertyChanged(); }
+        }
+
         public int OnlineSourcesCount => Sources.Count(s => s.IsActive);
         public int OnlineDisplaysCount => Displays.Count(d => d.IsActive);
 
@@ -232,6 +240,7 @@ namespace AvasRoutingTool.ViewModels
 
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
+            ShowLogs = _config.ShowLogs;
 
             ThemeService = themeService ?? new ThemeService(_configService);
             ThemeService.ThemeChanged += (_, _) =>
@@ -291,6 +300,7 @@ namespace AvasRoutingTool.ViewModels
         {
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
+            ShowLogs = _config.ShowLogs;
             string host = _config.DerivedControlServerIp;
 
             AppLogger.Info("APP", $"Initializing AVAS Routing Tool with BAVM URL: {BavmUrl}, Control Server: {host}:{_config.TelnetPort} (REST: {_config.RestPort})");

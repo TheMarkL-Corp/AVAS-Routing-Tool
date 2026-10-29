@@ -12,6 +12,8 @@ namespace AvasRoutingTool.Configuration
         public int BasePort { get; set; } = 5004;
         public string LocalNetworkInterfaceIp { get; set; } = "";
         public string Theme { get; set; } = "Dark";
+        /// <summary>Logs tab/section is hidden until this is switched on in Settings.</summary>
+        public bool ShowLogs { get; set; } = false;
 
         public string DerivedControlServerIp
         {

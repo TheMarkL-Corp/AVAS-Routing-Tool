@@ -158,6 +158,14 @@
         </ScrollViewer>
 
         <!-- Actions -->
+
+                <!-- Diagnostics -->
+                <CheckBox x:Name="ChkShowLogs"
+                          Content="Show Logs tab (diagnostics)"
+                          Margin="0,16,0,0"
+                          FontSize="13"
+                          Foreground="{DynamicResource Brush.Text.Primary}"
+                          AutomationProperties.Name="Show Logs tab" />
         <StackPanel Grid.Row="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"

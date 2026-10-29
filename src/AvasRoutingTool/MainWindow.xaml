@@ -6,6 +6,7 @@
         Icon="Assets/AppIcon.ico"
         Title="AVAS Routing Tool - Advantech AVAS-223 Video Management"
         Height="860" Width="1280"
+        WindowState="Maximized"
         MinHeight="720" MinWidth="1024"
         Background="{DynamicResource Brush.Background.Dark}"
         Foreground="{DynamicResource Brush.Text.Primary}"
@@ -191,6 +192,7 @@
                                  ToolTip="Diagnostics and live logs" />
                 </StackPanel>
 
+                                 Visibility="Collapsed"
                 <!-- Actions & Status Area -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Connection Status Badge -->

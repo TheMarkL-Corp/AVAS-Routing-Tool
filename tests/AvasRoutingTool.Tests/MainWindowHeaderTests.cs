@@ -28,7 +28,7 @@ namespace AvasRoutingTool.Tests
                             Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/{path}.xaml")
                         });
                     }
-                    var window = new MainWindow { Width = width, Height = height, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000 };
+                    var window = new MainWindow { WindowState = WindowState.Normal, Width = width, Height = height, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000 };
                     window.Show();
                     window.UpdateLayout();
                     try { body(window); } finally { window.Close(); }
@@ -45,7 +45,7 @@ namespace AvasRoutingTool.Tests
             new[] { "ThemeToggleButton", "RefreshButton", "SettingsButton" }.Select(n => (Button)w.FindName(n)).ToArray();
 
         private static RadioButton[] Tabs(MainWindow w) =>
-            new[] { "TabVisualRouting", "TabBavmConsole", "TabLogs" }.Select(n => (RadioButton)w.FindName(n)).ToArray();
+            new[] { "TabVisualRouting", "TabBavmConsole", "TabLogs" }.Select(n => (RadioButton)w.FindName(n)).Where(t => t.Visibility == Visibility.Visible).ToArray();
 
         [Fact]
         public void Tabs_And_Actions_AreTouchSized() => RunSta(w =>
