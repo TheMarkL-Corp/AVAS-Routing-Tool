@@ -106,6 +106,7 @@ namespace AvasRoutingTool.ViewModels
         public void OpenDropChoice(SourceCardViewModel source)
         {
             _dropChoiceSource = source ?? throw new ArgumentNullException(nameof(source));
+            OnPropertyChanged(nameof(ShowUndoToast));
             OnPropertyChanged(nameof(DropChoiceSource));
             OnPropertyChanged(nameof(FullScreenAutomationName));
             OnPropertyChanged(nameof(IntoBlockAutomationName));
@@ -116,6 +117,7 @@ namespace AvasRoutingTool.ViewModels
         {
             if (_dropChoiceSource == null) return;
             _dropChoiceSource = null;
+            OnPropertyChanged(nameof(ShowUndoToast));
             OnPropertyChanged(nameof(DropChoiceSource));
             OnPropertyChanged(nameof(FullScreenAutomationName));
             OnPropertyChanged(nameof(IntoBlockAutomationName));
@@ -191,7 +193,12 @@ namespace AvasRoutingTool.ViewModels
         public bool IsPreviewSupported
         {
             get => _isPreviewSupported;
-            set { _isPreviewSupported = value; OnPropertyChanged(); }
+            set
+            {
+                _isPreviewSupported = value;
+                OnPropertyChanged();
+                NotifyPictureStateChanged();
+            }
         }
 
         public bool IsDragOver
@@ -264,11 +271,37 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The toast's Undo is offered (10 s after a copy onto this display).</summary>
         public bool CanUndoScreen => _undoToastText != null;
 
+        // ---- View state: read-only, derived from the flags above; the card view binds these instead of stacking XAML triggers. ----
+
+        /// <summary>The mode badge ("MATRIX 2X2 - 3/4", "SINGLE VIEW") takes the routed look: a source is routed, or a layout is active.</summary>
+        public bool HasRoutedBadge => IsRouted || IsMultiView;
+
+        /// <summary>The Single View picture (mirrored video, notices, placeholder) shows; a multiview layout replaces it with its windows.</summary>
+        public bool ShowSingleViewPicture => !IsMultiView;
+
+        /// <summary>The active-source tag lies on a playing Single View picture.</summary>
+        public bool ShowActiveSourceTag => IsRouted && IsPreviewSupported;
+
+        /// <summary>Routed to a source that has no preview stream (non-AVAS); not shown for a layout set elsewhere, which has its own notice.</summary>
+        public bool ShowRoutedNonAvasNotice => IsRouted && !IsPreviewSupported && !IsExternalLayout;
+
+        /// <summary>"Drop Source Here to Route": nothing is routed.</summary>
+        public bool ShowUnroutedPlaceholder => !IsRouted;
+
+        /// <summary>
+        /// The Undo toast takes the dock. The drop choice and the copy target states win over it (the toast's Undo never lies
+        /// over a choice button); it comes back when they go, while its 10 s last.
+        /// </summary>
+        public bool ShowUndoToast => CanUndoScreen && !IsDropChoiceOpen && !IsCopyTargetAllowed && !IsCopyTargetBlocked;
+
+        /// <summary>The stale-draft notice line; the copy tag takes its place while this display is the copy source.</summary>
+        public bool ShowDraftNotice => _draftNotice != null && !_isCopySource;
+
         /// <summary>The kept draft is based on a picture that is no longer on screen (a copy replaced it); null otherwise.</summary>
         public string? DraftNotice
         {
             get => _draftNotice;
-            set { if (_draftNotice == value) return; _draftNotice = value; OnPropertyChanged(); }
+            set { if (_draftNotice == value) return; _draftNotice = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowDraftNotice)); }
         }
 
         /// <summary>The toast's Undo: puts back what this display showed before the copy.</summary>
@@ -292,6 +325,7 @@ namespace AvasRoutingTool.ViewModels
             _copyTarget = decision;
             OnPropertyChanged(nameof(IsCopyTargetAllowed));
             OnPropertyChanged(nameof(IsCopyTargetBlocked));
+            OnPropertyChanged(nameof(ShowUndoToast));
             OnPropertyChanged(nameof(CopyTargetText));
             OnPropertyChanged(nameof(PictureAutomationName));
         }
@@ -301,6 +335,7 @@ namespace AvasRoutingTool.ViewModels
             if (_isCopySource == isSource) return;
             _isCopySource = isSource;
             OnPropertyChanged(nameof(IsCopySource));
+            OnPropertyChanged(nameof(ShowDraftNotice));
             OnPropertyChanged(nameof(PictureAutomationName));
             OnPropertyChanged(nameof(CopyHandleAutomationName));
         }
@@ -310,6 +345,7 @@ namespace AvasRoutingTool.ViewModels
             _undoToastText = text;
             OnPropertyChanged(nameof(UndoToastText));
             OnPropertyChanged(nameof(CanUndoScreen));
+            OnPropertyChanged(nameof(ShowUndoToast));
         }
 
         public void ClearUndoScreen()
@@ -318,6 +354,7 @@ namespace AvasRoutingTool.ViewModels
             _undoToastText = null;
             OnPropertyChanged(nameof(UndoToastText));
             OnPropertyChanged(nameof(CanUndoScreen));
+            OnPropertyChanged(nameof(ShowUndoToast));
         }
 
         private void NotifyCopySourceChanged()
@@ -365,6 +402,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 bool selected = !_isExternalLayout && item.Id == _layoutId;
                 if (item.IsSelected != selected) item.IsSelected = selected;
+                item.IsOnScreen = selected && IsRouted;
             }
         }
 
@@ -485,7 +523,19 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(SourceLabel));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(FirstEmptySlotIndex));
+            NotifyPictureStateChanged();
             NotifyCopySourceChanged();
+        }
+
+        /// <summary>The routed / layout / preview flags changed: re-derive the picture state and the Layout menu's on-screen mark.</summary>
+        private void NotifyPictureStateChanged()
+        {
+            SyncLayoutMenu();
+            OnPropertyChanged(nameof(HasRoutedBadge));
+            OnPropertyChanged(nameof(ShowSingleViewPicture));
+            OnPropertyChanged(nameof(ShowActiveSourceTag));
+            OnPropertyChanged(nameof(ShowRoutedNonAvasNotice));
+            OnPropertyChanged(nameof(ShowUnroutedPlaceholder));
         }
 
         public void SetPreviewSource(SourceCardViewModel? sourceVm)
@@ -542,6 +592,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(ModeBadge));
             OnPropertyChanged(nameof(PreviewBitmap));
             OnPropertyChanged(nameof(IsPreviewSupported));
+            NotifyPictureStateChanged();
             NotifyCopySourceChanged();
         }
 

@@ -128,6 +128,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The MultiView Composer that is open (one at a time), or null. It replaces the Displays row while open.</summary>
         public MultiViewComposerViewModel? ActiveComposer => _composer;
 
+        /// <summary>A Composer is open: it replaces the Displays row and the Sources row shrinks to the compact palette.</summary>
+        public bool IsComposing => _composer != null;
+
         /// <summary>
         /// The source tapped to place. In the overview a tap on a display routes it (Single View); while the Composer
         /// is open this is the Composer's armed source (one state, mirrored).
@@ -751,6 +754,7 @@ namespace AvasRoutingTool.ViewModels
             composer.PropertyChanged += OnComposerPropertyChanged;
             _draftSignature = Signature(composer.Draft);
             OnPropertyChanged(nameof(ActiveComposer));
+            OnPropertyChanged(nameof(IsComposing));
             AppLogger.Info("COMPOSER", $"Composer opened for '{d.DeviceName}'{(resume != null ? $" on {resume.Plan.Id}" : string.Empty)}.");
 
             await StageAndArmAsync(composer, layoutId, toArm);
@@ -798,6 +802,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var s in Sources) s.UsedInBlocks = 0;
             SetArmed(null);
             OnPropertyChanged(nameof(ActiveComposer));
+            OnPropertyChanged(nameof(IsComposing));
             AppLogger.Info("COMPOSER", $"Composer closed for '{d.DeviceName}'{(d.HasDraft ? "; draft kept" : string.Empty)}.");
         }
 
