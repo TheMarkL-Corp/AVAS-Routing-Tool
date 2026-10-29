@@ -46,17 +46,6 @@
             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
             <Setter Property="AutomationProperties.HeadingLevel" Value="Level2" />
         </Style>
-
-        <!-- Step marker: number until the step is done, then a check (shape and text, not colour alone) -->
-        <Style x:Key="StepDot" TargetType="Border">
-            <Setter Property="Width" Value="28" />
-            <Setter Property="Height" Value="28" />
-            <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Margin" Value="0,0,10,0" />
-            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
     </UserControl.Resources>
 
     <!-- Transparent background: a tap on any empty area stops placing / moving (spec 6) -->
@@ -148,36 +137,9 @@
                     </StackPanel.Style>
 
                     <!-- Step 1 -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <Border>
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource StepDot}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding StepLayoutDone, Mode=OneWay}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Action.Take}" />
-                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="1" />
-                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding StepLayoutDone, Mode=OneWay}" Value="True">
-                                                <Setter Property="Text" Value="✓" />
-                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Border>
-                        <TextBlock x:Name="StepLayoutHeading" Text="LAYOUT" Style="{StaticResource RailHeading}" VerticalAlignment="Center"
-                                   AutomationProperties.Name="{Binding StepLayoutText, Mode=OneWay}" />
-                    </StackPanel>
+                    <controls:StepHeader x:Name="StepLayoutHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,6"
+                                         Number="1" Title="LAYOUT" IsDone="{Binding StepLayoutDone, Mode=OneWay}"
+                                         AutomationProperties.Name="{Binding StepLayoutText, Mode=OneWay}" />
 
                     <ItemsControl ItemsSource="{Binding LayoutOptions, Mode=OneWay}" Focusable="False" Margin="0,0,0,10">
                         <ItemsControl.ItemTemplate>
@@ -260,36 +222,9 @@
                     </ItemsControl>
 
                     <!-- Step 2 -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                        <Border>
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource StepDot}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Action.Take}" />
-                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="2" />
-                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="True">
-                                                <Setter Property="Text" Value="✓" />
-                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Border>
-                        <TextBlock x:Name="StepPlaceHeading" Text="PLACE SOURCES" Style="{StaticResource RailHeading}" VerticalAlignment="Center"
-                                   AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}" />
-                    </StackPanel>
+                    <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,4"
+                                         Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
+                                         AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}" />
                     <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,0,0,6"
                                Text="Tap a source above, then its blocks - or tap an empty block." />
 
@@ -330,36 +265,9 @@
                     </StackPanel>
 
                     <!-- Step 3 -->
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
-                        <Border>
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource StepDot}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CanTake, Mode=OneWay}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Action.Take}" />
-                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="3" />
-                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CanTake, Mode=OneWay}" Value="True">
-                                                <Setter Property="Text" Value="✓" />
-                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Border>
-                        <TextBlock x:Name="StepTakeHeading" Text="CHECK, THEN TAKE" Style="{StaticResource RailHeading}" VerticalAlignment="Center"
-                                   AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}" />
-                    </StackPanel>
+                    <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,4,0,4"
+                                         Number="3" Title="CHECK, THEN TAKE" IsDone="{Binding CanTake, Mode=OneWay}"
+                                         AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}" />
                     <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Text="Nothing changes on screen until Take." />
                 </StackPanel>
             </ScrollViewer>

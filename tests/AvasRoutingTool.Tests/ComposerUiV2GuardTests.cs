@@ -63,8 +63,8 @@ namespace AvasRoutingTool.Tests
         {
             [Composer] = new()
             {
-                ["KeyedStyles"] = 4, ["InlineStyles"] = 44, ["ControlTemplates"] = 4, ["NumericSizeAttrs"] = 31,
-                ["GlyphIcons"] = 10, ["TargetNameSetters"] = 31, ["FontSizeLiterals"] = 46,
+                ["KeyedStyles"] = 3, ["InlineStyles"] = 38, ["ControlTemplates"] = 4, ["NumericSizeAttrs"] = 31,
+                ["GlyphIcons"] = 7, ["TargetNameSetters"] = 31, ["FontSizeLiterals"] = 43,
             },
             [Compact] = new()
             {
@@ -82,25 +82,24 @@ namespace AvasRoutingTool.Tests
     public class ComposerUiV2GuardTests
     {
         [Fact]
-        public void Metrics_MeasureTheRealFiles()
+        public void Metrics_MeasureASample()
         {
-            var c = ComposerMetrics.Read(ComposerMetrics.Composer);
-            Assert.Equal(4, ComposerMetrics.KeyedStyles(c));
-            Assert.Equal(44, ComposerMetrics.InlineStyles(c));
-            Assert.Equal(4, ComposerMetrics.ControlTemplates(c));
-            Assert.Equal(10, ComposerMetrics.GlyphIcons(c));
-            Assert.Equal(31, ComposerMetrics.NumericSizeAttrs(c));
-            Assert.Equal(31, ComposerMetrics.TargetNameSetters(c));
-            Assert.Equal(46, ComposerMetrics.FontSizeLiterals(c));
-
-            var p = ComposerMetrics.Read(ComposerMetrics.Compact);
-            Assert.Equal(8, ComposerMetrics.InlineStyles(p));
-            Assert.Equal(4, ComposerMetrics.NumericSizeAttrs(p));
-            Assert.Equal(5, ComposerMetrics.FontSizeLiterals(p));
-
-            var s = ComposerMetrics.Read(ComposerMetrics.Schematic);
-            Assert.Equal(1, ComposerMetrics.InlineStyles(s));
-            Assert.Equal(2, ComposerMetrics.FontSizeLiterals(s));
+            // Measured on a sample, not the live files: the live numbers fall with every task (the Baseline above is what pins them).
+            const string xaml = @"<UserControl><UserControl.Resources>
+  <Style x:Key=""K"" TargetType=""Border""><Setter Property=""Width"" Value=""28"" /><Setter Property=""MinHeight"" Value=""9.5"" /></Style>
+  <ControlTemplate x:Key=""T"" TargetType=""Button""><Border /><ControlTemplate.Triggers /></ControlTemplate>
+</UserControl.Resources>
+<Grid><Canvas Width=""0"" Height=""0"" /><TextBlock Text=""✓ ok"" FontSize=""14"" /><TextBlock Text=""i"" /><Border MaxWidth=""380"" Width=""{StaticResource Size.X}"">
+<Border.Style><Style TargetType=""Border""><Setter Property=""FontSize"" Value=""13"" /><Style.Triggers /></Style></Border.Style></Border>
+<DataTemplate><Border /><DataTemplate.Triggers><DataTrigger><Setter TargetName=""A"" Property=""Opacity"" Value=""1"" /><Setter Property=""Opacity"" Value=""1"" /></DataTrigger></DataTemplate.Triggers></DataTemplate>
+</Grid></UserControl>";
+            Assert.Equal(1, ComposerMetrics.KeyedStyles(xaml));
+            Assert.Equal(1, ComposerMetrics.InlineStyles(xaml));
+            Assert.Equal(1, ComposerMetrics.ControlTemplates(xaml));
+            Assert.Equal(3, ComposerMetrics.NumericSizeAttrs(xaml)); // Width 28, MinHeight 9.5, MaxWidth 380; the Canvas anchor and a token are not sizes
+            Assert.Equal(2, ComposerMetrics.GlyphIcons(xaml));
+            Assert.Equal(1, ComposerMetrics.TargetNameSetters(xaml));
+            Assert.Equal(2, ComposerMetrics.FontSizeLiterals(xaml));
         }
 
         public static IEnumerable<object[]> Cases() =>

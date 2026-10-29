@@ -1455,10 +1455,17 @@ namespace AvasRoutingTool.Tests
                             Assert.Equal(onScrim, ((SolidColorBrush)tb.Foreground).Color);
                         }
 
-                        // 2. Completed StepDot checkmarks use Brush.Text.OnAction on Brush.Action.Take
-                        var checks = FindAll<TextBlock>(view).Where(t => t.Text == "✓" && t.IsVisible && t.Parent is Border { Width: 28, Height: 28 }).ToList(); // StepDots only, not the Success banner glyph
-                        Assert.NotEmpty(checks);
-                        Assert.All(checks, t => Assert.Equal(onAction, ((SolidColorBrush)t.Foreground).Color));
+                        // 2. Completed step headers use Brush.Text.OnAction on Brush.Action.Take
+                        var takeFill = ((SolidColorBrush)Application.Current.FindResource("Brush.Action.Take")).Color;
+                        var doneHeaders = FindAll<AvasRoutingTool.Controls.StepHeader>(view).Where(h => h.IsDone && h.IsVisible).ToList();
+                        Assert.NotEmpty(doneHeaders);
+                        foreach (var header in doneHeaders)
+                        {
+                            var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(header).Single(i => i.IsVisible);
+                            Assert.Equal(onAction, ((SolidColorBrush)icon.Foreground).Color);
+                            var marker = (Border)header.Template.FindName("Marker", header);
+                            Assert.Equal(takeFill, ((SolidColorBrush)marker.Background).Color);
+                        }
 
                         // 3. PickerPopup resting tiles use neutral Brush.Border.Control, not cyan DropTarget
                         var popup = (Popup)Named(view, "PickerPopup").Single();
