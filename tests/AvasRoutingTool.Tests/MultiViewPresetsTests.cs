@@ -77,6 +77,39 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void Pip_At1080p_InsetStaysAQuarterOfTheCanvasWidth()
+        {
+            var plan = MultiViewPresets.Build("pip", 1920, 1080);
+
+            Assert.Equal((1400, 770, 480, 270), Rect(plan.Slots.Single(s => s.Index == 0)));
+        }
+
+        [Fact]
+        public void Pip_AtFourK_InsetIsAFixed1280x720AtTheBottomRightMargin()
+        {
+            var plan = MultiViewPresets.Build("pip", 3840, 2160);
+
+            var inset = plan.Slots.Single(s => s.Index == 0);
+            var main = plan.Slots.Single(s => s.Index == 1);
+
+            Assert.Equal("Inset", inset.Label);
+            Assert.Equal((0, 0, 3840, 2160), Rect(main));
+            Assert.Equal((1280, 720), (inset.Width, inset.Height));
+            Assert.Equal((3840 - 1280 - 80, 2160 - 720 - 80), (inset.X, inset.Y));
+            Assert.Equal(1, plan.PaintOrder.First().Index);
+            Assert.Equal(0, plan.PaintOrder.Last().Index);
+        }
+
+        [Fact]
+        public void Pip_AtFourK_InsetGetsAStandardSurfaceAndMainTheLargeSurfaceZero()
+        {
+            var plan = MultiViewPresets.Build("pip", 3840, 2160);
+
+            Assert.Equal(0, plan.Slots.Single(s => s.Index == 1).TargetSurface);
+            Assert.InRange(plan.Slots.Single(s => s.Index == 0).TargetSurface, 1, 11);
+        }
+
+        [Fact]
         public void Quad1Plus3_At1080p_FocusWindowLeftAndThreeStackedOnTheRight()
         {
             var plan = MultiViewPresets.Build("quad_1_3", 1920, 1080);

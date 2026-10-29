@@ -147,8 +147,10 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         private static Rect[] Pip(int w, int h)
         {
             var (cw, ch, ox, oy) = Fit(w, h, 1, 1);
-            int iw = Even(cw / 4.0);
-            int ih = Even(iw * 9.0 / 16.0);
+            // A 4K canvas gets a fixed 1280x720 inset (a standard-surface size); other canvases keep a quarter of the width.
+            bool fixedInset = w == 3840 && h == 2160;
+            int iw = fixedInset ? 1280 : Even(cw / 4.0);
+            int ih = fixedInset ? 720 : Even(iw * 9.0 / 16.0);
             int margin = Even(cw / 48.0);
             // Reference PiP: background is window 1, inset is window 0 (lower index paints on top).
             return new[]

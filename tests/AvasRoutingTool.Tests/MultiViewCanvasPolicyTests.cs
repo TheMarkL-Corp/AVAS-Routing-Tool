@@ -117,7 +117,7 @@ namespace AvasRoutingTool.Tests
 
         [Theory]
         [InlineData("matrix2x2", true)]   // ~11.9 Gbps at 4K60
-        [InlineData("pip", true)]         // ~12.7 Gbps
+        [InlineData("pip", true)]         // ~13.3 Gbps (3840x2160 + 1280x720)
         [InlineData("quad_1_3", true)]    // ~9.3 Gbps
         [InlineData("side_by_side", false)] // ~6.0 Gbps
         public void NeedsFrameDivider_FourKSixty_OnlyForPlansOverTheBudget(string id, bool expected)
