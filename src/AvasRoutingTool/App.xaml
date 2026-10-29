@@ -10,6 +10,7 @@
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
                 <ResourceDictionary Source="Resources/Themes/Theme.Dark.xaml" />
+                <ResourceDictionary Source="Resources/Tokens.xaml" />
                 <ResourceDictionary Source="Resources/Styles/WpfUiOverrides.xaml" />
                 <ResourceDictionary Source="Resources/Theme.xaml" />
                 <ResourceDictionary Source="Resources/Icons.xaml" />

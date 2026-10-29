@@ -64,7 +64,8 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("ThemesDictionary", order[0]);
             Assert.Equal("ControlsDictionary", order[1]);
             Assert.Equal("Resources/Themes/Theme.Dark.xaml", order[2]);
-            Assert.True(order.IndexOf("Resources/Styles/WpfUiOverrides.xaml") > 2, "the WPF-UI overrides come after the palette");
+            Assert.Equal("Resources/Tokens.xaml", order[3]);
+            Assert.True(order.IndexOf("Resources/Styles/WpfUiOverrides.xaml") > 3, "the shared styles come after the palette and the tokens");
             Assert.True(order.IndexOf("Resources/Theme.xaml") > order.IndexOf("Resources/Styles/WpfUiOverrides.xaml"), "Theme.xaml must come after the shared styles");
             Assert.Equal("Resources/Icons.xaml", order[^1]);
             Assert.Equal("Dark", (string?)merged[0].Attribute("Theme"));

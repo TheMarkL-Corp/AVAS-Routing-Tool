@@ -23,6 +23,7 @@ namespace AvasRoutingTool.Tests
             "ThemesDictionary",
             "ControlsDictionary",
             "Resources/Themes/Theme.Dark.xaml",
+            "Resources/Tokens.xaml",
             "Resources/Styles/WpfUiOverrides.xaml",
             "Resources/Theme.xaml",
             "Resources/Icons.xaml",
