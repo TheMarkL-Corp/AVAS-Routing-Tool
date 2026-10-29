@@ -28,4 +28,9 @@
     <!-- IEC 60417-5009 Standby / Power symbol (24x24 viewBox, stroked) -->
     <StreamGeometry x:Key="Icon.Power">M 12,3 L 12,11 M 6.34,6.34 A 8,8 0 1 0 17.66,6.34</StreamGeometry>
 
+    <!-- App-bar icons (24x24 viewBox, stroked): refresh, sun (Light mode), moon (Dark mode) -->
+    <StreamGeometry x:Key="Icon.Refresh">M 20,12 A 8,8 0 1 1 17.66,6.34 M 20,4 L 20,9 L 15,9</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Sun">M 8,12 A 4,4 0 1 0 16,12 A 4,4 0 1 0 8,12 M 12,2 L 12,4 M 12,20 L 12,22 M 2,12 L 4,12 M 20,12 L 22,12 M 4.93,4.93 L 6.34,6.34 M 17.66,17.66 L 19.07,19.07 M 4.93,19.07 L 6.34,17.66 M 17.66,6.34 L 19.07,4.93</StreamGeometry>
+    <StreamGeometry x:Key="Icon.Moon">M 20,14.5 A 8,8 0 1 1 9.5,4 A 6.5,6.5 0 0 0 20,14.5 Z</StreamGeometry>
+
 </ResourceDictionary>

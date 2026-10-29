@@ -94,6 +94,65 @@ namespace AvasRoutingTool.Tests
             Assert.True(tabsRight <= actionsLeft, "tabs overlap actions");
         }, 1024, 720);
 
+        private static bool IsTransparent(Brush? b) => b == null || (b is SolidColorBrush s && s.Color.A == 0);
+
+        private static Border TabChrome(RadioButton tab) => (Border)tab.Template.FindName("bd", tab);
+
+        [Fact]
+        public void Tabs_AreFlatUnderlineTabs_NotFilledChips() => RunSta(w =>
+        {
+            var accent = ((SolidColorBrush)Application.Current.Resources["Brush.Accent.Primary"]).Color;
+            foreach (var tab in Tabs(w))
+            {
+                var bd = TabChrome(tab);
+                Assert.True(IsTransparent(bd.Background) || tab.IsMouseOver, $"{tab.Name} has a filled background");
+                Assert.Equal(0, bd.BorderThickness.Top + bd.BorderThickness.Left + bd.BorderThickness.Right);
+                Assert.Equal(3, bd.BorderThickness.Bottom);
+                if (tab.IsChecked == true)
+                    Assert.Equal(accent, ((SolidColorBrush)bd.BorderBrush).Color);
+                else
+                    Assert.True(IsTransparent(bd.BorderBrush), $"{tab.Name} shows an underline while unselected");
+            }
+        });
+
+        [Fact]
+        public void Tabs_HaveEqualMinimumWidth_AndSitFlushOnTheBarBottom() => RunSta(w =>
+        {
+            var bar = (FrameworkElement)w.FindName("AppBar");
+            foreach (var tab in Tabs(w))
+            {
+                Assert.True(tab.ActualWidth >= 120, $"{tab.Name} is only {tab.ActualWidth}px wide");
+                var bottom = tab.TranslatePoint(new Point(0, tab.ActualHeight), w).Y;
+                Assert.True(Math.Abs(bottom - (bar.ActualHeight - 1)) <= 1.5, $"{tab.Name} bottom {bottom} is not flush with the bar bottom {bar.ActualHeight}");
+            }
+        });
+
+        [Fact]
+        public void Actions_AreGhostButtons_WithVectorIcons() => RunSta(w =>
+        {
+            foreach (var b in ActionButtons(w))
+            {
+                Assert.True(IsTransparent(b.Background), $"{b.Name} has a filled background at rest");
+                Assert.Equal(0, b.BorderThickness.Left + b.BorderThickness.Top + b.BorderThickness.Right + b.BorderThickness.Bottom);
+                Assert.NotEmpty(Descendants<System.Windows.Shapes.Path>(b));
+                Assert.DoesNotContain(Descendants<TextBlock>(b), t => t.Text.Any(char.IsSurrogate) || t.Text.Any(c => c >= '☀' && c <= '➿'));
+            }
+        });
+
+        [Fact]
+        public void ConnectionBadge_IsAFlatStatusReadout_SeparatedFromTheActions() => RunSta(w =>
+        {
+            var badge = (Border)w.FindName("ConnectionBadge");
+            Assert.Equal(0, badge.BorderThickness.Left + badge.BorderThickness.Top + badge.BorderThickness.Right + badge.BorderThickness.Bottom);
+            var divider = (FrameworkElement)w.FindName("AppBarDivider");
+            Assert.NotNull(divider);
+            Assert.True(divider.ActualWidth >= 1 && divider.ActualHeight >= 24);
+            var dx = divider.TranslatePoint(new Point(0, 0), w).X;
+            var bx = badge.TranslatePoint(new Point(badge.ActualWidth, 0), w).X;
+            var tx = ActionButtons(w).Min(b => b.TranslatePoint(new Point(0, 0), w).X);
+            Assert.True(bx <= dx && dx < tx, "divider is not between the status and the actions");
+        });
+
         private static bool IsInAppBar(MainWindow w, DependencyObject d)
         {
             var bar = (DependencyObject)w.FindName("AppBar");

@@ -12,34 +12,35 @@
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <!-- Segmented app-bar tab: 48px touch target, keyboard focus ring; checked = accent fill. -->
+        <!-- Underline app-bar tab: flat text, 3px accent underline when selected, sits flush on the bar's bottom edge.
+             48px touch target, keyboard focus ring. -->
         <Style x:Key="Style.Tab.Nav" TargetType="RadioButton">
             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Padding" Value="20,0" />
             <Setter Property="MinHeight" Value="48" />
+            <Setter Property="MinWidth" Value="120" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Style.FocusVisual.Ring}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="bd"
-                                Background="{DynamicResource Brush.Surface.Elevated}"
-                                BorderBrush="{DynamicResource Brush.Border.Default}"
-                                BorderThickness="1"
-                                CornerRadius="6"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0,0,0,3"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
                                 <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -47,12 +48,35 @@
             </Setter>
         </Style>
 
-        <!-- App-bar action button: the Secondary look at touch size. -->
+        <!-- App-bar action button: ghost (no fill or border until hover) at touch size; icon + label. -->
         <Style x:Key="Style.Button.AppBar" TargetType="Button" BasedOn="{StaticResource Style.Button.Secondary}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
             <Setter Property="MinHeight" Value="48" />
-            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="MinWidth" Value="48" />
+            <Setter Property="Padding" Value="12,0" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FocusVisualStyle" Value="{StaticResource Style.FocusVisual.Ring}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Stroked vector icon that follows the button's text colour. -->
+        <Style x:Key="Style.Icon.AppBar" TargetType="Path">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="StrokeThickness" Value="2" />
+            <Setter Property="StrokeStartLineCap" Value="Round" />
+            <Setter Property="StrokeEndLineCap" Value="Round" />
+            <Setter Property="StrokeLineJoin" Value="Round" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
         </Style>
     </Window.Resources>
 
@@ -67,8 +91,8 @@
                 Background="{DynamicResource Brush.Surface.Card}"
                 BorderBrush="{DynamicResource Brush.Border.Default}"
                 BorderThickness="0,0,0,1"
-                Padding="14,10">
-            <Grid>
+                Padding="14,0">
+            <Grid MinHeight="56">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -88,8 +112,9 @@
                 <!-- Navigation Tabs (Visual Routing vs BAVM Console vs Diagnostics & Logs) -->
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Stretch"
+                            Margin="20,0,0,0">
                     <RadioButton x:Name="TabVisualRouting"
                                  Style="{StaticResource Style.Tab.Nav}"
                                  Content="Visual Routing"
@@ -119,13 +144,14 @@
                 <!-- Actions & Status Area -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Connection Status Badge -->
-                    <Border x:Name="ConnectionBadge" Background="{DynamicResource Brush.Surface.Elevated}"
-                            BorderBrush="{DynamicResource Brush.Border.Default}"
-                            BorderThickness="1"
+                    <Border x:Name="ConnectionBadge"
+                            Background="Transparent"
+                            BorderThickness="0"
                             CornerRadius="6"
-                            Padding="12,0"
+                            Padding="8,0"
                             MinHeight="48"
-                            Margin="0,0,10,0"
+                            Margin="0,0,6,0"
+                            ToolTip="{Binding ConnectionStatus}"
                             AutomationProperties.Name="Connection status">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Ellipse Width="10" Height="10" Margin="0,0,6,0">
@@ -148,22 +174,41 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Divider: status readout | actions -->
+                    <Rectangle x:Name="AppBarDivider"
+                               Width="1" Height="28"
+                               Margin="0,0,10,0"
+                               VerticalAlignment="Center"
+                               Fill="{DynamicResource Brush.Border.Default}" />
+
+                    <!-- Icon-only: the sun/moon shows the active theme; the tooltip names what a click switches to. -->
                     <Button x:Name="ThemeToggleButton"
                             Command="{Binding ToggleThemeCommand}"
                             Style="{StaticResource Style.Button.AppBar}"
-                            Margin="0,0,6,0"
+                            Margin="0,0,2,0"
                             ToolTip="{Binding ThemeButtonToolTip}"
                             AutomationProperties.Name="Toggle theme mode">
-                        <TextBlock Text="{Binding ThemeButtonLabel}" />
+                        <Path>
+                            <Path.Style>
+                                <Style TargetType="Path" BasedOn="{StaticResource Style.Icon.AppBar}">
+                                    <Setter Property="Data" Value="{StaticResource Icon.Moon}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLightMode}" Value="True">
+                                            <Setter Property="Data" Value="{StaticResource Icon.Sun}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
                     </Button>
 
                     <Button x:Name="RefreshButton"
                             Command="{Binding RefreshCommand}"
                             Style="{StaticResource Style.Button.AppBar}"
-                            Margin="0,0,6,0"
+                            Margin="0,0,2,0"
                             ToolTip="Refresh discovered transceivers"
                             AutomationProperties.Name="Refresh devices">
-                        <TextBlock Text="🔄  Refresh" />
+                        <Path Style="{StaticResource Style.Icon.AppBar}" Data="{StaticResource Icon.Refresh}" />
                     </Button>
 
                     <Button x:Name="SettingsButton"
@@ -171,7 +216,7 @@
                             Style="{StaticResource Style.Button.AppBar}"
                             ToolTip="Configure BAVM URL, host IP, and ports"
                             AutomationProperties.Name="Settings">
-                        <TextBlock Text="⚙  Settings" />
+                        <Path Style="{StaticResource Style.Icon.AppBar}" Data="{StaticResource Icon.Settings}" />
                     </Button>
                 </StackPanel>
             </Grid>
