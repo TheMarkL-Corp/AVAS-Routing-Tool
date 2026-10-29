@@ -11,6 +11,51 @@
         FontFamily="Segoe UI"
         WindowStartupLocation="CenterScreen">
 
+    <Window.Resources>
+        <!-- Segmented app-bar tab: 48px touch target, keyboard focus ring; checked = accent fill. -->
+        <Style x:Key="Style.Tab.Nav" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Style.FocusVisual.Ring}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bd"
+                                Background="{DynamicResource Brush.Surface.Elevated}"
+                                BorderBrush="{DynamicResource Brush.Border.Default}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- App-bar action button: the Secondary look at touch size. -->
+        <Style x:Key="Style.Button.AppBar" TargetType="Button" BasedOn="{StaticResource Style.Button.Secondary}">
+            <Setter Property="MinHeight" Value="48" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Style.FocusVisual.Ring}" />
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -18,11 +63,11 @@
         </Grid.RowDefinitions>
 
         <!-- Top Header & Global App Bar -->
-        <Border Grid.Row="0"
+        <Border x:Name="AppBar" Grid.Row="0"
                 Background="{DynamicResource Brush.Surface.Card}"
                 BorderBrush="{DynamicResource Brush.Border.Default}"
                 BorderThickness="0,0,0,1"
-                Padding="20,12">
+                Padding="14,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -31,24 +76,12 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Brand Title -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="{DynamicResource Brush.Surface.Brand}"
-                            CornerRadius="6"
-                            Padding="8,5"
-                            Margin="0,0,12,0">
-                        <TextBlock Text="AVAS-223"
-                                   FontSize="12"
-                                   FontWeight="Bold"
-                                   Foreground="{DynamicResource Brush.Text.Accent}" />
-                    </Border>
+                <StackPanel x:Name="BrandBlock" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="AVAS ROUTING TOOL"
                                    FontSize="15"
                                    FontWeight="Bold"
                                    Foreground="{DynamicResource Brush.Text.Primary}" />
-                        <TextBlock Text="Advantech BlueRiver SDVoE Management"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource Brush.Text.Muted}" />
                     </StackPanel>
                 </StackPanel>
 
@@ -58,128 +91,44 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center">
                     <RadioButton x:Name="TabVisualRouting"
-                                 Content="🔀  Visual Routing"
+                                 Style="{StaticResource Style.Tab.Nav}"
+                                 Content="Visual Routing"
                                  GroupName="MainTabs"
                                  IsChecked="True"
                                  Checked="Tab_Checked"
-                                 Margin="0,0,8,0"
-                                 Padding="14,8"
-                                 FontSize="13"
-                                 FontWeight="SemiBold"
-                                 Cursor="Hand">
-                        <RadioButton.Style>
-                            <Style TargetType="RadioButton">
-                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="RadioButton">
-                                            <Border x:Name="bd"
-                                                    Background="{DynamicResource Brush.Surface.Elevated}"
-                                                    BorderBrush="{DynamicResource Brush.Border.Default}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="6"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </RadioButton.Style>
-                    </RadioButton>
+                                 Margin="0,0,6,0"
+                                 AutomationProperties.Name="Visual Routing" />
 
                     <RadioButton x:Name="TabBavmConsole"
-                                 Content="🎛  BAVM Console"
+                                 Style="{StaticResource Style.Tab.Nav}"
+                                 Content="BAVM Console"
                                  GroupName="MainTabs"
                                  Checked="Tab_Checked"
-                                 Margin="0,0,8,0"
-                                 Padding="14,8"
-                                 FontSize="13"
-                                 FontWeight="SemiBold"
-                                 Cursor="Hand">
-                        <RadioButton.Style>
-                            <Style TargetType="RadioButton">
-                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="RadioButton">
-                                            <Border x:Name="bd"
-                                                    Background="{DynamicResource Brush.Surface.Elevated}"
-                                                    BorderBrush="{DynamicResource Brush.Border.Default}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="6"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </RadioButton.Style>
-                    </RadioButton>
+                                 Margin="0,0,6,0"
+                                 AutomationProperties.Name="BAVM Console" />
 
                     <RadioButton x:Name="TabLogs"
-                                 Content="📋  Diagnostics &amp; Logs"
+                                 Style="{StaticResource Style.Tab.Nav}"
+                                 Content="Logs"
                                  GroupName="MainTabs"
                                  Checked="Tab_Checked"
-                                 Padding="14,8"
-                                 FontSize="13"
-                                 FontWeight="SemiBold"
-                                 Cursor="Hand">
-                        <RadioButton.Style>
-                            <Style TargetType="RadioButton">
-                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="RadioButton">
-                                            <Border x:Name="bd"
-                                                    Background="{DynamicResource Brush.Surface.Elevated}"
-                                                    BorderBrush="{DynamicResource Brush.Border.Default}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="6"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsChecked" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </RadioButton.Style>
-                    </RadioButton>
+                                 AutomationProperties.Name="Diagnostics and Logs"
+                                 ToolTip="Diagnostics and live logs" />
                 </StackPanel>
 
                 <!-- Actions & Status Area -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Connection Status Badge -->
-                    <Border Background="{DynamicResource Brush.Surface.Elevated}"
+                    <Border x:Name="ConnectionBadge" Background="{DynamicResource Brush.Surface.Elevated}"
                             BorderBrush="{DynamicResource Brush.Border.Default}"
                             BorderThickness="1"
                             CornerRadius="6"
-                            Padding="10,6"
-                            Margin="0,0,10,0">
+                            Padding="12,0"
+                            MinHeight="48"
+                            Margin="0,0,10,0"
+                            AutomationProperties.Name="Connection status">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Ellipse Width="8" Height="8" Margin="0,0,8,0">
+                            <Ellipse Width="10" Height="10" Margin="0,0,6,0">
                                 <Ellipse.Style>
                                     <Style TargetType="Ellipse">
                                         <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
@@ -192,37 +141,37 @@
                                 </Ellipse.Style>
                             </Ellipse>
                             <TextBlock Text="{Binding ConnectionStatus}"
-                                       FontSize="11"
+                                       FontSize="13"
                                        FontWeight="Medium"
+                                       VerticalAlignment="Center"
                                        Foreground="{DynamicResource Brush.Text.Secondary}" />
                         </StackPanel>
                     </Border>
 
-                    <!-- Theme Toggle Button -->
-                    <Button Command="{Binding ToggleThemeCommand}"
-                            Style="{StaticResource Style.Button.Secondary}"
-                            Padding="10,6"
-                            Margin="0,0,8,0"
+                    <Button x:Name="ThemeToggleButton"
+                            Command="{Binding ToggleThemeCommand}"
+                            Style="{StaticResource Style.Button.AppBar}"
+                            Margin="0,0,6,0"
                             ToolTip="{Binding ThemeButtonToolTip}"
                             AutomationProperties.Name="Toggle theme mode">
-                        <TextBlock Text="{Binding ThemeButtonLabel}" FontSize="12" />
+                        <TextBlock Text="{Binding ThemeButtonLabel}" />
                     </Button>
 
-                    <!-- Refresh Button -->
-                    <Button Command="{Binding RefreshCommand}"
-                            Style="{StaticResource Style.Button.Secondary}"
-                            Padding="10,6"
-                            Margin="0,0,8,0"
-                            ToolTip="Refresh discovered transceivers">
-                        <TextBlock Text="🔄  Refresh" FontSize="12" />
+                    <Button x:Name="RefreshButton"
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource Style.Button.AppBar}"
+                            Margin="0,0,6,0"
+                            ToolTip="Refresh discovered transceivers"
+                            AutomationProperties.Name="Refresh devices">
+                        <TextBlock Text="🔄  Refresh" />
                     </Button>
 
-                    <!-- Settings Button -->
-                    <Button Command="{Binding OpenSettingsCommand}"
-                            Style="{StaticResource Style.Button.Secondary}"
-                            Padding="10,6"
-                            ToolTip="Configure BAVM URL, host IP, and ports">
-                        <TextBlock Text="⚙  Settings" FontSize="12" />
+                    <Button x:Name="SettingsButton"
+                            Command="{Binding OpenSettingsCommand}"
+                            Style="{StaticResource Style.Button.AppBar}"
+                            ToolTip="Configure BAVM URL, host IP, and ports"
+                            AutomationProperties.Name="Settings">
+                        <TextBlock Text="⚙  Settings" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -257,11 +206,11 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Log File:" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Log File:" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,6,0" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding LogFilePath}" Foreground="{DynamicResource Brush.Text.Muted}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="650" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Command="{Binding ClearLogsCommand}" Style="{StaticResource Style.Button.Secondary}" Padding="10,6" Margin="0,0,8,0">
+                            <Button Command="{Binding ClearLogsCommand}" Style="{StaticResource Style.Button.Secondary}" Padding="10,6" Margin="0,0,6,0">
                                 <TextBlock Text="🧹  Clear View" FontSize="11" />
                             </Button>
                             <Button Command="{Binding OpenLogFolderCommand}" Style="{StaticResource Style.Button.Secondary}" Padding="10,6">
