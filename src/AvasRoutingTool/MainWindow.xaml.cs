@@ -101,7 +101,7 @@ namespace AvasRoutingTool
                         Directory.CreateDirectory(userDataFolder);
                     }
 
-                    var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+                    var env = await CoreWebView2Environment.CreateAsync(AvasRoutingTool.Services.WebViewRuntimeLocator.Find(AppDomain.CurrentDomain.BaseDirectory), userDataFolder);
                     await BavmWebView.EnsureCoreWebView2Async(env);
                     _isWebViewInitialized = true;
                 }
