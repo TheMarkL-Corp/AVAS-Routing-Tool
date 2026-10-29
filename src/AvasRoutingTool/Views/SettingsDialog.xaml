@@ -26,6 +26,10 @@
                        FontSize="12"
                        Foreground="{DynamicResource Brush.Text.Secondary}"
                        Margin="0,4,0,0" />
+            <TextBlock x:Name="VersionText"
+                       FontSize="12"
+                       Foreground="{DynamicResource Brush.Text.Muted}"
+                       Margin="0,4,0,0" />
         </StackPanel>
 
         <!-- Form Fields -->
@@ -154,10 +158,6 @@
                              BorderBrush="{DynamicResource Brush.Border.Default}"
                              BorderThickness="1" />
                 </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
-
-        <!-- Actions -->
 
                 <!-- Diagnostics -->
                 <CheckBox x:Name="ChkShowLogs"
@@ -166,6 +166,10 @@
                           FontSize="13"
                           Foreground="{DynamicResource Brush.Text.Primary}"
                           AutomationProperties.Name="Show Logs tab" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions -->
         <StackPanel Grid.Row="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"

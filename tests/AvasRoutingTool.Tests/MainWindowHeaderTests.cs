@@ -91,7 +91,7 @@ namespace AvasRoutingTool.Tests
             var actionsLeft = badge.TranslatePoint(new Point(0, 0), w).X;
             Assert.True(right <= w.ActualWidth, "actions are clipped");
             Assert.True(brandRight <= tabsLeft, $"brand overlaps tabs: brand {brandRight} tabs {tabsLeft}-{tabsRight} actions {actionsLeft}-{right} of {w.ActualWidth}");
-            Assert.True(tabsRight <= actionsLeft, "tabs overlap actions");
+            Assert.True(tabsRight <= actionsLeft, $"tabs overlap actions {tabsRight} > {actionsLeft}");
         }, 1024, 720);
 
         private static bool IsTransparent(Brush? b) => b == null || (b is SolidColorBrush s && s.Color.A == 0);

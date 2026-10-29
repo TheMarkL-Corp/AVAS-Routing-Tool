@@ -13,6 +13,7 @@ namespace AvasRoutingTool.Views
         public SettingsDialog(IConfigService configService)
         {
             InitializeComponent();
+            VersionText.Text = "AVAS Routing Tool " + AppInfo.DisplayVersion;
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _config = _configService.Load();
 
@@ -24,8 +25,8 @@ namespace AvasRoutingTool.Views
             TxtMcastStart.Text = _config.MulticastStartIp;
             TxtMcastEnd.Text = _config.MulticastEndIp;
             TxtBasePort.Text = _config.BasePort.ToString();
-        }
             ChkShowLogs.IsChecked = _config.ShowLogs;
+        }
 
         private void TxtBavmUrl_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -45,13 +46,13 @@ namespace AvasRoutingTool.Views
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-        {
             SaveSettings();
             DialogResult = true;
             Close();
         }
 
         private void SaveSettings()
+        {
             _config.BavmUrl = TxtBavmUrl.Text.Trim();
 
             if (int.TryParse(TxtTelnetPort.Text, out int telnetPort))
@@ -66,9 +67,9 @@ namespace AvasRoutingTool.Views
             if (int.TryParse(TxtBasePort.Text, out int basePort))
                 _config.BasePort = basePort;
 
-            _configService.Save(_config);
             _config.ShowLogs = ChkShowLogs.IsChecked == true;
 
+            _configService.Save(_config);
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)

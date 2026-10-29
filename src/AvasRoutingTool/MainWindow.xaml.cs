@@ -25,6 +25,8 @@ namespace AvasRoutingTool
         public MainWindow()
         {
             InitializeComponent();
+            AppVersionText.Text = AppInfo.DisplayVersion;
+            Title = $"AVAS Routing Tool {AppInfo.DisplayVersion} - Advantech AVAS-223 Video Management";
 
             _configService = new ConfigService();
             var config = _configService.Load();
@@ -40,13 +42,13 @@ namespace AvasRoutingTool
             };
 
             DataContext = _viewModel;
-
-            Loaded += MainWindow_Loaded;
             _viewModel.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(MainViewModel.ShowLogs)) ApplyLogsVisibility();
             };
             ApplyLogsVisibility();
+
+            Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
         }
 
@@ -61,14 +63,14 @@ namespace AvasRoutingTool
             _sdvoeClient.Dispose();
         }
 
-        private async void Tab_Checked(object sender, RoutedEventArgs e)
-        {
         private void ApplyLogsVisibility()
         {
             TabLogs.Visibility = _viewModel.ShowLogs ? Visibility.Visible : Visibility.Collapsed;
             if (!_viewModel.ShowLogs && TabLogs.IsChecked == true) TabVisualRouting.IsChecked = true;
         }
 
+        private async void Tab_Checked(object sender, RoutedEventArgs e)
+        {
             if (ViewVisualRouting == null || ViewBavmConsole == null || ViewLogs == null) return;
 
             if (TabVisualRouting.IsChecked == true)
