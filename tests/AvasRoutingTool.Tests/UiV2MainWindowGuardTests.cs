@@ -45,6 +45,32 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void NoMainWindowSessionFile_IsStillPending_AfterTheCloseOut()
+        {
+            var allow = UiV2Allowlist.Load();
+            var left = allow.Pending.Where(p => p.Value.Contains("Main Window session", StringComparison.Ordinal)).Select(p => p.Key).ToList();
+            Assert.True(left.Count == 0, "still pending: " + string.Join(", ", left));
+        }
+
+        [Fact]
+        public void NoListOutsideTheVirtualizedStyle_TheLogsListIsTheOnlyOne()
+        {
+            var root = UiV2Allowlist.SourceRoot();
+            var files = new[] { "MainWindow.xaml" }.Concat(Directory.EnumerateFiles(Path.Combine(root, "Views"), "*.xaml").Select(f => "Views/" + Path.GetFileName(f)));
+            var lists = new List<(string File, string Tag)>();
+            foreach (var file in files)
+            {
+                var text = File.ReadAllText(Path.Combine(root, file));
+                foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, @"<(ListBox|ListView|DataGrid)(?=[\s>/])[^>]*>", System.Text.RegularExpressions.RegexOptions.Singleline))
+                    lists.Add((file, m.Value));
+            }
+            var logs = Assert.Single(lists, l => l.File == "MainWindow.xaml");
+            Assert.Contains("Style.ListBox.Virtualized", logs.Tag);
+            // The only other lists are the Composer's (its session's file); the Main Window session's files have none besides Logs.
+            Assert.All(lists.Where(l => l.File != "MainWindow.xaml" && !l.File.Contains("Composer") && !l.File.Contains("Compact")), l => Assert.Contains("Style.ListBox.Virtualized", l.Tag));
+        }
+
+        [Fact]
         public void CardGrids_AreNotListBoxes_SoTheVirtualizationGuardNeverTouchesTheirCards()
         {
             // D11: the source and display grids are ItemsControls on AdaptiveCardPanel; each card owns a live RTP preview and must stay realized.
