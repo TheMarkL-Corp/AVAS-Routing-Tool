@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:AvasRoutingTool.Views"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Foreground="{DynamicResource Brush.Text.Primary}">
 
     <!--
@@ -145,75 +146,25 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Button x:Name="LayoutTile"
-                                        Foreground="{DynamicResource Brush.Text.Primary}"
-                                        MinHeight="96"
-                                        Margin="0,0,0,8"
-                                        HorizontalContentAlignment="Stretch"
-                                        Cursor="Hand"
+                                        Style="{StaticResource Style.Button.ComposerLayoutOption}"
                                         AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
                                         Click="LayoutTile_Click">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="bd"
-                                                    Background="{DynamicResource Brush.Surface.Card}"
-                                                    BorderBrush="{DynamicResource Brush.Border.Control}"
-                                                    BorderThickness="2"
-                                                    CornerRadius="10"
-                                                    Padding="10">
-                                                <ContentPresenter />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
-                                                </Trigger>
-                                                <DataTrigger Binding="{Binding IsPending, Mode=OneWay}" Value="True">
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter TargetName="bd" Property="BorderThickness" Value="3" />
-                                                </DataTrigger>
-                                                <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="6*" />
+                                            <ColumnDefinition Width="7*" />
                                         </Grid.ColumnDefinitions>
-                                        <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}" VerticalAlignment="Center"
-                                                               Width="{Binding SchematicWidth, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}"
-                                                               Height="{Binding SchematicHeight, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" />
+                                        <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}" VerticalAlignment="Center" />
                                         <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Title, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Title, Mode=OneWay}" Style="{StaticResource Style.Text.Lead}" TextWrapping="Wrap" />
                                             <TextBlock Text="{Binding Subtitle, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
-                                            <TextBlock Text="✓ Selected" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Accent}" Margin="0,2,0,0">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                            <TextBlock Text="Reading the display..." FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" Margin="0,2,0,0">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsPending, Mode=OneWay}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                            <StackPanel x:Name="SelectedRow" Orientation="Horizontal" Margin="0,2,0,0"
+                                                        Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                                <ui:SymbolIcon Symbol="Checkmark24" FontSize="{StaticResource Size.Icon.S}" Foreground="{DynamicResource Brush.Text.Accent}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Selected" Style="{StaticResource Style.Text.Selected}" />
+                                            </StackPanel>
+                                            <TextBlock Text="Reading the display..." Style="{StaticResource Style.Text.Pending}" Margin="0,2,0,0"
+                                                       Visibility="{Binding IsPending, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                                         </StackPanel>
                                     </Grid>
                                 </Button>

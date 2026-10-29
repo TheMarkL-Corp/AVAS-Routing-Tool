@@ -63,8 +63,8 @@ namespace AvasRoutingTool.Tests
         {
             [Composer] = new()
             {
-                ["KeyedStyles"] = 3, ["InlineStyles"] = 38, ["ControlTemplates"] = 4, ["NumericSizeAttrs"] = 25,
-                ["GlyphIcons"] = 7, ["TargetNameSetters"] = 31, ["FontSizeLiterals"] = 43,
+                ["KeyedStyles"] = 3, ["InlineStyles"] = 36, ["ControlTemplates"] = 3, ["NumericSizeAttrs"] = 24,
+                ["GlyphIcons"] = 6, ["TargetNameSetters"] = 31, ["FontSizeLiterals"] = 40,
             },
             [Compact] = new()
             {
@@ -73,8 +73,8 @@ namespace AvasRoutingTool.Tests
             },
             [Schematic] = new()
             {
-                ["KeyedStyles"] = 0, ["InlineStyles"] = 1, ["ControlTemplates"] = 0, ["NumericSizeAttrs"] = 0,
-                ["GlyphIcons"] = 0, ["TargetNameSetters"] = 0, ["FontSizeLiterals"] = 2,
+                ["KeyedStyles"] = 0, ["InlineStyles"] = 0, ["ControlTemplates"] = 0, ["NumericSizeAttrs"] = 0,
+                ["GlyphIcons"] = 0, ["TargetNameSetters"] = 0, ["FontSizeLiterals"] = 0,
             },
         };
     }

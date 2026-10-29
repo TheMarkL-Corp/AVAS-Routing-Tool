@@ -1572,5 +1572,71 @@ namespace AvasRoutingTool.Tests
                     Assert.True(canvas.ActualWidth >= 1000 && canvas.ActualHeight >= 560, $"canvas host is {canvas.ActualWidth}x{canvas.ActualHeight}");
                 });
             });
+
+        // ---- UI v2 Task 5b: central layout option style, proportional schematic ----
+
+        [Fact]
+        public void Composer_LayoutTile_UsesCentralStyle_KeepsPartBd_AndSchematicScales() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var central = Application.Current.FindResource("Style.Button.ComposerLayoutOption");
+                    var tiles = Named(view, "LayoutTile").Where(t => t.IsVisible).Cast<Button>().ToList();
+                    Assert.Equal(4, tiles.Count);
+                    Assert.All(tiles, t =>
+                    {
+                        Assert.Same(central, t.Style);
+                        Assert.IsType<Border>(t.Template.FindName("bd", t));
+                        Assert.True(t.ActualHeight >= (double)Application.Current.FindResource("Size.Composer.Tile.Min"), $"tile is {t.ActualHeight} high");
+                    });
+
+                    // the schematic fills its column: 88-125 px at the 240 px rail, and its picture keeps 16:9
+                    var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible).ToList();
+                    Assert.Equal(4, schematics.Count);
+                    foreach (var s in schematics)
+                    {
+                        Assert.InRange(s.ActualWidth, 88, 125);
+                        var panel = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(s).Single();
+                        Assert.InRange(panel.ActualWidth / panel.ActualHeight, 16.0 / 9.0 - 0.02, 16.0 / 9.0 + 0.02);
+                        Assert.InRange(s.ActualHeight, s.ActualWidth * 9 / 16 - 5, s.ActualWidth * 9 / 16 + 5);
+                    }
+
+                    // the selected tile says so with a check icon and the word, not colour alone
+                    var selected = tiles.Single(t => ((ComposerLayoutOptionViewModel)t.DataContext).IsSelected);
+                    var row = FindAll<StackPanel>(selected).Single(p => p.Name == "SelectedRow");
+                    Assert.True(row.IsVisible);
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.Checkmark24, FindAll<Wpf.Ui.Controls.SymbolIcon>(row).Single().Symbol);
+                    Assert.Contains(FindAll<TextBlock>(row), t => t.Text == "Selected");
+                    foreach (var other in tiles.Where(t => t != selected))
+                        Assert.False(FindAll<StackPanel>(other).Single(p => p.Name == "SelectedRow").IsVisible);
+                });
+            });
+
+        [Fact]
+        public void LayoutSchematic_CellNumbers_AreAtLeast12() =>
+            RunSta(() =>
+            {
+                TestResources.Ensure();
+                var schematic = new LayoutSchematic { LayoutId = "matrix2x2", Width = 120 };
+                var window = new Window { Content = schematic, SizeToContent = SizeToContent.WidthAndHeight, ShowInTaskbar = false, WindowStyle = WindowStyle.None, Left = -10000 };
+                window.Show();
+                try
+                {
+                    Relayout(schematic);
+                    var numbers = FindAll<TextBlock>(schematic).Where(t => t.IsVisible).ToList();
+                    Assert.NotEmpty(numbers);
+                    Assert.All(numbers, t => Assert.True(t.FontSize >= 12, $"schematic text is {t.FontSize}"));
+                    var off = new LayoutSchematic { LayoutId = "off", Width = 120 };
+                    window.Content = off;
+                    Relayout(off);
+                    Assert.All(FindAll<TextBlock>(off).Where(t => t.IsVisible), t => Assert.True(t.FontSize >= 12));
+                }
+                finally { window.Close(); }
+            });
     }
 }

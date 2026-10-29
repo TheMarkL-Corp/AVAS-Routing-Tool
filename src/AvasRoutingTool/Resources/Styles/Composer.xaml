@@ -2,7 +2,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                    xmlns:controls="clr-namespace:AvasRoutingTool.Controls">
+                    xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+                    xmlns:views="clr-namespace:AvasRoutingTool.Views">
 
     <!--
         MultiView Composer styles and Size.Composer.* tokens (owner: Composer session). Merged last among Styles/* so it can use BasedOn with any shared key.
@@ -15,6 +16,7 @@
     <sys:Double x:Key="Size.Composer.Rail.Left.Max">320</sys:Double>
     <sys:Double x:Key="Size.Composer.Rail.Right.Min">264</sys:Double>
     <sys:Double x:Key="Size.Composer.Rail.Right.Max">360</sys:Double>
+    <sys:Double x:Key="Size.Composer.Tile.Min">96</sys:Double>
 
     <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN TAKE) ===== -->
     <Style x:Key="Style.StepHeader" TargetType="controls:StepHeader">
@@ -59,6 +61,81 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- ===== Step 1: layout options (one tile per preset) ===== -->
+    <Style x:Key="Style.Button.ComposerLayoutOption" TargetType="Button">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Composer.Tile.Min}" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{DynamicResource Brush.Surface.Card}"
+                            BorderBrush="{DynamicResource Brush.Border.Control}"
+                            BorderThickness="2"
+                            CornerRadius="10"
+                            Padding="10">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsPending, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                            <Setter TargetName="bd" Property="BorderThickness" Value="3" />
+                        </DataTrigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Style.Text.Selected" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Style.Text.Pending" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- ===== Layout schematic (also used by the display card's layout menu) ===== -->
+    <Style x:Key="Style.Item.Fractional.Cell" TargetType="ContentPresenter">
+        <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding X, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding Y, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding W, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding H, Mode=OneWay}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Schematic.Cell" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnSchematicActive}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Style.Text.Schematic.Off" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
 </ResourceDictionary>

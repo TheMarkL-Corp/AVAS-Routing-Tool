@@ -45,16 +45,6 @@ namespace AvasRoutingTool.Views
             nameof(Sources), typeof(IEnumerable<SourceCardViewModel>), typeof(MultiViewComposerView),
             new PropertyMetadata(null, (d, _) => ((MultiViewComposerView)d).SchedulePicker()));
 
-        /// <summary>Width of the layout tiles' schematics (narrower with the rails on a small window).</summary>
-        public static readonly DependencyProperty SchematicWidthProperty = DependencyProperty.Register(
-            nameof(SchematicWidth), typeof(double), typeof(MultiViewComposerView), new PropertyMetadata(120.0));
-
-        public static readonly DependencyProperty SchematicHeightProperty = DependencyProperty.Register(
-            nameof(SchematicHeight), typeof(double), typeof(MultiViewComposerView), new PropertyMetadata(70.0));
-
-        /// <summary>Below this width the schematics narrow (temporary, see FitSchematics).</summary>
-        internal const double NarrowWidth = 1200;
-
         private MultiViewComposerViewModel? _watched;
         private bool _closingPicker;
 
@@ -89,7 +79,6 @@ namespace AvasRoutingTool.Views
         public MultiViewComposerView()
         {
             InitializeComponent();
-            SizeChanged += (_, e) => FitSchematics(e.NewSize.Width);
             DataContextChanged += (_, _) => Watch(DataContext as MultiViewComposerViewModel);
             Loaded += (_, _) => SchedulePicker();
             Unloaded += (_, _) => ClosePicker();
@@ -112,27 +101,7 @@ namespace AvasRoutingTool.Views
             set => SetValue(SourcesProperty, value);
         }
 
-        public double SchematicWidth
-        {
-            get => (double)GetValue(SchematicWidthProperty);
-            set => SetValue(SchematicWidthProperty, value);
-        }
-
-        public double SchematicHeight
-        {
-            get => (double)GetValue(SchematicHeightProperty);
-            set => SetValue(SchematicHeightProperty, value);
-        }
-
         private MultiViewComposerViewModel? Composer => DataContext as MultiViewComposerViewModel;
-
-        /// <summary>Layout only (removed with the proportional schematic in the next task): the layout tiles' schematics are smaller on a small window.</summary>
-        private void FitSchematics(double width)
-        {
-            bool narrow = width > 0 && width < NarrowWidth;
-            SchematicWidth = narrow ? 96 : 120;
-            SchematicHeight = narrow ? 56 : 70;
-        }
 
         // ---- taps -> view model ----
 
