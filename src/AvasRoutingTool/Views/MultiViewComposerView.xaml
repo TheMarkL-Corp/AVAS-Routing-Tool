@@ -20,7 +20,6 @@
         <views:LessThanConverter x:Key="LessThan" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <views:NegativeHalfConverter x:Key="NegativeHalf" />
-        <!-- Icon.Lock comes from Resources/Icons.xaml (shared with the display card) -->
 
 
     </UserControl.Resources>
