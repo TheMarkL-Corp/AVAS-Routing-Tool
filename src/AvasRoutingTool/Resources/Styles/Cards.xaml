@@ -19,6 +19,16 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Stroked / filled vector icon beside a section heading (static StreamGeometry, Size.Icon.S) -->
+    <Style x:Key="Style.Icon.Section" TargetType="Path">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="Fill" Value="{DynamicResource Brush.Accent.Primary}" />
+    </Style>
+
     <Style x:Key="Style.StatusDot.Small" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
         <Setter Property="Width" Value="{StaticResource Size.Dot.S}" />
         <Setter Property="Height" Value="{StaticResource Size.Dot.S}" />

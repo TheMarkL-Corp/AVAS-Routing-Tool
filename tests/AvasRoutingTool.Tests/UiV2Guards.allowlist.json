@@ -4,7 +4,6 @@
 
   // Every view file that breaks a rule today -> owner and task (plan task ids). A file is enforced as soon as it leaves this list.
   "pending": {
-    "Views/VisualRoutingView.xaml": "Main Window session: A7",
     "Views/SourceCardView.xaml": "Main Window session: A8",
     "Views/DisplayCardView.xaml": "Main Window session: A9-A11",
     "Views/SettingsDialog.xaml": "Main Window session: A12",
@@ -26,5 +25,7 @@
   "unvirtualizedLists": [],
 
   // An inline Style without BasedOn that cannot be a central style (for example RowDefinition.Style, an ItemContainerStyle).
-  "inlineStyleExceptions": []
+  "inlineStyleExceptions": [
+    { "file": "Views/VisualRoutingView.xaml", "contains": "<Style TargetType=\"RowDefinition\">", "reason": "A RowDefinition is not an element: it cannot bind to the view model or use a converter instance, so the Sources row (2* in the overview, Auto while composing) needs this one style." }
+  ]
 }

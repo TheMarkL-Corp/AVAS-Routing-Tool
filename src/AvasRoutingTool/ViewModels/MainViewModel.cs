@@ -140,6 +140,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The display whose "Copy layout" is armed (tap a display to copy onto it), or null. One armed thing at a time.</summary>
         public DisplayCardViewModel? ArmedDisplay => _armedDisplay;
 
+        /// <summary>An arm banner shows: a source is armed (placing) or a display is armed (copying).</summary>
+        public bool HasArmBanner => ArmBannerText != null || CopyArmBanner != null;
+
         /// <summary>
         /// The arm banner while a display is armed for copying: "Copying RX1 - Matrix 2x2. Tap a display. Tap Copy layout again to stop."
         /// Null when no display is armed. Never non-null together with <see cref="ArmBannerText"/> (one armed thing at a time).
@@ -1094,6 +1097,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 OnPropertyChanged(nameof(ArmedSource));
                 OnPropertyChanged(nameof(ArmBannerText));
+                OnPropertyChanged(nameof(HasArmBanner));
             }
         }
 
@@ -1164,6 +1168,7 @@ namespace AvasRoutingTool.ViewModels
             d.SetCopySource(true);
             OnPropertyChanged(nameof(ArmedDisplay));
             OnPropertyChanged(nameof(CopyArmBanner));
+            OnPropertyChanged(nameof(HasArmBanner));
             RaiseCopyOrChoice();
 
             var toRead = Displays.Where(o => o.IsActive && !ReferenceEquals(o, d)).ToList();
@@ -1177,6 +1182,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var (key, edid) in read) _copyEdids[key] = edid;
             RefreshCopyTargets();
             OnPropertyChanged(nameof(CopyArmBanner));
+            OnPropertyChanged(nameof(HasArmBanner));
             AppLogger.Info("COPY", $"'{d.DeviceName}' armed for copying ({read.Count} display(s) read).");
         }
 
@@ -1197,6 +1203,7 @@ namespace AvasRoutingTool.ViewModels
             if (was == null) return;
             OnPropertyChanged(nameof(ArmedDisplay));
             OnPropertyChanged(nameof(CopyArmBanner));
+            OnPropertyChanged(nameof(HasArmBanner));
             RaiseCopyOrChoice();
         }
 
