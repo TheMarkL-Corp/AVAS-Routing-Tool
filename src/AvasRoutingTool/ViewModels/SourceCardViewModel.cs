@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
@@ -54,13 +55,21 @@ namespace AvasRoutingTool.ViewModels
         public double Fps
         {
             get => _fps;
-            set { _fps = value; OnPropertyChanged(); }
+            set { _fps = value; OnPropertyChanged(); OnPropertyChanged(nameof(StreamStatusText)); }
         }
 
         public bool IsStreaming
         {
             get => _isStreaming;
-            set { _isStreaming = value; OnPropertyChanged(); }
+            set
+            {
+                _isStreaming = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowStop));
+                OnPropertyChanged(nameof(ShowStart));
+                OnPropertyChanged(nameof(ShowStandby));
+                OnPropertyChanged(nameof(StreamStatusText));
+            }
         }
 
         public bool IsRefreshing
@@ -82,15 +91,53 @@ namespace AvasRoutingTool.ViewModels
         public bool IsArmed
         {
             get => _isArmed;
-            set { if (_isArmed == value) return; _isArmed = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutomationName)); }
+            set { if (_isArmed == value) return; _isArmed = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutomationName)); OnPropertyChanged(nameof(ShowTapHint)); }
         }
 
         /// <summary>How many blocks of the Composer's staged picture show this encoder ("in 2 blocks"); 0 outside the Composer.</summary>
         public int UsedInBlocks
         {
             get => _usedInBlocks;
-            set { if (_usedInBlocks == value) return; _usedInBlocks = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutomationName)); }
+            set
+            {
+                if (_usedInBlocks == value) return;
+                _usedInBlocks = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(AutomationName));
+                OnPropertyChanged(nameof(UsedInText));
+                OnPropertyChanged(nameof(HasUsage));
+                OnPropertyChanged(nameof(ShowTapHint));
+            }
         }
+
+        // ---- View state: read-only, derived from the flags above; the card view binds these instead of stacking XAML triggers. ----
+
+        /// <summary>"in 1 block" / "in 3 blocks" for the Composer's staged picture; empty while the source is in no block.</summary>
+        public string UsedInText => _usedInBlocks <= 0 ? string.Empty : _usedInBlocks == 1 ? "in 1 block" : $"in {_usedInBlocks} blocks";
+
+        /// <summary>The source is in at least one block of the Composer's staged picture.</summary>
+        public bool HasUsage => _usedInBlocks > 0;
+
+        /// <summary>"TAP OR DRAG TO ROUTE" shows only while the source is idle: it gives way to the usage chip and the "Placing" chip.</summary>
+        public bool ShowTapHint => _usedInBlocks <= 0 && !_isArmed;
+
+        /// <summary>Refresh is offered for every source that has a preview at all.</summary>
+        public bool ShowRefresh => IsPreviewSupported;
+
+        public bool ShowStop => _isStreaming;
+
+        public bool ShowStart => IsPreviewSupported && !_isStreaming;
+
+        /// <summary>"Preview Standby" placeholder: an AVAS source that is not streaming.</summary>
+        public bool ShowStandby => IsPreviewSupported && !_isStreaming;
+
+        /// <summary>"Preview not supported" placeholder: a non-AVAS source.</summary>
+        public bool ShowUnsupported => !IsPreviewSupported;
+
+        /// <summary>Footer line: the frame rate while streaming, else why there is no picture.</summary>
+        public string StreamStatusText => _isStreaming
+            ? string.Format(CultureInfo.InvariantCulture, "{0:F1} FPS", _fps)
+            : IsPreviewSupported ? "PREVIEW PAUSED" : "EXTERNAL SOURCE";
 
         public ICommand RefreshPreviewCommand { get; }
         public ICommand StartPreviewCommand { get; }
