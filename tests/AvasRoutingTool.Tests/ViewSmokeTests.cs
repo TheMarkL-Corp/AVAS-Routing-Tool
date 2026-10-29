@@ -396,6 +396,36 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void Composer_StepHeadings_AreHeadings_WithTheirStateInWords_AndTheCaptionWraps() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                var view = rig.View(c);
+
+                Showing(view, () =>
+                {
+                    var layout = Named(view, "StepLayoutHeading").Single();
+                    var place = Named(view, "StepPlaceHeading").Single();
+                    var take = Named(view, "StepTakeHeading").Single();
+                    Assert.Equal("Step 1, Layout: done", System.Windows.Automation.AutomationProperties.GetName(layout));
+                    Assert.Equal("Step 2, Place sources: done", System.Windows.Automation.AutomationProperties.GetName(place));
+                    Assert.Equal("Step 3, Check, then take: ready", System.Windows.Automation.AutomationProperties.GetName(take));
+                    Assert.All(new[] { layout, place, take }, h =>
+                        Assert.Equal("Level2", System.Windows.Automation.AutomationProperties.GetHeadingLevel(h).ToString()));
+
+                    // The caption must wrap, never be cut off with an ellipsis at a narrow width
+                    var caption = (TextBlock)Named(view, "PreviewCaption").Single();
+                    Assert.Equal(TextWrapping.Wrap, caption.TextWrapping);
+
+                    var onScreen = Named(view, "OnScreenPicture").Single();
+                    Assert.Equal("On screen now: no MultiView on this screen", System.Windows.Automation.AutomationProperties.GetName(onScreen));
+                });
+            });
+
+        [Fact]
         public void Composer_WithStagedDuplicate_ShowsSameAsChip_AndStagedLabel() =>
             RunSta(() =>
             {

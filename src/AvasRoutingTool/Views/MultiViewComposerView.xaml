@@ -44,6 +44,7 @@
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+            <Setter Property="AutomationProperties.HeadingLevel" Value="Level2" />
         </Style>
 
         <!-- Step marker: number until the step is done, then a check (shape and text, not colour alone) -->
@@ -105,10 +106,10 @@
                         <TextBlock Text="{Binding RateNote, Mode=OneWay}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text.Soft}" />
                     </Border>
                 </WrapPanel>
-                <TextBlock Style="{StaticResource Style.Text.ComposerLabel}"
+                <TextBlock x:Name="PreviewCaption"
+                           Style="{StaticResource Style.Text.ComposerLabel}"
                            Margin="0,2,0,0"
-                           TextTrimming="CharacterEllipsis"
-                           TextWrapping="NoWrap"
+                           TextWrapping="Wrap"
                            Text="Preview: low-rate monitoring pictures, fitted to each block without cropping. They are not the surgical feed." />
             </StackPanel>
 
@@ -174,7 +175,8 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Border>
-                        <TextBlock Text="LAYOUT" Style="{StaticResource RailHeading}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="StepLayoutHeading" Text="LAYOUT" Style="{StaticResource RailHeading}" VerticalAlignment="Center"
+                                   AutomationProperties.Name="{Binding StepLayoutText, Mode=OneWay}" />
                     </StackPanel>
 
                     <ItemsControl ItemsSource="{Binding LayoutOptions, Mode=OneWay}" Focusable="False" Margin="0,0,0,10">
@@ -285,7 +287,8 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Border>
-                        <TextBlock Text="PLACE SOURCES" Style="{StaticResource RailHeading}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="StepPlaceHeading" Text="PLACE SOURCES" Style="{StaticResource RailHeading}" VerticalAlignment="Center"
+                                   AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}" />
                     </StackPanel>
                     <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,0,0,6"
                                Text="Tap a source above, then its blocks - or tap an empty block." />
@@ -354,7 +357,8 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Border>
-                        <TextBlock Text="CHECK, THEN TAKE" Style="{StaticResource RailHeading}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="StepTakeHeading" Text="CHECK, THEN TAKE" Style="{StaticResource RailHeading}" VerticalAlignment="Center"
+                                   AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}" />
                     </StackPanel>
                     <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Text="Nothing changes on screen until Take." />
                 </StackPanel>
@@ -918,7 +922,7 @@
                         <Border Style="{StaticResource RailCard}">
                             <StackPanel>
                                 <TextBlock Text="ON SCREEN NOW" Style="{StaticResource RailHeading}" Margin="0,0,0,8" />
-                                <Grid>
+                                <Grid x:Name="OnScreenPicture" AutomationProperties.Name="{Binding OnScreenSummary, Mode=OneWay}">
                                     <controls:FractionalLayoutPanel AspectRatio="1.7777777777777777" MinHeight="120">
                                         <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1"
                                                 Background="{DynamicResource Brush.Surface.PreviewMat}" BorderBrush="{DynamicResource Brush.Status.Routed}" BorderThickness="2" CornerRadius="6" />

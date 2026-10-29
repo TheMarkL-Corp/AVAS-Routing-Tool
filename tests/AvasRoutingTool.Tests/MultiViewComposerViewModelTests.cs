@@ -62,6 +62,55 @@ namespace AvasRoutingTool.Tests
                 ? Array.Empty<string>()
                 : draft.Placements.OrderBy(p => p.Key).Select(p => $"{p.Key}:{p.Value.SourceMac}").ToArray();
 
+        // ---- screen reader text for the three steps and the ON SCREEN NOW picture ----
+
+        [Fact]
+        public async Task StepHeadings_SayTheirState_InWords()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            Assert.Equal("Step 1, Layout: to do", vm.StepLayoutText);
+            Assert.Equal("Step 2, Place sources: to do", vm.StepPlaceText);
+            Assert.Equal("Step 3, Check, then take: not ready", vm.StepTakeText);
+
+            await vm.SelectLayoutAsync("matrix2x2");
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+
+            Assert.Equal("Step 1, Layout: done", vm.StepLayoutText);
+            Assert.Equal("Step 2, Place sources: done", vm.StepPlaceText);
+            Assert.Equal("Step 3, Check, then take: ready", vm.StepTakeText);
+        }
+
+        [Fact]
+        public async Task StepHeadings_RaiseChange_WhenTheStateMoves()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            var raised = new List<string?>();
+            vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+            await vm.SelectLayoutAsync("matrix2x2");
+
+            Assert.Contains(nameof(MultiViewComposerViewModel.StepLayoutText), raised);
+            Assert.Contains(nameof(MultiViewComposerViewModel.StepPlaceText), raised);
+            Assert.Contains(nameof(MultiViewComposerViewModel.StepTakeText), raised);
+        }
+
+        [Fact]
+        public async Task OnScreenSummary_NamesWhatTheSurgeonSees()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            Assert.Equal("On screen now: no MultiView on this screen", vm.OnScreenSummary);
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+
+            Assert.Equal("On screen now: 4 blocks. Block 1 TX1; block 2 empty; block 3 empty; block 4 empty", vm.OnScreenSummary);
+        }
+
         // ---- the 18 listed tests ----
 
         [Fact]
