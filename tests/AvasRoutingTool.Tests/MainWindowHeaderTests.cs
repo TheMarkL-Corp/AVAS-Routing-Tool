@@ -127,7 +127,7 @@ namespace AvasRoutingTool.Tests
             {
                 Assert.True(IsTransparent(b.Background), $"{b.Name} has a filled background at rest");
                 Assert.Equal(0, b.BorderThickness.Left + b.BorderThickness.Top + b.BorderThickness.Right + b.BorderThickness.Bottom);
-                Assert.NotEmpty(Descendants<System.Windows.Shapes.Path>(b));
+                Assert.True(Descendants<System.Windows.Shapes.Path>(b).Any() || Descendants<Wpf.Ui.Controls.SymbolIcon>(b).Any(), $"{b.Name} has no vector icon");
                 Assert.DoesNotContain(Descendants<TextBlock>(b), t => t.Text.Any(char.IsSurrogate) || t.Text.Any(c => c >= '☀' && c <= '➿'));
             }
         });

@@ -8,6 +8,23 @@ namespace AvasRoutingTool.Tests
         private static readonly GridSpec Spec = GridSpec.Default;
 
         [Fact]
+        public void TheCardCaps_LeaveRoomForATallerOrBiggerWindow()
+        {
+            // Full HD is height-bound, so the caps do not change what 1080p shows; they only stop capping a taller window (UI v2, D9).
+            Assert.Equal(960, GridSpec.DisplayCard.MaxCardWidth);
+            Assert.Equal(480, GridSpec.SourceCard.MaxCardWidth);
+            Assert.Equal(170, GridSpec.DisplayCard.ChromeHeight);
+            Assert.Equal(26, GridSpec.DisplayCard.HorizontalPadding);
+        }
+
+        [Fact]
+        public void ADisplayCard_OnATallWindow_GrowsPastTheOldCap()
+        {
+            var plan = AdaptiveGridLayout.Compute(1, 1888, 1200, GridSpec.DisplayCard);
+            Assert.Equal(960, plan.CardWidth, 3);
+        }
+
+        [Fact]
         public void Compute_NoCards_ReturnsEmptyPlan()
         {
             var plan = AdaptiveGridLayout.Compute(0, 1888, 435, Spec);
@@ -119,7 +136,7 @@ namespace AvasRoutingTool.Tests
         public void DisplayCardSpec_AllowsWiderCardsThanSources_SoDisplaysFillTheScreen()
         {
             Assert.True(GridSpec.DisplayCard.MaxCardWidth > GridSpec.SourceCard.MaxCardWidth);
-            Assert.Equal(420, GridSpec.SourceCard.MaxCardWidth);
+            Assert.Equal(480, GridSpec.SourceCard.MaxCardWidth);
             Assert.Equal(GridSpec.Default.ChromeHeight, GridSpec.SourceCard.ChromeHeight);
         }
     }

@@ -1,8 +1,108 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:views="clr-namespace:AvasRoutingTool.Views">
 
     <!--
-        Input styles (Style.TextBox.Field, Style.ToggleSwitch.Setting). Empty until the Main Window session adds them.
+        Input styles (owner: Main Window session). Both carry their own plain template (like Style.Badge.Base): the WPF-UI default
+        templates add icons, clear buttons and sizes this app does not use, and their styles set FontSize from WPF-UI resources.
     -->
+
+    <!-- Text field: 48 px touch height, card surface, 1 px border that turns into the focus ring while typing -->
+    <Style x:Key="Style.TextBox.Field" TargetType="{x:Type ui:TextBox}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ui:TextBox}">
+                    <Border x:Name="Frame"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      VerticalAlignment="Center"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                            <Setter TargetName="Frame" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A setting switched on or off: label on the left, track and thumb on the right, 48 px high; accent track when on -->
+    <Style x:Key="Style.ToggleSwitch.Setting" TargetType="{x:Type ui:ToggleSwitch}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ui:ToggleSwitch}">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Track"
+                                Width="44" Height="24"
+                                CornerRadius="12"
+                                Background="{DynamicResource Brush.Surface.Elevated}"
+                                BorderBrush="{DynamicResource Brush.Border.Control}"
+                                BorderThickness="1"
+                                VerticalAlignment="Center">
+                            <Ellipse x:Name="Thumb"
+                                     Width="16" Height="16"
+                                     Margin="3,0"
+                                     HorizontalAlignment="Left"
+                                     Fill="{DynamicResource Brush.Text.Secondary}" />
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        <Border x:Name="FocusRing"
+                                Grid.ColumnSpan="2"
+                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                            <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
+                            <Setter TargetName="Thumb" Property="Fill" Value="{DynamicResource Brush.Text.OnAction}" />
+                        </Trigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
 </ResourceDictionary>

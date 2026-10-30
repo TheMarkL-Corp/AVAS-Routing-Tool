@@ -1,9 +1,10 @@
 <UserControl x:Class="AvasRoutingTool.Views.DisplayCardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
              xmlns:views="clr-namespace:AvasRoutingTool.Views"
-             MinWidth="320"
+             MinWidth="{StaticResource Size.Card.Min}"
              AllowDrop="True"
              DragEnter="Card_DragOver"
              DragOver="Card_DragOver"
@@ -16,39 +17,8 @@
              PreviewKeyDown="Card_PreviewKeyDown"
              KeyDown="Card_KeyDown">
 
-    <UserControl.Resources>
-        <!-- A dark panel over the card body that states a choice or a copy target state in words -->
-        <Style x:Key="BodyOverlay" TargetType="Border">
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Visibility" Value="Collapsed" />
-        </Style>
-    </UserControl.Resources>
-
     <Grid>
-        <Border x:Name="CardFrame"
-                Background="{DynamicResource Brush.Surface.Card}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="12">
-
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsDragOver, Mode=OneWay}" Value="True">
-                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                            <Setter Property="BorderThickness" Value="2" />
-                        </DataTrigger>
-                        <MultiDataTrigger>
-                            <MultiDataTrigger.Conditions>
-                                <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
-                                <Condition Binding="{Binding IsDragOver, Mode=OneWay}" Value="False" />
-                            </MultiDataTrigger.Conditions>
-                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Routed}" />
-                        </MultiDataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
+        <ui:Card x:Name="CardFrame" Style="{StaticResource Style.Card.Display}">
 
             <!--
                 Rows (nothing but the picture ever lies on the 16:9 video):
@@ -56,13 +26,14 @@
                 1: Action bar (Layout, Copy layout, draft chip, Turn Off) - always visible
                 2: Live video preview surface (16:9; only its own state overlays lie on it)
                 3: Status and toast dock (SOURCE / output format / notices, or the Undo toast)
+                The fixed rows are the Size.Card.Row.* tokens: GridSpec.DisplayCard.ChromeHeight is their sum + 26.
             -->
-            <Grid>
+            <Grid x:Name="CardGrid">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="24" />
-                    <RowDefinition Height="56" />
+                    <RowDefinition Height="{StaticResource Size.Card.RowLength.Header}" />
+                    <RowDefinition Height="{StaticResource Size.Card.RowLength.ActionBar}" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="64" />
+                    <RowDefinition Height="{StaticResource Size.Card.RowLength.Dock}" />
                 </Grid.RowDefinitions>
 
                 <!-- Card header: name, network info badge, copy-source tag and mode badge -->
@@ -77,29 +48,17 @@
 
                     <!-- Status indicator dot -->
                     <Ellipse Grid.Column="0"
-                             Width="8" Height="8"
-                             Margin="0,0,8,0"
-                             VerticalAlignment="Center">
-                        <Ellipse.Style>
-                            <Style TargetType="Ellipse">
-                                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
-                                        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Ellipse.Style>
-                    </Ellipse>
+                             Style="{StaticResource Style.StatusDot.Small}"
+                             Tag="{Binding IsActive, Mode=OneWay}"
+                             Margin="0,0,8,0" />
 
                     <!-- Strict BAVM Device Name -->
                     <TextBlock x:Name="DeviceNameText"
                                Grid.Column="1"
                                Text="{Binding DeviceName, Mode=OneWay}"
                                ToolTip="{Binding DeviceName, Mode=OneWay}"
+                               Style="{StaticResource Style.Text.Title}"
                                FontWeight="Bold"
-                               FontSize="14"
-                               Foreground="{DynamicResource Brush.Text.Primary}"
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center"
                                Margin="0,0,6,0" />
@@ -114,13 +73,16 @@
                             FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
                             AutomationProperties.Name="Device network telemetry: IP, MAC"
                             Background="Transparent"
+                            Padding="2,0"
                             Cursor="Help">
                         <Border.ToolTip>
                             <TextBlock>
                                 <Run Text="IP: " /><Run Text="{Binding IpAddress, Mode=OneWay}" /><Run Text=" &#183; MAC: " /><Run Text="{Binding MacAddress, Mode=OneWay}" />
                             </TextBlock>
                         </Border.ToolTip>
-                        <TextBlock Text="&#9432;" FontSize="14" Foreground="{DynamicResource Brush.Text.Secondary}" Padding="2,0" />
+                        <ui:SymbolIcon Symbol="Info24"
+                                       FontSize="{StaticResource Size.Icon.S}"
+                                       Foreground="{DynamicResource Brush.Text.Secondary}" />
                     </Border>
 
                     <!-- This display is the copy source (armed by a tap, or being dragged): the tag lies outside the picture -->
@@ -131,60 +93,18 @@
                             Background="{DynamicResource Brush.Border.DropTarget}"
                             CornerRadius="4"
                             Padding="8,2"
-                            IsHitTestVisible="False">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <TextBlock Text="COPYING FROM HERE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
+                            IsHitTestVisible="False"
+                            Visibility="{Binding IsCopySource, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                        <TextBlock Text="COPYING FROM HERE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
                     </Border>
 
-                    <!-- Routed status pill: the layout and its fill ("MATRIX 2X2 · 3/4") -->
-                    <Border x:Name="ModeBadge"
-                            Grid.Column="4"
-                            VerticalAlignment="Center"
-                            CornerRadius="4"
-                            Padding="6,2">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="{DynamicResource Brush.Border.Default}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource Brush.Surface.RoutedBadge}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.RoutedBadge}" />
-                                        <Setter Property="BorderThickness" Value="1" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource Brush.Surface.RoutedBadge}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.RoutedBadge}" />
-                                        <Setter Property="BorderThickness" Value="1" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-
-                        <TextBlock x:Name="ModeBadgeText" Text="{Binding ModeBadge, Mode=OneWay}" FontSize="11" FontWeight="SemiBold">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnRoutedBadge}" />
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnRoutedBadge}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Border>
+                    <!-- Routed status pill: the layout and its fill ("MATRIX 2X2 &#183; 3/4") -->
+                    <ui:Badge x:Name="ModeBadge"
+                              Grid.Column="4"
+                              Style="{StaticResource Style.Badge.Mode}"
+                              Tag="{Binding HasRoutedBadge, Mode=OneWay}">
+                        <TextBlock x:Name="ModeBadgeText" Text="{Binding ModeBadge, Mode=OneWay}" />
+                    </ui:Badge>
                 </Grid>
 
                 <!--
@@ -192,11 +112,10 @@
                 -->
                 <Border x:Name="FloatingActionDock"
                         Grid.Row="1"
-                        Height="48"
+                        MinHeight="{StaticResource Size.Touch.Min}"
                         Margin="0,4,0,4"
                         Background="Transparent"
-                        IsHitTestVisible="True"
-                        Opacity="1">
+                        IsHitTestVisible="True">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -206,41 +125,35 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Layout ▾ Button -->
+                        <!-- Layout menu button -->
                         <Button x:Name="LayoutButton"
                                 Grid.Column="0"
-                                MinHeight="48"
+                                Style="{StaticResource Style.Button.CardAction}"
+                                Padding="6,2"
                                 Margin="0,0,6,0"
-                                FontSize="13"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
                                 ToolTip="Choose a layout for this display"
                                 PreviewKeyDown="LayoutButton_PreviewKeyDown"
                                 PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
                                 PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
                                 Click="LayoutButton_Click">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.CardAction}">
-                                    <Setter Property="Padding" Value="6,2" />
-                                </Style>
-                            </Button.Style>
                             <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                                 <Path x:Name="LayoutIcon"
                                       Data="{StaticResource Icon.Grid}"
-                                      Fill="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Width="14" Height="14"
-                                      Stretch="Uniform"
-                                      VerticalAlignment="Center"
-                                      Margin="0,0,0,1" />
-                                <TextBlock Text="Layout &#9662;" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                      Style="{StaticResource Style.Icon.Button}" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="Layout" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                    <ui:SymbolIcon Symbol="ChevronDown24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center" Margin="2,0,0,0" />
+                                </StackPanel>
                             </StackPanel>
                         </Button>
 
                         <!-- Copy layout Button: its full label always shows (no trimming) -->
                         <Button x:Name="CopyLayoutHandle"
                                 Grid.Column="1"
-                                MinHeight="48"
+                                Style="{StaticResource Style.Button.CardAction.Copy}"
+                                Padding="6,2"
                                 Margin="0,0,6,0"
-                                FontSize="13"
                                 IsEnabled="{Binding CanCopyFrom, Mode=OneWay}"
                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
                                 ToolTip="Drag onto another display to copy this picture there - or tap, then tap a display"
@@ -249,94 +162,49 @@
                                 PreviewMouseLeftButtonDown="CopyHandle_PreviewMouseLeftButtonDown"
                                 PreviewMouseMove="CopyHandle_PreviewMouseMove"
                                 PreviewMouseLeftButtonUp="CopyHandle_PreviewMouseLeftButtonUp">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.CardAction}">
-                                    <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
-                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
-                                    <Setter Property="Padding" Value="6,2" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
                             <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                                 <Path x:Name="CopyIcon"
                                       Data="{StaticResource Icon.Copy}"
-                                      Stroke="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      StrokeThickness="2"
-                                      StrokeLineJoin="Round"
-                                      Width="14" Height="14"
-                                      Stretch="Uniform"
-                                      VerticalAlignment="Center"
-                                      Margin="0,0,0,1" />
+                                      Style="{StaticResource Style.Icon.Button.Stroke}" />
                                 <TextBlock Text="Copy layout" VerticalAlignment="Center" FontWeight="SemiBold" />
                             </StackPanel>
                         </Button>
 
                         <!--
                             Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15).
-                            Placed in the action bar, keeps touch height >= 56.
+                            Placed in the action bar, keeps touch height >= 48.
                         -->
                         <Button x:Name="DraftChip"
                                 Grid.Column="2"
+                                Style="{StaticResource Style.Button.Chip.Staged}"
                                 Margin="0,0,6,0"
-                                MinHeight="48"
-                                FontSize="13"
+                                MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="10,4"
-                                Cursor="Hand"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
                                 ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
+                                Visibility="{Binding HasDraft, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
                                 Click="DraftChip_Click">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Chip.Staged}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
                             <TextBlock Text="DRAFT &#183; Resume"
-                                       FontSize="13"
+                                       Style="{StaticResource Style.Text.Body}"
                                        FontWeight="Bold"
                                        TextWrapping="Wrap"
                                        TextAlignment="Center"
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />
                         </Button>
 
-                        <!-- Quick Power / Turn Off Button: a vector power icon, 48 x 48 -->
+                        <!-- Quick Power / Turn Off Button: a vector power icon -->
                         <Button x:Name="TurnOffButton"
                                 Grid.Column="4"
-                                Width="48" Height="48"
+                                Style="{StaticResource Style.Button.Unroute}"
+                                MinWidth="{StaticResource Size.Touch.Min}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="0"
                                 Command="{Binding UnrouteCommand, Mode=OneWay}"
                                 ToolTip="Turn off display feed / Unroute video"
                                 FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
-                                AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Unroute}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Path Data="{StaticResource Icon.Power}"
-                                  Width="18" Height="18"
-                                  Stretch="Uniform"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                  StrokeThickness="2"
-                                  StrokeStartLineCap="Round"
-                                  StrokeEndLineCap="Round"
-                                  HorizontalAlignment="Center"
-                                  VerticalAlignment="Center" />
+                                AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
+                                Visibility="{Binding IsRouted, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Path Data="{StaticResource Icon.Power}" Style="{StaticResource Style.Icon.Power}" />
                         </Button>
                     </Grid>
                 </Border>
@@ -359,58 +227,25 @@
                         CornerRadius="6"
                         ClipToBounds="True">
                   <Grid>
-                    <!-- Multiview: one drop zone + mirrored preview per window -->
-                    <ItemsControl ItemsSource="{Binding Slots, Mode=OneWay}" Focusable="False">
-                        <ItemsControl.Style>
-                            <Style TargetType="ItemsControl">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ItemsControl.Style>
+                    <!-- Multiview: one drop zone + mirrored preview per window. Not virtualized: every window mirrors a live preview. -->
+                    <ItemsControl ItemsSource="{Binding Slots, Mode=OneWay}"
+                                  Focusable="False"
+                                  ItemContainerStyle="{StaticResource Style.Slot.Fractional}"
+                                  Visibility="{Binding IsMultiView, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <controls:FractionalLayoutPanel
                                     AspectRatio="{Binding DataContext.CanvasAspect, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemContainerStyle>
-                            <Style TargetType="ContentPresenter">
-                                <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding NormalizedX, Mode=OneWay}" />
-                                <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding NormalizedY, Mode=OneWay}" />
-                                <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding NormalizedWidth, Mode=OneWay}" />
-                                <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding NormalizedHeight, Mode=OneWay}" />
-                            </Style>
-                        </ItemsControl.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Margin="1"
-                                        Background="{DynamicResource Brush.Surface.PreviewTile}"
-                                        BorderThickness="1"
-                                        CornerRadius="3"
-                                        ClipToBounds="True"
+                                <Border Style="{StaticResource Style.Slot.Tile}"
                                         AllowDrop="True"
                                         DragEnter="Slot_DragOver"
                                         DragOver="Slot_DragOver"
                                         DragLeave="Slot_DragLeave"
                                         Drop="Slot_Drop">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsAssigned, Mode=OneWay}" Value="True">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Routed}" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsDragOver, Mode=OneWay}" Value="True">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                                                    <Setter Property="BorderThickness" Value="2" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
                                     <Grid>
                                         <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
                                                Stretch="Uniform"
@@ -423,66 +258,34 @@
                                                 BorderBrush="{DynamicResource Brush.Border.Scrim}"
                                                 BorderThickness="1"
                                                 CornerRadius="3"
-                                                Padding="4,1">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsAssigned, Mode=OneWay}" Value="True">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
+                                                Padding="4,1"
+                                                Visibility="{Binding IsAssigned, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                                             <TextBlock Text="{Binding SourceName, Mode=OneWay}"
+                                                       Style="{StaticResource Style.Text.Caption}"
                                                        Foreground="{DynamicResource Brush.Text.OnScrim}"
-                                                       FontSize="9"
                                                        FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" />
                                         </Border>
 
                                         <!-- Assigned but no preview (non-AVAS source) -->
                                         <TextBlock Text="Preview not available"
-                                                   FontSize="9"
+                                                   Style="{StaticResource Style.Text.Caption}"
                                                    Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                                    HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsAssigned, Mode=OneWay}" Value="True" />
-                                                                <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False" />
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </MultiDataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                                   VerticalAlignment="Center"
+                                                   Visibility="{Binding ShowPreviewUnavailable, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
 
                                         <!-- Empty window hint -->
-                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <StackPanel.Style>
-                                                <Style TargetType="StackPanel">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsAssigned, Mode=OneWay}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </StackPanel.Style>
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    Visibility="{Binding IsAssigned, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
                                             <TextBlock Text="{Binding Label, Mode=OneWay}"
-                                                       FontSize="14"
+                                                       Style="{StaticResource Style.Text.Title}"
                                                        FontWeight="Bold"
                                                        Foreground="{DynamicResource Brush.Text.Muted}"
                                                        HorizontalAlignment="Center"
                                                        Opacity="0.6" />
                                             <TextBlock Text="Drop source"
-                                                       FontSize="9"
+                                                       Style="{StaticResource Style.Text.Caption}"
                                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                                        HorizontalAlignment="Center" />
                                         </StackPanel>
@@ -493,17 +296,7 @@
                     </ItemsControl>
 
                     <!-- Single View surface (hidden while a multiview layout is active) -->
-                    <Grid>
-                        <Grid.Style>
-                            <Style TargetType="Grid">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMultiView, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Grid.Style>
+                    <Grid Visibility="{Binding ShowSingleViewPicture, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                         <!-- Actual Mirrored Video Image -->
                         <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
                                Stretch="Uniform"
@@ -516,126 +309,75 @@
                                 BorderBrush="{DynamicResource Brush.Border.Scrim}"
                                 BorderThickness="1"
                                 CornerRadius="4"
-                                Padding="6,2">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
-                                                <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True" />
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
+                                Padding="6,2"
+                                Visibility="{Binding ShowActiveSourceTag, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="● " Foreground="{DynamicResource Brush.Status.Online}" FontSize="9" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.OnScrim}" FontSize="10" FontWeight="SemiBold" />
+                                <Ellipse Style="{StaticResource Style.StatusDot.Small}" Fill="{DynamicResource Brush.Status.Online}" Margin="0,0,6,0" />
+                                <TextBlock x:Name="ActiveSourceTagText"
+                                           Text="{Binding ActiveSourceName, Mode=OneWay}"
+                                           Style="{StaticResource Style.Text.Caption}"
+                                           Foreground="{DynamicResource Brush.Text.OnScrim}"
+                                           FontWeight="SemiBold" />
                             </StackPanel>
                         </Border>
 
                         <!-- Routed to Non-AVAS Device Overlay (No preview stream available) -->
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
-                                                <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False" />
-                                                <Condition Binding="{Binding IsExternalLayout, Mode=OneWay}" Value="False" />
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </MultiDataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <Path Data="{StaticResource Icon.Monitor}"
-                                  Fill="{DynamicResource Brush.Accent.Primary}"
-                                  Width="26" Height="26"
-                                  Stretch="Uniform"
-                                  HorizontalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Visibility="{Binding ShowRoutedNonAvasNotice, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Path Data="{StaticResource Icon.Monitor}" Style="{StaticResource Style.Icon.State}" />
                             <TextBlock Text="Routed to Source"
-                                       FontSize="10"
+                                       Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,6,0,2" />
-                            <TextBlock Text="{Binding ActiveSourceName, Mode=OneWay}"
-                                       FontSize="13"
+                            <TextBlock x:Name="RoutedSourceNameText"
+                                       Text="{Binding ActiveSourceName, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.Body}"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource Brush.Text.OnPreview}"
                                        HorizontalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="Preview Not Available (Non-AVAS Device)"
-                                       FontSize="10"
+                                       Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,4,0,0" />
                         </StackPanel>
 
                         <!-- Decoder runs a multiview layout set elsewhere (found when restoring state): read-only notice -->
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="320" Margin="12"
-                                    ToolTip="{Binding ExternalLayoutName, Mode=OneWay}">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsExternalLayout, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <Path Data="{StaticResource Icon.Monitor}"
-                                  Fill="{DynamicResource Brush.Accent.Primary}"
-                                  Width="26" Height="26"
-                                  Stretch="Uniform"
-                                  HorizontalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="{StaticResource Size.Notice.Max}" Margin="12"
+                                    ToolTip="{Binding ExternalLayoutName, Mode=OneWay}"
+                                    Visibility="{Binding IsExternalLayout, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Path Data="{StaticResource Icon.Monitor}" Style="{StaticResource Style.Icon.State}" />
                             <TextBlock Text="{Binding ExternalLayoutText, Mode=OneWay}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource Brush.Text.Secondary}"
+                                       Style="{StaticResource Style.Text.Caption}"
                                        TextWrapping="Wrap"
                                        TextAlignment="Center"
                                        Margin="0,8,0,0" />
                             <TextBlock Text="Drop a source to switch this display to Single View"
-                                       FontSize="9"
+                                       Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        TextAlignment="Center"
+                                       TextWrapping="Wrap"
                                        Margin="0,4,0,0" />
                         </StackPanel>
 
                         <!-- Unrouted / Drop Target Placeholder -->
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsRouted, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Visibility="{Binding ShowUnroutedPlaceholder, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <Path Data="{StaticResource Icon.Monitor}"
+                                  Style="{StaticResource Style.Icon.State}"
                                   Fill="{DynamicResource Brush.Text.Muted}"
-                                  Width="28" Height="28"
-                                  Stretch="Uniform"
-                                  HorizontalAlignment="Center"
                                   Opacity="0.35" />
 
                             <TextBlock Text="Drop Source Here to Route"
-                                       FontSize="11"
+                                       Style="{StaticResource Style.Text.Caption}"
                                        FontWeight="Medium"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,8,0,0" />
                             <TextBlock Text="Drag any TX card above or 'Off' to turn off"
-                                       FontSize="9"
+                                       Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,2,0,0" />
@@ -650,22 +392,13 @@
                             BorderBrush="{DynamicResource Brush.Border.Danger}"
                             BorderThickness="1"
                             CornerRadius="4"
-                            Padding="6,3">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HasError, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
+                            Padding="6,3"
+                            Visibility="{Binding HasError, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                         <TextBlock x:Name="ErrorBannerText"
                                    AutomationProperties.LiveSetting="Assertive"
                                    Text="{Binding LastError, Mode=OneWay}"
+                                   Style="{StaticResource Style.Text.Caption}"
                                    Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
-                                   FontSize="10"
                                    TextWrapping="Wrap" />
                     </Border>
 
@@ -676,7 +409,8 @@
                     Status dock (Row 3): line 1 SOURCE and the output format; line 2 the stale-draft notice and why Copy layout is off.
                     The Undo toast takes this row while it shows - never the picture.
                 -->
-                <Grid Grid.Row="3" Margin="0,8,0,0" Height="56">
+                <Grid Grid.Row="3" Margin="0,8,0,0" Height="{StaticResource Size.Dock.Content}"
+                      Visibility="{Binding ShowUndoToast, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
                     <StackPanel VerticalAlignment="Center">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -685,72 +419,39 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Active Source Label / Status -->
-                            <TextBlock Grid.Column="0" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Muted}" TextTrimming="CharacterEllipsis">
+                            <TextBlock Grid.Column="0" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Muted}" TextTrimming="CharacterEllipsis">
                                 <Run Text="SOURCE: " />
                                 <Run Text="{Binding SourceLabel, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Secondary}" />
                             </TextBlock>
 
-                            <!-- Decoder output format from the display's EDID (multiview and Single View) -->
+                            <!-- Decoder output format from the display's EDID (multiview and Single View); the SOURCE line above keeps the row's height -->
                             <TextBlock x:Name="OutputLine" Grid.Column="1"
                                        Text="{Binding CanvasInfoShort, Mode=OneWay}"
                                        ToolTip="{Binding CanvasInfo, Mode=OneWay}"
                                        Margin="8,0,0,0"
-                                       FontSize="12"
+                                       Style="{StaticResource Style.Text.Caption}"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.Text.Accent}"
-                                       TextTrimming="CharacterEllipsis">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Style.Triggers>
-                                            <!-- Hidden, not collapsed: the line keeps its height so every card has the same chrome -->
-                                            <DataTrigger Binding="{Binding CanvasInfo, Mode=OneWay}" Value="">
-                                                <Setter Property="Visibility" Value="Hidden" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding CanvasInfo, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
                         </Grid>
 
-                        <!-- A copy replaced the screen the kept draft was made on -->
+                        <!-- A copy replaced the screen the kept draft was made on; the copy tag takes its place while this display is the copy source -->
                         <TextBlock x:Name="DraftNoticeLine"
                                    Text="{Binding DraftNotice, Mode=OneWay}"
                                    ToolTip="{Binding DraftNotice, Mode=OneWay}"
-                                   FontSize="12"
+                                   Style="{StaticResource Style.Text.Caption}"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource Brush.Status.StagedText}"
-                                   TextTrimming="CharacterEllipsis">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding DraftNotice, Mode=OneWay}" Value="{x:Null}">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                        <!-- The copy tag takes the notice's place while this display is the copy source -->
-                                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                                   TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding ShowDraftNotice, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
 
                         <!-- Why Copy layout is off, in words ("RX1 shows nothing to copy") -->
                         <TextBlock x:Name="CopyFromBlockedLabel"
                                    Text="{Binding CopyFromBlockedText, Mode=OneWay}"
-                                   FontSize="12"
-                                   Foreground="{DynamicResource Brush.Text.Secondary}"
-                                   TextWrapping="Wrap">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                                   Style="{StaticResource Style.Text.Caption}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding CanCopyFrom, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                     </StackPanel>
                 </Grid>
 
@@ -762,24 +463,15 @@
                 <!-- A source dropped / tapped on a MultiView card: it asks; nothing is replaced silently -->
                 <Border x:Name="DropChoicePanel"
                         Grid.Row="2"
+                        Style="{StaticResource Style.Overlay.Body}"
                         Background="{DynamicResource Brush.Surface.Overlay}"
                         BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-                        BorderThickness="1">
-                    <Border.Style>
-                        <Style TargetType="Border" BasedOn="{StaticResource BodyOverlay}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsDropChoiceOpen, Mode=OneWay}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
+                        BorderThickness="1"
+                        Visibility="{Binding IsDropChoiceOpen, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <StackPanel x:Name="DropChoiceContent" VerticalAlignment="Center" Margin="10,8">
                         <TextBlock x:Name="DropChoiceTitle"
                                    Text="{Binding DropChoiceSource.DeviceName, Mode=OneWay, StringFormat='Where should {0} go?'}"
-                                   FontSize="15"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.Text.Primary}"
+                                   Style="{StaticResource Style.Text.Lead}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center" />
                         <UniformGrid Columns="2" Margin="0,10,0,0">
@@ -807,8 +499,7 @@
                             </Button>
                         </UniformGrid>
                         <TextBlock Text="Full screen goes on screen now. Into a block opens the Composer."
-                                   FontSize="12"
-                                   Foreground="{DynamicResource Brush.Text.Secondary}"
+                                   Style="{StaticResource Style.Text.Caption}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center"
                                    Margin="0,6,0,0" />
@@ -818,26 +509,20 @@
                 <!-- Copy target, allowed: "Release to copy here" + what will be copied (the view model's text) -->
                 <Border x:Name="CopyTargetAllowedPanel"
                         Grid.Row="2"
-                        Background="{DynamicResource Brush.Surface.CopyTarget}">
-                    <Border.Style>
-                        <Style TargetType="Border" BasedOn="{StaticResource BodyOverlay}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsCopyTargetAllowed, Mode=OneWay}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
+                        Style="{StaticResource Style.Overlay.Body}"
+                        Background="{DynamicResource Brush.Surface.CopyTarget}"
+                        Visibility="{Binding IsCopyTargetAllowed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <StackPanel x:Name="CopyTargetAllowedContent" VerticalAlignment="Top" Margin="12,14,12,8">
                         <TextBlock Text="Release to copy here"
-                                   FontSize="17"
+                                   Style="{StaticResource Style.Text.Lead}"
                                    FontWeight="Bold"
                                    Foreground="{DynamicResource Brush.Text.CopyAccent}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center" />
                         <TextBlock x:Name="CopyTargetAllowedText"
                                    Text="{Binding CopyTargetText, Mode=OneWay}"
-                                   FontSize="14"
+                                   Style="{StaticResource Style.Text.Title}"
+                                   FontWeight="Normal"
                                    Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center"
@@ -848,28 +533,19 @@
                 <!-- Copy target, blocked: lock + the reason; no ring -->
                 <Border x:Name="CopyTargetBlockedPanel"
                         Grid.Row="2"
-                        Background="{DynamicResource Brush.Surface.Overlay}">
-                    <Border.Style>
-                        <Style TargetType="Border" BasedOn="{StaticResource BodyOverlay}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsCopyTargetBlocked, Mode=OneWay}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
+                        Style="{StaticResource Style.Overlay.Body}"
+                        Background="{DynamicResource Brush.Surface.Overlay}"
+                        Visibility="{Binding IsCopyTargetBlocked, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <StackPanel x:Name="CopyTargetBlockedContent" VerticalAlignment="Top" Margin="12,14,12,8">
-                        <Path x:Name="CopyTargetLock"
-                              Data="{StaticResource Icon.Lock}"
-                              Stroke="{DynamicResource Brush.Text.OnOverlay}"
-                              StrokeThickness="2"
-                              StrokeLineJoin="Round"
-                              Width="26" Height="26"
-                              Stretch="Uniform"
-                              HorizontalAlignment="Center" />
+                        <ui:SymbolIcon x:Name="CopyTargetLock"
+                                       Symbol="LockClosed24"
+                                       FontSize="{StaticResource Size.Icon.L}"
+                                       Foreground="{DynamicResource Brush.Text.OnOverlay}"
+                                       HorizontalAlignment="Center" />
                         <TextBlock x:Name="CopyTargetBlockedText"
                                    Text="{Binding CopyTargetText, Mode=OneWay}"
-                                   FontSize="14"
+                                   Style="{StaticResource Style.Text.Title}"
+                                   FontWeight="Normal"
                                    Foreground="{DynamicResource Brush.Text.OnOverlay}"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center"
@@ -880,35 +556,15 @@
                 <!-- After a copy onto this display: what it shows now, and Undo for 10 s (in the status dock, below the picture, never on it) -->
                 <Border x:Name="UndoToast"
                         Grid.Row="3"
-                        MinHeight="56"
+                        MinHeight="{StaticResource Size.Toast.Min}"
                         VerticalAlignment="Stretch"
                         Margin="0,4,0,0"
                         Background="{DynamicResource Brush.Surface.UndoToast}"
                         BorderBrush="{DynamicResource Brush.Status.Online}"
                         BorderThickness="2"
                         CornerRadius="8"
-                        Padding="10,0,0,0">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <!--
-                                    CanUndoScreen (not the command's CanExecute), and only while the card shows no drop
-                                    choice and no copy-target state: those win, and the toast's Undo never lies over a
-                                    choice button. It comes back when they go, while its 10 s last.
-                                -->
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding CanUndoScreen, Mode=OneWay}" Value="True" />
-                                        <Condition Binding="{Binding IsDropChoiceOpen, Mode=OneWay}" Value="False" />
-                                        <Condition Binding="{Binding IsCopyTargetAllowed, Mode=OneWay}" Value="False" />
-                                        <Condition Binding="{Binding IsCopyTargetBlocked, Mode=OneWay}" Value="False" />
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </MultiDataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
+                        Padding="10,0,0,0"
+                        Visibility="{Binding ShowUndoToast, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <DockPanel>
                         <Button x:Name="UndoScreenButton"
                                 DockPanel.Dock="Right"
@@ -923,8 +579,7 @@
                         <TextBlock x:Name="UndoToastLabel"
                                    AutomationProperties.LiveSetting="Polite"
                                    Text="{Binding UndoToastText, Mode=OneWay}"
-                                   FontSize="14"
-                                   FontWeight="SemiBold"
+                                   Style="{StaticResource Style.Text.Title}"
                                    Foreground="{DynamicResource Brush.Text.UndoToast}"
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center" />
@@ -940,38 +595,15 @@
                         BorderBrush="{DynamicResource Brush.Focus.Ring}"
                         BorderThickness="2"
                         CornerRadius="6"
-                        IsHitTestVisible="False">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding (views:InputModality.ShowsFocus), ElementName=PreviewSurface, Mode=OneWay}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                </Border>
+                        IsHitTestVisible="False"
+                        Visibility="{Binding (views:InputModality.ShowsFocus), ElementName=PreviewSurface, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
             </Grid>
-        </Border>
+        </ui:Card>
 
         <!-- Copy target, allowed: a cyan ring around the card (an overlay, so nothing moves) -->
         <Border x:Name="CopyTargetRing"
-                BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-                BorderThickness="3"
-                CornerRadius="8"
-                IsHitTestVisible="False">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsCopyTargetAllowed, Mode=OneWay}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-        </Border>
+                Style="{StaticResource Style.Ring.Armed}"
+                Visibility="{Binding IsCopyTargetAllowed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
 
         <!-- The header's Layout menu: six schematic tiles (the layout on screen marked) -->
         <Popup x:Name="LayoutMenuPopup"
@@ -983,7 +615,7 @@
                Opened="LayoutMenu_Opened"
                Closed="LayoutMenu_Closed">
             <Border x:Name="LayoutMenuFrame"
-                    Width="336"
+                    Width="{StaticResource Size.Popup.LayoutMenu}"
                     Background="{DynamicResource Brush.Surface.Popup}"
                     BorderBrush="{DynamicResource Brush.Border.Control}"
                     BorderThickness="1"
@@ -994,9 +626,11 @@
                     PreviewKeyDown="LayoutMenuFrame_PreviewKeyDown">
                 <StackPanel>
                     <TextBlock Text="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
-                               FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Primary}" TextTrimming="CharacterEllipsis" />
+                               Style="{StaticResource Style.Text.Title}"
+                               FontWeight="Bold"
+                               TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="A MultiView layout opens the Composer: nothing changes on screen until Take. Single View and Off apply now."
-                               FontSize="13"
+                               Style="{StaticResource Style.Text.Body}"
                                Foreground="{DynamicResource Brush.Text.Secondary}"
                                TextWrapping="Wrap"
                                Margin="0,2,0,6" />
@@ -1009,76 +643,32 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Button x:Name="LayoutMenuTile"
-                                        MinHeight="88"
-                                        Margin="4"
-                                        Foreground="{DynamicResource Brush.Text.Primary}"
-                                        Cursor="Hand"
+                                        Style="{StaticResource Style.Button.LayoutMenuTile}"
                                         AutomationProperties.Name="{Binding Title, Mode=OneWay}"
                                         ToolTip="{Binding Subtitle, Mode=OneWay}"
                                         Click="LayoutMenuTile_Click">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="bd"
-                                                    Background="{DynamicResource Brush.Surface.Card}"
-                                                    BorderBrush="{DynamicResource Brush.Border.Control}"
-                                                    BorderThickness="2"
-                                                    CornerRadius="8"
-                                                    Padding="8,6">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
-                                                </Trigger>
-                                                <DataTrigger Binding="{Binding Id, Mode=OneWay}" Value="off">
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.Danger}" />
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Danger}" />
-                                                </DataTrigger>
-                                                <!-- Selected only when the display shows it: an unrouted display marks no tile -->
-                                                <MultiDataTrigger>
-                                                    <MultiDataTrigger.Conditions>
-                                                        <Condition Binding="{Binding IsSelected, Mode=OneWay}" Value="True" />
-                                                        <Condition Binding="{Binding DataContext.IsRouted, Mode=OneWay, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True" />
-                                                    </MultiDataTrigger.Conditions>
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
-                                                </MultiDataTrigger>
-                                                <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                                                    <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
                                     <StackPanel>
-                                        <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}" Width="72" Height="40" HorizontalAlignment="Center" />
+                                        <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}"
+                                                               Width="{StaticResource Size.Schematic.Menu.Width}"
+                                                               Height="{StaticResource Size.Schematic.Menu.Height}"
+                                                               HorizontalAlignment="Center" />
                                         <TextBlock x:Name="LayoutMenuTitle"
                                                    Text="{Binding Title, Mode=OneWay}"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
+                                                   Style="{StaticResource Style.Text.Title}"
                                                    TextAlignment="Center"
                                                    TextWrapping="Wrap"
                                                    Margin="0,4,0,0" />
-                                        <!-- The layout on screen, in words (an unrouted display shows nothing, so nothing is marked) -->
-                                        <TextBlock Text="✓ On screen"
-                                                   FontSize="12"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource Brush.Text.Accent}"
-                                                   HorizontalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding IsSelected, Mode=OneWay}" Value="True" />
-                                                                <Condition Binding="{Binding DataContext.IsRouted, Mode=OneWay, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True" />
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </MultiDataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                        <!-- The layout on screen, in words and an icon (an unrouted display shows nothing, so nothing is marked) -->
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                                    Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                                            <ui:SymbolIcon Symbol="Checkmark24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Brush.Text.Accent}" />
+                                            <TextBlock Text="On screen"
+                                                       Style="{StaticResource Style.Text.Caption}"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource Brush.Text.Accent}"
+                                                       Margin="4,0,0,0" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Button>
                             </DataTemplate>

@@ -13,6 +13,7 @@ namespace AvasRoutingTool.Views
         public SettingsDialog(IConfigService configService)
         {
             InitializeComponent();
+            MaxHeight = SystemParameters.PrimaryScreenHeight; // the form scrolls when the content is taller than the screen
             VersionText.Text = "AVAS Routing Tool " + AppInfo.DisplayVersion;
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _config = _configService.Load();

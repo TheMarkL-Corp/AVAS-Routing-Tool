@@ -2,7 +2,22 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Overlay styles (Style.Overlay.Body, arm banner, toast, popup frame). Empty until the Main Window session adds them.
+        Overlay styles (owner: Main Window session): the arm banner here; Style.Overlay.Body, toast and popup frame follow with the display card.
     -->
+
+    <!-- A dark panel over the card body that states a choice or a copy target state in words; the view shows it with a Visibility binding -->
+    <Style x:Key="Style.Overlay.Body" TargetType="Border">
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <!-- One line above the displays while a source or a display is armed (tapped, waiting for a target): words, never colour alone -->
+    <Style x:Key="Style.Banner.Arm" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
 
 </ResourceDictionary>

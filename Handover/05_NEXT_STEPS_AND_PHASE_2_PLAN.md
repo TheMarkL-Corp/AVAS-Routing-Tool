@@ -9,7 +9,7 @@ This document outlines the immediate implementation roadmap for Claude Code to c
 ### Task 1: Phase 2 MultiView Canvas Layouts (Priority: High)
 > **Status (2026-10-25): code-complete and unit-tested, hardware validation pending.** See [`docs/superpowers/plans/2026-10-25-phase2-multiview-layouts.md`](../docs/superpowers/plans/2026-10-25-phase2-multiview-layouts.md), [ADR 003](../memory/decisions/2026-10-25-phase2-multiview-layouts.md) and `memory/active_context.md`. What remains is the hardware validation gate in that plan, then publish/commit. The requirements below describe what was built; ids in code are `matrix2x2`, `pip`, `side_by_side`, `quad_1_3`.
 
-* **Context**: The bottom bar ([`LayoutsBarView.xaml`](../src/AvasRoutingTool/Views/LayoutsBarView.xaml)) has tiles for:
+* **Context**: Each display card's Layout menu (`DisplayCardView.xaml`) has tiles for:
   * `Matrix 2x2` (`matrix2x2`): 4 equal quadrant windows.
   * `PIP` (`pip`): 1 full-screen primary window with 1 picture-in-picture overlay inset.
   * `Side-by-Side` (`side_by_side`): Split-screen dual windows (50% / 50%).

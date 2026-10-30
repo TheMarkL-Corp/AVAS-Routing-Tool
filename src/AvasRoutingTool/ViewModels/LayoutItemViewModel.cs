@@ -7,6 +7,7 @@ namespace AvasRoutingTool.ViewModels
     public class LayoutItemViewModel : INotifyPropertyChanged
     {
         private bool _isSelected;
+        private bool _isOnScreen;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -24,6 +25,18 @@ namespace AvasRoutingTool.ViewModels
                 _isSelected = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(BadgeText));
+            }
+        }
+
+        /// <summary>This layout is what the display shows right now: selected AND the display is routed (an unrouted display marks no tile). Set by the owning card.</summary>
+        public bool IsOnScreen
+        {
+            get => _isOnScreen;
+            set
+            {
+                if (_isOnScreen == value) return;
+                _isOnScreen = value;
+                OnPropertyChanged();
             }
         }
 

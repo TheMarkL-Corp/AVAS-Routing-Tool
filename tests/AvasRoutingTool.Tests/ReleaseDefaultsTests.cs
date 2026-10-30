@@ -124,7 +124,7 @@ namespace AvasRoutingTool.Tests
             var d = new SettingsDialog(cfg);
             try
             {
-                var box = (CheckBox)d.FindName("ChkShowLogs");
+                var box = (System.Windows.Controls.Primitives.ToggleButton)d.FindName("ChkShowLogs");
                 Assert.NotNull(box);
                 Assert.NotEqual(true, box.IsChecked);
                 Assert.False(string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(box)));

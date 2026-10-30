@@ -171,7 +171,7 @@ namespace AvasRoutingTool.Tests
                         themeService: themeService);
 
                     Assert.False(vm.IsLightMode);
-                    Assert.Equal("🌙  Dark", vm.ThemeButtonLabel);
+                    Assert.Equal("Dark", vm.ThemeButtonLabel);
                     Assert.Equal("Current theme: Slate Dark. Click to switch to Clinical Light.", vm.ThemeButtonToolTip);
 
                     var changed = new System.Collections.Generic.List<string?>();
@@ -179,7 +179,7 @@ namespace AvasRoutingTool.Tests
 
                     vm.ToggleThemeCommand.Execute(null);
                     Assert.True(vm.IsLightMode);
-                    Assert.Equal("☀️  Light", vm.ThemeButtonLabel);
+                    Assert.Equal("Light", vm.ThemeButtonLabel);
                     Assert.Equal("Current theme: Clinical Light. Click to switch to Slate Dark.", vm.ThemeButtonToolTip);
                     Assert.Contains(nameof(vm.ThemeButtonLabel), changed);
                     Assert.Contains(nameof(vm.ThemeButtonToolTip), changed);

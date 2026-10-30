@@ -1,8 +1,9 @@
-<UserControl x:Class="AvasRoutingTool.Views.SourceCardView"
+﻿<UserControl x:Class="AvasRoutingTool.Views.SourceCardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:views="clr-namespace:AvasRoutingTool.Views"
-             MinWidth="320"
+             MinWidth="{StaticResource Size.Card.Min}"
              Focusable="True"
              IsTabStop="True"
              FocusVisualStyle="{x:Null}"
@@ -13,28 +14,13 @@
              MouseLeftButtonUp="Card_MouseLeftButtonUp">
 
     <Grid>
-    <Border Background="{DynamicResource Brush.Surface.Card}"
-            BorderBrush="{DynamicResource Brush.Border.Default}"
-            BorderThickness="1"
-            CornerRadius="8"
-            Padding="12"
-            Cursor="Hand">
-
-        <Border.Style>
-            <Style TargetType="Border">
-                <Style.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Highlight}" />
-                    </Trigger>
-                </Style.Triggers>
-            </Style>
-        </Border.Style>
+    <ui:Card x:Name="SourceCardFrame" Style="{StaticResource Style.Card.Source}">
 
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" MinHeight="36" />
+                <RowDefinition Height="Auto" MinHeight="{StaticResource Size.Touch.Compact}" />
             </Grid.RowDefinitions>
 
             <!-- Card Header: status, name, info badge (IP / MAC / MCAST tooltip), link + online badges -->
@@ -48,113 +34,59 @@
                 </Grid.ColumnDefinitions>
 
                 <Ellipse Grid.Column="0"
-                         Width="8" Height="8"
-                         Margin="0,0,8,0"
-                         VerticalAlignment="Center">
-                    <Ellipse.Style>
-                        <Style TargetType="Ellipse">
-                            <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
-                                    <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Ellipse.Style>
-                </Ellipse>
+                         Style="{StaticResource Style.StatusDot.Small}"
+                         Tag="{Binding IsActive, Mode=OneWay}"
+                         Margin="0,0,8,0" />
 
                 <!-- Strict BAVM Device Name -->
                 <TextBlock Grid.Column="1"
                            Text="{Binding DeviceName, Mode=OneWay}"
-                           FontWeight="SemiBold"
-                           FontSize="14"
-                           Foreground="{DynamicResource Brush.Text.Primary}"
+                           Style="{StaticResource Style.Text.Title}"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
 
-                <!-- Info badge: network telemetry lives in its tooltip -->
+                <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard -->
                 <Border x:Name="SourceInfoBadge"
                         Focusable="True"
                         KeyboardNavigation.IsTabStop="True"
                         AutomationProperties.Name="Device network telemetry: IP, MAC, multicast"
                         Grid.Column="2"
-                        CornerRadius="10"
-                        Padding="6,1"
-                        Margin="6,0,0,0"
-                        Background="{DynamicResource Brush.Surface.Elevated}"
-                        BorderBrush="{DynamicResource Brush.Border.Default}"
-                        BorderThickness="1"
+                        Padding="4"
+                        Margin="2,0,0,0"
+                        Background="Transparent"
                         Cursor="Help"
                         VerticalAlignment="Center">
                     <Border.ToolTip>
                         <TextBlock>
-                            <Run Text="IP: " /><Run Text="{Binding IpAddress, Mode=OneWay}" /><Run Text=" · MAC: " /><Run Text="{Binding MacAddress, Mode=OneWay}" /><Run Text=" · MCAST: " /><Run Text="{Binding PreviewMulticastIp, Mode=OneWay}" />
+                            <Run Text="IP: " /><Run Text="{Binding IpAddress, Mode=OneWay}" /><Run Text=" &#183; MAC: " /><Run Text="{Binding MacAddress, Mode=OneWay}" /><Run Text=" &#183; MCAST: " /><Run Text="{Binding PreviewMulticastIp, Mode=OneWay}" />
                         </TextBlock>
                     </Border.ToolTip>
-                    <TextBlock Text="ⓘ"
-                               FontSize="12"
-                               Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <ui:SymbolIcon Symbol="Info24"
+                                   FontSize="{StaticResource Size.Icon.S}"
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
                 </Border>
 
                 <!-- Link Mode Badge (Dual Link only) -->
-                <Border Grid.Column="3"
-                        Margin="6,0,0,0"
-                        CornerRadius="4"
-                        Padding="6,2"
-                        BorderThickness="1"
-                        Background="{DynamicResource Brush.Surface.RoutedBadge}"
-                        BorderBrush="{DynamicResource Brush.Border.RoutedBadge}"
-                        VerticalAlignment="Center">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsDualLink, Mode=OneWay}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="DUAL LINK"
-                               FontSize="10"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Brush.Text.OnRoutedBadge}" />
-                </Border>
+                <ui:Badge Grid.Column="3"
+                          Margin="6,0,0,0"
+                          Style="{StaticResource Style.Badge.Info}"
+                          Visibility="{Binding IsDualLink, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                    <TextBlock Text="DUAL LINK" />
+                </ui:Badge>
 
                 <!-- Online / Offline Badge -->
-                <Border Grid.Column="4"
-                        Margin="6,0,0,0"
-                        CornerRadius="4"
-                        Padding="6,2"
-                        BorderThickness="1"
-                        VerticalAlignment="Center">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource Brush.Surface.OnlineBadge}" />
-                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.OnlineBadge}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock FontSize="10" FontWeight="SemiBold">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="OFFLINE" />
-                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsActive, Mode=OneWay}" Value="True">
-                                        <Setter Property="Text" Value="ONLINE" />
-                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Online}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Border>
+                <ui:Badge Grid.Column="4"
+                          Margin="6,0,0,0"
+                          Style="{StaticResource Style.Badge.Online}"
+                          Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                    <TextBlock Text="ONLINE" />
+                </ui:Badge>
+                <ui:Badge Grid.Column="4"
+                          Margin="6,0,0,0"
+                          Style="{StaticResource Style.Badge.Offline}"
+                          Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
+                    <TextBlock Text="OFFLINE" />
+                </ui:Badge>
             </Grid>
 
             <!-- Live Video Preview Surface -->
@@ -172,31 +104,19 @@
 
                     <!-- Non-AVAS Device: Preview not supported banner -->
                     <StackPanel VerticalAlignment="Center"
-                                HorizontalAlignment="Center">
-                        <StackPanel.Style>
-                            <Style TargetType="StackPanel">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </StackPanel.Style>
+                                HorizontalAlignment="Center"
+                                Visibility="{Binding ShowUnsupported, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                         <Path Data="{StaticResource Icon.Video}"
-                              Fill="{DynamicResource Brush.Text.Muted}"
-                              Width="22" Height="22"
-                              Stretch="Uniform"
-                              HorizontalAlignment="Center"
+                              Style="{StaticResource Style.Icon.Placeholder}"
                               Opacity="0.4" />
                         <TextBlock Text="Preview not supported"
-                                   FontSize="11"
+                                   Style="{StaticResource Style.Text.Caption}"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource Brush.Text.OnPreview}"
                                    HorizontalAlignment="Center"
                                    Margin="0,6,0,0" />
                         <TextBlock Text="Non-AVAS Device"
-                                   FontSize="10"
+                                   Style="{StaticResource Style.Text.Caption}"
                                    Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                    HorizontalAlignment="Center"
                                    Margin="0,2,0,0" />
@@ -205,28 +125,12 @@
                     <!-- AVAS Standby placeholder if supported but not streaming -->
                     <StackPanel VerticalAlignment="Center"
                                 HorizontalAlignment="Center"
-                                Opacity="0.4">
-                        <StackPanel.Style>
-                            <Style TargetType="StackPanel">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True" />
-                                            <Condition Binding="{Binding IsStreaming, Mode=OneWay}" Value="False" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </StackPanel.Style>
+                                Opacity="0.4"
+                                Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                         <Path Data="{StaticResource Icon.Video}"
-                              Fill="{DynamicResource Brush.Text.Muted}"
-                              Width="24" Height="24"
-                              Stretch="Uniform"
-                              HorizontalAlignment="Center" />
+                              Style="{StaticResource Style.Icon.Placeholder}" />
                         <TextBlock Text="Preview Standby"
-                                   FontSize="10"
+                                   Style="{StaticResource Style.Text.Caption}"
                                    Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                    HorizontalAlignment="Center"
                                    Margin="0,4,0,0" />
@@ -244,28 +148,12 @@
                                 CornerRadius="4"
                                 Padding="6,2"
                                 Margin="0,0,6,0"
-                                VerticalAlignment="Center">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="0">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Status.StagedChipText}">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="{Binding UsedInBlocks, Mode=OneWay, StringFormat='in {0} blocks'}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="1">
-                                                <Setter Property="Text" Value="in 1 block" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                                VerticalAlignment="Center"
+                                Visibility="{Binding HasUsage, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <TextBlock Text="{Binding UsedInText, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource Brush.Status.StagedChipText}" />
                         </Border>
 
                         <!-- Tapped to place: the ring alone is colour, so it also says so -->
@@ -274,177 +162,90 @@
                                 BorderThickness="1"
                                 CornerRadius="4"
                                 Padding="6,2"
-                                VerticalAlignment="Center">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="Placing" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
+                                VerticalAlignment="Center"
+                                Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <TextBlock Text="Placing" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
                         </Border>
 
                         <!-- Tap / drag hint (gives way to the badges: the card is narrow) -->
                         <Border Background="{DynamicResource Brush.Surface.Elevated}"
                                 CornerRadius="4"
                                 Padding="6,3"
-                                VerticalAlignment="Center">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="TAP OR DRAG TO ROUTE"
-                                       FontSize="9"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource Brush.Text.Secondary}" />
+                                VerticalAlignment="Center"
+                                Visibility="{Binding ShowTapHint, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <TextBlock Text="TAP OR DRAG TO ROUTE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Secondary}" />
                         </Border>
                     </StackPanel>
                 </Grid>
             </Border>
 
             <!-- Touch-safe footer: stream state on the left, stream controls on the right -->
-            <Grid Grid.Row="2" Margin="0,8,0,0" MinHeight="36">
+            <Grid Grid.Row="2" Margin="0,8,0,0" MinHeight="{StaticResource Size.Touch.Compact}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
-                           FontSize="12"
-                           Foreground="{DynamicResource Brush.Text.Secondary}"
-                           VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="PREVIEW PAUSED" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False">
-                                    <Setter Property="Text" Value="EXTERNAL SOURCE" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsStreaming, Mode=OneWay}" Value="True">
-                                    <Setter Property="Text" Value="{Binding Fps, Mode=OneWay, StringFormat='{}{0:F1} FPS'}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                           Text="{Binding StreamStatusText, Mode=OneWay}"
+                           Style="{StaticResource Style.Text.Caption}"
+                           VerticalAlignment="Center" />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="RefreshStreamButton"
                             Command="{Binding RefreshPreviewCommand, Mode=OneWay}"
+                            Style="{StaticResource Style.Button.Secondary}"
                             ToolTip="Force preview reset &amp; restart"
-                            MinHeight="36"
-                            Padding="10,6"
-                            FontSize="12"
+                            MinHeight="{StaticResource Size.Touch.Compact}"
+                            Padding="10,4"
                             IsTabStop="True"
-                            Content="↻ Refresh">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Secondary}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                            Visibility="{Binding ShowRefresh, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowSync24" Style="{StaticResource Style.Icon.Action}" />
+                            <TextBlock Text="Refresh" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
                     <Button x:Name="StopStreamButton"
                             Command="{Binding StopPreviewCommand, Mode=OneWay}"
+                            Style="{StaticResource Style.Button.Unroute}"
                             ToolTip="Stop Preview Stream"
-                            MinHeight="36"
-                            Padding="10,6"
-                            FontSize="12"
+                            MinHeight="{StaticResource Size.Touch.Compact}"
+                            Padding="10,4"
                             Margin="8,0,0,0"
                             IsTabStop="True"
-                            Content="■ Stop">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Unroute}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsStreaming, Mode=OneWay}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                            Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Stop24" Style="{StaticResource Style.Icon.Action}" />
+                            <TextBlock Text="Stop" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
                     <Button x:Name="StartStreamButton"
                             Command="{Binding StartPreviewCommand, Mode=OneWay}"
+                            Style="{StaticResource Style.Button.Primary}"
                             ToolTip="Start Preview Stream"
-                            MinHeight="36"
-                            Padding="10,6"
-                            FontSize="12"
+                            MinHeight="{StaticResource Size.Touch.Compact}"
+                            Padding="10,4"
                             Margin="8,0,0,0"
                             IsTabStop="True"
-                            Content="▶ Start">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource Style.Button.Primary}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="True" />
-                                            <Condition Binding="{Binding IsStreaming, Mode=OneWay}" Value="False" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                            Visibility="{Binding ShowStart, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Play24" Style="{StaticResource Style.Icon.Action}" />
+                            <TextBlock Text="Start" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
                 </StackPanel>
             </Grid>
         </Grid>
-    </Border>
+    </ui:Card>
 
     <!-- Keyboard focus: a 2 px ring just inside the edge (inside the armed ring), drawn here so it also renders -->
     <Border x:Name="FocusRing"
-            Margin="3"
-            BorderBrush="{DynamicResource Brush.Focus.Ring}"
-            BorderThickness="2"
-            CornerRadius="6"
-            IsHitTestVisible="False">
-        <Border.Style>
-            <Style TargetType="Border">
-                <Setter Property="Visibility" Value="Collapsed" />
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding (views:InputModality.ShowsFocus), RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}" Value="True">
-                        <Setter Property="Visibility" Value="Visible" />
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-        </Border.Style>
-    </Border>
+            Style="{StaticResource Style.Ring.Focus}"
+            Visibility="{Binding (views:InputModality.ShowsFocus), RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
 
     <!-- Armed ring (cyan, spec 9), drawn over the card edge so the card does not move -->
     <Border x:Name="ArmedRing"
-            BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-            BorderThickness="3"
-            CornerRadius="8"
-            IsHitTestVisible="False">
-        <Border.Style>
-            <Style TargetType="Border">
-                <Setter Property="Visibility" Value="Collapsed" />
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding IsArmed, Mode=OneWay}" Value="True">
-                        <Setter Property="Visibility" Value="Visible" />
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-        </Border.Style>
-    </Border>
+            Style="{StaticResource Style.Ring.Armed}"
+            Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
     </Grid>
 </UserControl>

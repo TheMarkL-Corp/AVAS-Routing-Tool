@@ -236,7 +236,6 @@ namespace AvasRoutingTool.Tests
                     var picture = (FrameworkElement)Named(FindAll<DisplayCardView>(view).Single(), "PreviewSurface").Single();
                     var visibleCards = FindAll<SourceCardView>(view).Where(s => s.IsVisible).ToList();
                     Assert.NotEmpty(visibleCards);
-                    Assert.Empty(FindAll<LayoutsBarView>(view));
                     double room = scroll.ViewportHeight;
                     double cardHeight = visibleCards[0].ActualHeight;
 
@@ -291,6 +290,22 @@ namespace AvasRoutingTool.Tests
                 {
                     Motion.AnnounceObserver = null;
                 }
+            });
+
+        [Fact]
+        public void Overview_HasNoLayoutsBar() =>
+            RunSta(() =>
+            {
+                // D5: the bottom bar is gone; layouts live in each display card's Layout menu.
+                Assert.Null(typeof(VisualRoutingView).Assembly.GetType("AvasRoutingTool.Views.LayoutsBarView"));
+
+                var (vm, _, _) = Overview();
+                var view = new VisualRoutingView { DataContext = vm };
+                Showing(view, () =>
+                {
+                    Assert.Empty(Named(view, "LayoutTile"));
+                    Assert.Empty(Named(view, "LayoutTileTitle"));
+                });
             });
     }
 }

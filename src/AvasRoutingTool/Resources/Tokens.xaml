@@ -28,6 +28,10 @@
     <sys:Double x:Key="Size.Card.Row.Header">24</sys:Double>
     <sys:Double x:Key="Size.Card.Row.ActionBar">56</sys:Double>
     <sys:Double x:Key="Size.Card.Row.Dock">64</sys:Double>
+    <!-- The same rows as GridLength, for RowDefinition.Height (a Double cannot be assigned to a GridLength) -->
+    <GridLength x:Key="Size.Card.RowLength.Header">24</GridLength>
+    <GridLength x:Key="Size.Card.RowLength.ActionBar">56</GridLength>
+    <GridLength x:Key="Size.Card.RowLength.Dock">64</GridLength>
 
     <!-- Main window and app bar -->
     <sys:Double x:Key="Size.AppBar.Height">56</sys:Double>

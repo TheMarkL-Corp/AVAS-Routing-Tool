@@ -1,0 +1,53 @@
+<UserControl x:Class="AvasRoutingTool.Views.BrandMark"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="False"
+             Focusable="False">
+
+    <!--
+        Brand mark (static icon, allowlisted in UiV2Guards.allowlist.json): tile content of the P1B ('AV' Clasp) mark.
+        A 64 x 64 design canvas inside a Viewbox, so the host (the app bar's BrandLogo) sets the size. Geometry and gradients are
+        the Icon.Logo.* / Brush.Logo.* resources, which match Assets/AppIcon.ico.
+    -->
+    <Viewbox>
+        <Canvas Width="64" Height="64">
+            <!-- Upward Chevron "A" (Cyan to Sky Blue Gradient) -->
+            <Path Data="{StaticResource Icon.Logo.AChevron}"
+                  Stroke="{DynamicResource Brush.Logo.AChevron}"
+                  StrokeThickness="4"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+
+            <!-- Downward Chevron "V" (Cobalt Blue Gradient) -->
+            <Path Data="{StaticResource Icon.Logo.VChevron}"
+                  Stroke="{DynamicResource Brush.Logo.VChevron}"
+                  StrokeThickness="4"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+
+            <!-- Horizontal Routing Stream Bus (Left Input, Right Output) -->
+            <Path Data="{StaticResource Icon.Logo.StreamIn}"
+                  Stroke="{DynamicResource Brush.Logo.StreamIn}"
+                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            <Ellipse Canvas.Left="7" Canvas.Top="30" Width="4" Height="4" Fill="{DynamicResource Brush.Logo.StreamIn}" />
+
+            <Path Data="{StaticResource Icon.Logo.StreamOut}"
+                  Stroke="{DynamicResource Brush.Logo.StreamOut}"
+                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            <Ellipse Canvas.Left="53" Canvas.Top="30" Width="4" Height="4" Fill="{DynamicResource Brush.Logo.StreamOut}" />
+
+            <!-- Central Surgical Cross Core Node -->
+            <Border Canvas.Left="26" Canvas.Top="26" Width="12" Height="12" CornerRadius="3"
+                    Background="{DynamicResource Brush.Accent.Primary}"
+                    BorderBrush="{DynamicResource Brush.Text.OnAction}"
+                    BorderThickness="1.2">
+                <Path Data="{StaticResource Icon.Logo.Cross}"
+                      Stroke="{DynamicResource Brush.Text.OnAction}"
+                      StrokeThickness="1.8"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            </Border>
+
+            <!-- Chevrons Apex Accents -->
+            <Ellipse Canvas.Left="30" Canvas.Top="11" Width="4" Height="4" Fill="{DynamicResource Brush.Text.OnAction}" />
+            <Ellipse Canvas.Left="30" Canvas.Top="49" Width="4" Height="4" Fill="{DynamicResource Brush.Text.OnAction}" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

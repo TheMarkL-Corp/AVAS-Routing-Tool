@@ -4,12 +4,6 @@
 
   // Every view file that breaks a rule today -> owner and task (plan task ids). A file is enforced as soon as it leaves this list.
   "pending": {
-    "MainWindow.xaml": "Main Window session: A5 (app bar, brand), A6 (Logs)",
-    "Views/VisualRoutingView.xaml": "Main Window session: A7",
-    "Views/SourceCardView.xaml": "Main Window session: A8",
-    "Views/DisplayCardView.xaml": "Main Window session: A9-A11",
-    "Views/SettingsDialog.xaml": "Main Window session: A12",
-    "Views/LayoutsBarView.xaml": "Main Window session: A2 (file is deleted, D5)",
     "Views/MultiViewComposerView.xaml": "Composer session: Tasks 4-10 (ratchet until Task 12)",
     "Views/CompactSourceCardView.xaml": "Composer session: Task 11",
     "Views/LayoutSchematic.xaml": "Composer session: Tasks 5b and 11"
@@ -17,12 +11,18 @@
 
   // An element with a literal Width/Height that is a vector icon host (brand mark canvas, geometry placeholders).
   // { "file": "MainWindow.xaml", "contains": "<text of the element's opening tag>", "reason": "why a token cannot do" }
-  "staticIcons": [],
+  "staticIcons": [
+    { "file": "Views/BrandMark.xaml", "contains": "<Canvas Width=\"64\" Height=\"64\"", "reason": "Design canvas of the brand mark; a Viewbox scales it to the host (Size.Icon.Brand)." },
+    { "file": "Views/BrandMark.xaml", "contains": "Width=\"4\" Height=\"4\"", "reason": "Dots of the brand mark, in the 64 x 64 design canvas." },
+    { "file": "Views/BrandMark.xaml", "contains": "Width=\"12\" Height=\"12\"", "reason": "Core node of the brand mark, in the 64 x 64 design canvas." }
+  ],
 
   // A ListBox / ListView / DataGrid that is NOT virtualized. The card grids are ItemsControls (not covered by the rule) and stay
   // unvirtualized on purpose: each card owns a live RTP preview, so a card must stay realized (D11, zero socket leaks).
   "unvirtualizedLists": [],
 
   // An inline Style without BasedOn that cannot be a central style (for example RowDefinition.Style, an ItemContainerStyle).
-  "inlineStyleExceptions": []
+  "inlineStyleExceptions": [
+    { "file": "Views/VisualRoutingView.xaml", "contains": "<Style TargetType=\"RowDefinition\">", "reason": "A RowDefinition is not an element: it cannot bind to the view model or use a converter instance, so the Sources row (2* in the overview, Auto while composing) needs this one style." }
+  ]
 }

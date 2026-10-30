@@ -128,6 +128,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The MultiView Composer that is open (one at a time), or null. It replaces the Displays row while open.</summary>
         public MultiViewComposerViewModel? ActiveComposer => _composer;
 
+        /// <summary>A Composer is open: it replaces the Displays row and the Sources row shrinks to the compact palette.</summary>
+        public bool IsComposing => _composer != null;
+
         /// <summary>
         /// The source tapped to place. In the overview a tap on a display routes it (Single View); while the Composer
         /// is open this is the Composer's armed source (one state, mirrored).
@@ -136,6 +139,9 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>The display whose "Copy layout" is armed (tap a display to copy onto it), or null. One armed thing at a time.</summary>
         public DisplayCardViewModel? ArmedDisplay => _armedDisplay;
+
+        /// <summary>An arm banner shows: a source is armed (placing) or a display is armed (copying).</summary>
+        public bool HasArmBanner => ArmBannerText != null || CopyArmBanner != null;
 
         /// <summary>
         /// The arm banner while a display is armed for copying: "Copying RX1 - Matrix 2x2. Tap a display. Tap Copy layout again to stop."
@@ -188,7 +194,7 @@ namespace AvasRoutingTool.ViewModels
         public bool IsLightMode => ThemeService.EffectiveTheme == ThemeMode.Light;
 
         /// <summary>Names the theme that is showing now (not the one a click switches to).</summary>
-        public string ThemeButtonLabel => IsLightMode ? "☀️  Light" : "🌙  Dark";
+        public string ThemeButtonLabel => IsLightMode ? "Light" : "Dark";
 
         public string ThemeButtonToolTip => IsLightMode
             ? "Current theme: Clinical Light. Click to switch to Slate Dark."
@@ -751,6 +757,7 @@ namespace AvasRoutingTool.ViewModels
             composer.PropertyChanged += OnComposerPropertyChanged;
             _draftSignature = Signature(composer.Draft);
             OnPropertyChanged(nameof(ActiveComposer));
+            OnPropertyChanged(nameof(IsComposing));
             AppLogger.Info("COMPOSER", $"Composer opened for '{d.DeviceName}'{(resume != null ? $" on {resume.Plan.Id}" : string.Empty)}.");
 
             await StageAndArmAsync(composer, layoutId, toArm);
@@ -798,6 +805,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var s in Sources) s.UsedInBlocks = 0;
             SetArmed(null);
             OnPropertyChanged(nameof(ActiveComposer));
+            OnPropertyChanged(nameof(IsComposing));
             AppLogger.Info("COMPOSER", $"Composer closed for '{d.DeviceName}'{(d.HasDraft ? "; draft kept" : string.Empty)}.");
         }
 
@@ -1089,6 +1097,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 OnPropertyChanged(nameof(ArmedSource));
                 OnPropertyChanged(nameof(ArmBannerText));
+                OnPropertyChanged(nameof(HasArmBanner));
             }
         }
 
@@ -1159,6 +1168,7 @@ namespace AvasRoutingTool.ViewModels
             d.SetCopySource(true);
             OnPropertyChanged(nameof(ArmedDisplay));
             OnPropertyChanged(nameof(CopyArmBanner));
+            OnPropertyChanged(nameof(HasArmBanner));
             RaiseCopyOrChoice();
 
             var toRead = Displays.Where(o => o.IsActive && !ReferenceEquals(o, d)).ToList();
@@ -1172,6 +1182,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var (key, edid) in read) _copyEdids[key] = edid;
             RefreshCopyTargets();
             OnPropertyChanged(nameof(CopyArmBanner));
+            OnPropertyChanged(nameof(HasArmBanner));
             AppLogger.Info("COPY", $"'{d.DeviceName}' armed for copying ({read.Count} display(s) read).");
         }
 
@@ -1192,6 +1203,7 @@ namespace AvasRoutingTool.ViewModels
             if (was == null) return;
             OnPropertyChanged(nameof(ArmedDisplay));
             OnPropertyChanged(nameof(CopyArmBanner));
+            OnPropertyChanged(nameof(HasArmBanner));
             RaiseCopyOrChoice();
         }
 

@@ -43,6 +43,23 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
     </Style>
 
+    <!-- Log level in the Logs list: Tag="{Binding Level}"; Info is the accent, Warn / Error / Debug follow the palette -->
+    <Style x:Key="Style.Text.LogLevel" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Mono}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Warn">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Staged}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Action.Danger}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Debug">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- MultiView Composer: body and label text (14 px, >= 4.5:1 on the card and background colours) -->
     <Style x:Key="Style.Text.ComposerLabel" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
