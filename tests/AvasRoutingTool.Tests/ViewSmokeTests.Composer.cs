@@ -23,7 +23,7 @@ namespace AvasRoutingTool.Tests
     public partial class ViewSmokeTests
     {
         [Fact]
-        public void Composer_Step1_RendersFourSchematicTiles() =>
+        public void Composer_Step1_RendersFiveSchematicTiles() =>
             RunSta(() =>
             {
                 var rig = new ComposerRig();
@@ -32,12 +32,12 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible).ToList();
-                    Assert.Equal(new[] { "matrix2x2", "pip", "side_by_side", "quad_1_3" }, schematics.Select(s => s.LayoutId));
-                    Assert.Equal(new[] { 4, 2, 2, 4 }, schematics.Select(s => s.CellCount));
+                    Assert.Equal(new[] { "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3" }, schematics.Select(s => s.LayoutId));
+                    Assert.Equal(new[] { 4, 2, 2, 2, 4 }, schematics.Select(s => s.CellCount));
                     Assert.All(schematics, s => Assert.True(s.ActualWidth >= 100 && s.ActualHeight >= 56, $"schematic {s.ActualWidth}x{s.ActualHeight}"));
 
                     var tiles = Named(view, "LayoutTile").Where(t => t.IsVisible).ToList();
-                    Assert.Equal(4, tiles.Count);
+                    Assert.Equal(5, tiles.Count);
                     Assert.All(tiles, t => Assert.True(t.ActualWidth >= 200 && t.ActualHeight >= 96, $"tile {t.ActualWidth}x{t.ActualHeight}"));
                     AssertVisibleText(view, "Step 1");
                 });
@@ -689,7 +689,7 @@ namespace AvasRoutingTool.Tests
                     // Back to displays, the four layout tiles (left rail), ONE block (the canvas), then Discard, Clear all and Take last (right rail).
                     Assert.Equal(new[]
                     {
-                        "CloseComposerButton", "LayoutTile", "LayoutTile", "LayoutTile", "LayoutTile",
+                        "CloseComposerButton", "LayoutTile", "LayoutTile", "LayoutTile", "LayoutTile", "LayoutTile",
                         "BlockSurface", "DiscardButton", "ClearAllButton", "TakeButton",
                     }, order);
                 });
@@ -1588,7 +1588,7 @@ namespace AvasRoutingTool.Tests
                 {
                     var central = Application.Current.FindResource("Style.Button.ComposerLayoutOption");
                     var tiles = Named(view, "LayoutTile").Where(t => t.IsVisible).Cast<Button>().ToList();
-                    Assert.Equal(4, tiles.Count);
+                    Assert.Equal(5, tiles.Count);
                     Assert.All(tiles, t =>
                     {
                         Assert.Same(central, t.Style);
@@ -1598,7 +1598,7 @@ namespace AvasRoutingTool.Tests
 
                     // the schematic fills its column: 88-125 px at the 240 px rail, and its picture keeps 16:9
                     var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible).ToList();
-                    Assert.Equal(4, schematics.Count);
+                    Assert.Equal(5, schematics.Count);
                     foreach (var s in schematics)
                     {
                         Assert.InRange(s.ActualWidth, 88, 125);

@@ -15,7 +15,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         private const int MinWindowSize = 8;
         private static readonly int[] ForbiddenWidths = { 1366, 1368, 2732, 2734, 4098, 4100 };
 
-        public static readonly IReadOnlyList<string> Ids = new[] { "matrix2x2", "pip", "side_by_side", "quad_1_3" };
+        public static readonly IReadOnlyList<string> Ids = new[] { "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3" };
 
         public static bool IsMultiView(string? id) =>
             id != null && Ids.Contains(id, StringComparer.OrdinalIgnoreCase);
@@ -96,6 +96,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 "matrix2x2" => Matrix(canvasWidth, canvasHeight),
                 "side_by_side" => SideBySide(canvasWidth, canvasHeight),
                 "pip" => Pip(canvasWidth, canvasHeight, insetWidth),
+                "pip_large" => Pip(canvasWidth, canvasHeight, insetWidth ?? Even(Fit(canvasWidth, canvasHeight, 1, 1).cw / 3.0)),
                 _ => Quad(canvasWidth, canvasHeight),
             };
 

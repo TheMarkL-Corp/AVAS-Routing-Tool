@@ -197,7 +197,7 @@ namespace AvasRoutingTool.Tests
         {
             var rig = new Rig();
             await rig.Vm.RouteVideoAsync(rig.Tx1Vm.Device, rig.Rx);
-            Assert.Equal(new[] { "single", "matrix2x2", "pip", "side_by_side", "quad_1_3", "off" },
+            Assert.Equal(new[] { "single", "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3", "off" },
                 rig.RxVm.LayoutMenu.Select(l => l.Id));
             Assert.Equal("Matrix 2x2", rig.RxVm.LayoutMenu[1].Title);
             rig.RxVm.IsLayoutMenuOpen = true;

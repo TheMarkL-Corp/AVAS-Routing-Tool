@@ -41,7 +41,7 @@ namespace AvasRoutingTool.ViewModels
         }
 
         /// <summary>
-        /// New instances of every layout the tool offers, in the bottom bar's order (Off, Single View, the four
+        /// New instances of every layout the tool offers, in the bottom bar's order (Off, Single View, the
         /// MultiView presets). One list per owner: selection state is not shared between the bar and the cards.
         /// </summary>
         public static System.Collections.Generic.IReadOnlyList<LayoutItemViewModel> CreateCatalog() => new[]
@@ -50,6 +50,7 @@ namespace AvasRoutingTool.ViewModels
             new LayoutItemViewModel { Id = "single", Title = "Single View", Subtitle = "Full screen (1:1)", IsAvailable = true },
             new LayoutItemViewModel { Id = "matrix2x2", Title = "Matrix 2x2", Subtitle = "4-quad grid", IsAvailable = true },
             new LayoutItemViewModel { Id = "pip", Title = "PIP", Subtitle = "Picture-in-picture", IsAvailable = true },
+            new LayoutItemViewModel { Id = "pip_large", Title = "PIP Large", Subtitle = "Inset a third wide", IsAvailable = true },
             new LayoutItemViewModel { Id = "side_by_side", Title = "Side-by-Side", Subtitle = "Split dual view", IsAvailable = true },
             new LayoutItemViewModel { Id = "quad_1_3", Title = "1+3 Quad", Subtitle = "1 Master + 3 sub", IsAvailable = true },
         };
