@@ -81,7 +81,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 && string.CompareOrdinal(name, presetStart, preset + "_", 0, preset.Length + 1) == 0;
         }
 
-        public static MultiViewLayoutPlan Build(string id, int canvasWidth, int canvasHeight)
+        /// <summary>Label of the PiP inset block; <see cref="DraftValidator"/> lets it differ in size from other displays.</summary>
+        public const string InsetLabel = "Inset";
+
+        /// <param name="insetWidth">PiP only: the inset width (height follows 16:9); null keeps the canvas rule.</param>
+        public static MultiViewLayoutPlan Build(string id, int canvasWidth, int canvasHeight, int? insetWidth = null)
         {
             if (!IsMultiView(id))
                 throw new ArgumentException($"'{id}' is not a multiview layout.", nameof(id));
@@ -91,7 +95,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             {
                 "matrix2x2" => Matrix(canvasWidth, canvasHeight),
                 "side_by_side" => SideBySide(canvasWidth, canvasHeight),
-                "pip" => Pip(canvasWidth, canvasHeight),
+                "pip" => Pip(canvasWidth, canvasHeight, insetWidth),
                 _ => Quad(canvasWidth, canvasHeight),
             };
 
@@ -144,18 +148,19 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             };
         }
 
-        private static Rect[] Pip(int w, int h)
+        private static Rect[] Pip(int w, int h, int? insetWidth)
         {
             var (cw, ch, ox, oy) = Fit(w, h, 1, 1);
             // A 4K canvas gets a fixed 1280x720 inset (a standard-surface size); other canvases keep a quarter of the width.
+            // An explicit insetWidth overrides both.
             bool fixedInset = w == 3840 && h == 2160;
-            int iw = fixedInset ? 1280 : Even(cw / 4.0);
-            int ih = fixedInset ? 720 : Even(iw * 9.0 / 16.0);
+            int iw = insetWidth.HasValue ? Even(insetWidth.Value) : fixedInset ? 1280 : Even(cw / 4.0);
+            int ih = insetWidth.HasValue || !fixedInset ? Even(iw * 9.0 / 16.0) : 720;
             int margin = Even(cw / 48.0);
             // Reference PiP: background is window 1, inset is window 0 (lower index paints on top).
             return new[]
             {
-                new Rect(0, "Inset", ox + cw - iw - margin, oy + ch - ih - margin, iw, ih),
+                new Rect(0, InsetLabel, ox + cw - iw - margin, oy + ch - ih - margin, iw, ih),
                 new Rect(1, "Main", ox, oy, cw, ch),
             };
         }

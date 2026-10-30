@@ -55,6 +55,45 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void Validate_PipInsetAtAnotherSizeOnAnotherDisplay_IsFine()
+        {
+            var draft = DraftOf("pip");
+            draft.Place(0, "tx2", "TX2");
+            var others = new[] { new OtherDisplayUse("RX1", "tx2", 1920, 1080) };
+
+            Assert.Empty(DraftValidator.Validate(draft, others, _ => true));
+        }
+
+        [Fact]
+        public void Validate_PipMainWindowAtAnotherSizeOnAnotherDisplay_IsStillFlagged()
+        {
+            var draft = DraftOf("pip");
+            draft.Place(1, "tx2", "TX2");
+            var others = new[] { new OtherDisplayUse("RX1", "tx2", 960, 540) };
+
+            Assert.Single(DraftValidator.Validate(draft, others, _ => true));
+        }
+
+        [Fact]
+        public void Validate_BlockAtAnotherSizeThanAnInsetOnAnotherDisplay_IsFine()
+        {
+            var draft = DraftOf("matrix2x2");
+            draft.Place(0, "tx2", "TX2");
+            var others = new[] { new OtherDisplayUse("RX2", "tx2", 480, 270, IsInset: true) };
+
+            Assert.Empty(DraftValidator.Validate(draft, others, _ => true));
+        }
+
+        [Fact]
+        public void CanPlace_PipInsetAtAnotherSize_IsAccepted()
+        {
+            var draft = DraftOf("pip");
+            var others = new[] { new OtherDisplayUse("RX1", "tx2", 1920, 1080) };
+
+            Assert.True(DraftValidator.CanPlace(draft, 0, "tx2", "TX2", others, _ => true).Ok);
+        }
+
+        [Fact]
         public void Validate_OtherDisplayMacsAreNormalised()
         {
             var draft = DraftOf("matrix2x2");

@@ -85,6 +85,31 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void Pip_WithInsetWidth_At1080p_InsetIs640x360AtTheBottomRightMargin()
+        {
+            var plan = MultiViewPresets.Build("pip", 1920, 1080, insetWidth: 640);
+
+            Assert.Equal((1920 - 640 - 40, 1080 - 360 - 40, 640, 360), Rect(plan.Slots.Single(s => s.Index == 0)));
+            Assert.Equal((0, 0, 1920, 1080), Rect(plan.Slots.Single(s => s.Index == 1)));
+            Assert.Equal(1, plan.PaintOrder.First().Index);
+        }
+
+        [Fact]
+        public void Pip_WithInsetWidth_OverridesTheFourKFixedInset()
+        {
+            var plan = MultiViewPresets.Build("pip", 3840, 2160, insetWidth: 960);
+
+            var inset = plan.Slots.Single(s => s.Index == 0);
+            Assert.Equal((960, 540), (inset.Width, inset.Height));
+        }
+
+        [Fact]
+        public void Pip_WithInsetWidthLargerThanTheCanvas_IsRefused()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => MultiViewPresets.Build("pip", 1920, 1080, insetWidth: 2000));
+        }
+
+        [Fact]
         public void Pip_AtFourK_InsetIsAFixed1280x720AtTheBottomRightMargin()
         {
             var plan = MultiViewPresets.Build("pip", 3840, 2160);
