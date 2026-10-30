@@ -111,6 +111,30 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("On screen now: 4 blocks. Block 1 TX1; block 2 empty; block 3 empty; block 4 empty", vm.OnScreenSummary);
         }
 
+        [Fact]
+        public async Task LiveAspectRatio_FollowsTheLivePlan_AndDefaultsTo16x9()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            Assert.Equal(16.0 / 9.0, vm.LiveAspectRatio, 5); // nothing live yet
+
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            var live = rig.Mv.GetLive(rig.Rx)!;
+            Assert.Equal((double)live.Plan.Width / live.Plan.Height, vm.LiveAspectRatio, 5);
+
+            // a 16:10 panel: the canvas the plan is built for is 1920x1200, and the mini picture must follow it
+            var tall = new Rig();
+            tall.Client.DisplayEdid = TestEdids.Build((1920, 1200, 60, false));
+            var vm2 = await tall.Matrix();
+            vm2.Arm(tall.Tx1);
+            vm2.TapBlock(0);
+            await vm2.TakeAsync();
+            var live2 = tall.Mv.GetLive(tall.Rx)!;
+            Assert.Equal((double)live2.Plan.Width / live2.Plan.Height, vm2.LiveAspectRatio, 5);
+        }
+
         // ---- the 18 listed tests ----
 
         [Fact]

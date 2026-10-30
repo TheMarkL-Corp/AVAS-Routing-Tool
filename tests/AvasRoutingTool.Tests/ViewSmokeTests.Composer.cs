@@ -187,7 +187,8 @@ namespace AvasRoutingTool.Tests
                     var glyph = Named(clear[0], "CornerClearGlyph").Single();
                     Assert.Equal(32, glyph.ActualWidth);
                     Assert.Equal(32, glyph.ActualHeight);
-                    Assert.Contains(FindAll<TextBlock>(clear[0]), t => t.Text == "✕");
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.Dismiss24, FindAll<Wpf.Ui.Controls.SymbolIcon>(clear[0]).Single().Symbol);
+                    Assert.False(((Button)clear[0]).IsTabStop);
 
                     ((Button)clear[0]).Command.Execute(null);
                     Assert.Empty(c.Draft!.Placements);
@@ -364,7 +365,7 @@ namespace AvasRoutingTool.Tests
                 ShowingAt(view, 1008, 615, () =>
                 {
                     var undo = (Button)Named(view, "UndoButton").Single();
-                    Assert.True(undo.IsVisible && undo.ActualHeight >= 56);
+                    Assert.True(undo.IsVisible && undo.ActualHeight >= 48);
                     var ub = BoundsIn(undo, view);
                     Assert.True(ub.Bottom <= view.ActualHeight + 0.5, $"Undo at {ub}");
 
@@ -1455,10 +1456,17 @@ namespace AvasRoutingTool.Tests
                             Assert.Equal(onScrim, ((SolidColorBrush)tb.Foreground).Color);
                         }
 
-                        // 2. Completed StepDot checkmarks use Brush.Text.OnAction on Brush.Action.Take
-                        var checks = FindAll<TextBlock>(view).Where(t => t.Text == "✓" && t.IsVisible && t.Parent is Border { Width: 28, Height: 28 }).ToList(); // StepDots only, not the Success banner glyph
-                        Assert.NotEmpty(checks);
-                        Assert.All(checks, t => Assert.Equal(onAction, ((SolidColorBrush)t.Foreground).Color));
+                        // 2. Completed step headers use Brush.Text.OnAction on Brush.Action.Take
+                        var takeFill = ((SolidColorBrush)Application.Current.FindResource("Brush.Action.Take")).Color;
+                        var doneHeaders = FindAll<AvasRoutingTool.Controls.StepHeader>(view).Where(h => h.IsDone && h.IsVisible).ToList();
+                        Assert.NotEmpty(doneHeaders);
+                        foreach (var header in doneHeaders)
+                        {
+                            var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(header).Single(i => i.IsVisible);
+                            Assert.Equal(onAction, ((SolidColorBrush)icon.Foreground).Color);
+                            var marker = (Border)header.Template.FindName("Marker", header);
+                            Assert.Equal(takeFill, ((SolidColorBrush)marker.Background).Color);
+                        }
 
                         // 3. PickerPopup resting tiles use neutral Brush.Border.Control, not cyan DropTarget
                         var popup = (Popup)Named(view, "PickerPopup").Single();
@@ -1484,6 +1492,567 @@ namespace AvasRoutingTool.Tests
                 {
                     themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
                 }
+            });
+
+        // ---- UI v2 Task 5a: rails are token-clamped star columns ----
+
+        [Fact]
+        public void Composer_Rails_AreStarColumnsClampedByTokens() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                var leftMin = (double)Application.Current.FindResource("Size.Composer.Rail.Left.Min");
+                var leftMax = (double)Application.Current.FindResource("Size.Composer.Rail.Left.Max");
+                var rightMin = (double)Application.Current.FindResource("Size.Composer.Rail.Right.Min");
+                var rightMax = (double)Application.Current.FindResource("Size.Composer.Rail.Right.Max");
+                Assert.Equal((240d, 320d, 264d, 360d), (leftMin, leftMax, rightMin, rightMax));
+
+                var left = (ColumnDefinition)view.FindName("LeftRailColumn");
+                var right = (ColumnDefinition)view.FindName("RightRailColumn");
+                Assert.True(left.Width.IsStar && right.Width.IsStar, "the rails are star columns");
+                Assert.Equal(leftMin, left.MinWidth);
+                Assert.Equal(leftMax, left.MaxWidth);
+                Assert.Equal(rightMin, right.MinWidth);
+                Assert.Equal(rightMax, right.MaxWidth);
+
+                // 1024x720 floor: identical to the old narrow rails, the canvas keeps its 440 px
+                ShowingAt(view, 976, 600, () =>
+                {
+                    Assert.Equal(240, left.ActualWidth, 1);
+                    Assert.Equal(264, right.ActualWidth, 1);
+                    var canvas = Named(view, "CanvasHost").Single();
+                    Assert.InRange(canvas.ActualWidth, 420, 470); // the centre column minus its 16 px margins and the host margin
+                });
+
+                // In between the rails grow with the window instead of jumping at 1200
+                ShowingAt(view, 1100, 700, () =>
+                {
+                    Assert.InRange(left.ActualWidth, 250.5, leftMax - 0.5);
+                    Assert.InRange(right.ActualWidth, rightMin, rightMax);
+                });
+
+                // Full HD: both rails at their caps
+                ShowingAt(view, 1888, 800, () =>
+                {
+                    Assert.Equal(leftMax, left.ActualWidth, 1);
+                    Assert.Equal(rightMax, right.ActualWidth, 1);
+                });
+            });
+
+        [Fact]
+        public void Composer_At1920x1080_UsesTheFullHdSpace() =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[1]);
+                foreach (var b in c.Blocks.ToList()) c.TapBlock(b.Index);
+                c.Disarm();
+                var view = new VisualRoutingView { DataContext = vm };
+
+                // A maximized Window at 1920x1080 and 100%: the content area is about 1904 x 940 under the title bar and the app header.
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var composer = FindAll<MultiViewComposerView>(view).Single(v => v.IsVisible);
+                    var left = (ColumnDefinition)composer.FindName("LeftRailColumn");
+                    var right = (ColumnDefinition)composer.FindName("RightRailColumn");
+                    Assert.Equal(320, left.ActualWidth, 1);
+                    Assert.Equal(360, right.ActualWidth, 1);
+
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    Assert.True(take.IsVisible);
+                    var tr = BoundsIn(take, view);
+                    Assert.True(tr.Top >= 0 && tr.Bottom <= view.ActualHeight + 0.5, $"Take at {tr} in a {view.ActualHeight} high view");
+
+                    var blocks = Named(view, "BlockSurface").Where(e => e.IsVisible).ToList();
+                    Assert.Equal(4, blocks.Count);
+                    Assert.All(blocks, b => Assert.True(b.ActualWidth >= 480, $"block is {b.ActualWidth} wide"));
+                    var canvas = Named(view, "CanvasHost").Single();
+                    Assert.True(canvas.ActualWidth >= 1000 && canvas.ActualHeight >= 560, $"canvas host is {canvas.ActualWidth}x{canvas.ActualHeight}");
+                });
+            });
+
+        // ---- UI v2 Task 5b: central layout option style, proportional schematic ----
+
+        [Fact]
+        public void Composer_LayoutTile_UsesCentralStyle_KeepsPartBd_AndSchematicScales() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var central = Application.Current.FindResource("Style.Button.ComposerLayoutOption");
+                    var tiles = Named(view, "LayoutTile").Where(t => t.IsVisible).Cast<Button>().ToList();
+                    Assert.Equal(4, tiles.Count);
+                    Assert.All(tiles, t =>
+                    {
+                        Assert.Same(central, t.Style);
+                        Assert.IsType<Border>(t.Template.FindName("bd", t));
+                        Assert.True(t.ActualHeight >= (double)Application.Current.FindResource("Size.Composer.Tile.Min"), $"tile is {t.ActualHeight} high");
+                    });
+
+                    // the schematic fills its column: 88-125 px at the 240 px rail, and its picture keeps 16:9
+                    var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible).ToList();
+                    Assert.Equal(4, schematics.Count);
+                    foreach (var s in schematics)
+                    {
+                        Assert.InRange(s.ActualWidth, 88, 125);
+                        var panel = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(s).Single();
+                        Assert.InRange(panel.ActualWidth / panel.ActualHeight, 16.0 / 9.0 - 0.02, 16.0 / 9.0 + 0.02);
+                        Assert.InRange(s.ActualHeight, s.ActualWidth * 9 / 16 - 5, s.ActualWidth * 9 / 16 + 5);
+                    }
+
+                    // the selected tile says so with a check icon and the word, not colour alone
+                    var selected = tiles.Single(t => ((ComposerLayoutOptionViewModel)t.DataContext).IsSelected);
+                    var row = FindAll<StackPanel>(selected).Single(p => p.Name == "SelectedRow");
+                    Assert.True(row.IsVisible);
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.Checkmark24, FindAll<Wpf.Ui.Controls.SymbolIcon>(row).Single().Symbol);
+                    Assert.Contains(FindAll<TextBlock>(row), t => t.Text == "Selected");
+                    foreach (var other in tiles.Where(t => t != selected))
+                        Assert.False(FindAll<StackPanel>(other).Single(p => p.Name == "SelectedRow").IsVisible);
+                });
+            });
+
+        [Fact]
+        public void LayoutSchematic_CellNumbers_AreAtLeast12() =>
+            RunSta(() =>
+            {
+                TestResources.Ensure();
+                var schematic = new LayoutSchematic { LayoutId = "matrix2x2", Width = 120 };
+                var window = new Window { Content = schematic, SizeToContent = SizeToContent.WidthAndHeight, ShowInTaskbar = false, WindowStyle = WindowStyle.None, Left = -10000 };
+                window.Show();
+                try
+                {
+                    Relayout(schematic);
+                    var numbers = FindAll<TextBlock>(schematic).Where(t => t.IsVisible).ToList();
+                    Assert.NotEmpty(numbers);
+                    Assert.All(numbers, t => Assert.True(t.FontSize >= 12, $"schematic text is {t.FontSize}"));
+                    var off = new LayoutSchematic { LayoutId = "off", Width = 120 };
+                    window.Content = off;
+                    Relayout(off);
+                    Assert.All(FindAll<TextBlock>(off).Where(t => t.IsVisible), t => Assert.True(t.FontSize >= 12));
+                }
+                finally { window.Close(); }
+            });
+
+        // ---- UI v2 Task 6: header, rail cards, status line ----
+
+        [Fact]
+        public void Composer_BackButton_HasArrowIcon_AndKeepsName() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                Showing(view, () =>
+                {
+                    var back = (Button)Named(view, "CloseComposerButton").Single();
+                    Assert.Equal("Back to displays", AutomationProperties.GetName(back));
+                    Assert.True(back.ActualHeight >= 48);
+                    var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(back).Single();
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.ArrowLeft24, icon.Symbol);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.FontSize);
+                    Assert.Contains(FindAll<TextBlock>(back), t => t.Text == "Back to displays");
+                });
+            });
+
+        [Fact]
+        public void Composer_RailCards_AreUiCards_WithAppBackground() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                Showing(view, () =>
+                {
+                    var cards = FindAll<Wpf.Ui.Controls.Card>(view);
+                    Assert.Equal(2, cards.Count); // ON SCREEN NOW and CHANGES
+                    var surface = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Card")).Color;
+                    Assert.All(cards, c =>
+                    {
+                        Assert.Same(Application.Current.FindResource("Style.Card.Rail"), c.Style);
+                        Assert.Equal(surface, ((SolidColorBrush)c.Background).Color);
+                        Assert.False(c.Focusable);
+                    });
+                    Assert.Contains(FindAll<TextBlock>(view), t => t.Text == "ON SCREEN NOW" && t.IsVisible);
+                });
+            });
+
+        [Fact]
+        public void Composer_HeaderChips_AreBadges_AndCollapseWhenEmpty() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var chosen = rig.View(rig.Composer("matrix2x2"));
+                var none = rig.View(rig.Composer());
+
+                Showing(chosen, () =>
+                {
+                    var badges = FindAll<Wpf.Ui.Controls.Badge>(chosen);
+                    Assert.NotEmpty(badges);
+                    Assert.All(badges, b => Assert.Same(Application.Current.FindResource("Style.Badge.Info"), b.Style));
+                    Assert.Contains(badges, b => b.IsVisible && b.Content is string s && s.Length > 0);
+                });
+                Showing(none, () =>
+                {
+                    // no layout chosen yet: the output chip has nothing to say and takes no room
+                    Assert.All(FindAll<Wpf.Ui.Controls.Badge>(none), b => Assert.False(b.IsVisible && string.IsNullOrEmpty(b.Content as string)));
+                });
+            });
+
+        [Fact]
+        public void Composer_UnplacedChips_UseTheSharedStagedChipLook() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx2);
+                c.TapBlock(2);
+                c.Disarm();
+                Pump(() => c.SelectLayoutAsync("side_by_side"));
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var chip = (Button)Named(view, "UnplacedChip").First(e => e.IsVisible);
+                    Assert.IsType<System.Windows.Shapes.Rectangle>(chip.Template.FindName("DraftFrame", chip));
+                    Assert.Equal((double)Application.Current.FindResource("Size.Touch.Min"), chip.MinHeight);
+                });
+            });
+
+        // ---- UI v2 Tasks 7a/7b: block overlays, density, surface, corner clear, strip ----
+
+        [Fact]
+        public void Composer_SmallBlocks_AreCompact_ThroughBlockDensity() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("quad_1_3")); // block 1 is large, blocks 2-4 are small
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var roots = Named(view, "BlockRoot").Where(e => e.IsVisible).ToList();
+                    Assert.Equal(4, roots.Count);
+                    var small = roots.Where(r => r.ActualWidth < BlockDensity.CompactBelow).ToList();
+                    var large = roots.Except(small).ToList();
+                    Assert.NotEmpty(small);
+                    Assert.Single(large);
+
+                    var lead = (double)Application.Current.FindResource("Font.Size.Lead");
+                    var number = (double)Application.Current.FindResource("Font.Size.Composer.BlockNumber");
+                    foreach (var r in small)
+                    {
+                        Assert.True(BlockDensity.GetIsCompact(r));
+                        Assert.Equal(lead, Named(r, "NumberText").Single().GetValue(TextBlock.FontSizeProperty));
+                        Assert.False(Named(r, "SizeChip").Single().IsVisible);
+                        Assert.False(Named(r, "EmptyHint").Single().IsVisible);
+                    }
+                    var big = large.Single();
+                    Assert.False(BlockDensity.GetIsCompact(big));
+                    Assert.Equal(number, Named(big, "NumberText").Single().GetValue(TextBlock.FontSizeProperty));
+                    Assert.True(Named(big, "SizeChip").Single().IsVisible);
+                    Assert.True(Named(big, "EmptyHint").Single().IsVisible);
+
+                    // nothing on a block is smaller than the 12 px floor
+                    Assert.All(roots.SelectMany(r => FindAll<TextBlock>(r)).Where(t => t.IsVisible), t => Assert.True(t.FontSize >= 12, $"text {t.Text} is {t.FontSize}"));
+                });
+            });
+
+        [Fact]
+        public void Composer_ReplaceMoveStrip_IsCompactOnSmallBlocks_AndEqualWidthOnNormalOnes() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("pip");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0); // the PIP inset (window 0) is small
+                c.Disarm();
+                c.TapBlock(0); // a placed block: the strip opens
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var replace = (Button)Named(view, "ReplaceButton").Single(e => e.IsVisible);
+                    var move = (Button)Named(view, "MoveButton").Single(e => e.IsVisible);
+                    var compact = (double)Application.Current.FindResource("Size.Touch.Compact");
+                    var min = (double)Application.Current.FindResource("Size.Touch.Min");
+                    Assert.InRange(replace.ActualHeight, compact, min - 0.5);
+                    Assert.InRange(move.ActualHeight, compact, min - 0.5);
+                    Assert.Equal(replace.ActualWidth, move.ActualWidth, 1);
+                    var gap = BoundsIn(move, view).Left - BoundsIn(replace, view).Right;
+                    Assert.InRange(gap, 7.5, 9);
+                });
+            });
+
+        [Fact]
+        public void Composer_UnavailableBlock_LockIsASymbolIcon() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("quad_1_3");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var locks = Named(view, "LockIcon").Where(e => e.IsVisible).ToList();
+                    Assert.Equal(3, locks.Count);
+                    Assert.All(locks, l => Assert.Equal(Wpf.Ui.Controls.SymbolRegular.LockClosed24, ((Wpf.Ui.Controls.SymbolIcon)l).Symbol));
+                });
+            });
+
+        // ---- UI v2 Task 8: right rail ----
+
+        [Theory]
+        [InlineData(BannerKind.Info, "Info24")]
+        [InlineData(BannerKind.Success, "CheckmarkCircle24")]
+        [InlineData(BannerKind.Warning, "Warning24")]
+        [InlineData(BannerKind.Error, "ErrorCircle24")]
+        public void Composer_Banner_ShowsASeverityIconPerKind(BannerKind kind, string symbol) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                // the banner kinds Warning and Error come from hardware failures: set them the way the view model does (its setter is private)
+                typeof(MultiViewComposerViewModel).GetProperty(nameof(MultiViewComposerViewModel.Banner))!.SetValue(c, new ComposerBanner("Something to read", kind));
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var host = Named(view, "BannerHost").Single();
+                    Assert.True(host.IsVisible);
+                    var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(host).Single();
+                    Assert.Equal(symbol, icon.Symbol.ToString());
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.FontSize);
+                    Assert.DoesNotContain(FindAll<TextBlock>(host), t => t.Text is "i" or "!" or "✓" or "✕");
+                    var text = (TextBlock)Named(host, "BannerText").Single();
+                    Assert.Equal("Something to read", text.Text);
+                    Assert.Equal(kind == BannerKind.Error ? AutomationLiveSetting.Assertive : AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(text));
+                });
+            });
+
+        [Fact]
+        public void Composer_Undo_HasUndoIcon_AndTheLabelStillWraps() =>
+            RunSta(() =>
+            {
+                var now = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
+                var (vm, rx, sources) = Overview(() => now);
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[0]);
+                c.TapBlock(c.Blocks[0].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                c.Arm(sources[1]);
+                c.TapBlock(c.Blocks[1].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                var view = new VisualRoutingView { DataContext = vm };
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var undo = (Button)Named(view, "UndoButton").Single();
+                    Assert.True(undo.IsVisible && undo.ActualHeight >= 48);
+                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.ArrowUndo24, FindAll<Wpf.Ui.Controls.SymbolIcon>(undo).Single().Symbol);
+                    var label = FindAll<TextBlock>(undo).Single(t => t.Text.StartsWith("Undo", StringComparison.Ordinal));
+                    Assert.Equal(TextWrapping.Wrap, label.TextWrapping);
+                });
+            });
+
+        [Fact]
+        public void Composer_OnScreenPicture_KeepsItsSpokenName_AndMiniCanvasFollowsWidth() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var picture = Named(view, "OnScreenPicture").Single();
+                    Assert.Equal("On screen now: no MultiView on this screen", AutomationProperties.GetName(picture));
+                    var panel = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(picture).First();
+                    Assert.True(panel.ActualWidth > 150, $"mini canvas {panel.ActualWidth}");
+                    Assert.InRange(panel.ActualHeight, panel.ActualWidth / (16.0 / 9.0) - 1, panel.ActualWidth / (16.0 / 9.0) + 4); // the live-block layer has a 2 px margin
+                });
+            });
+
+        [Fact]
+        public void Composer_Take_IsTheOnlyControlAbove48() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+                ShowingAt(view, 976, 700, () =>
+                {
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    Assert.True(take.ActualHeight >= (double)Application.Current.FindResource("Size.Composer.Take.Min"));
+                    Assert.IsType<string>(((Button)take).Content);
+                    foreach (var name in new[] { "CloseComposerButton", "DiscardButton", "ClearAllButton" })
+                    {
+                        var b = (FrameworkElement)Named(view, name).Single();
+                        Assert.InRange(b.ActualHeight, 36, 55.9);
+                    }
+                    Assert.Same(Application.Current.FindResource("Style.Button.Take"), ((Button)take).Style);
+                });
+            });
+
+        // ---- UI v2 Task 9: ON SCREEN NOW follows the live plan's aspect ----
+
+        [Fact]
+        public void Composer_OnScreenPicture_UsesTheLiveAspect() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                rig.Client.DisplayEdid = TestEdids.Build((1920, 1200, 60, false)); // a 16:10 panel
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var picture = Named(view, "OnScreenPicture").Single();
+                    var panels = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(picture);
+                    Assert.Equal(2, panels.Count); // the mat and the live blocks
+                    Assert.All(panels, p => Assert.Equal(c.LiveAspectRatio, p.AspectRatio, 5));
+                    Assert.NotEqual(16.0 / 9.0, c.LiveAspectRatio, 3);
+                });
+            });
+
+        // ---- UI v2 Task 10: picker popup from tokens ----
+
+        private static (ComposerRig Rig, MultiViewComposerViewModel C) PickerRig()
+        {
+            var rig = new ComposerRig();
+            var c = rig.Composer("quad_1_3");
+            c.Arm(rig.Tx1);
+            c.TapBlock(0);   // TX1 takes the big block
+            c.Disarm();
+            c.TapBlock(1);   // an empty small block: the picker opens, TX1 cannot go here
+            return (rig, c);
+        }
+
+        [Fact]
+        public void Composer_PickerTile_UsesCentralStyle_AndKeepsPartBd() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Assert.True(popup.IsOpen);
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    Assert.Same(Application.Current.FindResource("Style.Surface.Popup"), ((Border)content).Style);
+                    var tiles = Named(content, "PickerTile").Cast<Button>().ToList();
+                    Assert.NotEmpty(tiles);
+                    var controlBorder = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.Control")).Color;
+                    Assert.All(tiles, t =>
+                    {
+                        Assert.Same(Application.Current.FindResource("Style.Button.PickerTile"), t.Style);
+                        var bd = Assert.IsType<Border>(t.Template.FindName("bd", t));
+                        Assert.Equal(controlBorder, ((SolidColorBrush)bd.BorderBrush).Color);
+                    });
+                });
+            });
+
+        [Fact]
+        public void Composer_PickerPopup_TilesAreTokenWide_AndThumbnailsAre16x9() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    var slot = (double)Application.Current.FindResource("Size.Composer.Picker.Tile");
+                    var frameMax = (double)Application.Current.FindResource("Size.Composer.Picker.Frame.Max");
+                    Assert.Equal(frameMax, ((Border)content).MaxWidth);
+                    foreach (var tile in Named(content, "PickerTile").Cast<Button>())
+                    {
+                        Assert.Equal(slot, tile.ActualWidth + tile.Margin.Right, 1);
+                        var thumb = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(tile).Single();
+                        Assert.InRange(thumb.ActualWidth / thumb.ActualHeight, 16.0 / 9.0 - 0.05, 16.0 / 9.0 + 0.05);
+                        Assert.True(thumb.ActualWidth >= 160 && thumb.ActualHeight >= 90, $"thumbnail {thumb.ActualWidth}x{thumb.ActualHeight}");
+                    }
+                });
+            });
+
+        [Fact]
+        public void Composer_PickerPopup_DisabledTile_ShowsLockSymbol() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    var tiles = Named(content, "PickerTile").Cast<Button>().ToList();
+                    var disabled = tiles.Where(t => !t.IsEnabled).ToList();
+                    Assert.NotEmpty(disabled);
+                    foreach (var t in tiles)
+                    {
+                        var locks = FindAll<Wpf.Ui.Controls.SymbolIcon>(t).Where(i => i.Symbol == Wpf.Ui.Controls.SymbolRegular.LockClosed24).ToList();
+                        Assert.Single(locks);
+                        Assert.Equal(!t.IsEnabled, locks[0].IsVisible);
+                    }
+                });
+            });
+
+        // ---- UI v2 Task 11: palette card ----
+
+        [Fact]
+        public void CompactSourceCard_HasNoFixedSize_AndKeepsAThumbnailAt16x9() =>
+            RunSta(() =>
+            {
+                var (_, _, sources) = Overview();
+                var card = new CompactSourceCardView { DataContext = sources[0] };
+                Assert.Same(DependencyProperty.UnsetValue, card.ReadLocalValue(FrameworkElement.WidthProperty));
+                Assert.Same(DependencyProperty.UnsetValue, card.ReadLocalValue(FrameworkElement.HeightProperty));
+                Showing(card, () =>
+                {
+                    var min = (double)Application.Current.FindResource("Size.Composer.Palette.Card.Min");
+                    Assert.True(card.ActualWidth >= min, $"palette card is {card.ActualWidth} wide");
+                    var thumb = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(card).Single();
+                    Assert.InRange(thumb.ActualWidth / thumb.ActualHeight, 16.0 / 9.0 - 0.05, 16.0 / 9.0 + 0.05);
+                    Assert.True(thumb.ActualWidth >= 140, $"thumbnail {thumb.ActualWidth}x{thumb.ActualHeight}");
+                    Assert.True(card.DesiredSize.Height <= 160, $"palette card wants {card.DesiredSize.Height} high"); // content-sized: it stretches in a bare window
+                });
+            });
+
+        [Fact]
+        public void CompactSourceCard_Badges_AreUiBadges() =>
+            RunSta(() =>
+            {
+                var (_, _, sources) = Overview();
+                sources[0].IsArmed = true;
+                sources[0].UsedInBlocks = 1;
+                sources[1].UsedInBlocks = 2;
+                var one = new CompactSourceCardView { DataContext = sources[0] };
+                var two = new CompactSourceCardView { DataContext = sources[1] };
+                Showing(one, () =>
+                {
+                    var used = Assert.IsType<Wpf.Ui.Controls.Badge>(Named(one, "UsedInBlocksBadge").Single());
+                    Assert.True(used.IsVisible);
+                    AssertVisibleText(one, "in 1 block");
+                    var placing = FindAll<Wpf.Ui.Controls.Badge>(one).Single(b => !ReferenceEquals(b, used));
+                    Assert.True(placing.IsVisible);
+                    Assert.Same(Application.Current.FindResource("Style.Badge.Armed"), placing.Style);
+                    Assert.Same(Application.Current.FindResource("Style.Badge.Staged"), ((Style)used.Style).BasedOn);
+                });
+                Showing(two, () =>
+                {
+                    AssertVisibleText(two, "in 2 blocks");
+                    Assert.False(FindAll<Wpf.Ui.Controls.Badge>(two).Single(b => b.Name != "UsedInBlocksBadge").IsVisible);
+                });
             });
     }
 }

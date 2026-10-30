@@ -45,16 +45,6 @@ namespace AvasRoutingTool.Views
             nameof(Sources), typeof(IEnumerable<SourceCardViewModel>), typeof(MultiViewComposerView),
             new PropertyMetadata(null, (d, _) => ((MultiViewComposerView)d).SchedulePicker()));
 
-        /// <summary>Width of the layout tiles' schematics (narrower with the rails on a small window).</summary>
-        public static readonly DependencyProperty SchematicWidthProperty = DependencyProperty.Register(
-            nameof(SchematicWidth), typeof(double), typeof(MultiViewComposerView), new PropertyMetadata(120.0));
-
-        public static readonly DependencyProperty SchematicHeightProperty = DependencyProperty.Register(
-            nameof(SchematicHeight), typeof(double), typeof(MultiViewComposerView), new PropertyMetadata(70.0));
-
-        /// <summary>Below this width the rails narrow (280 -> 240, 320 -> 264) so the canvas keeps usable blocks.</summary>
-        internal const double NarrowWidth = 1200;
-
         private MultiViewComposerViewModel? _watched;
         private bool _closingPicker;
 
@@ -89,7 +79,6 @@ namespace AvasRoutingTool.Views
         public MultiViewComposerView()
         {
             InitializeComponent();
-            SizeChanged += (_, e) => FitRails(e.NewSize.Width);
             DataContextChanged += (_, _) => Watch(DataContext as MultiViewComposerViewModel);
             Loaded += (_, _) => SchedulePicker();
             Unloaded += (_, _) => ClosePicker();
@@ -112,29 +101,7 @@ namespace AvasRoutingTool.Views
             set => SetValue(SourcesProperty, value);
         }
 
-        public double SchematicWidth
-        {
-            get => (double)GetValue(SchematicWidthProperty);
-            set => SetValue(SchematicWidthProperty, value);
-        }
-
-        public double SchematicHeight
-        {
-            get => (double)GetValue(SchematicHeightProperty);
-            set => SetValue(SchematicHeightProperty, value);
-        }
-
         private MultiViewComposerViewModel? Composer => DataContext as MultiViewComposerViewModel;
-
-        /// <summary>Layout only: on a small window (MainWindow minimum 1024 px) the rails give the canvas room.</summary>
-        private void FitRails(double width)
-        {
-            bool narrow = width > 0 && width < NarrowWidth;
-            LeftRailColumn.Width = new GridLength(narrow ? 240 : 280);
-            RightRailColumn.Width = new GridLength(narrow ? 264 : 320);
-            SchematicWidth = narrow ? 96 : 120;
-            SchematicHeight = narrow ? 56 : 70;
-        }
 
         // ---- taps -> view model ----
 

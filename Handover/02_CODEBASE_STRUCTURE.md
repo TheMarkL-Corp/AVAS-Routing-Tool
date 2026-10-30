@@ -62,6 +62,8 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
   * Centers cards horizontally and vertically when viewport exceeds grid size.
 
 ### 2.4 Logging (`Logging/`)
+* **[`FractionalLayoutPanel.cs`](../src/AvasRoutingTool/Controls/FractionalLayoutPanel.cs)**: Places children at fractional rectangles of a letterboxed canvas (MultiView blocks, schematics, thumbnails). With exactly one unbounded axis and an `AspectRatio`, it derives that axis from the ratio.
+* **[`StepHeader.cs`](../src/AvasRoutingTool/Controls/StepHeader.cs)**: Numbered Composer step heading (number, then a check icon when done); look in `Resources/Styles/Composer.xaml` (`Style.StepHeader`); never a tab stop.
 * **[`LogEntry.cs`](../src/AvasRoutingTool/Logging/LogEntry.cs)**: Formatted log structure (`Timestamp`, `Level`, `Category`, `Message`).
 * **[`LogLevel.cs`](../src/AvasRoutingTool/Logging/LogLevel.cs)**: `DEBUG`, `INFO`, `WARN`, `ERROR`, `CRASH`.
 * **[`LogService.cs`](../src/AvasRoutingTool/Logging/LogService.cs)**: Thread-safe ring buffer (max 1000 items in memory for live UI) + continuous append to disk (`app.log`).
@@ -100,6 +102,7 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
 * **[`BavmConsoleView.xaml`](../src/AvasRoutingTool/Views/BavmConsoleView.xaml)**: WebView2 browser control hosting official BAVM web UI.
 * **[`DiagnosticsView.xaml`](../src/AvasRoutingTool/Views/DiagnosticsView.xaml)**: Real-time searchable log table.
 * **[`SettingsDialog.xaml`](../src/AvasRoutingTool/Views/SettingsDialog.xaml)**: Connection settings configuration modal.
+* **[`MultiViewComposerView.xaml`](../src/AvasRoutingTool/Views/MultiViewComposerView.xaml)** (+ `LayoutSchematic`, `CompactSourceCardView`): the MultiView Composer. Views hold layout and bindings only; every style, template and Composer size token lives in `Resources/Styles/Composer.xaml`. `BlockDensity.IsCompact` (inherited, set on a block narrower than 240 px) switches the overlays to compact styles.
 
 ---
 

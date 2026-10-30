@@ -125,5 +125,57 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(0, panel.DesiredSize.Width);
             Assert.Equal(0, panel.DesiredSize.Height);
         });
+
+        [Fact]
+        public void AspectRatio_WithBoundedWidthAndUnboundedHeight_ReportsWidthOverRatio() => RunSta(() =>
+        {
+            var panel = new FractionalLayoutPanel { AspectRatio = 16.0 / 9.0 };
+            var child = Child(0, 0, 1, 1);
+            panel.Children.Add(child);
+
+            panel.Measure(new Size(320, double.PositiveInfinity));
+            panel.Arrange(new Rect(0, 0, panel.DesiredSize.Width, panel.DesiredSize.Height));
+
+            Assert.Equal(320, panel.DesiredSize.Width, 1);
+            Assert.Equal(180, panel.DesiredSize.Height, 1);
+            Assert.Equal(320, child.ActualWidth, 1);
+            Assert.Equal(180, child.ActualHeight, 1);
+        });
+
+        [Fact]
+        public void AspectRatio_WithBoundedHeightAndUnboundedWidth_ReportsHeightTimesRatio() => RunSta(() =>
+        {
+            var panel = new FractionalLayoutPanel { AspectRatio = 16.0 / 9.0 };
+            panel.Children.Add(Child(0, 0, 1, 1));
+
+            panel.Measure(new Size(double.PositiveInfinity, 90));
+
+            Assert.Equal(160, panel.DesiredSize.Width, 1);
+            Assert.Equal(90, panel.DesiredSize.Height, 1);
+        });
+
+        [Fact]
+        public void NoAspectRatio_WithOneUnboundedAxis_StillReportsZero() => RunSta(() =>
+        {
+            var panel = new FractionalLayoutPanel();
+            panel.Children.Add(Child(0, 0, 1, 1));
+
+            panel.Measure(new Size(320, double.PositiveInfinity));
+
+            Assert.Equal(0, panel.DesiredSize.Width);
+            Assert.Equal(0, panel.DesiredSize.Height);
+        });
+
+        [Fact]
+        public void AspectRatio_WithBothAxesUnbounded_StillReportsZero() => RunSta(() =>
+        {
+            var panel = new FractionalLayoutPanel { AspectRatio = 16.0 / 9.0 };
+            panel.Children.Add(Child(0, 0, 1, 1));
+
+            panel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+
+            Assert.Equal(0, panel.DesiredSize.Width);
+            Assert.Equal(0, panel.DesiredSize.Height);
+        });
     }
 }
