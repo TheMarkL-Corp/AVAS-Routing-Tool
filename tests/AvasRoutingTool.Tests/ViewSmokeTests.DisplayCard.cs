@@ -141,7 +141,6 @@ namespace AvasRoutingTool.Tests
                 {
                     var button = (Button)Named(view, "LayoutButton").Single();
                     Assert.True(button.IsVisible && button.ActualHeight >= 48, $"Layout button is {button.ActualHeight} high");
-                    Assert.Contains(FindAll<TextBlock>(button), t => t.Text.StartsWith("Layout", StringComparison.Ordinal));
                     Assert.True(BoundsIn(button, view).Top < 80, "the Layout button is not in the card header");
 
                     Click(button);
@@ -550,7 +549,7 @@ namespace AvasRoutingTool.Tests
                     var rx3 = cards.Single(c => c.DataContext == rig.Rx3);
                     Assert.True(Named(rx3, "CopyTargetLock").Single().IsVisible);
                     var rx3Handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
-                    Assert.Equal(rig.Rx3.CopyFromBlockedText, (string?)rx3Handle.ToolTip);
+                    Assert.Equal("No layout to copy yet", (string?)rx3Handle.ToolTip);
                     Assert.Equal(rig.Rx3.CopyFromBlockedText, AutomationProperties.GetHelpText(rx3Handle));
 
                     // Copying / choosing: the overview has no layout bar any more; the first row's Layout and Copy layout
@@ -857,7 +856,6 @@ namespace AvasRoutingTool.Tests
                     }
                     AssertTextFits((TextBlock)parts[0].El);
                     AssertTextFits((TextBlock)parts[1].El);
-                    AssertTextFits(FindAll<TextBlock>(parts[2].El).Single(t => t.Text.StartsWith("Layout", StringComparison.Ordinal)));
                     AssertTextFits(FindAll<TextBlock>(parts[3].El).Single(t => t.Text.StartsWith("Copy", StringComparison.Ordinal)));
                     for (int i = 2; i < parts.Count; i++)
                     {

@@ -82,7 +82,8 @@ namespace AvasRoutingTool.Tests
                     // The chevron after "Layout" is a vector icon, not a character.
                     var layout = Named(view, "LayoutButton").Single();
                     Assert.Contains(FindAll<SymbolIcon>(layout), i => i.Symbol == SymbolRegular.ChevronDown24);
-                    Assert.Contains(FindAll<TextBlock>(layout), t => t.Text == "Layout");
+                    // Icon and chevron only: the words are the SymbolIcon's own glyph text, nothing else.
+                    Assert.DoesNotContain(FindAll<TextBlock>(layout), t => !string.IsNullOrEmpty(t.Text) && !FindAll<SymbolIcon>(layout).Any(i => i.IsAncestorOf(t)));
 
                     // The draft chip keeps the shared staged-chip template (part DraftFrame).
                     var chip = (Button)Named(view, "DraftChip").Single();

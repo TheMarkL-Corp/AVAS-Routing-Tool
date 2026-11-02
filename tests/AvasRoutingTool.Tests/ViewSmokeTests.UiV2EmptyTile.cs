@@ -13,7 +13,7 @@ namespace AvasRoutingTool.Tests
     public partial class ViewSmokeTests
     {
         private const string ReadyText = "Ready to route a source";
-        private const string HintText = "Tap a source, then tap here - or drag it here";
+        private const string HintText = "Pick a source above, then tap here or drag it in.";
 
         private static Color PaletteColour(string key) => ((SolidColorBrush)Application.Current.FindResource(key)).Color;
 

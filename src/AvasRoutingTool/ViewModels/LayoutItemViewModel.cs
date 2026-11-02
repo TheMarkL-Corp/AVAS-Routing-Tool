@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using AvasRoutingTool.Sdvoe.MultiView;
 
 namespace AvasRoutingTool.ViewModels
 {
@@ -44,10 +45,23 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The automation item status of a tile or preset: "On screen" for the layout the display shows, else empty.</summary>
         public string ItemStatusText => IsOnScreen ? "On screen" : string.Empty;
 
+        /// <summary>The short name of an inline preset on the display card's action bar (its automation name and tooltip); other layouts keep their title.</summary>
+        public string InlineName => Id switch
+        {
+            "single" => "Single view",
+            "pip" => "Picture-in-picture",
+            "side_by_side" => "Side by side",
+            "matrix2x2" => "Quad",
+            _ => Title,
+        };
+
+        /// <summary>The tooltip of an inline preset: its name. The composer note is the automation help text (<see cref="InlineHelpText"/>).</summary>
+        public string InlineToolTip => InlineName;
+
         /// <summary>
-        /// The tooltip of an inline preset. Single View applies at once; a MultiView preset opens the Composer and changes nothing on screen until Take.
+        /// What a MultiView preset does, for a screen reader: it opens the Composer and changes nothing on screen until Take. Empty for Single View.
         /// </summary>
-        public string InlineToolTip => Id == "single" ? Subtitle : $"{Title} - opens the Composer, nothing changes on screen until Take";
+        public string InlineHelpText => MultiViewPresets.IsMultiView(Id) ? "Opens the Composer. Nothing changes on screen until Take." : string.Empty;
 
         /// <summary>
         /// New instances of every layout the tool offers, in the bottom bar's order (Off, Single View, the

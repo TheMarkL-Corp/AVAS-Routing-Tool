@@ -237,7 +237,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal("rx1", rig.Client.LastUnroutedRx);
             Assert.False(rig.RxVm.IsRouted);
-            Assert.Equal("UNROUTED", rig.RxVm.ModeBadge);
+            Assert.Equal("No source", rig.RxVm.ModeBadge);
             Assert.False(rig.RxVm.IsLayoutMenuOpen);
         }
 

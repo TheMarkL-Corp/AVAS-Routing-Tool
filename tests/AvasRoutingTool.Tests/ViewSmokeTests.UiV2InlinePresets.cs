@@ -70,7 +70,7 @@ namespace AvasRoutingTool.Tests
                     Assert.True(Named(view, "InlinePresets").Single().IsVisible, "the inline presets are not shown at 613 px");
                     var buttons = Named(view, "InlinePreset").Cast<Button>().Where(b => b.IsVisible).ToList();
                     Assert.Equal(new[] { "single", "pip", "side_by_side", "matrix2x2" }, buttons.Select(b => ((LayoutItemViewModel)b.DataContext).Id));
-                    Assert.Equal(new[] { 1, 2, 2, 4 }, buttons.Select(b => FindAll<LayoutSchematic>(b).Single().CellCount));
+                    Assert.Equal(new[] { 1, 2, 2, 4 }, buttons.Select(b => FindAll<LayoutGlyph>(b).Single().CellCount));
 
                     var frame = Named(view, "CardFrame").Single();
                     foreach (var b in buttons)
@@ -177,18 +177,20 @@ namespace AvasRoutingTool.Tests
                     foreach (var preset in presets)
                     {
                         string id = ((LayoutItemViewModel)preset.DataContext).Id;
-                        var edge = ((System.Windows.Media.SolidColorBrush)((Border)preset.Template.FindName("bd", preset)).BorderBrush).Color;
+                        var fill = ((System.Windows.Media.SolidColorBrush)preset.Background).Color;
                         if (id == "matrix2x2")
                         {
                             Assert.True(CheckIsShown(preset), "the on-screen preset has no visible checkmark");
                             Assert.Equal("On screen", ItemStatus(preset));
-                            Assert.Equal(accent, edge);
+                            Assert.Equal(((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Surface.Selected")).Color, fill);
+                            Assert.All(GlyphCells(preset), c => Assert.Equal(accent, ((System.Windows.Media.SolidColorBrush)c.BorderBrush).Color));
                         }
                         else
                         {
                             Assert.False(CheckIsShown(preset), $"{id} shows a checkmark but is not on screen");
                             Assert.Equal(string.Empty, ItemStatus(preset));
-                            Assert.NotEqual(accent, edge);
+                            Assert.NotEqual(((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Surface.Selected")).Color, fill);
+                            Assert.All(GlyphCells(preset), c => Assert.Equal(((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color, ((System.Windows.Media.SolidColorBrush)c.BorderBrush).Color));
                         }
                     }
                 });
@@ -213,8 +215,8 @@ namespace AvasRoutingTool.Tests
         public void InlinePreset_SchematicTokens_AreTheInlineSize() =>
             RunSta(() =>
             {
-                Assert.Equal(28.0, Token("Size.Schematic.Inline.Width"));
-                Assert.Equal(16.0, Token("Size.Schematic.Inline.Height"));
+                Assert.Equal(32.0, Token("Size.Schematic.Inline.Width"));
+                Assert.Equal(20.0, Token("Size.Schematic.Inline.Height"));
             });
     }
 }

@@ -87,11 +87,55 @@
         <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
-    <!-- Copy layout: the copy colours, solid cyan while this display is the copy source -->
-    <Style x:Key="Style.Button.CardAction.Copy" TargetType="Button" BasedOn="{StaticResource Style.Button.CardAction}">
-        <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
+    <!--
+        Copy layout: a ghost button beside the layout segments (the same quiet look as Style.Button.Ghost, with a neutral hover).
+        While this display is the copy source it is solid drop-target cyan, so the armed state is a colour and the words.
+    -->
+    <Style x:Key="Style.Button.CopyLayout" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                        </Border>
+                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+                        </Trigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
                 <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
@@ -166,45 +210,83 @@
     </Style>
 
     <!--
-        A one-tap layout preset on the action bar (cards from Size.Breakpoint.CardPresets wide). The same parts and triggers as the
-        menu tile, at touch size; no BasedOn (the WPF-UI defaults are not inherited). Content is set by the view. Part bd is read by the tests.
+        One segment of the display card's layout control: the one-tap presets and the Layout dropdown share one joined outline, drawn by the
+        view (LayoutSegments: fill, outline), so a segment has no border of its own. Touch size; own template, not based on WPF-UI.
+        Hover lifts the fill; the 2 px keyboard ring shows through InputModality.ShowsFocus. Part bd is read by the tests.
     -->
-    <Style x:Key="Style.Button.LayoutPreset" TargetType="Button">
+    <Style x:Key="Style.Button.LayoutSegment" TargetType="Button">
         <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
         <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
-        <Setter Property="Margin" Value="0,0,4,0" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd"
-                            Background="{DynamicResource Brush.Surface.Card}"
-                            BorderBrush="{DynamicResource Brush.Border.Control}"
-                            BorderThickness="2"
-                            CornerRadius="8"
-                            Padding="6,4">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <Grid>
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                CornerRadius="6"
+                                Margin="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                        </Border>
+                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
+                        <Border x:Name="FocusRing"
+                                Margin="3"
+                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                         </Trigger>
-                        <DataTrigger Binding="{Binding Id, Mode=OneWay}" Value="off">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.Danger}" />
-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Danger}" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
-                        </DataTrigger>
                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!--
+        A one-tap layout preset (a segment with its glyph; cards from Size.Breakpoint.CardPresets wide). On screen: the selected fill and the
+        accent colour for the glyph and the check mark, so the state is not colour alone (the check is the view's). Content is set by the view.
+    -->
+    <Style x:Key="Style.Button.LayoutPreset" TargetType="Button" BasedOn="{StaticResource Style.Button.LayoutSegment}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The check badge of the layout on screen: a small accent disc in the segment's top-right corner (Size.Icon.S square) -->
+    <Style x:Key="Style.Badge.OnScreenCheck" TargetType="Border">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="0,-3,-3,0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <!-- The outline cell of a LayoutGlyph: an outline only (no fill), its colour set by the glyph's Foreground binding in the view -->
+    <Style x:Key="Style.Border.GlyphCell" TargetType="Border">
+        <Setter Property="Margin" Value="1" />
+        <Setter Property="BorderThickness" Value="1.5" />
+        <Setter Property="CornerRadius" Value="2" />
+        <Setter Property="Background" Value="Transparent" />
     </Style>
 
 </ResourceDictionary>

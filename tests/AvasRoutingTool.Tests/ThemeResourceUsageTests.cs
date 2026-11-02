@@ -62,7 +62,7 @@ namespace AvasRoutingTool.Tests
         [InlineData("DisplayCardView.xaml", "Routed to Source", null, "Brush.Text.OnPreviewMuted")]
         [InlineData("DisplayCardView.xaml", "Preview Not Available (Non-AVAS Device)", null, "Brush.Text.OnPreviewMuted")]
         [InlineData("DisplayCardView.xaml", "Ready to route a source", null, "Brush.Text.OnPreview")]
-        [InlineData("DisplayCardView.xaml", "Tap a source, then tap here - or drag it here", null, "Brush.Text.OnPreviewMuted")]
+        [InlineData("DisplayCardView.xaml", "Pick a source above, then tap here or drag it in.", null, "Brush.Text.OnPreviewMuted")]
         [InlineData("MultiViewComposerView.xaml", "IssueTextBlock", "name", "Brush.Text.OnAction")]
         [InlineData("MultiViewComposerView.xaml", "SameAsText", "name", "Brush.Text.OnScrim")]
         [InlineData("MultiViewComposerView.xaml", "{Binding SizeText, Mode=OneWay}", null, "Brush.Text.OnScrim")]
