@@ -96,7 +96,11 @@
                                 <Button x:Name="LayoutTile"
                                         Style="{StaticResource Style.Button.ComposerLayoutOption}"
                                         AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
-                                        Click="LayoutTile_Click">
+                                        Click="LayoutTile_Click"
+                                        MouseEnter="LayoutTile_Preview"
+                                        GotKeyboardFocus="LayoutTile_Preview"
+                                        MouseLeave="LayoutTile_PreviewEnd"
+                                        LostKeyboardFocus="LayoutTile_PreviewEnd">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="6*" />
@@ -197,17 +201,23 @@
                             </MultiBinding>
                         </controls:FractionalLayoutPanel.AspectRatio>
                         <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" Background="{DynamicResource Brush.Surface.PreviewMat}" />
+                        <!-- Step 1 not done: a ghost of the layout under the pointer or the keyboard (default 2x2); view only, never staged -->
+                        <views:LayoutSchematic x:Name="GhostSchematic" Style="{StaticResource Style.Panel.Ghost}"
+                                               LayoutId="{Binding PreviewLayoutId, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}"
+                                               controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" />
                         <Rectangle x:Name="CanvasFrame" Style="{StaticResource Style.Shape.CanvasFrame}"
                                    controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" />
                     </controls:FractionalLayoutPanel>
 
                     <!-- Step 1 not done: say what to do -->
-                    <StackPanel Style="{StaticResource Style.Panel.Placeholder}"
-                                Visibility="{Binding Draft, Mode=OneWay, Converter={StaticResource Converter.Visible.Null}}">
-                        <TextBlock Text="Step 1 · Choose a layout on the left" Style="{StaticResource Style.Text.Lead}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-                        <TextBlock Text="The blocks appear here empty. Nothing changes on the surgeon's screen until you press Take."
-                                   Style="{StaticResource Style.Text.ComposerLabel}" TextAlignment="Center" Margin="0,8,0,0" />
-                    </StackPanel>
+                    <Border Style="{StaticResource Style.Panel.Placeholder}"
+                            Visibility="{Binding Draft, Mode=OneWay, Converter={StaticResource Converter.Visible.Null}}">
+                        <StackPanel>
+                            <TextBlock Text="Step 1 · Choose a layout on the left" Style="{StaticResource Style.Text.Lead}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                            <TextBlock Text="The blocks appear here empty. Nothing changes on the surgeon's screen until you press Take."
+                                       Style="{StaticResource Style.Text.ComposerLabel}" TextAlignment="Center" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
 
                     <!-- The blocks -->
                     <ItemsControl x:Name="BlocksHost" ItemsSource="{Binding Blocks, Mode=OneWay}" Focusable="False" ItemContainerStyle="{StaticResource Style.Item.Fractional.Block}">

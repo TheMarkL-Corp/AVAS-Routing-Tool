@@ -31,7 +31,7 @@ namespace AvasRoutingTool.Tests
 
                 Showing(view, () =>
                 {
-                    var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible).ToList();
+                    var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible && s.Name != "GhostSchematic").ToList();
                     Assert.Equal(new[] { "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3" }, schematics.Select(s => s.LayoutId));
                     Assert.Equal(new[] { 4, 2, 2, 2, 4 }, schematics.Select(s => s.CellCount));
                     Assert.All(schematics, s => Assert.True(s.ActualWidth >= 100 && s.ActualHeight >= 56, $"schematic {s.ActualWidth}x{s.ActualHeight}"));
@@ -40,6 +40,120 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(5, tiles.Count);
                     Assert.All(tiles, t => Assert.True(t.ActualWidth >= 200 && t.ActualHeight >= 96, $"tile {t.ActualWidth}x{t.ActualHeight}"));
                     AssertVisibleText(view, "Step 1");
+                });
+            });
+
+        [Fact]
+        public void Composer_Step1_ShowsAGhostSchematic_NotABlankCanvas() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    Assert.True(ghost.IsVisible);
+                    Assert.Equal("matrix2x2", ghost.LayoutId);
+                    Assert.Equal(4, ghost.CellCount);
+                    Assert.True(ghost.Opacity < 1, $"ghost opacity is {ghost.Opacity}");
+                    Assert.True(ghost.ActualWidth > 600 && ghost.ActualHeight > 300, $"ghost is {ghost.ActualWidth}x{ghost.ActualHeight}");
+                    Assert.False(ghost.Focusable);
+                    AssertVisibleText(view, "Step 1");
+
+                    // Hovering a tile previews its layout on the ghost; leaving the tile goes back to the default
+                    var pip = Named(view, "LayoutTile").Cast<Button>().Single(t => t.IsVisible && ((ComposerLayoutOptionViewModel)t.DataContext).Id == "pip");
+                    pip.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseEnterEvent });
+                    Assert.Equal("pip", ghost.LayoutId);
+                    Assert.Equal(2, ghost.CellCount);
+                    pip.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseLeaveEvent });
+                    Assert.Equal("matrix2x2", ghost.LayoutId);
+                });
+            });
+
+        [Fact]
+        public void Composer_Ghost_FollowsKeyboardFocus() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                Showing(view, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    var tiles = Named(view, "LayoutTile").Cast<Button>().ToList();
+                    Button Tile(string id) => tiles.Single(t => ((ComposerLayoutOptionViewModel)t.DataContext).Id == id);
+                    var close = (Button)Assert.Single(Named(view, "CloseComposerButton"));
+
+                    KeyboardMode();
+                    Assert.True(Tile("quad_1_3").Focus(), "the quad tile did not take keyboard focus");
+                    Idle();
+                    Assert.Equal("quad_1_3", ghost.LayoutId);
+
+                    Assert.True(Tile("pip").Focus(), "the pip tile did not take keyboard focus");
+                    Idle();
+                    Assert.Equal("pip", ghost.LayoutId);
+
+                    // Focus leaves the tiles for the header: the ghost is back on the default
+                    Assert.True(close.Focus(), "the header button did not take keyboard focus");
+                    Idle();
+                    Assert.Same(close, Keyboard.FocusedElement);
+                    Assert.Equal("matrix2x2", ghost.LayoutId);
+                });
+            });
+
+        [Fact]
+        public void Composer_Ghost_DisappearsWhenALayoutIsStaged() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+
+                Showing(view, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    Assert.False(ghost.IsVisible);
+                    Assert.Empty(VisibleTexts(view, "Step 1"));
+                });
+            });
+
+        [Fact]
+        public void Composer_Ghost_IsNotATabStop() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                Showing(view, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    Assert.False(ghost.IsTabStop);
+                    Assert.False(ghost.Focusable);
+                    Assert.True(string.IsNullOrEmpty(System.Windows.Automation.AutomationProperties.GetName(ghost)), "the ghost has an automation name");
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_Step1Placeholder_TextReadsOnItsCard_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+                new AvasRoutingTool.Services.ThemeService().SetTheme(mode);
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    // The placeholder is a card on the canvas: its two lines are measured against the card, not the ghost behind it
+                    var card = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Elevated")).Color;
+                    var lines = VisibleTexts(view, "Step 1").Concat(VisibleTexts(view, "The blocks appear")).ToList();
+                    Assert.Equal(2, lines.Count);
+                    foreach (var line in lines)
+                    {
+                        var text = ((SolidColorBrush)line.Foreground).Color;
+                        Assert.True(Contrast(text, card) >= 4.5, $"'{line.Text}' in {mode}: {Contrast(text, card):0.0}:1");
+                    }
                 });
             });
 
