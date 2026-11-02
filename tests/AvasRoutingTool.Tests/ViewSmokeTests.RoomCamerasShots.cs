@@ -128,5 +128,45 @@ namespace AvasRoutingTool.Tests
                 }
             });
         }
+
+        /// <summary>
+        /// The Room Cameras tab inside the real main window (RC14). No camera is added: AddCamera persists to the app's
+        /// appsettings.json, so the shots show whatever the window loads from its config (normally the empty state).
+        /// Same gate as above: without UIV2_SHOTS the test does nothing.
+        /// </summary>
+        [Fact]
+        public void UiV2_RoomCamerasTabInMainWindowScreenshots()
+        {
+            var folder = Environment.GetEnvironmentVariable("UIV2_SHOTS") ?? Environment.GetEnvironmentVariable("AVAS_UIV2_SHOTS");
+            if (string.IsNullOrWhiteSpace(folder)) return;
+            Directory.CreateDirectory(folder);
+
+            RunSta(() =>
+            {
+                var themeService = new ThemeService();
+                try
+                {
+                    foreach (var light in new[] { false, true })
+                    foreach (var (w, h) in new[] { (1920.0, 1080.0), (1024.0, 720.0) })
+                    {
+                        var suffix = $"{(int)w}x{(int)h}-{(light ? "light" : "dark")}";
+                        var window = new MainWindow { WindowState = WindowState.Normal, Width = w, Height = h, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000 };
+                        window.Show();
+                        try
+                        {
+                            themeService.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark); // the window's own view model resets the theme when it is built
+                            ((System.Windows.Controls.RadioButton)window.FindName("TabRoomCameras")).IsChecked = true;
+                            Relayout(window);
+                            SavePng(ClientRoot(window), Path.Combine(folder, $"rc-w-tab-{suffix}.png"));
+                        }
+                        finally { window.Close(); }
+                    }
+                }
+                finally
+                {
+                    themeService.SetTheme(ThemeMode.Dark);
+                }
+            });
+        }
     }
 }
