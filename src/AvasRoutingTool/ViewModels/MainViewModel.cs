@@ -18,6 +18,14 @@ using AvasRoutingTool.Services;
 
 namespace AvasRoutingTool.ViewModels
 {
+    /// <summary>What the app bar's connection dot says: the connect call is pending, the control server answered, or it refused.</summary>
+    public enum ConnectionHealth
+    {
+        Connecting,
+        Connected,
+        Offline
+    }
+
     public class MainViewModel : INotifyPropertyChanged
     {
         /// <summary>An armed source is disarmed after this long without placing or arming (spec 5.1).</summary>
@@ -105,6 +113,23 @@ namespace AvasRoutingTool.ViewModels
             get => _connectionStatus;
             set { _connectionStatus = value; OnPropertyChanged(); }
         }
+
+        private ConnectionHealth _connectionHealth = ConnectionHealth.Connecting;
+
+        /// <summary>The app bar dot: Connecting until the connect call returns, then Connected or Offline.</summary>
+        public ConnectionHealth ConnectionHealth
+        {
+            get => _connectionHealth;
+            set
+            {
+                _connectionHealth = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowConnectionText));
+            }
+        }
+
+        /// <summary>The status sentence is shown only while connecting or offline; a connected link is the dot alone.</summary>
+        public bool ShowConnectionText => ConnectionHealth != ConnectionHealth.Connected;
 
         public string BavmUrl
         {
@@ -314,10 +339,12 @@ namespace AvasRoutingTool.ViewModels
             _rtpReceiver.StartListening(new[] { _config.BasePort, 5000 }, _config.LocalNetworkInterfaceIp);
 
             ConnectionStatus = $"Connecting to {host}:{_config.TelnetPort}...";
+            ConnectionHealth = ConnectionHealth.Connecting;
             bool connected = await _sdvoeClient.ConnectAsync(host, _config.TelnetPort, _config.RestPort);
 
             IsConnected = connected;
             ConnectionStatus = connected ? $"Connected: {host}:{_config.TelnetPort}" : $"Offline: {host}:{_config.TelnetPort}";
+            ConnectionHealth = connected ? ConnectionHealth.Connected : ConnectionHealth.Offline;
 
             await RefreshDevicesAsync();
         }

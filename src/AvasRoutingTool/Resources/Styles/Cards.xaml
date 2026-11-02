@@ -90,6 +90,29 @@
         <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
+    <!--
+        App-bar connection dot (M8): Tag="{Binding ConnectionHealth}". Connecting is a hollow neutral ring (neither online nor offline);
+        Connected is a solid online dot; Offline a solid danger dot. The words are shown by the view only while not connected.
+    -->
+    <Style x:Key="Style.StatusDot.Connection" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Text.Muted}" />
+        <Setter Property="StrokeThickness" Value="2" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Connected">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+                <Setter Property="Stroke" Value="Transparent" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Offline">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Action.Danger}" />
+                <Setter Property="Stroke" Value="Transparent" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="Style.StatusDot.Small" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
         <Setter Property="Width" Value="{StaticResource Size.Dot.S}" />
         <Setter Property="Height" Value="{StaticResource Size.Dot.S}" />

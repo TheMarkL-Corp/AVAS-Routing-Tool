@@ -16,9 +16,15 @@ namespace AvasRoutingTool.Tests
         /// <summary>Raises <see cref="DeviceStateChanged"/> as the real client does from its read loop.</summary>
         public void RaiseDeviceStateChanged(string mac, bool online) => DeviceStateChanged?.Invoke(mac, online);
 
+        /// <summary>What ConnectAsync reports when no <see cref="ConnectGate"/> is set (false = the control server is unreachable).</summary>
+        public bool ConnectResult { get; set; } = true;
+
+        /// <summary>When set, ConnectAsync waits for this task (the connect call is pending until it completes).</summary>
+        public Task<bool>? ConnectGate { get; set; }
+
         public Task<bool> ConnectAsync(string host, int telnetPort = 6970, int restPort = 8080)
         {
-            return Task.FromResult(true);
+            return ConnectGate ?? Task.FromResult(ConnectResult);
         }
 
         public Task DisconnectAsync()
