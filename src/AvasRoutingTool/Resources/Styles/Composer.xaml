@@ -596,7 +596,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- The state line: staged = dashed amber, on screen = solid blue, problem = red, selected = light blue -->
+    <!-- The state line: staged = dashed neutral (the amber is the canvas frame's alone), on screen = solid blue, problem = red, selected = light blue -->
     <Style x:Key="Style.Shape.BlockState" TargetType="Rectangle">
         <Setter Property="RadiusX" Value="6" />
         <Setter Property="RadiusY" Value="6" />
@@ -604,9 +604,11 @@
         <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Control}" />
         <Setter Property="StrokeThickness" Value="2" />
         <Style.Triggers>
+            <!-- Neutral staged outline, measured on Surface.PreviewMat (black), need 3:1: Border.Strong 2.77 dark (fails) / 8.19 light;
+                 Text.Secondary 8.19 dark / 2.77 light (fails); Text.Muted 4.41 dark / 4.41 light (chosen) -->
             <DataTrigger Binding="{Binding State, Mode=OneWay}" Value="Staged">
-                <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Staged}" />
-                <Setter Property="StrokeThickness" Value="3" />
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Text.Muted}" />
+                <Setter Property="StrokeThickness" Value="2" />
                 <Setter Property="StrokeDashArray" Value="4 2" />
             </DataTrigger>
             <MultiDataTrigger>
@@ -631,6 +633,14 @@
                 <Setter Property="StrokeDashArray" Value="2 2" />
             </DataTrigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- The armed ring on a block that can take the source: a plain 2 px cyan outline, no tint (the place pill sits on the scrim) -->
+    <Style x:Key="Style.Shape.PlaceRing" TargetType="Rectangle">
+        <Setter Property="RadiusX" Value="6" />
+        <Setter Property="RadiusY" Value="6" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.DropTarget}" />
+        <Setter Property="StrokeThickness" Value="2" />
     </Style>
 
     <!-- Keyboard focus: a 2 px ring in the block's margin (drawn, not an adorner, so it also renders); shown by a DataTemplate trigger -->
@@ -906,7 +916,6 @@
     <Style x:Key="Style.Button.Undo" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
         <Setter Property="Margin" Value="0,8,0,0" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Online}" />
         <Setter Property="Visibility" Value="Collapsed" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding CanUndo, Mode=OneWay}" Value="True">

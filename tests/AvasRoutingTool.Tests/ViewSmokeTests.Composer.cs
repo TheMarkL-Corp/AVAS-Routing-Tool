@@ -1696,6 +1696,125 @@ namespace AvasRoutingTool.Tests
             }
         }
 
+        // ---- Composer round 2 C3 (part a): one amber frame, neutral staged blocks, a plain armed ring, a neutral Undo ----
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_StagedColours_AreOneAmberFrame(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var rig = new ComposerRig();
+                    var c = rig.Composer("matrix2x2");
+                    c.Arm(rig.Tx1);
+                    c.TapBlock(0);
+                    var view = rig.View(c);
+
+                    ShowingAt(view, 1904, 940, () =>
+                    {
+                        var amber = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Staged")).Color;
+                        var neutral = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Muted")).Color;
+
+                        // The canvas frame is the one amber frame while the layout is staged
+                        var frame = (System.Windows.Shapes.Rectangle)Named(view, "CanvasFrame").Single();
+                        Assert.Equal(amber, ((SolidColorBrush)frame.Stroke).Color);
+                        Assert.NotEmpty(frame.StrokeDashArray);
+
+                        // The staged block's state line is a neutral dashed outline, 2 px
+                        var stateStyle = (Style)Application.Current.FindResource("Style.Shape.BlockState");
+                        var stateLines = FindAll<System.Windows.Shapes.Rectangle>(view).Where(r => r.Style == stateStyle && r.IsVisible).ToList();
+                        var staged = stateLines.Single(r => r.DataContext is ComposerBlockViewModel b && b.State == BlockState.Staged);
+                        Assert.Equal(neutral, ((SolidColorBrush)staged.Stroke).Color);
+                        Assert.NotEmpty(staged.StrokeDashArray);
+                        Assert.Equal(2.0, staged.StrokeThickness);
+
+                        // No other state line is amber
+                        Assert.DoesNotContain(stateLines, r => ((SolidColorBrush)r.Stroke).Color == amber);
+                    });
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
+        [Fact]
+        public void Composer_ArmedOverlay_HasNoTintFill() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1); // the empty blocks offer "+ Place"
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    Relayout(view);
+                    var rings = Named(view, "PlaceRing").Where(r => r.IsVisible).Cast<System.Windows.Shapes.Rectangle>().ToList();
+                    Assert.NotEmpty(rings);
+                    var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color;
+                    foreach (var ring in rings)
+                    {
+                        Assert.Null(ring.Fill);
+                        Assert.Equal(outline, ((SolidColorBrush)ring.Stroke).Color);
+                        Assert.Equal(2.0, ring.StrokeThickness);
+                    }
+                });
+            });
+
+        [Fact]
+        public void Composer_Undo_BorderIsNeutral_GreenStaysOnTheSuccessBanner() =>
+            RunSta(() =>
+            {
+                var now = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
+                var (vm, rx, sources) = Overview(() => now);
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[0]);
+                c.TapBlock(c.Blocks[0].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                c.Arm(sources[1]);
+                c.TapBlock(c.Blocks[1].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                Assert.Equal(BannerKind.Success, c.Banner.Kind);
+                var view = new VisualRoutingView { DataContext = vm };
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var undo = (Button)Named(view, "UndoButton").Single();
+                    var neutral = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.Control")).Color;
+                    Assert.Equal(neutral, ((SolidColorBrush)undo.BorderBrush).Color);
+
+                    var online = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Online")).Color;
+                    var banner = (Border)Named(view, "BannerHost").Single();
+                    Assert.Equal(online, ((SolidColorBrush)banner.BorderBrush).Color);
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_NeutralStagedOutline_HasEnoughContrast_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var neutral = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Muted")).Color;
+                    var mat = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.PreviewMat")).Color;
+                    Assert.True(Contrast(neutral, mat) >= 3.0, $"staged outline on the mat in {mode}: {Contrast(neutral, mat):F2} (need 3.0)");
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
         // ---- UI v2 Task 5a: rails are token-clamped star columns ----
 
         [Fact]

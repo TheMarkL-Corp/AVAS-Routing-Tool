@@ -274,7 +274,7 @@
 
                                     <!-- 3. Armed and this block can take it: cyan ring + "+ Place TX2" -->
                                     <Grid Style="{StaticResource Style.Panel.PlaceOverlay}">
-                                        <Rectangle RadiusX="6" RadiusY="6" Fill="{DynamicResource Brush.Surface.ScrimTint}" Stroke="{DynamicResource Brush.Border.DropTarget}" StrokeThickness="3" />
+                                        <Rectangle x:Name="PlaceRing" Style="{StaticResource Style.Shape.PlaceRing}" />
                                         <Border x:Name="PlacePill" Style="{StaticResource Style.Pill.Action}" Background="{DynamicResource Brush.Surface.ScrimAccent}" Margin="8">
                                             <StackPanel>
                                                 <TextBlock x:Name="PlaceVerbText" Style="{StaticResource Style.Text.Block.PlaceVerb}" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" />
