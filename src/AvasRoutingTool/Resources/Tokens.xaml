@@ -18,6 +18,8 @@
     <sys:Double x:Key="Size.Icon.M">22</sys:Double>
     <sys:Double x:Key="Size.Icon.L">28</sys:Double>
     <sys:Double x:Key="Size.Icon.Brand">28</sys:Double>
+    <!-- The brand mark on an unrouted display's empty tile (the tile's one picture) -->
+    <sys:Double x:Key="Size.Brand.Empty">64</sys:Double>
 
     <!-- Status dots -->
     <sys:Double x:Key="Size.Dot.S">8</sys:Double>

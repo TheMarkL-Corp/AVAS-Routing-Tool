@@ -74,6 +74,19 @@
         <Setter Property="Fill" Value="{DynamicResource Brush.Accent.Primary}" />
     </Style>
 
+    <!-- Dashed neutral frame around the empty display tile (critique M7). Neutral, never cyan: cyan is the drop ring and "armed" -->
+    <Style x:Key="Style.Shape.EmptyFrame" TargetType="Rectangle">
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeDashArray" Value="4 3" />
+        <Setter Property="RadiusX" Value="6" />
+        <Setter Property="RadiusY" Value="6" />
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Stretch" Value="Fill" />
+        <Setter Property="Margin" Value="8" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
     <!-- Copy layout: the copy colours, solid cyan while this display is the copy source -->
     <Style x:Key="Style.Button.CardAction.Copy" TargetType="Button" BasedOn="{StaticResource Style.Button.CardAction}">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />

@@ -126,10 +126,13 @@ namespace AvasRoutingTool.Tests
                 var view = rig.View(rig.Rx3, out var host); // unrouted
                 Showing(host, () =>
                 {
-                    AssertVisibleText(view, "Drop Source Here to Route");
+                    AssertVisibleText(view, "Ready to route a source");
                     Assert.Empty(VisibleTexts(view, "Routed to Source"));
-                    var state = FindAll<System.Windows.Shapes.Path>(view).First(p => p.IsVisible && p.Style == Application.Current.FindResource("Style.Icon.State"));
-                    Assert.Equal(Token("Size.Icon.L"), state.ActualWidth);
+                    // The empty tile shows the brand mark, not the monitor state icon; the state icon (routed non-AVAS / external notices) keeps the token size.
+                    var stateStyle = (Style)Application.Current.FindResource("Style.Icon.State");
+                    Assert.DoesNotContain(FindAll<System.Windows.Shapes.Path>(view), p => p.IsVisible && p.Style == stateStyle);
+                    Assert.Contains(FindAll<BrandMark>(view), b => b.IsVisible);
+                    Assert.Equal(Token("Size.Icon.L"), (double)stateStyle.Setters.OfType<Setter>().Single(s => s.Property == FrameworkElement.WidthProperty).Value);
                     foreach (var tb in FindAll<TextBlock>(view).Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text)))
                         Assert.True(tb.FontSize >= 12, $"'{tb.Text}' is {tb.FontSize}px");
                 });

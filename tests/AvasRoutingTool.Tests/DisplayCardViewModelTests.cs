@@ -220,11 +220,11 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void SourceFooterText_SaysReadyToRoute_WhenUnrouted_AndSourceWhenRouted()
+        public void SourceFooterText_IsEmpty_WhenUnrouted_AndSourceWhenRouted()
         {
             var device = new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1_c059e_SFPA", IsReceiver = true, IsActive = true };
             var vm = new DisplayCardViewModel(device, d => { d.ActiveSourceId = string.Empty; d.ActiveSourceName = string.Empty; return Task.CompletedTask; });
-            Assert.Equal("Ready to route a source", vm.SourceFooterText);
+            Assert.Equal(string.Empty, vm.SourceFooterText);
 
             var changed = new System.Collections.Generic.List<string?>();
             vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);

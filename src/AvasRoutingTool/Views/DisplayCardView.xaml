@@ -405,26 +405,33 @@
                                        Margin="0,4,0,0" />
                         </StackPanel>
 
-                        <!-- Unrouted / Drop Target Placeholder -->
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                    Visibility="{Binding ShowUnroutedPlaceholder, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <Path Data="{StaticResource Icon.Monitor}"
-                                  Style="{StaticResource Style.Icon.State}"
-                                  Fill="{DynamicResource Brush.Text.Muted}"
-                                  Opacity="0.35" />
+                        <!-- Unrouted: the empty tile (critique M7) - the brand mark, one line of what to do, one hint, inside a dashed neutral frame. Cyan stays on the drop ring. -->
+                        <Grid x:Name="UnroutedPlaceholder"
+                              Visibility="{Binding ShowUnroutedPlaceholder, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Rectangle x:Name="EmptyFrame" Style="{StaticResource Style.Shape.EmptyFrame}" />
 
-                            <TextBlock Text="Drop Source Here to Route"
-                                       Style="{StaticResource Style.Text.Caption}"
-                                       FontWeight="Medium"
-                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
-                                       HorizontalAlignment="Center"
-                                       Margin="0,8,0,0" />
-                            <TextBlock Text="Drag any TX card above or 'Off' to turn off"
-                                       Style="{StaticResource Style.Text.Caption}"
-                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
-                                       HorizontalAlignment="Center"
-                                       Margin="0,2,0,0" />
-                        </StackPanel>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <views:BrandMark Width="{StaticResource Size.Brand.Empty}"
+                                                 Height="{StaticResource Size.Brand.Empty}"
+                                                 Opacity="0.6"
+                                                 HorizontalAlignment="Center" />
+
+                                <TextBlock x:Name="ReadyToRouteText"
+                                           Text="Ready to route a source"
+                                           Style="{StaticResource Style.Text.Title}"
+                                           Foreground="{DynamicResource Brush.Text.OnPreview}"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,8,0,0" />
+                                <TextBlock x:Name="ReadyToRouteHint"
+                                           Text="Tap a source, then tap here - or drag it here"
+                                           Style="{StaticResource Style.Text.Caption}"
+                                           Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Grid>
 
                     <!-- Why the last layout / multiview action was refused (above both surfaces) -->
@@ -461,7 +468,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Source footer: "SOURCE: <name>" once routed, the idle line "Ready to route a source" otherwise -->
+                            <!-- Source footer: "SOURCE: <name>" once routed; empty while idle (the empty tile says "Ready to route a source" once) -->
                             <TextBlock x:Name="SourceFooter" Grid.Column="0"
                                        Text="{Binding SourceFooterText, Mode=OneWay}"
                                        Style="{StaticResource Style.Text.Caption}"

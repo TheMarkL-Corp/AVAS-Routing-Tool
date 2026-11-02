@@ -112,8 +112,8 @@ namespace AvasRoutingTool.Tests
 
                     var routedToSource = FindTextBlock(view, "Routed to Source");
                     Assert.True(routedToSource == null || !routedToSource.IsVisible, "'Routed to Source' must be hidden for an external layout");
-                    var dropHere = FindTextBlock(view, "Drop Source Here to Route");
-                    Assert.True(dropHere == null || !dropHere.IsVisible, "unrouted placeholder must be hidden for an external layout");
+                    var readyText = FindTextBlock(view, "Ready to route a source");
+                    Assert.True(readyText == null || !readyText.IsVisible, "unrouted placeholder must be hidden for an external layout");
                 }
                 finally
                 {

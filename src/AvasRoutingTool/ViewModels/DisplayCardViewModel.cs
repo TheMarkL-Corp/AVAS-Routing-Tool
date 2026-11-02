@@ -189,8 +189,8 @@ namespace AvasRoutingTool.ViewModels
                 ? $"{_externalSourceCount} IN LAYOUT"
                 : IsRouted && !string.IsNullOrEmpty(ActiveSourceName) ? ActiveSourceName : "NONE";
 
-        /// <summary>Footer line 1: "SOURCE: N" once something is routed; the idle line otherwise (the picture already says it is empty).</summary>
-        public string SourceFooterText => IsRouted || IsMultiView || IsExternalLayout ? $"SOURCE: {SourceLabel}" : "Ready to route a source";
+        /// <summary>Footer line 1: "SOURCE: N" once something is routed; empty while idle (the empty tile says "Ready to route a source" once).</summary>
+        public string SourceFooterText => IsRouted || IsMultiView || IsExternalLayout ? $"SOURCE: {SourceLabel}" : string.Empty;
 
         public WriteableBitmap? PreviewBitmap
         {
@@ -296,7 +296,7 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Routed to a source that has no preview stream (non-AVAS); not shown for a layout set elsewhere, which has its own notice.</summary>
         public bool ShowRoutedNonAvasNotice => IsRouted && !IsPreviewSupported && !IsExternalLayout;
 
-        /// <summary>"Drop Source Here to Route": nothing is routed.</summary>
+        /// <summary>The empty tile ("Ready to route a source"): nothing is routed.</summary>
         public bool ShowUnroutedPlaceholder => !IsRouted;
 
         /// <summary>
