@@ -217,9 +217,7 @@
             <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
                 <Setter Property="Visibility" Value="Visible" />
                 <Setter Property="Content" Value="Done placing" />
-                <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
             </DataTrigger>
         </Style.Triggers>
     </Style>

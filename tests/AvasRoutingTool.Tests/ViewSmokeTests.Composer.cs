@@ -1494,6 +1494,94 @@ namespace AvasRoutingTool.Tests
                 }
             });
 
+        // ---- Composer round 2 C2: Done placing is an outline button; Take is the only filled button ----
+
+        [Fact]
+        public void Composer_DoneButton_IsSecondary_TakeIsTheOnlyFilledButton_InDarkMode() =>
+            RunSta(() => AssertDoneIsOutlineAndTakeIsTheOnlyFilled(AvasRoutingTool.Services.ThemeMode.Dark));
+
+        [Fact]
+        public void Composer_DoneButton_IsSecondary_TakeIsTheOnlyFilledButton_InLightMode() =>
+            RunSta(() => AssertDoneIsOutlineAndTakeIsTheOnlyFilled(AvasRoutingTool.Services.ThemeMode.Light));
+
+        [Fact]
+        public void Composer_DoneButton_Outline_HasEnoughContrast_InDarkMode() =>
+            RunSta(() => AssertDoneOutlineHasEnoughContrast(AvasRoutingTool.Services.ThemeMode.Dark));
+
+        [Fact]
+        public void Composer_DoneButton_Outline_HasEnoughContrast_InLightMode() =>
+            RunSta(() => AssertDoneOutlineHasEnoughContrast(AvasRoutingTool.Services.ThemeMode.Light));
+
+        private static void AssertDoneIsOutlineAndTakeIsTheOnlyFilled(AvasRoutingTool.Services.ThemeMode mode)
+        {
+            var themeService = new AvasRoutingTool.Services.ThemeService();
+            try
+            {
+                themeService.SetTheme(mode);
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0); // a placed block: Take is ready
+                c.Arm(rig.Tx2); // armed again: Done placing is on screen
+                Assert.True(c.CanTake, "Take is not ready after a placement");
+                Assert.Same(rig.Tx2, c.ArmedSource);
+                var view = rig.View(c);
+
+                Showing(view, () =>
+                {
+                    Relayout(view);
+                    var done = (Button)Named(view, "DoneButton").Single();
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    Assert.True(done.IsVisible, "Done placing is not on screen while a source is armed");
+                    Assert.True(take.IsVisible, "Take is not on screen");
+
+                    var elevated = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Elevated")).Color;
+                    var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color;
+                    var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                    var takeFill = ((SolidColorBrush)Application.Current.FindResource("Brush.Action.Take")).Color;
+
+                    // Done placing: the secondary look (elevated fill, cyan outline = armed, primary text), never a cyan fill
+                    Assert.Equal(elevated, ((SolidColorBrush)done.Background).Color);
+                    Assert.Equal(outline, ((SolidColorBrush)done.BorderBrush).Color);
+                    Assert.Equal(text, ((SolidColorBrush)done.Foreground).Color);
+                    Assert.NotEqual(outline, ((SolidColorBrush)done.Background).Color);
+                    Assert.NotEqual(takeFill, ((SolidColorBrush)done.Background).Color);
+
+                    // Take is the only visible filled button
+                    var filled = FindAll<Button>(view)
+                        .Where(b => b.IsVisible && b.Background is SolidColorBrush s && s.Color == takeFill)
+                        .ToList();
+                    Assert.Single(filled);
+                    Assert.Same(take, filled[0]);
+                });
+            }
+            finally
+            {
+                themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+            }
+        }
+
+        private static void AssertDoneOutlineHasEnoughContrast(AvasRoutingTool.Services.ThemeMode mode)
+        {
+            var themeService = new AvasRoutingTool.Services.ThemeService();
+            try
+            {
+                themeService.SetTheme(mode);
+                var elevated = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Elevated")).Color;
+                var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color;
+                var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                var page = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
+
+                Assert.True(Contrast(text, elevated) >= 4.5, $"Done placing text on Surface.Elevated: {Contrast(text, elevated):F2} (need 4.5)");
+                Assert.True(Contrast(outline, elevated) >= 3.0, $"Done placing outline on Surface.Elevated: {Contrast(outline, elevated):F2} (need 3.0)");
+                Assert.True(Contrast(outline, page) >= 3.0, $"Done placing outline on the page surface: {Contrast(outline, page):F2} (need 3.0)");
+            }
+            finally
+            {
+                themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+            }
+        }
+
         // ---- UI v2 Task 5a: rails are token-clamped star columns ----
 
         [Fact]
