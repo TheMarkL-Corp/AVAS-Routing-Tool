@@ -193,15 +193,22 @@ namespace AvasRoutingTool.Tests
             try
             {
                 File.WriteAllText(file,
-                    "{\n  \"Theme\": \"Light\",\n  \"RoomCameras\": [\n    { \"Name\": \"ROOM-CAM\", \"Port\": \"abc\" }\n  ]\n}");
+                    "{\n  \"Theme\": \"Light\",\n  \"RoomCameras\": [\n" +
+                    "    { \"Id\": \"first\", \"Name\": \"OR-1\", \"Host\": \"10.0.0.1\", \"Port\": 52381 },\n" +
+                    "    { \"Id\": \"bad\", \"Name\": \"ROOM-CAM\", \"Port\": \"abc\" },\n" +
+                    "    { \"Id\": \"last\", \"Name\": \"OR-2\", \"Host\": \"10.0.0.2\", \"Port\": 3001 }\n" +
+                    "  ]\n}");
 
-                // ConfigService.Load falls back to defaults for the whole file when deserialisation fails.
-                // This test pins that behaviour: no exception, defaults returned.
+                // Only the corrupt camera entry is skipped; every other setting and valid camera is kept, in order.
                 var loaded = new ConfigService(file).Load();
 
                 Assert.NotNull(loaded);
-                Assert.Equal("Dark", loaded.Theme);
-                Assert.Empty(loaded.RoomCameras);
+                Assert.Equal("Light", loaded.Theme);
+                Assert.Equal(2, loaded.RoomCameras.Count);
+                Assert.Equal("first", loaded.RoomCameras[0].Id);
+                Assert.Equal("10.0.0.1", loaded.RoomCameras[0].Host);
+                Assert.Equal("last", loaded.RoomCameras[1].Id);
+                Assert.Equal("10.0.0.2", loaded.RoomCameras[1].Host);
             }
             finally
             {
