@@ -81,7 +81,7 @@
                                   MinWidth="{StaticResource Size.Composer.Rail.Right.Min}" MaxWidth="{StaticResource Size.Composer.Rail.Right.Max}" />
             </Grid.ColumnDefinitions>
 
-            <!-- ===== Left rail: Step 1 layout, Step 2 place, Step 3 check and take ===== -->
+            <!-- ===== Left rail: Step 1 layout and the sources a layout change left unplaced ===== -->
             <ScrollViewer x:Name="LeftRailScroll" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="0,0,4,0" Style="{StaticResource Style.Panel.BusyDisables}">
 
@@ -124,13 +124,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Step 2 -->
-                    <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,4"
-                                         Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
-                                         AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,0,0,6"
-                               Text="Tap a source above, then its blocks - or tap an empty block." />
-
                     <!-- Sources a layout change left without a block -->
                     <StackPanel Margin="0,0,0,6"
                                 Visibility="{Binding UnplacedSources, Mode=OneWay, Converter={StaticResource Converter.Visible.HasItems}}">
@@ -152,12 +145,6 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
-
-                    <!-- Step 3 -->
-                    <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,4,0,4"
-                                         Number="3" Title="CHECK, THEN TAKE" IsDone="{Binding CanTake, Mode=OneWay}"
-                                         AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Text="Nothing changes on screen until Take." />
                 </StackPanel>
             </ScrollViewer>
 
@@ -175,23 +162,31 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <!-- A Grid, not a horizontal StackPanel: the word may wrap beside its dot, and a StackPanel would give it unlimited width -->
-                        <Grid Visibility="{Binding IsStaged, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Ellipse x:Name="StagedDot" Style="{StaticResource Style.Shape.StagedDot}" />
-                            <TextBlock x:Name="StagedLabel" Grid.Column="1"
-                                       Text="STAGED - not on screen yet"
-                                       Style="{StaticResource Style.Text.Status.Staged}" />
-                        </Grid>
-                        <TextBlock x:Name="OnScreenLabel"
-                                   Text="ON SCREEN - this is what the surgeon sees"
-                                   Style="{StaticResource Style.Text.Status.OnScreen}"
-                                   Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
-                    </StackPanel>
+                    <!-- Step 2 heads this row. The WrapPanel moves the status under the heading when the canvas is narrow (a 1024 px window) -->
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,12,0" VerticalAlignment="Center"
+                                             Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
+                                             AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}"
+                                             AutomationProperties.HelpText="Tap a source in the strip above, then its blocks - or tap an empty block." />
+
+                        <StackPanel VerticalAlignment="Center">
+                            <!-- A Grid, not a horizontal StackPanel: the word may wrap beside its dot, and a StackPanel would give it unlimited width -->
+                            <Grid Visibility="{Binding IsStaged, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse x:Name="StagedDot" Style="{StaticResource Style.Shape.StagedDot}" />
+                                <TextBlock x:Name="StagedLabel" Grid.Column="1"
+                                           Text="STAGED - not on screen yet"
+                                           Style="{StaticResource Style.Text.Status.Staged}" />
+                            </Grid>
+                            <TextBlock x:Name="OnScreenLabel"
+                                       Text="ON SCREEN - this is what the surgeon sees"
+                                       Style="{StaticResource Style.Text.Status.OnScreen}"
+                                       Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </WrapPanel>
 
                     <!-- Done placing / Cancel move (Disarm stops both) -->
                     <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Center" Style="{StaticResource Style.Button.Done}" />
@@ -474,6 +469,12 @@
                 </ScrollViewer>
 
                 <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                    <!-- Step 3 heads the pinned cluster: the check and the Take below it -->
+                    <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,4"
+                                         Number="3" Title="CHECK, THEN TAKE" IsDone="{Binding CanTake, Mode=OneWay}"
+                                         AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}"
+                                         AutomationProperties.HelpText="Nothing changes on screen until you press Take." />
+
                     <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
                     <Border x:Name="BannerHost" Style="{StaticResource Style.Banner.Composer}">
                         <Grid>

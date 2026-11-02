@@ -187,6 +187,73 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        // ---- Composer round 2 C6: the left rail keeps Step 1 only; Step 2 heads the canvas, Step 3 heads the Take cluster ----
+
+        [Fact]
+        public void Composer_LeftRail_HoldsOnlyStep1_AndUnplaced() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var rail = (ScrollViewer)Named(view, "LeftRailScroll").Single();
+                    var railColumn = (ColumnDefinition)view.FindName("LeftRailColumn");
+                    var rightRail = (ScrollViewer)Named(view, "RightRailScroll").Single();
+                    var layout = Named(view, "StepLayoutHeading").Single();
+                    var place = Named(view, "StepPlaceHeading").Single();
+                    var take = Named(view, "StepTakeHeading").Single();
+                    var canvas = (FrameworkElement)Named(view, "CanvasHost").Single();
+                    var takeButton = (FrameworkElement)Named(view, "TakeButton").Single();
+
+                    Assert.True(IsInside(layout, rail), "the Step 1 heading is not in the left rail");
+                    Assert.False(IsInside(place, rail), "the Step 2 heading is still in the left rail");
+                    Assert.False(IsInside(take, rail), "the Step 3 heading is still in the left rail");
+
+                    // Step 2 heads the canvas status row: right of the rail and above the canvas
+                    var placeBounds = BoundsIn(place, view);
+                    Assert.True(placeBounds.Left >= railColumn.ActualWidth - 0.5, $"Step 2 at x {placeBounds.Left}, the left rail is {railColumn.ActualWidth} wide");
+                    Assert.True(placeBounds.Top < BoundsIn(canvas, view).Top, $"Step 2 at y {placeBounds.Top}, the canvas starts at {BoundsIn(canvas, view).Top}");
+
+                    // Step 3 heads the Take cluster: above the Take button and right of the canvas
+                    var takeHeading = BoundsIn(take, view);
+                    Assert.True(takeHeading.Bottom <= BoundsIn(takeButton, view).Top + 0.5, $"Step 3 ends at {takeHeading.Bottom}, Take starts at {BoundsIn(takeButton, view).Top}");
+                    Assert.True(takeHeading.Left >= BoundsIn(rightRail, view).Left - 0.5, $"Step 3 at x {takeHeading.Left}, the right rail starts at {BoundsIn(rightRail, view).Left}");
+
+                    // The two instruction sentences are gone from the screen; screen readers get them as help text on the headings
+                    Assert.Empty(VisibleTexts(view, "Tap a source above"));
+                    Assert.Empty(VisibleTexts(view, "Nothing changes on screen until Take."));
+                    Assert.Equal("Tap a source in the strip above, then its blocks - or tap an empty block.", System.Windows.Automation.AutomationProperties.GetHelpText(place));
+                    Assert.Equal("Nothing changes on screen until you press Take.", System.Windows.Automation.AutomationProperties.GetHelpText(take));
+                });
+            });
+
+        [Fact]
+        public void Composer_Canvas_StaysAtLeast1144x635_AtFullHd() =>
+            RunSta(() =>
+            {
+                // In the real screen: the composer under the source strip and the header, as the checkpoint harness shows it
+                var (vm, rx, sources) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var canvas = (FrameworkElement)Named(view, "CanvasHost").Single();
+                    Assert.True(canvas.ActualWidth >= 1140 && canvas.ActualHeight >= 630, $"the canvas is {canvas.ActualWidth}x{canvas.ActualHeight}");
+                });
+            });
+
+        private static bool IsInside(DependencyObject element, DependencyObject ancestor)
+        {
+            for (var parent = System.Windows.Media.VisualTreeHelper.GetParent(element); parent != null; parent = System.Windows.Media.VisualTreeHelper.GetParent(parent))
+            {
+                if (ReferenceEquals(parent, ancestor)) return true;
+            }
+            return false;
+        }
+
         [Fact]
         public void Composer_WithStagedDuplicate_ShowsSameAsChip_AndStagedLabel() =>
             RunSta(() =>
@@ -2458,8 +2525,8 @@ namespace AvasRoutingTool.Tests
                     var changesBottom = BoundsIn(changes, scroll).Bottom;
                     Assert.True(Math.Abs(changesBottom - scroll.ViewportHeight) <= 1, $"Changes card ends at {changesBottom} in a {scroll.ViewportHeight} high rail");
 
-                    // The pinned cluster (banner, Take) starts 8 px under the rail: no dead zone between them
-                    var clusterTop = BoundsIn((FrameworkElement)Named(view, "BannerHost").Single(), view).Top;
+                    // The pinned cluster (its Step 3 heading, banner, Take) starts 8 px under the rail: no dead zone between them
+                    var clusterTop = BoundsIn((FrameworkElement)Named(view, "StepTakeHeading").Single(), view).Top;
                     var railBottom = BoundsIn(scroll, view).Bottom;
                     Assert.True(clusterTop - railBottom <= 8.5, $"{clusterTop - railBottom} px between the rail and the pinned cluster");
                 });
