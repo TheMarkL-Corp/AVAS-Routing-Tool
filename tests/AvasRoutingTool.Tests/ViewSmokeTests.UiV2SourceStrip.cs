@@ -27,7 +27,7 @@ namespace AvasRoutingTool.Tests
             FindAll<ScrollViewer>(view).Single(s => s.Name != "CompactSourcePalette" && s.Content is ItemsControl ic && ReferenceEquals(ic.ItemsSource, vm.Sources));
 
         [Fact]
-        public void Strip_IsLeftAligned_TilesHaveEqualSizeFromTokens() =>
+        public void Strip_IsCentred_TilesHaveEqualSizeFromTokens() =>
             RunSta(() =>
             {
                 var (view, _) = FullHdOverview(sources: 3, displays: 2);
@@ -39,8 +39,11 @@ namespace AvasRoutingTool.Tests
                         Assert.True(Math.Abs(tile.ActualWidth - Token("Size.Strip.Tile.Width")) < 0.5, $"tile is {tile.ActualWidth:F1} px wide, the token is {Token("Size.Strip.Tile.Width")}");
                     Assert.All(tiles, t => Assert.True(Math.Abs(t.ActualHeight - tiles[0].ActualHeight) < 0.5, $"tile heights differ: {t.ActualHeight:F1} and {tiles[0].ActualHeight:F1}"));
 
-                    var first = BoundsIn(tiles[0], view);
-                    Assert.True(first.Left >= 0 && first.Left <= 20, $"the first tile starts at {first.Left:F1} px: the strip is not left-aligned");
+                    // A10b: the strip is centred under the header, so the gap on the left equals the gap on the right.
+                    var strip = StripPanelOf(view);
+                    var leftGap = BoundsIn(tiles[0], strip).Left;
+                    var rightGap = strip.ActualWidth - BoundsIn(tiles[^1], strip).Right;
+                    Assert.True(Math.Abs(leftGap - rightGap) <= 1, $"the tiles sit {leftGap:F1} px from the left and {rightGap:F1} px from the right: the strip is not centred");
 
                     for (var i = 1; i < tiles.Count; i++)
                     {

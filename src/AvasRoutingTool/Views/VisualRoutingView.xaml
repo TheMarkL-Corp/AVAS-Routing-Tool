@@ -90,7 +90,7 @@
                 </ScrollViewer>
 
                 <!-- Sources Carousel / Horizontal List -->
-                <!-- The overview strip: a plain WrapPanel (not virtualized: every tile owns a live preview). It never takes more than Size.Strip.Max.Fraction of the overview height; beyond that it scrolls -->
+                <!-- The overview strip: a plain CenteredWrapPanel (rows centred; not virtualized: every tile owns a live preview). It never takes more than Size.Strip.Max.Fraction of the overview height; beyond that it scrolls -->
                 <ScrollViewer Grid.Row="1"
                               Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}"
                               MaxHeight="{Binding ActualHeight, ElementName=OverviewGrid, Converter={StaticResource Converter.FractionOf}, ConverterParameter={StaticResource Size.Strip.Max.Fraction}}"
@@ -99,7 +99,7 @@
                     <ItemsControl ItemsSource="{Binding Sources}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" />
+                                <controls:CenteredWrapPanel />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>

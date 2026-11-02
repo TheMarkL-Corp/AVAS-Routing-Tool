@@ -107,8 +107,8 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(8, FindAll<SourceCardView>(view).Count);
                     Assert.Equal(6, FindAll<DisplayCardView>(view).Count);
                     Assert.Empty(FindAll<System.Windows.Controls.VirtualizingPanel>(view).Where(p => FindAll<SourceCardView>(p).Any() || FindAll<DisplayCardView>(p).Any()));
-                    // The sources are a plain WrapPanel (A9, not virtualized); the displays stay on AdaptiveCardPanel. Each holds all of its cards.
-                    Assert.Equal(8, FindAll<WrapPanel>(view).Where(p => FindAll<SourceCardView>(p).Any()).SelectMany(p => FindAll<SourceCardView>(p)).Count());
+                    // The sources are a plain CenteredWrapPanel (A9/A10b, not virtualized); the displays stay on AdaptiveCardPanel. Each holds all of its cards.
+                    Assert.Equal(8, FindAll<CenteredWrapPanel>(view).Where(p => FindAll<SourceCardView>(p).Any()).SelectMany(p => FindAll<SourceCardView>(p)).Count());
                     Assert.Equal(6, FindAll<AdaptiveCardPanel>(view).Where(p => FindAll<DisplayCardView>(p).Any()).SelectMany(p => FindAll<DisplayCardView>(p)).Count());
                     return 0;
                 });
