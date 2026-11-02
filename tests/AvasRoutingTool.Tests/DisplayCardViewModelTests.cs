@@ -243,8 +243,8 @@ namespace AvasRoutingTool.Tests
             var device = new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1_c059e_SFPA", IsReceiver = true, IsActive = true };
             var vm = new DisplayCardViewModel(device);
             Assert.False(vm.CanCopyFrom);
-            Assert.Equal(vm.CopyFromBlockedText, vm.CopyHandleToolTip);
-            Assert.Equal("RX1_c059e_SFPA shows nothing to copy", vm.CopyHandleToolTip);
+            Assert.Equal("No layout to copy yet", vm.CopyHandleToolTip);
+            Assert.Equal("RX1_c059e_SFPA shows nothing to copy", vm.CopyFromBlockedText);
 
             var changed = new System.Collections.Generic.List<string?>();
             vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
@@ -254,7 +254,7 @@ namespace AvasRoutingTool.Tests
             vm.NotifyRoutingChanged();
 
             Assert.True(vm.CanCopyFrom);
-            Assert.Equal("Drag onto another display to copy this picture there - or tap, then tap a display", vm.CopyHandleToolTip);
+            Assert.Equal("Copy this layout to another display", vm.CopyHandleToolTip);
             Assert.Contains(nameof(DisplayCardViewModel.CopyHandleToolTip), changed);
         }
     }

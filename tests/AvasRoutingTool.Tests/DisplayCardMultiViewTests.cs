@@ -25,7 +25,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("single", vm.LayoutId);
             Assert.False(vm.IsMultiView);
             Assert.Empty(vm.Slots);
-            Assert.Equal("UNROUTED", vm.ModeBadge);
+            Assert.Equal("No source", vm.ModeBadge);
         }
 
         [Fact]
@@ -138,7 +138,7 @@ namespace AvasRoutingTool.Tests
             Assert.False(vm.IsMultiView);
             Assert.Empty(vm.Slots);
             Assert.False(vm.IsRouted);
-            Assert.Equal("UNROUTED", vm.ModeBadge);
+            Assert.Equal("No source", vm.ModeBadge);
         }
 
         [Fact]

@@ -64,9 +64,10 @@ namespace AvasRoutingTool.Tests
                     return new CardMeasure(card.ActualWidth, card.ActualHeight, picture.ActualWidth, picture.ActualHeight, scroll.ScrollableHeight > 0.5);
                 }
                 var source = FindAll<SourceCardView>(view).First(c => c.IsVisible);
-                var preview = FindAll<System.Windows.Controls.Image>(source).First();
-                var sourceScroll = FindAll<ScrollViewer>(view).First(s => s.Content is ItemsControl ic && ic.Items.Count == sources);
-                return new CardMeasure(source.ActualWidth, source.ActualHeight, ((FrameworkElement)preview.Parent).ActualWidth, ((FrameworkElement)preview.Parent).ActualHeight, sourceScroll.ScrollableHeight > 0.5);
+                // The source tile's one picture is its 16:9 thumbnail (A9)
+                var thumb = ThumbnailOf(source);
+                var sourceScroll = FindAll<ScrollViewer>(view).First(s => s.Name != "CompactSourcePalette" && s.Content is ItemsControl ic && ic.Items.Count == sources);
+                return new CardMeasure(source.ActualWidth, source.ActualHeight, thumb.ActualWidth, thumb.ActualHeight, sourceScroll.ScrollableHeight > 0.5);
             });
         }
 
@@ -106,17 +107,20 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(8, FindAll<SourceCardView>(view).Count);
                     Assert.Equal(6, FindAll<DisplayCardView>(view).Count);
                     Assert.Empty(FindAll<System.Windows.Controls.VirtualizingPanel>(view).Where(p => FindAll<SourceCardView>(p).Any() || FindAll<DisplayCardView>(p).Any()));
-                    Assert.Equal(8, FindAll<AdaptiveCardPanel>(view).Where(p => p.Children.OfType<SourceCardView>().Any() || FindAll<SourceCardView>(p).Any()).SelectMany(p => FindAll<SourceCardView>(p)).Count());
+                    // The sources are a plain CenteredWrapPanel (A9/A10b, not virtualized); the displays stay on AdaptiveCardPanel. Each holds all of its cards.
+                    Assert.Equal(8, FindAll<CenteredWrapPanel>(view).Where(p => FindAll<SourceCardView>(p).Any()).SelectMany(p => FindAll<SourceCardView>(p)).Count());
+                    Assert.Equal(6, FindAll<AdaptiveCardPanel>(view).Where(p => FindAll<DisplayCardView>(p).Any()).SelectMany(p => FindAll<DisplayCardView>(p)).Count());
                     return 0;
                 });
             });
 
         // Recorded at 1920x952 before the cap change (the overview is height-bound there): the pictures must never get smaller than this.
         // Round 2 / A1: the Displays header row is a fixed 48 px (the arm banner shares it, so arming moves nothing), about 18 px taller than
-        // the old idle header; the 1 and 2 display pictures were re-recorded at 640x360 (-33 px wide). The dense source strip (A9) wins the height back.
+        // the old idle header; the 1 and 2 display pictures were re-recorded at 640x360 (-33 px wide).
+        // Round 2 / A9: the dense source strip (an Auto row, 243 px tiles, two rows at most) gives the height back: 1 and 2 displays were 745x419; A10b keeps an 8 px gap between the section header or arm banner and the cards, so they are 731x411.
         [Theory]
-        [InlineData(1, 640, 360)]
-        [InlineData(2, 640, 360)]
+        [InlineData(1, 731, 411)]
+        [InlineData(2, 731, 411)]
         [InlineData(3, 587, 330)]
         [InlineData(4, 430, 242)]
         [InlineData(5, 336, 189)]
@@ -129,15 +133,18 @@ namespace AvasRoutingTool.Tests
                 Assert.Equal(16.0 / 9.0, m.PictureWidth / m.PictureHeight, 1);
             });
 
+        // Round 2 / A9: a source is a 240 px tile with a 214 x 120 thumbnail (16:9). It replaces the 398 x 309 card (picture 370 x 203):
+        // the sources are now a dense strip, and the displays get the height (FullHd_DisplayPictures_AreAtLeastTheRecordedBaseline).
         [Theory]
-        [InlineData(3, 370, 203)]
-        [InlineData(4, 370, 203)]
-        [InlineData(5, 334, 183)]
-        public void FullHd_SourcePictures_AreAtLeastTheRecordedBaseline(int sources, double width, double height) =>
+        [InlineData(3, 214, 120)]
+        [InlineData(4, 214, 120)]
+        [InlineData(5, 214, 120)]
+        public void FullHd_SourceThumbnails_AreAtLeastTheTileBaseline(int sources, double width, double height) =>
             RunSta(() =>
             {
                 var m = MeasureFullHd(sources, 2, displayCards: false);
                 Assert.True(m.PictureWidth >= width - 1.5 && m.PictureHeight >= height - 1.5, $"{sources} sources: {m.PictureWidth:F0}x{m.PictureHeight:F0} < {width}x{height}");
+                Assert.Equal(16.0 / 9.0, m.PictureWidth / m.PictureHeight, 1);
             });
     }
 }

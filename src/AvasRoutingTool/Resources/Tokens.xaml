@@ -35,6 +35,15 @@
     <GridLength x:Key="Size.Card.RowLength.ActionBar">56</GridLength>
     <GridLength x:Key="Size.Card.RowLength.Dock">64</GridLength>
 
+    <!-- Source strip (critique M2): dense tiles with a 16:9 thumbnail (214 x 120 inside a 240 px tile). The strip holds two tile rows before it scrolls. -->
+    <sys:Double x:Key="Size.Strip.Tile.Width">240</sys:Double>
+    <sys:Double x:Key="Size.Strip.Thumb.Height">120</sys:Double>
+    <sys:Double x:Key="Size.Strip.Gap">10</sys:Double>
+    <!-- The Sources strip never takes more than this share of the overview height (2/5.4 = 0.37, the old Sources share); beyond it the strip scrolls -->
+    <sys:Double x:Key="Size.Strip.Max.Fraction">0.37</sys:Double>
+    <!-- The space around each tile: left and right 5 px (a 10 px gap between tiles, so a centred row is centred on the tiles), bottom 10 px (Size.Strip.Gap) -->
+    <Thickness x:Key="Size.Strip.TileMargin">5,0,5,10</Thickness>
+
     <!-- Section header row (Displays): the arm banner shares this row with the header, so arming never changes its height. 48 = Touch.Min: the Stop button overlaps the banner border (same colour) -->
     <sys:Double x:Key="Size.Section.Header.Height">48</sys:Double>
 
@@ -43,7 +52,7 @@
     <sys:Double x:Key="Size.Tab.MinWidth">120</sys:Double>
     <sys:Double x:Key="Size.Breakpoint.AppBarLabels">1400</sys:Double>
     <!-- Display card: the action bar is at least this wide (the card less its 26 px chrome) when the one-tap layout presets show; below it only the Layout dropdown -->
-    <sys:Double x:Key="Size.Breakpoint.CardPresets">550</sys:Double>
+    <sys:Double x:Key="Size.Breakpoint.CardPresets">530</sys:Double>
     <sys:Double x:Key="Size.Window.Default.Width">1280</sys:Double>
     <sys:Double x:Key="Size.Window.Default.Height">860</sys:Double>
     <sys:Double x:Key="Size.Window.Min.Width">1024</sys:Double>
@@ -57,9 +66,9 @@
     <sys:Double x:Key="Size.LayoutTile.Min">88</sys:Double>
     <sys:Double x:Key="Size.Schematic.Menu.Width">72</sys:Double>
     <sys:Double x:Key="Size.Schematic.Menu.Height">40</sys:Double>
-    <!-- The schematic inside an inline layout preset on the display card's action bar -->
-    <sys:Double x:Key="Size.Schematic.Inline.Width">28</sys:Double>
-    <sys:Double x:Key="Size.Schematic.Inline.Height">16</sys:Double>
+    <!-- The layout glyph (outline cells) inside an inline layout preset on the display card's action bar -->
+    <sys:Double x:Key="Size.Schematic.Inline.Width">32</sys:Double>
+    <sys:Double x:Key="Size.Schematic.Inline.Height">20</sys:Double>
 
     <!-- Settings dialog -->
     <sys:Double x:Key="Size.Dialog.Settings.Width">480</sys:Double>

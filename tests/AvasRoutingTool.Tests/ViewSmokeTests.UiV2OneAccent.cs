@@ -49,14 +49,14 @@ namespace AvasRoutingTool.Tests
         public void SourceCard_StatusIsDotAndWord_NotAPill() =>
             RunSta(() =>
             {
-                SourceCardAt(UiV2Source(online: true), 393, 340, view =>
+                SourceCardAt(UiV2Source(online: true), view =>
                 {
                     Assert.True(FindAll<Badge>(view).Where(b => b.IsVisible).All(b => FindAll<TextBlock>(b).All(t => t.Text != "ONLINE" && t.Text != "OFFLINE")),
                         "a visible ONLINE/OFFLINE pill is still on the source card");
                     AssertStatusWord(view, "OnlineWord", "Online", "OfflineWord");
                     AssertStatusDot(view);
                 });
-                SourceCardAt(UiV2Source(online: false), 393, 340, view =>
+                SourceCardAt(UiV2Source(online: false), view =>
                 {
                     Assert.True(FindAll<Badge>(view).Where(b => b.IsVisible).All(b => FindAll<TextBlock>(b).All(t => t.Text != "ONLINE" && t.Text != "OFFLINE")),
                         "a visible ONLINE/OFFLINE pill is still on the source card");
@@ -68,7 +68,7 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public void SourceCard_DualLinkTag_IsNeutral_AndStartIsSecondary() =>
             RunSta(() =>
-                SourceCardAt(UiV2Source(link: "Dual Link"), 393, 340, view =>
+                SourceCardAt(UiV2Source(link: "Dual Link"), view =>
                 {
                     var tag = FindAll<Badge>(view).Single(b => FindAll<TextBlock>(b).Any(t => t.Text == "DUAL LINK"));
                     Assert.Same(Res("Style.Badge.Neutral"), tag.Style);

@@ -44,7 +44,7 @@ namespace AvasRoutingTool.Tests
                     var handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
                     Assert.False(handle.IsEnabled);
                     Assert.False(string.IsNullOrEmpty(rig.Rx3.CopyFromBlockedText));
-                    Assert.Equal(rig.Rx3.CopyFromBlockedText, (string?)handle.ToolTip);
+                    Assert.Equal("No layout to copy yet", (string?)handle.ToolTip); // the tooltip says what is off; the reason is the help text
                     Assert.Equal(rig.Rx3.CopyFromBlockedText, AutomationProperties.GetHelpText(handle));
 
                     // The card no longer repeats the reason in its dock.

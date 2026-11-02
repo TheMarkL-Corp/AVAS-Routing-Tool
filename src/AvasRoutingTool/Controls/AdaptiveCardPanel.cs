@@ -26,6 +26,22 @@ namespace AvasRoutingTool.Controls
             set => SetValue(SpecProperty, value);
         }
 
+        /// <summary>
+        /// Whether a grid shorter than the viewport is centred vertically (the default). The Displays panel turns it off,
+        /// so its cards start right under the section header.
+        /// </summary>
+        public static readonly DependencyProperty CenterVerticallyProperty =
+            DependencyProperty.Register(
+                nameof(CenterVertically),
+                typeof(bool),
+                typeof(AdaptiveCardPanel),
+                new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        public bool CenterVertically
+        {
+            get => (bool)GetValue(CenterVerticallyProperty);
+            set => SetValue(CenterVerticallyProperty, value);
+        }
         private ScrollViewer? _parentScrollViewer;
 
         public AdaptiveCardPanel()
@@ -179,7 +195,7 @@ namespace AvasRoutingTool.Controls
             double startX = Math.Max(0, (finalSize.Width - totalGridWidth) / 2.0);
 
             double totalGridHeight = plan.Rows * plan.CardHeight + Math.Max(0, plan.Rows - 1) * Spec.Gap;
-            double startY = Math.Max(0, (height - totalGridHeight) / 2.0);
+            double startY = CenterVertically ? Math.Max(0, (height - totalGridHeight) / 2.0) : 0;
 
             for (int i = 0; i < count; i++)
             {

@@ -78,7 +78,7 @@ namespace AvasRoutingTool.ViewModels
         /// </summary>
         public string ModeBadge => IsMultiView
             ? $"{_layoutTitle.ToUpperInvariant()} · {Slots.Count(s => s.IsAssigned)}/{Slots.Count}"
-            : _isExternalLayout ? "EXTERNAL LAYOUT" : IsRouted ? "SINGLE VIEW" : "UNROUTED";
+            : _isExternalLayout ? "EXTERNAL LAYOUT" : IsRouted ? "SINGLE VIEW" : "No source";
 
         /// <summary>The header "Layout" menu: Single View, the four MultiView presets, Off. The layout on screen is selected.</summary>
         public IReadOnlyList<LayoutItemViewModel> LayoutMenu { get; }
@@ -225,8 +225,8 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Why the Copy layout handle is disabled ("RX1 shows nothing to copy"); empty when it is enabled.</summary>
         public string CopyFromBlockedText => CanCopyFrom ? string.Empty : $"{DeviceName} shows nothing to copy";
 
-        /// <summary>The Copy layout handle's tooltip: how to copy while it is on, why it is off otherwise (said here, not on the card).</summary>
-        public string CopyHandleToolTip => CanCopyFrom ? "Drag onto another display to copy this picture there - or tap, then tap a display" : CopyFromBlockedText;
+        /// <summary>The Copy layout handle's tooltip: what it does while it is on, and that there is nothing to copy while it is off (the reason is its help text).</summary>
+        public string CopyHandleToolTip => CanCopyFrom ? "Copy this layout to another display" : "No layout to copy yet";
 
         /// <summary>This display's Copy layout is armed (or being dragged): it is the copy source.</summary>
         public bool IsCopySource => _isCopySource;

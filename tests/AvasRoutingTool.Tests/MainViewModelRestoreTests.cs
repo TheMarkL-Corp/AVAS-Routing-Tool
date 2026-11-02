@@ -117,7 +117,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.False(rig.PaxVm.IsRouted);
             Assert.Empty(rig.Pax.ActiveSourceId);
-            Assert.Equal("UNROUTED", rig.PaxVm.ModeBadge);
+            Assert.Equal("No source", rig.PaxVm.ModeBadge);
         }
 
         // ---- MultiView ---------------------------------------------------------------------

@@ -538,7 +538,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(new[] { $"fastswitch:{PaxMac}:3840x2160@60" }, rig.Client.MultiViewCalls);
             Assert.False(rig.MultiView.IsMultiView(rig.Pax));
             Assert.False(rig.PaxVm.IsMultiView);
-            Assert.Equal("UNROUTED", rig.PaxVm.ModeBadge);
+            Assert.Equal("No source", rig.PaxVm.ModeBadge);
             Assert.False(rig.PaxVm.CanUndoScreen);
         }
 
@@ -896,7 +896,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal($"'{PaxName}' did not accept the route to '{Tx2Name}'. {PaxName} could not be put back.", rig.PaxVm.LastError);
             Assert.Contains(PaxMac, rig.Client.ReceiverReads); // re-read: the card shows the truth
             Assert.False(rig.PaxVm.IsMultiView);
-            Assert.Equal("UNROUTED", rig.PaxVm.ModeBadge);
+            Assert.Equal("No source", rig.PaxVm.ModeBadge);
         }
 
         [Fact]

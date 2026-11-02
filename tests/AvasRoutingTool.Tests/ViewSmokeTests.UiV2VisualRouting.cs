@@ -18,7 +18,7 @@ namespace AvasRoutingTool.Tests
         private static Grid OverviewGrid(VisualRoutingView view) => (Grid)Named(view, "OverviewGrid").Single();
 
         [Fact]
-        public void VisualRoutingView_SourcesRow_IsStarInTheOverview_AndAutoWhileComposing() =>
+        public void VisualRoutingView_SourcesRow_IsAutoInTheOverview_AndWhileComposing() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -26,7 +26,7 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var rows = OverviewGrid(view).RowDefinitions;
-                    Assert.True(rows[0].Height.IsStar && Math.Abs(rows[0].Height.Value - 2) < 0.001, $"overview sources row {rows[0].Height}");
+                    Assert.True(rows[0].Height.IsAuto, $"overview sources row {rows[0].Height}"); // A9: the strip sizes to its tiles
                     Assert.True(rows[2].Height.IsStar);
 
                     Pump(() => rig.Vm.OpenComposerAsync(rig.Rx3, "matrix2x2"));
@@ -38,7 +38,7 @@ namespace AvasRoutingTool.Tests
 
                     rig.Vm.CloseComposer();
                     Relayout(view);
-                    Assert.True(rows[0].Height.IsStar);
+                    Assert.True(rows[0].Height.IsAuto);
                     Assert.False(Named(view, "CompactSourcePalette").Single().IsVisible);
                     Assert.False(Named(view, "ComposerView").Single().IsVisible);
                 });
@@ -113,7 +113,7 @@ namespace AvasRoutingTool.Tests
                     void AssertSecondaryCaptions(string when)
                     {
                         // "Tap a source, then" (not the Composer's own "Tap a source above, ..." hint, which it owns).
-                        var hints = FindAll<TextBlock>(view).Where(t => t.IsVisible && (t.Text.StartsWith("Tap a source, then") || t.Text.StartsWith("The Layout button"))).ToList();
+                        var hints = FindAll<TextBlock>(view).Where(t => t.IsVisible && (t.Text.StartsWith("Tap a source, then") || t.Text.StartsWith("Tap a layout"))).ToList();
                         Assert.NotEmpty(hints);
                         foreach (var hint in hints)
                         {

@@ -196,14 +196,16 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void LayoutItem_InlineToolTip_SaysThatAMultiViewPresetOpensTheComposer()
+        public void LayoutItem_InlineToolTip_IsTheShortName_AndAMultiViewPresetSaysItOpensTheComposer()
         {
             var catalog = LayoutItemViewModel.CreateCatalog();
             var single = catalog.Single(l => l.Id == "single");
             var matrix = catalog.Single(l => l.Id == "matrix2x2");
 
-            Assert.Equal(single.Subtitle, single.InlineToolTip);
-            Assert.Equal("Matrix 2x2 - opens the Composer, nothing changes on screen until Take", matrix.InlineToolTip);
+            Assert.Equal("Single view", single.InlineToolTip);
+            Assert.Equal("Quad", matrix.InlineToolTip);
+            Assert.Equal(string.Empty, single.InlineHelpText);
+            Assert.Equal("Opens the Composer. Nothing changes on screen until Take.", matrix.InlineHelpText);
         }
 
         [Fact]
