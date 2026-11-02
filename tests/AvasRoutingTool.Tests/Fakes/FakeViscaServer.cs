@@ -12,7 +12,8 @@ namespace AvasRoutingTool.Tests.Fakes
     /// <summary>
     /// Loopback stand-in for a VISCA camera. Binds 127.0.0.1 on an ephemeral port.
     /// Reply logic lives in ProcessMessage, which is transport-agnostic: the TCP side
-    /// frames replies as raw bytes; UDP (RC5) will wrap them in ViscaFrame headers.
+    /// frames replies as raw bytes; the UDP side wraps them in ViscaFrame Reply headers
+    /// that echo the command's sequence number.
     /// </summary>
     public sealed class FakeViscaServer : IDisposable
     {
@@ -22,6 +23,7 @@ namespace AvasRoutingTool.Tests.Fakes
         private readonly object _gate = new();
         private readonly List<TcpClient> _clients = new();
         private TcpListener? _listener;
+        private UdpClient? _udp;
         private int _dropRemaining;   // guarded by _gate
         private bool _disposed;       // guarded by _gate
 
@@ -40,7 +42,10 @@ namespace AvasRoutingTool.Tests.Fakes
                     break;
 
                 case ViscaTransportKind.Udp:
-                    throw new NotSupportedException("UDP mode of the fake camera arrives with RC5.");
+                    _udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+                    Port = ((IPEndPoint)_udp.Client.LocalEndPoint!).Port;
+                    _ = UdpReceiveLoopAsync(_udp);
+                    break;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
@@ -51,8 +56,23 @@ namespace AvasRoutingTool.Tests.Fakes
 
         public int Port { get; }
 
-        /// <summary>Every command the server answered or recorded, in arrival order (dropped commands excluded).</summary>
+        /// <summary>Every command the server answered or recorded, in arrival order (dropped commands excluded). VISCA bytes only.</summary>
         public List<byte[]> Received { get; } = new();
+
+        /// <summary>UDP only: the sequence number of each recorded command, parallel to Received.</summary>
+        public List<uint> ReceivedSequences { get; } = new();
+
+        /// <summary>UDP only: the payload type (Command or Inquiry) of each recorded message, parallel to Received.</summary>
+        public List<ViscaPayloadType> ReceivedTypes { get; } = new();
+
+        /// <summary>UDP only: how many sequence-reset control messages arrived.</summary>
+        public int SequenceResetCount { get; private set; }
+
+        /// <summary>How many messages DropNext discarded.</summary>
+        public int DroppedCount { get; private set; }
+
+        /// <summary>UDP only: maps the sequence number of a command to the one its replies echo. Defaults to echoing.</summary>
+        public Func<uint, uint> ReplySequenceFor { get; set; } = sequence => sequence;
 
         /// <summary>Maps one command or inquiry to the replies to send, in order. Defaults to the camera's behaviour.</summary>
         public Func<byte[], IEnumerable<byte[]>> Responder { get; set; }
@@ -78,6 +98,16 @@ namespace AvasRoutingTool.Tests.Fakes
         public void DropNext(int n)
         {
             lock (_gate) _dropRemaining = n;
+        }
+
+        /// <summary>UDP only: sends one datagram to a local port from a socket other than the camera's, as a second host would.</summary>
+        public void SendDatagramFromOtherEndpoint(byte[] datagram, int toPort)
+        {
+            if (Kind != ViscaTransportKind.Udp)
+                throw new InvalidOperationException("Only a UDP fake has datagram endpoints.");
+
+            using var other = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+            other.Send(datagram, datagram.Length, new IPEndPoint(IPAddress.Loopback, toPort));
         }
 
         /// <summary>Closes every open client connection from the camera side (sends FIN). The server keeps listening.</summary>
@@ -111,25 +141,95 @@ namespace AvasRoutingTool.Tests.Fakes
             }
 
             _listener?.Stop();
+            _udp?.Close();
             foreach (var client in clients)
                 client.Close();
         }
 
-        /// <summary>Runs the responder for one complete VISCA message and returns the replies.</summary>
-        internal IReadOnlyList<byte[]> ProcessMessage(byte[] message)
+        /// <summary>
+        /// Runs the responder for one complete VISCA message and returns the replies.
+        /// type and sequence are given by UDP only; they are recorded alongside the message.
+        /// </summary>
+        internal IReadOnlyList<byte[]> ProcessMessage(byte[] message, ViscaPayloadType? type = null, uint? sequence = null)
         {
             lock (_gate)
             {
                 if (_dropRemaining > 0)
                 {
                     _dropRemaining--;
+                    DroppedCount++;
                     return Array.Empty<byte[]>();
                 }
                 Received.Add(message);
+                if (type is { } payloadType)
+                    ReceivedTypes.Add(payloadType);
+                if (sequence is { } seq)
+                    ReceivedSequences.Add(seq);
             }
 
             CommandReceived?.Invoke(message);
             return Responder(message).ToList();
+        }
+
+        private async Task UdpReceiveLoopAsync(UdpClient udp)
+        {
+            while (true)
+            {
+                UdpReceiveResult result;
+                try
+                {
+                    result = await udp.ReceiveAsync().ConfigureAwait(false);
+                }
+                catch (SocketException) when (!IsDisposed())
+                {
+                    // A client closed its port; Windows reports the ICMP reply as a reset on this socket.
+                    continue;
+                }
+                catch (Exception)
+                {
+                    // The socket was closed by Dispose.
+                    return;
+                }
+
+                HandleUdpDatagram(udp, result.Buffer, result.RemoteEndPoint);
+            }
+        }
+
+        private void HandleUdpDatagram(UdpClient udp, byte[] datagram, IPEndPoint remote)
+        {
+            if (!ViscaFrame.TryDecode(datagram, out ViscaPayloadType type, out uint sequence, out byte[] visca))
+                return;
+
+            if (type == ViscaPayloadType.Control)
+            {
+                // A sequence reset (payload 01) is acknowledged with a control reply echoing its sequence.
+                lock (_gate) SequenceResetCount++;
+                SendUdp(udp, ViscaFrame.Encode(ViscaPayloadType.ControlReply, sequence, new byte[] { 0x01 }), remote);
+                return;
+            }
+
+            if (type != ViscaPayloadType.Command && type != ViscaPayloadType.Inquiry)
+                return;
+
+            foreach (byte[] reply in ProcessMessage(visca, type, sequence))
+                SendUdp(udp, ViscaFrame.Encode(ViscaPayloadType.Reply, ReplySequenceFor(sequence), reply), remote);
+        }
+
+        private static void SendUdp(UdpClient udp, byte[] frame, IPEndPoint remote)
+        {
+            try
+            {
+                udp.Send(frame, frame.Length, remote);
+            }
+            catch (Exception ex) when (ex is SocketException or ObjectDisposedException)
+            {
+                // The client closed its port, or the fake is shutting down.
+            }
+        }
+
+        private bool IsDisposed()
+        {
+            lock (_gate) return _disposed;
         }
 
         private IEnumerable<byte[]> DefaultResponder(byte[] message)
