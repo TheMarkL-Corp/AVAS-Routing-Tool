@@ -40,6 +40,8 @@
     <sys:Double x:Key="Size.AppBar.Height">56</sys:Double>
     <sys:Double x:Key="Size.Tab.MinWidth">120</sys:Double>
     <sys:Double x:Key="Size.Breakpoint.AppBarLabels">1400</sys:Double>
+    <!-- Display card: the action bar is at least this wide (the card less its 26 px chrome) when the one-tap layout presets show; below it only the Layout dropdown -->
+    <sys:Double x:Key="Size.Breakpoint.CardPresets">550</sys:Double>
     <sys:Double x:Key="Size.Window.Default.Width">1280</sys:Double>
     <sys:Double x:Key="Size.Window.Default.Height">860</sys:Double>
     <sys:Double x:Key="Size.Window.Min.Width">1024</sys:Double>
@@ -53,6 +55,9 @@
     <sys:Double x:Key="Size.LayoutTile.Min">88</sys:Double>
     <sys:Double x:Key="Size.Schematic.Menu.Width">72</sys:Double>
     <sys:Double x:Key="Size.Schematic.Menu.Height">40</sys:Double>
+    <!-- The schematic inside an inline layout preset on the display card's action bar -->
+    <sys:Double x:Key="Size.Schematic.Inline.Width">28</sys:Double>
+    <sys:Double x:Key="Size.Schematic.Inline.Height">16</sys:Double>
 
     <!-- Settings dialog -->
     <sys:Double x:Key="Size.Dialog.Settings.Width">480</sys:Double>

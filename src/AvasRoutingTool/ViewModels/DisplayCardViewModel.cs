@@ -83,6 +83,11 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The header "Layout" menu: Single View, the four MultiView presets, Off. The layout on screen is selected.</summary>
         public IReadOnlyList<LayoutItemViewModel> LayoutMenu { get; }
 
+        /// <summary>
+        /// The one-tap presets on the action bar (from Size.Breakpoint.CardPresets wide): the same instances as in <see cref="LayoutMenu"/>, in bar order.
+        /// </summary>
+        public IReadOnlyList<LayoutItemViewModel> InlineLayouts { get; }
+
         /// <summary>The header "Layout" menu is open.</summary>
         public bool IsLayoutMenuOpen
         {
@@ -398,6 +403,7 @@ namespace AvasRoutingTool.ViewModels
 
             var catalog = LayoutItemViewModel.CreateCatalog();
             LayoutMenu = catalog.Where(l => l.Id != "off").Concat(catalog.Where(l => l.Id == "off")).ToList();
+            InlineLayouts = new[] { "single", "pip", "side_by_side", "matrix2x2" }.Select(id => LayoutMenu.Single(l => l.Id == id)).ToList();
             SyncLayoutMenu();
 
             Slots.CollectionChanged += (_, _) => NotifyLayoutChanged();

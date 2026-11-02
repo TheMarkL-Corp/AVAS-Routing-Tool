@@ -23,7 +23,7 @@
             <!--
                 Rows (nothing but the picture ever lies on the 16:9 video):
                 0: Header (status dot, device name, info badge, copy-source tag, mode badge)
-                1: Action bar (Layout, Copy layout, draft chip, Turn Off) - always visible
+                1: Action bar (layout presets when wide, Layout, Copy layout, draft chip, Turn Off) - always visible
                 2: Live video preview surface (16:9; only its own state overlays lie on it)
                 3: Status and toast dock (SOURCE / output format / notices, or the Undo toast)
                 The fixed rows are the Size.Card.Row.* tokens: GridSpec.DisplayCard.ChromeHeight is their sum + 26.
@@ -121,13 +121,56 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Layout menu button -->
+                        <!--
+                            One-tap layout presets, from Size.Breakpoint.CardPresets wide (the bar is that wide or more); narrower cards show only
+                            the Layout dropdown. A MultiView preset opens the Composer staged: nothing reaches the screen until Take.
+                        -->
+                        <ItemsControl x:Name="InlinePresets"
+                                      Grid.Column="0"
+                                      Margin="0,0,6,0"
+                                      Focusable="False"
+                                      ItemsSource="{Binding InlineLayouts, Mode=OneWay}"
+                                      Visibility="{Binding ActualWidth, ElementName=FloatingActionDock, Converter={StaticResource Converter.WidthAtLeast}, ConverterParameter={StaticResource Size.Breakpoint.CardPresets}, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button x:Name="InlinePreset"
+                                            Style="{StaticResource Style.Button.LayoutPreset}"
+                                            AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                                            AutomationProperties.ItemStatus="{Binding ItemStatusText, Mode=OneWay}"
+                                            ToolTip="{Binding InlineToolTip, Mode=OneWay}"
+                                            Click="LayoutChoice_Click">
+                                        <Grid>
+                                            <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}"
+                                                                   Width="{StaticResource Size.Schematic.Inline.Width}"
+                                                                   Height="{StaticResource Size.Schematic.Inline.Height}"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center" />
+                                            <!-- The layout on screen: a check in the corner (a shape as well as the border colour) -->
+                                            <ui:SymbolIcon Symbol="Checkmark24"
+                                                           FontSize="{StaticResource Size.Icon.S}"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Top"
+                                                           Foreground="{DynamicResource Brush.Text.Accent}"
+                                                           Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Layout menu button (the full dropdown in both modes) -->
                         <Button x:Name="LayoutButton"
-                                Grid.Column="0"
+                                Grid.Column="1"
                                 Style="{StaticResource Style.Button.CardAction}"
                                 Padding="6,2"
                                 Margin="0,0,6,0"
@@ -150,7 +193,7 @@
 
                         <!-- Copy layout Button: its full label always shows (no trimming) -->
                         <Button x:Name="CopyLayoutHandle"
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 Style="{StaticResource Style.Button.CardAction.Copy}"
                                 Padding="6,2"
                                 Margin="0,0,6,0"
@@ -176,7 +219,7 @@
                             Placed in the action bar, keeps touch height >= 48.
                         -->
                         <Button x:Name="DraftChip"
-                                Grid.Column="2"
+                                Grid.Column="3"
                                 Style="{StaticResource Style.Button.Chip.Staged}"
                                 Margin="0,0,6,0"
                                 MinHeight="{StaticResource Size.Touch.Min}"
@@ -195,7 +238,7 @@
 
                         <!-- Quick Power / Turn Off Button: a vector power icon -->
                         <Button x:Name="TurnOffButton"
-                                Grid.Column="4"
+                                Grid.Column="5"
                                 Style="{StaticResource Style.Button.Unroute}"
                                 MinWidth="{StaticResource Size.Touch.Min}"
                                 MinHeight="{StaticResource Size.Touch.Min}"
@@ -642,7 +685,7 @@
                                         Style="{StaticResource Style.Button.LayoutMenuTile}"
                                         AutomationProperties.Name="{Binding Title, Mode=OneWay}"
                                         ToolTip="{Binding Subtitle, Mode=OneWay}"
-                                        Click="LayoutMenuTile_Click">
+                                        Click="LayoutChoice_Click">
                                     <StackPanel>
                                         <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}"
                                                                Width="{StaticResource Size.Schematic.Menu.Width}"

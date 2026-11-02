@@ -159,4 +159,46 @@
         </Setter>
     </Style>
 
+    <!--
+        A one-tap layout preset on the action bar (cards from Size.Breakpoint.CardPresets wide). The same parts and triggers as the
+        menu tile, at touch size; no BasedOn (the WPF-UI defaults are not inherited). Content is set by the view. Part bd is read by the tests.
+    -->
+    <Style x:Key="Style.Button.LayoutPreset" TargetType="Button">
+        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{DynamicResource Brush.Surface.Card}"
+                            BorderBrush="{DynamicResource Brush.Border.Control}"
+                            BorderThickness="2"
+                            CornerRadius="8"
+                            Padding="6,4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding Id, Mode=OneWay}" Value="off">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.Danger}" />
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Danger}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                        </DataTrigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

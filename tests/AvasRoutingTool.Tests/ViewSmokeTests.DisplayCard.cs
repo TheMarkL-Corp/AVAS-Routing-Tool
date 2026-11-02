@@ -61,7 +61,7 @@ namespace AvasRoutingTool.Tests
                 Layout(view);
 
                 // One panel child per window, all with a real size - the fractional rects reached the panel.
-                var panel = FindDescendant<Controls.FractionalLayoutPanel>(view);
+                var panel = FindDescendant<Controls.FractionalLayoutPanel>(Named(view, "PreviewSurface").Single());
                 Assert.NotNull(panel);
                 Assert.Equal(4, panel!.Children.Count);
                 foreach (System.Windows.UIElement child in panel.Children)

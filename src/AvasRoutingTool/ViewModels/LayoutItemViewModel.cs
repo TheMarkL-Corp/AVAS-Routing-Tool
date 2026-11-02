@@ -37,8 +37,17 @@ namespace AvasRoutingTool.ViewModels
                 if (_isOnScreen == value) return;
                 _isOnScreen = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(ItemStatusText));
             }
         }
+
+        /// <summary>The automation item status of a tile or preset: "On screen" for the layout the display shows, else empty.</summary>
+        public string ItemStatusText => IsOnScreen ? "On screen" : string.Empty;
+
+        /// <summary>
+        /// The tooltip of an inline preset. Single View applies at once; a MultiView preset opens the Composer and changes nothing on screen until Take.
+        /// </summary>
+        public string InlineToolTip => Id == "single" ? Subtitle : $"{Title} - opens the Composer, nothing changes on screen until Take";
 
         /// <summary>
         /// New instances of every layout the tool offers, in the bottom bar's order (Off, Single View, the

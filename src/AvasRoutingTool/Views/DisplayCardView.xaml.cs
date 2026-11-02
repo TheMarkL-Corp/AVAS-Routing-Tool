@@ -334,7 +334,8 @@ namespace AvasRoutingTool.Views
         /// <summary>When the menu last closed (tests).</summary>
         internal int MenuClosedTick => _menuClosedTick;
 
-        private async void LayoutMenuTile_Click(object sender, RoutedEventArgs e)
+        /// <summary>One layout choice for the popup tiles and the inline presets (the DataContext is the layout).</summary>
+        private async void LayoutChoice_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not FrameworkElement { DataContext: LayoutItemViewModel item } || Card is not { } vm) return;
             if (Main is { } main)
