@@ -19,6 +19,10 @@ namespace AvasRoutingTool.Services.Visca
         private readonly List<Exchange> _pending = new();   // guarded by _wire
         private readonly SemaphoreSlim _queue = new(1, 1);  // serialises normal commands
 
+        // Count of Stops issued per motion. Incremented under _wire; read with Volatile.
+        private int _panTiltStopEpoch;
+        private int _zoomStopEpoch;
+
         /// <summary>How long to wait for an ACK (or an inquiry reply) before retrying.</summary>
         internal TimeSpan AckTimeout { get; set; } = TimeSpan.FromSeconds(1);
 
@@ -50,11 +54,18 @@ namespace AvasRoutingTool.Services.Visca
             public TaskCompletionSource<ViscaResponse?> Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
-        /// <summary>Registers an exchange and starts writing it. Returns the write task, or null when there is no live transport.</summary>
-        private Task? BeginSend(Exchange exchange, byte[] bytes, IViscaTransport transport, CancellationToken ct)
+        /// <summary>
+        /// Registers an exchange and starts writing it. Returns the write task, or null when there is no live transport,
+        /// or when requiredEpoch is given and a Stop for the exchange's motion has been issued since (nothing is sent).
+        /// The check and the registration share the _wire lock, so no Stop can slip between them.
+        /// </summary>
+        private Task? BeginSend(Exchange exchange, byte[] bytes, IViscaTransport transport, CancellationToken ct, int? requiredEpoch = null)
         {
             lock (_wire)
             {
+                if (requiredEpoch is { } epoch && StopEpoch(exchange.Motion) != epoch)
+                    return null;
+
                 PurgeStaleLocked();
                 _pending.Add(exchange);
                 try
@@ -76,9 +87,10 @@ namespace AvasRoutingTool.Services.Visca
 
         /// <summary>
         /// Sends a command until it is acknowledged. waitCompletion also waits (bounded) for the
-        /// completion; a Stop (or an error reply) ends that wait with false.
+        /// completion; a Stop (or an error reply) ends that wait with false. epoch, when given, is the
+        /// stop epoch of the motion at call time: once a Stop has been issued since, nothing is sent.
         /// </summary>
-        private async Task<bool> ExchangeAsync(byte[] bytes, Motion motion, int retries, bool waitCompletion, CancellationToken ct)
+        private async Task<bool> ExchangeAsync(byte[] bytes, Motion motion, int retries, bool waitCompletion, CancellationToken ct, int? epoch = null)
         {
             for (int attempt = 0; attempt <= retries; attempt++)
             {
@@ -88,7 +100,7 @@ namespace AvasRoutingTool.Services.Visca
                     return false;
 
                 var exchange = new Exchange(isInquiry: false, motion);
-                Task? write = BeginSend(exchange, bytes, transport, ct);
+                Task? write = BeginSend(exchange, bytes, transport, ct, epoch);
                 if (write == null)
                     return false;
 
@@ -251,6 +263,23 @@ namespace AvasRoutingTool.Services.Visca
                 if (predicate(e))
                     return e;
             return null;
+        }
+
+        /// <summary>Stop epoch of a motion. Commands capture it when they are called; a Stop that follows makes them stale.</summary>
+        private int StopEpoch(Motion motion) => motion switch
+        {
+            Motion.PanTilt => Volatile.Read(ref _panTiltStopEpoch),
+            Motion.Zoom => Volatile.Read(ref _zoomStopEpoch),
+            _ => 0
+        };
+
+        /// <summary>Called under _wire when a Stop for the motion is issued.</summary>
+        private void BumpStopEpochLocked(Motion motion)
+        {
+            if (motion == Motion.PanTilt)
+                Interlocked.Increment(ref _panTiltStopEpoch);
+            else if (motion == Motion.Zoom)
+                Interlocked.Increment(ref _zoomStopEpoch);
         }
 
         /// <summary>Ends the wait of every motion command of this kind that is still waiting for completion. They keep their place in line so the camera's reply still lands on them.</summary>

@@ -89,6 +89,8 @@ namespace AvasRoutingTool.Services.Visca
                 Task?[] writes;
                 lock (_wire)
                 {
+                    BumpStopEpochLocked(Motion.PanTilt);
+                    BumpStopEpochLocked(Motion.Zoom);
                     SupersedeLocked(Motion.PanTilt);
                     SupersedeLocked(Motion.Zoom);
                 }
@@ -111,6 +113,9 @@ namespace AvasRoutingTool.Services.Visca
             if (CurrentTransport() == null)
                 return false;
 
+            // Captured at call time: a Stop issued while this command waits for the queue cancels it.
+            int? epoch = motion == Motion.None ? null : StopEpoch(motion);
+
             try
             {
                 await _queue.WaitAsync(ct).ConfigureAwait(false);
@@ -122,7 +127,7 @@ namespace AvasRoutingTool.Services.Visca
 
             try
             {
-                return await ExchangeAsync(bytes, motion, CommandRetries, waitCompletion: true, ct).ConfigureAwait(false);
+                return await ExchangeAsync(bytes, motion, CommandRetries, waitCompletion: true, ct, epoch).ConfigureAwait(false);
             }
             finally
             {
@@ -132,7 +137,11 @@ namespace AvasRoutingTool.Services.Visca
 
         private Task<bool> PriorityStopAsync(byte[] bytes, Motion motion, CancellationToken ct)
         {
-            lock (_wire) SupersedeLocked(motion);
+            lock (_wire)
+            {
+                BumpStopEpochLocked(motion);
+                SupersedeLocked(motion);
+            }
             return ExchangeAsync(bytes, Motion.None, StopRetries, waitCompletion: false, ct);
         }
 

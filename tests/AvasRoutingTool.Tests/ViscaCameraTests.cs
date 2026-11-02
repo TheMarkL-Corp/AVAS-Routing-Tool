@@ -83,6 +83,70 @@ namespace AvasRoutingTool.Tests
         [Theory]
         [InlineData(ViscaTransportKind.Udp)]
         [InlineData(ViscaTransportKind.Tcp)]
+        public async Task QueuedMove_IssuedBeforeStop_IsNeverSentAfterStop(ViscaTransportKind kind)
+        {
+            using var server = new FakeViscaServer(kind);
+            var log = new CommandLog(server);
+            // Drives are acknowledged but never completed, so the first one holds the queue until a Stop.
+            server.Responder = msg => msg[1] == 0x09 ? new[] { PowerOnReply() }
+                : IsPanTiltStop(msg) ? new[] { Ack, DriveCancelled, Completion }
+                : new[] { Ack };
+            await using var camera = Create(server, kind);
+            await camera.ConnectAsync(CancellationToken.None);
+
+            Task<bool> moveA = camera.MoveAsync(PanTiltDirection.Left, new PtzSpeed(5, 4, 2), CancellationToken.None);
+            Assert.True(await EventuallyAsync(() => log.Commands().Count == 1));
+            Task<bool> moveB = camera.MoveAsync(PanTiltDirection.Right, new PtzSpeed(6, 6, 2), CancellationToken.None);
+            await Task.Delay(50);   // moveB is now waiting for the queue
+            Task<bool> stop = camera.StopMoveAsync(CancellationToken.None);
+
+            Assert.False(await moveA.WaitAsync(Wait));
+            Assert.False(await moveB.WaitAsync(Wait));
+            Assert.True(await stop.WaitAsync(Wait));
+            Assert.Equal(
+                new[]
+                {
+                    ViscaHex.Of(ViscaCommands.PanTilt(1, PanTiltDirection.Left, 5, 4)),
+                    ViscaHex.Of(ViscaCommands.StopPanTilt(1))
+                },
+                log.Commands());
+        }
+
+        [Theory]
+        [InlineData(ViscaTransportKind.Udp)]
+        [InlineData(ViscaTransportKind.Tcp)]
+        public async Task QueuedZoom_IssuedBeforeStop_IsNeverSentAfterStop(ViscaTransportKind kind)
+        {
+            using var server = new FakeViscaServer(kind);
+            var log = new CommandLog(server);
+            // Zoom drives are acknowledged but never completed, so the first one holds the queue until a Stop.
+            server.Responder = msg => msg[1] == 0x09 ? new[] { PowerOnReply() }
+                : IsZoomStop(msg) ? new[] { Ack, Completion }
+                : new[] { Ack };
+            await using var camera = Create(server, kind);
+            await camera.ConnectAsync(CancellationToken.None);
+
+            Task<bool> zoomA = camera.ZoomAsync(ZoomDirection.Tele, new PtzSpeed(5, 4, 2), CancellationToken.None);
+            Assert.True(await EventuallyAsync(() => log.Commands().Count == 1));
+            Task<bool> zoomB = camera.ZoomAsync(ZoomDirection.Wide, new PtzSpeed(6, 6, 3), CancellationToken.None);
+            await Task.Delay(50);   // zoomB is now waiting for the queue
+            Task<bool> stop = camera.StopZoomAsync(CancellationToken.None);
+
+            Assert.False(await zoomA.WaitAsync(Wait));
+            Assert.False(await zoomB.WaitAsync(Wait));
+            Assert.True(await stop.WaitAsync(Wait));
+            Assert.Equal(
+                new[]
+                {
+                    ViscaHex.Of(ViscaCommands.Zoom(1, ZoomDirection.Tele, 2)),
+                    ViscaHex.Of(ViscaCommands.StopZoom(1))
+                },
+                log.Commands());
+        }
+
+        [Theory]
+        [InlineData(ViscaTransportKind.Udp)]
+        [InlineData(ViscaTransportKind.Tcp)]
         public async Task CommandWithoutAck_RetriesTwice_ThenReturnsFalse(ViscaTransportKind kind)
         {
             using var server = new FakeViscaServer(kind);
@@ -192,6 +256,8 @@ namespace AvasRoutingTool.Tests
         internal static byte[] PowerOnReply() => new byte[] { 0x90, 0x50, 0x02, 0xFF };
 
         private static bool IsPanTiltStop(byte[] msg) => msg.Length == 9 && msg[6] == 0x03 && msg[7] == 0x03;
+
+        private static bool IsZoomStop(byte[] msg) => msg.Length == 6 && msg[3] == 0x07 && msg[4] == 0x00;
 
         // Polls a condition until it holds or the wait runs out.
         internal static async Task<bool> EventuallyAsync(Func<bool> condition)
