@@ -57,12 +57,12 @@ namespace AvasRoutingTool.Tests
         }
 
         [Theory]
-        [InlineData(0, false, "", false, true)]
-        [InlineData(1, false, "in 1 block", true, false)]
-        [InlineData(3, false, "in 3 blocks", true, false)]
-        [InlineData(0, true, "", false, false)]
-        [InlineData(2, true, "in 2 blocks", true, false)]
-        public void UsageChips_AndTheTapHint_FollowBlocksAndArming(int blocks, bool armed, string text, bool hasUsage, bool tapHint)
+        [InlineData(0, false, "", false)]
+        [InlineData(1, false, "in 1 block", true)]
+        [InlineData(3, false, "in 3 blocks", true)]
+        [InlineData(0, true, "", false)]
+        [InlineData(2, true, "in 2 blocks", true)]
+        public void UsageChips_FollowBlocksAndArming(int blocks, bool armed, string text, bool hasUsage)
         {
             var card = Card();
             card.UsedInBlocks = blocks;
@@ -70,7 +70,6 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal(text, card.UsedInText);
             Assert.Equal(hasUsage, card.HasUsage);
-            Assert.Equal(tapHint, card.ShowTapHint);
         }
 
         [Fact]
@@ -94,11 +93,6 @@ namespace AvasRoutingTool.Tests
             card.UsedInBlocks = 2;
             Assert.Contains(nameof(SourceCardViewModel.UsedInText), changed);
             Assert.Contains(nameof(SourceCardViewModel.HasUsage), changed);
-            Assert.Contains(nameof(SourceCardViewModel.ShowTapHint), changed);
-
-            changed.Clear();
-            card.IsArmed = true;
-            Assert.Contains(nameof(SourceCardViewModel.ShowTapHint), changed);
         }
     }
 }

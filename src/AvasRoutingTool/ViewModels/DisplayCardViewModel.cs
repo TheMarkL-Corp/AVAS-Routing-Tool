@@ -184,6 +184,9 @@ namespace AvasRoutingTool.ViewModels
                 ? $"{_externalSourceCount} IN LAYOUT"
                 : IsRouted && !string.IsNullOrEmpty(ActiveSourceName) ? ActiveSourceName : "NONE";
 
+        /// <summary>Footer line 1: "SOURCE: N" once something is routed; the idle line otherwise (the picture already says it is empty).</summary>
+        public string SourceFooterText => IsRouted || IsMultiView || IsExternalLayout ? $"SOURCE: {SourceLabel}" : "Ready to route a source";
+
         public WriteableBitmap? PreviewBitmap
         {
             get => _previewBitmap;
@@ -216,6 +219,9 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>Why the Copy layout handle is disabled ("RX1 shows nothing to copy"); empty when it is enabled.</summary>
         public string CopyFromBlockedText => CanCopyFrom ? string.Empty : $"{DeviceName} shows nothing to copy";
+
+        /// <summary>The Copy layout handle's tooltip: how to copy while it is on, why it is off otherwise (said here, not on the card).</summary>
+        public string CopyHandleToolTip => CanCopyFrom ? "Drag onto another display to copy this picture there - or tap, then tap a display" : CopyFromBlockedText;
 
         /// <summary>This display's Copy layout is armed (or being dragged): it is the copy source.</summary>
         public bool IsCopySource => _isCopySource;
@@ -361,6 +367,7 @@ namespace AvasRoutingTool.ViewModels
         {
             OnPropertyChanged(nameof(CanCopyFrom));
             OnPropertyChanged(nameof(CopyFromBlockedText));
+            OnPropertyChanged(nameof(CopyHandleToolTip));
             OnPropertyChanged(nameof(CopyHandleAutomationName));
             OnPropertyChanged(nameof(PictureAutomationName));
         }
@@ -521,6 +528,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(CanvasInfoShort));
             OnPropertyChanged(nameof(CanvasAspect));
             OnPropertyChanged(nameof(SourceLabel));
+            OnPropertyChanged(nameof(SourceFooterText));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(FirstEmptySlotIndex));
             NotifyPictureStateChanged();
@@ -589,6 +597,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(ActiveSourceName));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(SourceLabel));
+            OnPropertyChanged(nameof(SourceFooterText));
             OnPropertyChanged(nameof(ModeBadge));
             OnPropertyChanged(nameof(PreviewBitmap));
             OnPropertyChanged(nameof(IsPreviewSupported));

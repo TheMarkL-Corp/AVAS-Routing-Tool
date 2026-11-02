@@ -156,7 +156,8 @@
                                 Margin="0,0,6,0"
                                 IsEnabled="{Binding CanCopyFrom, Mode=OneWay}"
                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
-                                ToolTip="Drag onto another display to copy this picture there - or tap, then tap a display"
+                                AutomationProperties.HelpText="{Binding CopyFromBlockedText, Mode=OneWay}"
+                                ToolTip="{Binding CopyHandleToolTip, Mode=OneWay}"
                                 ToolTipService.ShowOnDisabled="True"
                                 Click="CopyHandle_Click"
                                 PreviewMouseLeftButtonDown="CopyHandle_PreviewMouseLeftButtonDown"
@@ -406,7 +407,7 @@
                 </Border>
 
                 <!--
-                    Status dock (Row 3): line 1 SOURCE and the output format; line 2 the stale-draft notice and why Copy layout is off.
+                    Status dock (Row 3): line 1 the source (or the idle line) and the output format; line 2 the stale-draft notice.
                     The Undo toast takes this row while it shows - never the picture.
                 -->
                 <Grid Grid.Row="3" Margin="0,8,0,0" Height="{StaticResource Size.Dock.Content}"
@@ -418,11 +419,13 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Active Source Label / Status -->
-                            <TextBlock Grid.Column="0" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Muted}" TextTrimming="CharacterEllipsis">
-                                <Run Text="SOURCE: " />
-                                <Run Text="{Binding SourceLabel, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Secondary}" />
-                            </TextBlock>
+                            <!-- Source footer: "SOURCE: <name>" once routed, the idle line "Ready to route a source" otherwise -->
+                            <TextBlock x:Name="SourceFooter" Grid.Column="0"
+                                       Text="{Binding SourceFooterText, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.Text.Secondary}"
+                                       TextTrimming="CharacterEllipsis" />
 
                             <!-- Decoder output format from the display's EDID (multiview and Single View); the SOURCE line above keeps the row's height -->
                             <TextBlock x:Name="OutputLine" Grid.Column="1"
@@ -445,13 +448,6 @@
                                    Foreground="{DynamicResource Brush.Status.StagedText}"
                                    TextTrimming="CharacterEllipsis"
                                    Visibility="{Binding ShowDraftNotice, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
-
-                        <!-- Why Copy layout is off, in words ("RX1 shows nothing to copy") -->
-                        <TextBlock x:Name="CopyFromBlockedLabel"
-                                   Text="{Binding CopyFromBlockedText, Mode=OneWay}"
-                                   Style="{StaticResource Style.Text.Caption}"
-                                   TextWrapping="Wrap"
-                                   Visibility="{Binding CanCopyFrom, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                     </StackPanel>
                 </Grid>
 

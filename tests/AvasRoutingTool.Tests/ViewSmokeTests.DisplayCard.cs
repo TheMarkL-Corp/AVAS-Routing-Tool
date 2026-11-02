@@ -252,7 +252,8 @@ namespace AvasRoutingTool.Tests
                     var blocked = (Button)Named(rx3, "CopyLayoutHandle").Single();
                     Assert.False(blocked.IsEnabled);
                     Assert.True(blocked.ActualHeight >= 48);
-                    AssertVisibleText(rx3, "RX3_1080P_SFPA shows nothing to copy");
+                    // The reason is said once, on the button's tooltip and help text (DisplayCard_CopyButton_ExplainsWhyDisabled_ByTooltipAndHelpText), not on the card.
+                    Assert.Empty(VisibleTexts(rx3, "RX3_1080P_SFPA shows nothing to copy"));
 
                     // Tap alternative: a tap on the handle arms RX1 and every other card shows its target state; again stops.
                     Click(handle);
@@ -548,7 +549,9 @@ namespace AvasRoutingTool.Tests
 
                     var rx3 = cards.Single(c => c.DataContext == rig.Rx3);
                     Assert.True(Named(rx3, "CopyTargetLock").Single().IsVisible);
-                    AssertTextFits((TextBlock)Named(rx3, "CopyFromBlockedLabel").Single());
+                    var rx3Handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
+                    Assert.Equal(rig.Rx3.CopyFromBlockedText, (string?)rx3Handle.ToolTip);
+                    Assert.Equal(rig.Rx3.CopyFromBlockedText, AutomationProperties.GetHelpText(rx3Handle));
 
                     // Copying / choosing: the overview has no layout bar any more; the first row's Layout and Copy layout
                     // buttons are in view without scrolling (they sit at the top of the card).

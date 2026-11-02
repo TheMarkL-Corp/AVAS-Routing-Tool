@@ -136,10 +136,11 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void SourceCard_TapHint_ShowsOnlyForAnIdleSource() =>
+        public void SourceCard_HasNoTapHintChip() =>
             RunSta(() =>
             {
-                SourceCardAt(UiV2Source(), 393, 340, view => AssertVisibleText(view, "TAP OR DRAG TO ROUTE"));
+                // The Sources section header says "Tap a source, then tap a display"; the card itself says nothing more, idle or armed.
+                SourceCardAt(UiV2Source(), 393, 340, view => Assert.Empty(VisibleTexts(view, "TAP OR DRAG")));
                 var armed = UiV2Source();
                 armed.IsArmed = true;
                 SourceCardAt(armed, 393, 340, view => Assert.Empty(VisibleTexts(view, "TAP OR DRAG")));

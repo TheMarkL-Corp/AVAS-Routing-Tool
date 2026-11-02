@@ -166,15 +166,6 @@
                                 Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <TextBlock Text="Placing" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
                         </Border>
-
-                        <!-- Tap / drag hint (gives way to the badges: the card is narrow) -->
-                        <Border Background="{DynamicResource Brush.Surface.Elevated}"
-                                CornerRadius="4"
-                                Padding="6,3"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding ShowTapHint, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <TextBlock Text="TAP OR DRAG TO ROUTE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Secondary}" />
-                        </Border>
                     </StackPanel>
                 </Grid>
             </Border>
