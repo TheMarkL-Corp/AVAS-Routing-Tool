@@ -3,6 +3,8 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using AvasRoutingTool.Configuration;
 using AvasRoutingTool.Services;
 using AvasRoutingTool.Services.Visca;
@@ -11,6 +13,9 @@ namespace AvasRoutingTool.ViewModels
 {
     /// <summary>Speed step for pan, tilt and zoom (R12).</summary>
     public enum SpeedStep { Slow, Medium, Fast }
+
+    /// <summary>What the picture area of a camera shows (plan, "Preview states").</summary>
+    public enum CameraPreviewState { NoSourceBound, SourceOffline, Standby, Starting, Live }
 
     /// <summary>
     /// One room camera as the Room Cameras tab shows it: link and power state, motion commands,
@@ -37,6 +42,13 @@ namespace AvasRoutingTool.ViewModels
         private bool _pollInFlight;
         private SpeedStep _speedStep = SpeedStep.Medium;
         private bool _disposed;
+
+        // Preview binding. The card is re-resolved by RoomCamerasViewModel on every change of the sources
+        // collection; _card is never trusted across a rebuild (a Refresh replaces every card).
+        private SourceCardViewModel? _card;
+        private string _lastSourceName = string.Empty;
+        private bool _startedByTab;
+        private bool _startRequested;
 
         public RoomCameraViewModel(RoomCameraConfig config, IPtzCamera camera, Func<DateTime> now)
         {
@@ -65,7 +77,19 @@ namespace AvasRoutingTool.ViewModels
                 p => { if (p is ZoomDirection d) BeginZoom(d); },
                 p => p is ZoomDirection && MotionEnabled);
             ZoomEndCommand = new RelayCommand(_ => EndZoom());
+
+            StartPreviewCommand = new RelayCommand(_ => StartPreview(), _ => CanStartPreview);
+            StopPreviewCommand = new RelayCommand(_ => StopPreview(), _ => ShowStopPreview);
         }
+
+        /// <summary>Seam: how the card's start command is reached. Tests replace it; the default is the card's own command.</summary>
+        internal Func<SourceCardViewModel, ICommand> StartCommandOf { get; set; } = c => c.StartPreviewCommand;
+
+        /// <summary>Seam: how the card's stop command is reached. Tests replace it; the default is the card's own command.</summary>
+        internal Func<SourceCardViewModel, ICommand> StopCommandOf { get; set; } = c => c.StopPreviewCommand;
+
+        public RelayCommand StartPreviewCommand { get; }
+        public RelayCommand StopPreviewCommand { get; }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -324,12 +348,168 @@ namespace AvasRoutingTool.ViewModels
                 StartPoll(now);
         }
 
+        // ---- Preview (R1, R5) ----
+
+        public CameraPreviewState Preview
+        {
+            get
+            {
+                if (_card == null)
+                    return string.IsNullOrEmpty(Config.BoundTxMac) ? CameraPreviewState.NoSourceBound : CameraPreviewState.SourceOffline;
+                if (!_card.IsActive)
+                    return CameraPreviewState.SourceOffline;
+                if (_card.IsStreaming)
+                    return CameraPreviewState.Live;
+                if (_card.IsRefreshing || _startRequested)
+                    return CameraPreviewState.Starting;
+                return CameraPreviewState.Standby;
+            }
+        }
+
+        public string SourceName => _card?.DeviceName ?? _lastSourceName;
+
+        public WriteableBitmap? PreviewBitmap => Preview == CameraPreviewState.Live ? _card?.PreviewBitmap : null;
+
+        public string PreviewMessage => Preview switch
+        {
+            CameraPreviewState.NoSourceBound => $"No source bound to {Name}",
+            CameraPreviewState.SourceOffline => $"{SourceName} is offline",
+            CameraPreviewState.Standby => "Preview standby",
+            CameraPreviewState.Starting => "Starting preview...",
+            _ => string.Empty,
+        };
+
+        public string CaptionText
+        {
+            get
+            {
+                var text = Name;
+                if (!string.IsNullOrEmpty(SourceName) && Preview != CameraPreviewState.NoSourceBound)
+                    text += $" \u00B7 via {SourceName}";
+                if (Preview == CameraPreviewState.Live && _card != null)
+                    text += string.Format(System.Globalization.CultureInfo.InvariantCulture, " \u00B7 {0:F1} fps", _card.Fps);
+                return text;
+            }
+        }
+
+        /// <summary>Why Start is unavailable even in standby; null when it is available.</summary>
+        public string? StartDisabledReason
+        {
+            get
+            {
+                if (_card == null)
+                    return null;
+                if (!_card.IsPreviewSupported)
+                    return "Preview not supported";
+                if (_card.PreviewMulticastIp == "N/A")
+                    return "No multicast address";
+                return null;
+            }
+        }
+
+        public bool CanStartPreview =>
+            !_disposed && _card != null && Preview == CameraPreviewState.Standby
+            && StartDisabledReason == null && StartCommandOf(_card).CanExecute(null);
+
+        /// <summary>"Stop preview" is offered only for a stream this tab started.</summary>
+        public bool ShowStopPreview => !_disposed && _startedByTab && Preview == CameraPreviewState.Live;
+
+        /// <summary>Starts the bound card's preview. Only in standby; never touches a stream that is already running.</summary>
+        public void StartPreview()
+        {
+            if (!CanStartPreview || _card == null)
+                return;
+            _startedByTab = true;
+            _startRequested = true;
+            StartCommandOf(_card).Execute(null);
+            SettleFlags();
+            RaisePreview();
+        }
+
+        /// <summary>Stops the preview, but only if this tab started it.</summary>
+        public void StopPreview()
+        {
+            if (!_startedByTab)
+                return;
+            _startedByTab = false;
+            _startRequested = false;
+            if (_card != null)
+            {
+                var stop = StopCommandOf(_card);
+                if (stop.CanExecute(null))
+                    stop.Execute(null);
+            }
+            RaisePreview();
+        }
+
+        /// <summary>
+        /// Points the binding at the card now registered for the bound MAC (null when none). Called on every
+        /// change of the sources collection; unsubscribes from the previous card first.
+        /// </summary>
+        internal void ResolveSource(SourceCardViewModel? card)
+        {
+            if (_disposed)
+                return;
+            if (!ReferenceEquals(_card, card))
+            {
+                if (_card != null)
+                    _card.PropertyChanged -= OnCardPropertyChanged;
+                _card = card;
+                if (card != null)
+                {
+                    card.PropertyChanged += OnCardPropertyChanged;
+                    _lastSourceName = card.DeviceName;
+                }
+            }
+            SettleFlags();
+            RaisePreview();
+        }
+
+        private void OnCardPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (_disposed || !ReferenceEquals(sender, _card))
+                return;
+            if (e.PropertyName == nameof(SourceCardViewModel.IsStreaming) && _card != null
+                && !_card.IsStreaming && !_card.IsRefreshing)
+            {
+                // The stream ended or the start failed: nothing is running, so nothing is ours to stop.
+                _startRequested = false;
+                _startedByTab = false;
+            }
+            SettleFlags();
+            RaisePreview();
+        }
+
+        private void SettleFlags()
+        {
+            if (_card != null && _card.IsStreaming)
+                _startRequested = false;
+            // A rebuilt card in standby with no start pending carries no stream of ours.
+            if (_card != null && _card.IsActive && !_card.IsStreaming && !_card.IsRefreshing && !_startRequested)
+                _startedByTab = false;
+        }
+
+        private void RaisePreview()
+        {
+            OnPropertyChanged(nameof(Preview));
+            OnPropertyChanged(nameof(SourceName));
+            OnPropertyChanged(nameof(PreviewBitmap));
+            OnPropertyChanged(nameof(PreviewMessage));
+            OnPropertyChanged(nameof(CaptionText));
+            OnPropertyChanged(nameof(StartDisabledReason));
+            OnPropertyChanged(nameof(CanStartPreview));
+            OnPropertyChanged(nameof(ShowStopPreview));
+        }
+
         public void Dispose()
         {
             if (_disposed)
                 return;
             _disposed = true;
 
+            if (_card != null)
+                _card.PropertyChanged -= OnCardPropertyChanged;
+            _card = null;
             Camera.LinkStateChanged -= OnLinkStateChanged;
             Motion.Changed -= OnMotionChanged;
             Motion.Dispose();
