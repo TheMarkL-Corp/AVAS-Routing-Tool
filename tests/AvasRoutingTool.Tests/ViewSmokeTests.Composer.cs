@@ -2003,7 +2003,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void Composer_HeaderChips_AreBadges_AndCollapseWhenEmpty() =>
+        public void Composer_HeaderChips_ArePlainText_AndCollapseWhenEmpty() =>
             RunSta(() =>
             {
                 var rig = new ComposerRig();
@@ -2012,16 +2012,116 @@ namespace AvasRoutingTool.Tests
 
                 Showing(chosen, () =>
                 {
-                    var badges = FindAll<Wpf.Ui.Controls.Badge>(chosen);
-                    Assert.NotEmpty(badges);
-                    Assert.All(badges, b => Assert.Same(Application.Current.FindResource("Style.Badge.Info"), b.Style));
-                    Assert.Contains(badges, b => b.IsVisible && b.Content is string s && s.Length > 0);
+                    var output = (TextBlock)Assert.Single(Named(chosen, "OutputChip"));
+                    Assert.True(output.IsVisible && output.Text.Length > 0, $"the output chip is not shown ('{output.Text}')");
+                    Assert.Same(Application.Current.FindResource("Style.Text.Meta"), output.Style);
+
+                    var rate = (TextBlock)Assert.Single(Named(chosen, "RateChip"));
+                    Assert.Same(Application.Current.FindResource("Style.Text.Meta"), rate.Style);
+                    Assert.Equal(!string.IsNullOrEmpty(rate.Text), rate.IsVisible);
+
+                    // The header facts are plain text now: no badge in the view keeps the shared Info style
+                    var info = Application.Current.FindResource("Style.Badge.Info");
+                    Assert.DoesNotContain(FindAll<Wpf.Ui.Controls.Badge>(chosen), b => ReferenceEquals(b.Style, info));
                 });
                 Showing(none, () =>
                 {
                     // no layout chosen yet: the output chip has nothing to say and takes no room
-                    Assert.All(FindAll<Wpf.Ui.Controls.Badge>(none), b => Assert.False(b.IsVisible && string.IsNullOrEmpty(b.Content as string)));
+                    var output = (TextBlock)Assert.Single(Named(none, "OutputChip"));
+                    Assert.False(output.IsVisible, $"the output chip is shown ('{output.Text}') before a layout is chosen");
                 });
+            });
+
+        // ---- Composer round 2 C3 (part b): STAGED and CHANGES are neutral text with an amber dot; amber stays for staged only ----
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_StatusHeadings_AreNeutralText_WithAnAmberDot(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                    var amber = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Staged")).Color;
+                    var accent = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Accent")).Color;
+                    var dotSize = (double)Application.Current.FindResource("Size.Dot.M");
+
+                    // Staged: the status word and the CHANGES heading are primary text, each with a 10 px amber dot in front of it
+                    var rig = new ComposerRig();
+                    var c = rig.Composer("matrix2x2");
+                    c.Arm(rig.Tx1);
+                    c.TapBlock(0);
+                    c.Disarm();
+                    var staged = rig.View(c);
+                    ShowingAt(staged, 1904, 940, () =>
+                    {
+                        var label = (TextBlock)Assert.Single(Named(staged, "StagedLabel"));
+                        Assert.True(label.IsVisible, "STAGED is not shown");
+                        Assert.Equal(text, ((SolidColorBrush)label.Foreground).Color);
+                        var dot = (System.Windows.Shapes.Ellipse)Assert.Single(Named(staged, "StagedDot"));
+                        Assert.True(dot.IsVisible, "the STAGED dot is not shown");
+                        Assert.Same(Application.Current.FindResource("Style.Shape.StagedDot"), dot.Style);
+                        Assert.Equal(amber, ((SolidColorBrush)dot.Fill).Color);
+                        Assert.Equal(dotSize, dot.ActualWidth);
+                        Assert.Equal(dotSize, dot.ActualHeight);
+                        Assert.Same(label.Parent, dot.Parent); // the dot and the word share one row
+
+                        var changes = FindAll<TextBlock>(staged).Single(t =>
+                            t.IsVisible && string.Concat(t.Inlines.OfType<Run>().Select(r => r.Text)).StartsWith("CHANGES (", StringComparison.Ordinal));
+                        Assert.Equal(text, ((SolidColorBrush)changes.Foreground).Color);
+                        var changesDot = (System.Windows.Shapes.Ellipse)Assert.Single(Named(staged, "ChangesDot"));
+                        Assert.True(changesDot.IsVisible, "the CHANGES dot is not shown while a change is staged");
+                        Assert.Equal(amber, ((SolidColorBrush)changesDot.Fill).Color);
+                        Assert.Equal(dotSize, changesDot.ActualWidth);
+                        Assert.Same(changes.Parent, changesDot.Parent);
+                    });
+
+                    // On screen: the status word stays blue, and no dot shows (nothing is staged, so CHANGES has none either)
+                    var live = new ComposerRig();
+                    var on = live.Composer("matrix2x2");
+                    on.Arm(live.Tx1);
+                    on.TapBlock(0);
+                    on.Disarm();
+                    Pump(on.TakeAsync);
+                    var onScreen = live.View(on);
+                    ShowingAt(onScreen, 1904, 940, () =>
+                    {
+                        var word = (TextBlock)Assert.Single(Named(onScreen, "OnScreenLabel"));
+                        Assert.True(word.IsVisible, "ON SCREEN is not shown");
+                        Assert.Equal(accent, ((SolidColorBrush)word.Foreground).Color);
+                        Assert.False(Named(onScreen, "StagedDot").Single().IsVisible, "a STAGED dot shows while the screen is the staged picture");
+                        Assert.False(Named(onScreen, "ChangesDot").Single().IsVisible, "a CHANGES dot shows with nothing staged");
+                    });
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_PlainHeaderFacts_AndStatusWords_HaveEnoughContrastOnThePage(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var page = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
+                    var secondary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
+                    var primary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                    Assert.True(Contrast(secondary, page) >= 4.5, $"Text.Secondary on Background.Dark in {mode}: {Contrast(secondary, page):F2} (need 4.5)");
+                    Assert.True(Contrast(primary, page) >= 4.5, $"Text.Primary on Background.Dark in {mode}: {Contrast(primary, page):F2} (need 4.5)");
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
             });
 
         [Fact]

@@ -158,14 +158,29 @@
         <Setter Property="FontWeight" Value="Bold" />
     </Style>
 
+    <!-- STAGED and CHANGES: the state is the amber dot plus a neutral word; amber is staged only, never the text -->
     <Style x:Key="Style.Text.RailHeading.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.RailHeading}">
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
     </Style>
 
     <Style x:Key="Style.Text.Status.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Style.Shape.StagedDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Staged}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <!-- Header facts (output, rate): plain Caption text, not pills; the Info badge stays for the shared badges -->
+    <Style x:Key="Style.Text.Meta" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Caption}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,12,0" />
     </Style>
 
     <Style x:Key="Style.Text.Status.OnScreen" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">

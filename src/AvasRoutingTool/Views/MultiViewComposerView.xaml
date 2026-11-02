@@ -42,12 +42,12 @@
             <StackPanel VerticalAlignment="Center">
                 <WrapPanel Orientation="Horizontal">
                     <TextBlock Text="{Binding HeaderNotice, Mode=OneWay}" Style="{StaticResource Style.Text.Lead}" Margin="0,0,12,0" VerticalAlignment="Center" />
-                    <ui:Badge Style="{StaticResource Style.Badge.Info}" Margin="0,2,8,2"
-                              Content="{Binding OutputText, Mode=OneWay}"
-                              Visibility="{Binding OutputText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
-                    <ui:Badge Style="{StaticResource Style.Badge.Info}" Margin="0,2"
-                              Content="{Binding RateNote, Mode=OneWay}"
-                              Visibility="{Binding RateNote, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                    <TextBlock x:Name="OutputChip" Style="{StaticResource Style.Text.Meta}"
+                               Text="{Binding OutputText, Mode=OneWay}"
+                               Visibility="{Binding OutputText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                    <TextBlock x:Name="RateChip" Style="{StaticResource Style.Text.Meta}"
+                               Text="{Binding RateNote, Mode=OneWay}"
+                               Visibility="{Binding RateNote, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
                 </WrapPanel>
                 <TextBlock x:Name="PreviewCaption"
                            Style="{StaticResource Style.Text.ComposerLabel}"
@@ -176,10 +176,17 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <TextBlock x:Name="StagedLabel"
-                                   Text="STAGED - not on screen yet"
-                                   Style="{StaticResource Style.Text.Status.Staged}"
-                                   Visibility="{Binding IsStaged, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        <!-- A Grid, not a horizontal StackPanel: the word may wrap beside its dot, and a StackPanel would give it unlimited width -->
+                        <Grid Visibility="{Binding IsStaged, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse x:Name="StagedDot" Style="{StaticResource Style.Shape.StagedDot}" />
+                            <TextBlock x:Name="StagedLabel" Grid.Column="1"
+                                       Text="STAGED - not on screen yet"
+                                       Style="{StaticResource Style.Text.Status.Staged}" />
+                        </Grid>
                         <TextBlock x:Name="OnScreenLabel"
                                    Text="ON SCREEN - this is what the surgeon sees"
                                    Style="{StaticResource Style.Text.Status.OnScreen}"
@@ -430,9 +437,18 @@
 
                         <ui:Card Style="{StaticResource Style.Card.Rail}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Style.Text.RailHeading.Staged}" Margin="0,0,0,6">
-                                    <Run Text="CHANGES (" /><Run Text="{Binding ChangeCount, Mode=OneWay}" /><Run Text=")" />
-                                </TextBlock>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <!-- The dot shows only while there is something staged -->
+                                    <Ellipse x:Name="ChangesDot" Style="{StaticResource Style.Shape.StagedDot}"
+                                             Visibility="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource Converter.Visible.HasItems}}" />
+                                    <TextBlock Grid.Column="1" Style="{StaticResource Style.Text.RailHeading.Staged}">
+                                        <Run Text="CHANGES (" /><Run Text="{Binding ChangeCount, Mode=OneWay}" /><Run Text=")" />
+                                    </TextBlock>
+                                </Grid>
                                 <TextBlock Text="No staged changes." Style="{StaticResource Style.Text.ComposerLabel}"
                                            Visibility="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}" />
                                 <ItemsControl ItemsSource="{Binding ChangeLines, Mode=OneWay}" Focusable="False">
