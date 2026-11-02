@@ -16,123 +16,313 @@
     <Grid>
     <ui:Card x:Name="SourceCardFrame" Style="{StaticResource Style.Card.Source}">
 
+        <!-- One cell, two layouts: the full tile (IsCompact false, the default) or the compact tile (IsCompact true, the Composer palette) -->
         <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
 
-            <!-- Tile header: status dot, device name (ellipsis; the full name is its tooltip), info badge (IP / MAC / MCAST tooltip). Nothing else. -->
-            <Grid Grid.Row="0" Margin="0,0,0,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <!-- Full layout: the 4-row tile -->
+            <Grid x:Name="FullLayout"
+                  Visibility="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <Ellipse Grid.Column="0"
-                         Style="{StaticResource Style.StatusDot.Small}"
-                         Tag="{Binding IsActive, Mode=OneWay}"
-                         Margin="0,0,8,0" />
+                <!-- Tile header: status dot, device name (ellipsis; the full name is its tooltip), info badge (IP / MAC / MCAST tooltip). Nothing else. -->
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <!-- Strict BAVM Device Name -->
-                <TextBlock Grid.Column="1"
-                           Text="{Binding DeviceName, Mode=OneWay}"
-                           ToolTip="{Binding DeviceName, Mode=OneWay}"
-                           Style="{StaticResource Style.Text.Title}"
-                           TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center" />
+                    <Ellipse Grid.Column="0"
+                             Style="{StaticResource Style.StatusDot.Small}"
+                             Tag="{Binding IsActive, Mode=OneWay}"
+                             Margin="0,0,8,0" />
 
-                <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard -->
-                <Border x:Name="SourceInfoBadge"
-                        Focusable="True"
-                        KeyboardNavigation.IsTabStop="True"
-                        AutomationProperties.Name="Device network telemetry: IP, MAC, multicast"
-                        Grid.Column="2"
-                        Padding="4"
-                        Margin="2,0,0,0"
-                        Background="Transparent"
-                        Cursor="Help"
-                        VerticalAlignment="Center">
-                    <Border.ToolTip>
-                        <TextBlock>
-                            <Run Text="IP: " /><Run Text="{Binding IpAddress, Mode=OneWay}" /><Run Text=" &#183; MAC: " /><Run Text="{Binding MacAddress, Mode=OneWay}" /><Run Text=" &#183; MCAST: " /><Run Text="{Binding PreviewMulticastIp, Mode=OneWay}" />
-                        </TextBlock>
-                    </Border.ToolTip>
-                    <ui:SymbolIcon Symbol="Info24"
-                                   FontSize="{StaticResource Size.Icon.S}"
-                                   Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <!-- Strict BAVM Device Name -->
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding DeviceName, Mode=OneWay}"
+                               ToolTip="{Binding DeviceName, Mode=OneWay}"
+                               Style="{StaticResource Style.Text.Title}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+
+                    <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard -->
+                    <Border x:Name="SourceInfoBadge"
+                            Focusable="True"
+                            KeyboardNavigation.IsTabStop="True"
+                            AutomationProperties.Name="Device network telemetry: IP, MAC, multicast"
+                            Grid.Column="2"
+                            Padding="4"
+                            Margin="2,0,0,0"
+                            Background="Transparent"
+                            Cursor="Help"
+                            VerticalAlignment="Center">
+                        <Border.ToolTip>
+                            <TextBlock>
+                                <Run Text="IP: " /><Run Text="{Binding IpAddress, Mode=OneWay}" /><Run Text=" &#183; MAC: " /><Run Text="{Binding MacAddress, Mode=OneWay}" /><Run Text=" &#183; MCAST: " /><Run Text="{Binding PreviewMulticastIp, Mode=OneWay}" />
+                            </TextBlock>
+                        </Border.ToolTip>
+                        <ui:SymbolIcon Symbol="Info24"
+                                       FontSize="{StaticResource Size.Icon.S}"
+                                       Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    </Border>
+                </Grid>
+
+                <!-- Thumbnail (16:9 in the 240 px tile): the live picture, the last frame stays after Stop -->
+                <Border Grid.Row="1"
+                        Height="{StaticResource Size.Strip.Thumb.Height}"
+                        Background="{DynamicResource Brush.Surface.PreviewTile}"
+                        BorderBrush="{DynamicResource Brush.Border.Default}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        ClipToBounds="True">
+                    <Grid>
+                        <!-- Actual Video Image -->
+                        <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
+                               Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="LowQuality" />
+
+                        <!-- Non-AVAS Device: Preview not supported banner -->
+                        <StackPanel VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Visibility="{Binding ShowUnsupported, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Path Data="{StaticResource Icon.Video}"
+                                  Style="{StaticResource Style.Icon.Placeholder}"
+                                  Opacity="0.4" />
+                            <TextBlock Text="Preview not supported"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.Text.OnPreview}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,6,0,0" />
+                            <TextBlock Text="Non-AVAS Device"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <!-- AVAS Standby placeholder if supported but not streaming: its link mode says what the card is -->
+                        <StackPanel VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Opacity="0.4"
+                                    Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Path Data="{StaticResource Icon.Video}"
+                                  Style="{StaticResource Style.Icon.Placeholder}" />
+                            <TextBlock Text="Preview Standby"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding LinkMode, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <!-- Routing state chips (on the picture, so the footer stays one touch-safe row) -->
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Bottom"
+                                    Margin="6">
+                            <Border x:Name="UsedInBlocksBadge"
+                                    Background="{DynamicResource Brush.Surface.Staged}"
+                                    BorderBrush="{DynamicResource Brush.Status.Staged}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="6,2"
+                                    Margin="0,0,6,0"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding HasUsage, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                                <TextBlock Text="{Binding UsedInText, Mode=OneWay}"
+                                           Style="{StaticResource Style.Text.Caption}"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource Brush.Status.StagedChipText}" />
+                            </Border>
+
+                            <!-- Tapped to place: the ring alone is colour, so it also says so -->
+                            <Border Background="{DynamicResource Brush.Surface.CopyTarget}"
+                                    BorderBrush="{DynamicResource Brush.Border.DropTarget}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="6,2"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                                <TextBlock Text="Placing" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
                 </Border>
+
+                <!-- Meta row: the status word (Online / Offline) and the Dual Link tag -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock x:Name="OnlineWord"
+                               Text="Online"
+                               Style="{StaticResource Style.Text.Status}"
+                               Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
+                    <TextBlock x:Name="OfflineWord"
+                               Text="Offline"
+                               Style="{StaticResource Style.Text.Status}"
+                               Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
+
+                    <!-- Link Mode Badge (Dual Link only): a neutral tag -->
+                    <ui:Badge Style="{StaticResource Style.Badge.Neutral}"
+                              Margin="8,0,0,0"
+                              Visibility="{Binding IsDualLink, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                        <TextBlock Text="DUAL LINK" />
+                    </ui:Badge>
+                </StackPanel>
+
+                <!-- Footer: stream state on the left; on the right one preview control: Refresh and Stop while streaming, Start while idle -->
+                <Grid Grid.Row="3" Margin="0,6,0,0" MinHeight="{StaticResource Size.Touch.Compact}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding StreamStatusText, Mode=OneWay}"
+                               Style="{StaticResource Style.Text.Caption}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Icon only: a refresh is offered while the stream runs (the name is announced) -->
+                        <Button x:Name="RefreshStreamButton"
+                                Command="{Binding RefreshPreviewCommand, Mode=OneWay}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                ToolTip="Force preview reset &amp; restart"
+                                AutomationProperties.Name="Refresh preview"
+                                MinWidth="{StaticResource Size.Touch.Compact}"
+                                MinHeight="{StaticResource Size.Touch.Compact}"
+                                Padding="10,4"
+                                IsTabStop="True"
+                                Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <ui:SymbolIcon Symbol="ArrowSync24" Style="{StaticResource Style.Icon.Action}" />
+                        </Button>
+                        <Button x:Name="StopStreamButton"
+                                Command="{Binding StopPreviewCommand, Mode=OneWay}"
+                                Style="{StaticResource Style.Button.Unroute}"
+                                ToolTip="Stop Preview Stream"
+                                MinHeight="{StaticResource Size.Touch.Compact}"
+                                Padding="10,4"
+                                Margin="8,0,0,0"
+                                IsTabStop="True"
+                                Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Stop24" Style="{StaticResource Style.Icon.Action}" />
+                                <TextBlock Text="Stop" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="StartStreamButton"
+                                Command="{Binding StartPreviewCommand, Mode=OneWay}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                ToolTip="Start Preview Stream"
+                                MinHeight="{StaticResource Size.Touch.Compact}"
+                                Padding="10,4"
+                                Margin="8,0,0,0"
+                                IsTabStop="True"
+                                Visibility="{Binding ShowStart, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Play24" Style="{StaticResource Style.Icon.Action}" />
+                                <TextBlock Text="Start" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
             </Grid>
 
-            <!-- Thumbnail (16:9 in the 240 px tile): the live picture, the last frame stays after Stop -->
-            <Border Grid.Row="1"
-                    Height="{StaticResource Size.Strip.Thumb.Height}"
-                    Background="{DynamicResource Brush.Surface.PreviewTile}"
-                    BorderBrush="{DynamicResource Brush.Border.Default}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    ClipToBounds="True">
-                <Grid>
-                    <!-- Actual Video Image -->
-                    <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapScalingMode="LowQuality" />
+            <!-- Compact layout: a 16:9 thumbnail (112 x 63) and, beside it, the name, the status word and the chips. No stream controls, no info badge, no Dual Link tag and nothing focusable: the whole tile is the target. -->
+            <Grid x:Name="CompactLayout"
+                  Visibility="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                <Grid.ColumnDefinitions>
+                    <!-- The thumbnail column is as wide as the thumbnail (its Width token); the text takes the rest -->
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                    <!-- Non-AVAS Device: Preview not supported banner -->
-                    <StackPanel VerticalAlignment="Center"
-                                HorizontalAlignment="Center"
-                                Visibility="{Binding ShowUnsupported, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                        <Path Data="{StaticResource Icon.Video}"
-                              Style="{StaticResource Style.Icon.Placeholder}"
-                              Opacity="0.4" />
-                        <TextBlock Text="Preview not supported"
-                                   Style="{StaticResource Style.Text.Caption}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.Text.OnPreview}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,6,0,0" />
-                        <TextBlock Text="Non-AVAS Device"
-                                   Style="{StaticResource Style.Text.Caption}"
-                                   Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,2,0,0" />
+                <Border x:Name="CompactThumb"
+                        Grid.Column="0"
+                        Width="{StaticResource Size.Strip.Compact.Thumb.Width}"
+                        Height="{StaticResource Size.Strip.Compact.Thumb.Height}"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource Brush.Surface.PreviewTile}"
+                        BorderBrush="{DynamicResource Brush.Border.Default}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        ClipToBounds="True">
+                    <Grid>
+                        <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
+                               Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="LowQuality" />
+
+                        <!-- Non-AVAS Device: no preview -->
+                        <StackPanel VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Visibility="{Binding ShowUnsupported, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Path Data="{StaticResource Icon.Video}"
+                                  Style="{StaticResource Style.Icon.Placeholder}"
+                                  Opacity="0.4" />
+                            <TextBlock Text="No preview"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <!-- AVAS Standby: supported but not streaming -->
+                        <StackPanel VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Path Data="{StaticResource Icon.Video}"
+                                  Style="{StaticResource Style.Icon.Placeholder}"
+                                  Opacity="0.4" />
+                            <TextBlock Text="Standby"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <!-- Device name (ellipsis; the full name is its tooltip) -->
+                    <TextBlock x:Name="CompactName"
+                               Text="{Binding DeviceName, Mode=OneWay}"
+                               ToolTip="{Binding DeviceName, Mode=OneWay}"
+                               Style="{StaticResource Style.Text.Title}"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <!-- Status: the dot and the word (Online / Offline) -->
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <Ellipse Style="{StaticResource Style.StatusDot.Small}"
+                                 Tag="{Binding IsActive, Mode=OneWay}"
+                                 Margin="0,0,6,0" />
+                        <TextBlock x:Name="CompactOnlineWord"
+                                   Text="Online"
+                                   Style="{StaticResource Style.Text.Status}"
+                                   Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
+                        <TextBlock x:Name="CompactOfflineWord"
+                                   Text="Offline"
+                                   Style="{StaticResource Style.Text.Status}"
+                                   Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                     </StackPanel>
 
-                    <!-- AVAS Standby placeholder if supported but not streaming: its link mode says what the card is -->
-                    <StackPanel VerticalAlignment="Center"
-                                HorizontalAlignment="Center"
-                                Opacity="0.4"
-                                Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                        <Path Data="{StaticResource Icon.Video}"
-                              Style="{StaticResource Style.Icon.Placeholder}" />
-                        <TextBlock Text="Preview Standby"
-                                   Style="{StaticResource Style.Text.Caption}"
-                                   Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,4,0,0" />
-                        <TextBlock Text="{Binding LinkMode, Mode=OneWay}"
-                                   Style="{StaticResource Style.Text.Caption}"
-                                   Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,2,0,0" />
-                    </StackPanel>
-
-                    <!-- Routing state chips (on the picture, so the footer stays one touch-safe row) -->
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Bottom"
-                                Margin="6">
-                        <Border x:Name="UsedInBlocksBadge"
+                    <!-- Chips, wrapped to the column: the staged count (the same chip as the full tile) and Placing -->
+                    <WrapPanel Margin="0,4,0,0">
+                        <Border x:Name="CompactUsedInBadge"
                                 Background="{DynamicResource Brush.Surface.Staged}"
                                 BorderBrush="{DynamicResource Brush.Status.Staged}"
                                 BorderThickness="1"
                                 CornerRadius="4"
-                                Padding="6,2"
-                                Margin="0,0,6,0"
-                                VerticalAlignment="Center"
+                                Padding="5,1"
+                                Margin="0,0,4,2"
                                 Visibility="{Binding HasUsage, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <TextBlock Text="{Binding UsedInText, Mode=OneWay}"
                                        Style="{StaticResource Style.Text.Caption}"
@@ -140,94 +330,18 @@
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />
                         </Border>
 
-                        <!-- Tapped to place: the ring alone is colour, so it also says so -->
-                        <Border Background="{DynamicResource Brush.Surface.CopyTarget}"
+                        <!-- Tapped to place: the same chip as the full tile -->
+                        <Border x:Name="CompactPlacingBadge"
+                                Background="{DynamicResource Brush.Surface.CopyTarget}"
                                 BorderBrush="{DynamicResource Brush.Border.DropTarget}"
                                 BorderThickness="1"
                                 CornerRadius="4"
-                                Padding="6,2"
-                                VerticalAlignment="Center"
+                                Padding="5,1"
+                                Margin="0,0,4,2"
                                 Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <TextBlock Text="Placing" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
                         </Border>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- Meta row: the status word (Online / Offline) and the Dual Link tag -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,6,0,0">
-                <TextBlock x:Name="OnlineWord"
-                           Text="Online"
-                           Style="{StaticResource Style.Text.Status}"
-                           Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
-                <TextBlock x:Name="OfflineWord"
-                           Text="Offline"
-                           Style="{StaticResource Style.Text.Status}"
-                           Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
-
-                <!-- Link Mode Badge (Dual Link only): a neutral tag -->
-                <ui:Badge Style="{StaticResource Style.Badge.Neutral}"
-                          Margin="8,0,0,0"
-                          Visibility="{Binding IsDualLink, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                    <TextBlock Text="DUAL LINK" />
-                </ui:Badge>
-            </StackPanel>
-
-            <!-- Footer: stream state on the left; on the right one preview control: Refresh and Stop while streaming, Start while idle -->
-            <Grid Grid.Row="3" Margin="0,6,0,0" MinHeight="{StaticResource Size.Touch.Compact}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0"
-                           Text="{Binding StreamStatusText, Mode=OneWay}"
-                           Style="{StaticResource Style.Text.Caption}"
-                           TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center" />
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- Icon only: a refresh is offered while the stream runs (the name is announced) -->
-                    <Button x:Name="RefreshStreamButton"
-                            Command="{Binding RefreshPreviewCommand, Mode=OneWay}"
-                            Style="{StaticResource Style.Button.Secondary}"
-                            ToolTip="Force preview reset &amp; restart"
-                            AutomationProperties.Name="Refresh preview"
-                            MinWidth="{StaticResource Size.Touch.Compact}"
-                            MinHeight="{StaticResource Size.Touch.Compact}"
-                            Padding="10,4"
-                            IsTabStop="True"
-                            Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                        <ui:SymbolIcon Symbol="ArrowSync24" Style="{StaticResource Style.Icon.Action}" />
-                    </Button>
-                    <Button x:Name="StopStreamButton"
-                            Command="{Binding StopPreviewCommand, Mode=OneWay}"
-                            Style="{StaticResource Style.Button.Unroute}"
-                            ToolTip="Stop Preview Stream"
-                            MinHeight="{StaticResource Size.Touch.Compact}"
-                            Padding="10,4"
-                            Margin="8,0,0,0"
-                            IsTabStop="True"
-                            Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                        <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="Stop24" Style="{StaticResource Style.Icon.Action}" />
-                            <TextBlock Text="Stop" Margin="6,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="StartStreamButton"
-                            Command="{Binding StartPreviewCommand, Mode=OneWay}"
-                            Style="{StaticResource Style.Button.Secondary}"
-                            ToolTip="Start Preview Stream"
-                            MinHeight="{StaticResource Size.Touch.Compact}"
-                            Padding="10,4"
-                            Margin="8,0,0,0"
-                            IsTabStop="True"
-                            Visibility="{Binding ShowStart, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                        <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="Play24" Style="{StaticResource Style.Icon.Action}" />
-                            <TextBlock Text="Start" Margin="6,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
+                    </WrapPanel>
                 </StackPanel>
             </Grid>
         </Grid>

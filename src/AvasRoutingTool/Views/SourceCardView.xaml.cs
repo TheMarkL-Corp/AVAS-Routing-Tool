@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -5,11 +6,24 @@ namespace AvasRoutingTool.Views
 {
     public partial class SourceCardView : UserControl
     {
+        /// <summary>
+        /// The compact density (the Composer palette): a 112 x 63 thumbnail, the name and the status word, no stream controls.
+        /// False (the default) is the full tile. Visibility is bound, so no measure invalidation is needed.
+        /// </summary>
+        public static readonly DependencyProperty IsCompactProperty =
+            DependencyProperty.Register(nameof(IsCompact), typeof(bool), typeof(SourceCardView), new PropertyMetadata(false));
+
         private readonly TapGesture _gesture = new();
 
         public SourceCardView()
         {
             InitializeComponent();
+        }
+
+        public bool IsCompact
+        {
+            get => (bool)GetValue(IsCompactProperty);
+            set => SetValue(IsCompactProperty, value);
         }
 
         private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => SourceCardInput.Down(_gesture, this, e);

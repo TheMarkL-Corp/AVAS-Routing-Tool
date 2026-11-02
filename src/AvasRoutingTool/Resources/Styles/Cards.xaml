@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:views="clr-namespace:AvasRoutingTool.Views">
 
     <!--
         Shared card and chrome pieces (owner: Main Window session): status dots and icon sizes.
@@ -72,6 +73,14 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <!-- The compact tile (SourceCardView.IsCompact) has 8 px of padding instead of 12, and no focus stop of its own: the tile is the target -->
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=views:SourceCardView}}" Value="True">
+                <Setter Property="Padding" Value="{StaticResource Size.Strip.Compact.Padding}" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="IsTabStop" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- Ring just over the card edge (armed: cyan, 3 px) and just inside it (keyboard focus: 2 px). Visibility is set by the view; neither takes the mouse. -->
