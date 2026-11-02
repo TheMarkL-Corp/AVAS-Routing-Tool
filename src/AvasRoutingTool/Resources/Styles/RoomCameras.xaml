@@ -14,6 +14,8 @@
     <sys:Double x:Key="Size.Camera.PadKey">56</sys:Double>
     <!-- A camera chip is a primary tap target: the same 48 px as Size.Touch.Min (a test pins the equality) -->
     <sys:Double x:Key="Size.Camera.Chip.Min">48</sys:Double>
+    <!-- A long camera name truncates inside its chip (full name in the tooltip) -->
+    <sys:Double x:Key="Size.Camera.Chip.Name.Max">240</sys:Double>
 
     <!-- ===== PTZ direction key: flat tile, blue only while pressed ===== -->
     <Style x:Key="Style.Button.PtzKey" TargetType="Button">
@@ -211,10 +213,14 @@
                         </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                            <Setter TargetName="StatusDot" Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+                        </DataTrigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="ChipBody" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="StatusDot" Property="Fill" Value="{DynamicResource Brush.Text.OnAction}" />
                             <Setter TargetName="ChipBody" Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
                             <Setter TargetName="ChipBody" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
                             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
