@@ -47,7 +47,7 @@
                                ToolTip="{Binding DeviceName, Mode=OneWay}" />
                     <TextBlock Style="{StaticResource Style.Text.Palette.Status}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <ui:Badge x:Name="UsedInBlocksBadge" Style="{StaticResource Style.Badge.UsedIn}" Content="{Binding UsedInBlocks, Mode=OneWay}" />
+                        <ui:Badge x:Name="UsedInBlocksBadge" Style="{StaticResource Style.Badge.UsedIn}" Content="{Binding UsedInText, Mode=OneWay}" />
                         <ui:Badge Style="{StaticResource Style.Badge.Armed}" Content="Placing"
                                   Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
                     </StackPanel>

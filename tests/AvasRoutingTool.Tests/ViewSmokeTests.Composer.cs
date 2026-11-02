@@ -2784,5 +2784,36 @@ namespace AvasRoutingTool.Tests
                     Assert.False(FindAll<Wpf.Ui.Controls.Badge>(two).Single(b => b.Name != "UsedInBlocksBadge").IsVisible);
                 });
             });
+
+        [Fact]
+        public void CompactSourceCard_UsedInBadge_FollowsTheViewModelText() =>
+            RunSta(() =>
+            {
+                var (_, _, sources) = Overview();
+                var source = sources[0];
+                source.UsedInBlocks = 0;
+                var card = new CompactSourceCardView { DataContext = source };
+                Showing(card, () =>
+                {
+                    var used = Assert.IsType<Wpf.Ui.Controls.Badge>(Named(card, "UsedInBlocksBadge").Single());
+                    Assert.False(used.IsVisible);
+
+                    source.UsedInBlocks = 3;
+                    Relayout(card);
+                    Assert.True(used.IsVisible);
+                    AssertVisibleText(card, "in 3 blocks");
+                    var text = Assert.IsType<string>(used.Content);
+                    Assert.Equal(source.UsedInText, text);
+                    Assert.True(string.IsNullOrEmpty(used.ContentStringFormat));
+
+                    source.UsedInBlocks = 1;
+                    Relayout(card);
+                    AssertVisibleText(card, "in 1 block");
+
+                    source.UsedInBlocks = 0;
+                    Relayout(card);
+                    Assert.False(used.IsVisible);
+                });
+            });
     }
 }

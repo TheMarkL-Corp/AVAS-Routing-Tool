@@ -1110,16 +1110,13 @@
         </Style.Triggers>
     </Style>
 
-    <!-- "in N blocks": hidden while the source is in none (switches to SourceCardViewModel.UsedInText once the Main Window's A3 is merged) -->
+    <!-- "in N blocks" (the source's UsedInText): hidden while the source is in none of the Composer's blocks (HasUsage) -->
     <Style x:Key="Style.Badge.UsedIn" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Staged}">
-        <Setter Property="ContentStringFormat" Value="in {0} blocks" />
         <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Visibility" Value="Collapsed" />
         <Style.Triggers>
-            <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="1">
-                <Setter Property="ContentStringFormat" Value="in 1 block" />
-            </DataTrigger>
-            <DataTrigger Binding="{Binding UsedInBlocks, Mode=OneWay}" Value="0">
-                <Setter Property="Visibility" Value="Collapsed" />
+            <DataTrigger Binding="{Binding HasUsage, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
             </DataTrigger>
         </Style.Triggers>
     </Style>
