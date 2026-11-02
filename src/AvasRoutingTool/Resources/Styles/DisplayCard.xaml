@@ -9,7 +9,7 @@
         State comes from the card's DataContext (DataTrigger) or a Tag; colours are DynamicResource palette keys.
     -->
 
-    <!-- Card frame: 1 px border (routed: routed colour, drop target: cyan 2 px); frame 2 + padding 24 = the 26 px of GridSpec.DisplayCard.ChromeHeight -->
+    <!-- Card frame: 1 px neutral border whether routed or not (routed is said by the picture and the mode tag, not the frame); drop target: cyan 2 px. Frame 2 + padding 24 = the 26 px of GridSpec.DisplayCard.ChromeHeight -->
     <Style x:Key="Style.Card.Display" TargetType="{x:Type ui:Card}">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
@@ -37,13 +37,6 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
                 <Setter Property="BorderThickness" Value="2" />
             </DataTrigger>
-            <MultiDataTrigger>
-                <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
-                    <Condition Binding="{Binding IsDragOver, Mode=OneWay}" Value="False" />
-                </MultiDataTrigger.Conditions>
-                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Routed}" />
-            </MultiDataTrigger>
         </Style.Triggers>
     </Style>
 

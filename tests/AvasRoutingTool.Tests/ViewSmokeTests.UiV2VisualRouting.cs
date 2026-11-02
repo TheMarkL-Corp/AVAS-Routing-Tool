@@ -98,18 +98,19 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void VisualRoutingView_DiscoveredCounts_AreInfoBadges_AndHintsHaveNoGlyphIcons() =>
+        public void VisualRoutingView_DiscoveredCounts_ArePlainCaption_AndHintsHaveNoGlyphIcons() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
                 var view = new VisualRoutingView { DataContext = rig.Vm };
                 Showing(view, () =>
                 {
-                    var info = Application.Current.FindResource("Style.Badge.Info");
-                    var badges = FindAll<Badge>(view).Where(b => b.IsVisible && FindAll<TextBlock>(b).Any(t => t.Text.Contains("DISCOVERED"))).ToList();
-                    Assert.Equal(2, badges.Count);
-                    Assert.All(badges, b => Assert.Same(info, b.Style));
-                    Assert.All(badges, b => Assert.Contains(FindAll<TextBlock>(b), t => t.Text.Contains("DISCOVERED")));
+                    // One accent: the counts are plain caption text ("2 discovered"), not a coloured pill.
+                    var caption = Application.Current.FindResource("Style.Text.Caption");
+                    var counts = FindAll<TextBlock>(view).Where(t => t.IsVisible && t.Text.Contains("discovered")).ToList();
+                    Assert.Equal(2, counts.Count);
+                    Assert.All(counts, t => Assert.Same(caption, t.Style));
+                    Assert.Empty(FindAll<Badge>(view).Where(b => b.IsVisible && FindAll<TextBlock>(b).Any(t => t.Text.Contains("DISCOVERED"))));
                     Assert.DoesNotContain(FindAll<TextBlock>(view).Where(t => t.DataContext == rig.Vm), t => t.IsVisible && t.Text.Any(c => c >= '←' && c <= '➿'));
                     foreach (var tb in FindAll<TextBlock>(view).Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text) && t.DataContext == rig.Vm))
                         Assert.True(tb.FontSize >= 12, $"'{tb.Text}' is {tb.FontSize}px");

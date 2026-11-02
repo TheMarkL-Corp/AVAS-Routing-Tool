@@ -69,12 +69,12 @@
                                VerticalAlignment="Center"
                                Margin="12,0,0,0" />
 
-                    <ui:Badge Grid.Column="2" Style="{StaticResource Style.Badge.Info}">
-                        <TextBlock>
-                            <Run Text="DISCOVERED: " />
-                            <Run Text="{Binding Sources.Count, Mode=OneWay}" FontWeight="Bold" />
-                        </TextBlock>
-                    </ui:Badge>
+                    <TextBlock Grid.Column="2"
+                               Style="{StaticResource Style.Text.Caption}"
+                               VerticalAlignment="Center">
+                        <Run Text="{Binding Sources.Count, Mode=OneWay}" FontWeight="Bold" />
+                        <Run Text=" discovered" />
+                    </TextBlock>
                 </Grid>
 
                 <!--
@@ -206,12 +206,12 @@
                                VerticalAlignment="Center"
                                Margin="12,0,8,0" />
 
-                    <ui:Badge Grid.Column="2" Style="{StaticResource Style.Badge.Info}">
-                        <TextBlock>
-                            <Run Text="DISCOVERED: " />
-                            <Run Text="{Binding Displays.Count, Mode=OneWay}" FontWeight="Bold" />
-                        </TextBlock>
-                    </ui:Badge>
+                    <TextBlock Grid.Column="2"
+                               Style="{StaticResource Style.Text.Caption}"
+                               VerticalAlignment="Center">
+                        <Run Text="{Binding Displays.Count, Mode=OneWay}" FontWeight="Bold" />
+                        <Run Text=" discovered" />
+                    </TextBlock>
                 </Grid>
 
                 <!-- Displays Carousel / Horizontal List -->

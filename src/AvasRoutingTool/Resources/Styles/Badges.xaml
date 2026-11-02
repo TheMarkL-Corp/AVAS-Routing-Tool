@@ -3,11 +3,13 @@
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
     <!--
-        Badges on chrome (not over video: chips over a picture stay Border + scrim). One look per meaning, all on ui:Badge:
-          Info    - a fact about the device (DUAL LINK, mode, counts)     Surface.RoutedBadge / Border.RoutedBadge / Text.OnRoutedBadge
+        Badges on chrome (not over video: chips over a picture stay Border + scrim). One look per meaning, all on ui:Badge.
+        One accent: blue is selection and the primary action, cyan is the armed target only, amber is staged only. A device's status is a dot
+        plus a plain word (Text.Status), never a coloured pill, and the tags that carry no state are Neutral:
+          Info    - a fact the Composer shows (its output and rate notes)    Surface.RoutedBadge / Border.RoutedBadge / Text.OnRoutedBadge
           Staged  - something kept but not on screen (in N blocks, draft)  Surface.Staged / Status.Staged / Status.StagedChipText
           Armed   - tapped and waiting for a target (Placing)             Surface.CopyTarget / Border.DropTarget / Text.CopyAccent
-          Neutral - a tag that carries no state (DUAL LINK, mode tag)     Surface.Elevated / Border.Default / Text.Secondary
+          Neutral - a tag that carries no state (DUAL LINK, the mode tag) Surface.Elevated / Border.Default / Text.Secondary
         Each pair is contrast-tested (>= 4.5:1) in Dark and Light.
 
         WPF-UI's own Badge template forces a Foreground and a Border background per Appearance through template triggers, which beat any style
@@ -40,37 +42,6 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnRoutedBadge}" />
         <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
-
-    <!-- Device state on the source card: ONLINE (green on its badge surface) and OFFLINE (neutral, secondary text for contrast) -->
-    <Style x:Key="Style.Badge.Online" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">
-        <Setter Property="Background" Value="{DynamicResource Brush.Surface.OnlineBadge}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.OnlineBadge}" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Online}" />
-        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
-
-    <Style x:Key="Style.Badge.Offline" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">
-        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
-
-    <!-- Display card mode pill: neutral until a source is routed or a layout is active (Tag="{Binding HasRoutedBadge}"), then the Info look -->
-    <Style x:Key="Style.Badge.Mode" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Info}">
-        <Setter Property="Background" Value="{DynamicResource Brush.Border.Default}" />
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource Brush.Surface.RoutedBadge}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.RoutedBadge}" />
-                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnRoutedBadge}" />
-            </DataTrigger>
-        </Style.Triggers>
     </Style>
 
     <Style x:Key="Style.Badge.Staged" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">

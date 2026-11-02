@@ -98,11 +98,10 @@
                         <TextBlock Text="COPYING FROM HERE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
                     </Border>
 
-                    <!-- Routed status pill: the layout and its fill ("MATRIX 2X2 &#183; 3/4") -->
+                    <!-- Mode tag: the layout and its fill ("MATRIX 2X2 &#183; 3/4"); neutral, the picture and the card say routed -->
                     <ui:Badge x:Name="ModeBadge"
                               Grid.Column="4"
-                              Style="{StaticResource Style.Badge.Mode}"
-                              Tag="{Binding HasRoutedBadge, Mode=OneWay}">
+                              Style="{StaticResource Style.Badge.Neutral}">
                         <TextBlock x:Name="ModeBadgeText" Text="{Binding ModeBadge, Mode=OneWay}" />
                     </ui:Badge>
                 </Grid>
@@ -236,10 +235,10 @@
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />
                         </Button>
 
-                        <!-- Quick Power / Turn Off Button: a vector power icon -->
+                        <!-- Quick Power / Turn Off Button: a vector power icon, a ghost button (no red at rest) -->
                         <Button x:Name="TurnOffButton"
                                 Grid.Column="5"
-                                Style="{StaticResource Style.Button.Unroute}"
+                                Style="{StaticResource Style.Button.Ghost}"
                                 MinWidth="{StaticResource Size.Touch.Min}"
                                 MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="0"

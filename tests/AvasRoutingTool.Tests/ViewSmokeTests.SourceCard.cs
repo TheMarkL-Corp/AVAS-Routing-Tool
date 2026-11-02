@@ -94,7 +94,7 @@ namespace AvasRoutingTool.Tests
                 Showing(offlineView, () =>
                 {
                     var secondary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
-                    var offline = FindAll<TextBlock>(offlineView).First(t => t.Text == "OFFLINE" && t.IsVisible);
+                    var offline = FindAll<TextBlock>(offlineView).First(t => t.Text == "Offline" && t.IsVisible);
                     Assert.Equal(secondary, ((SolidColorBrush)offline.Foreground).Color);
                 });
               }
