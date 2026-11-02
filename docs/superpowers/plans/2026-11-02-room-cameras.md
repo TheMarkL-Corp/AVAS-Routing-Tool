@@ -279,7 +279,7 @@ public interface IPtzCameraFactory { IPtzCamera Create(RoomCameraConfig config);
 **Produces:** attached properties `HoldButton.PressCommand` / `ReleaseCommand` / `CommandParameter` on any `ButtonBase`; fires Press on `PreviewMouseLeftButtonDown`/`TouchDown`/key `Space`+`Enter` down, and Release exactly once on mouse up, touch up, `LostMouseCapture`, `LostTouchCapture`, `LostKeyboardFocus`, `IsEnabledChanged` to false, `Unloaded`, and `Window.Deactivated`. `PtzPadView` is a 3x3 `UniformGrid` of eight direction keys plus Home (`ui:SymbolIcon` arrows, tooltips, spoken names "Pan left, hold to move"); keys bind `HoldButton` to `Motion.BeginMove`/`End`.
 - [ ] Red STA tests: `Press_Release_FiresOnceEach`; `PressThenLoseCapture_FiresRelease`; `PressThenDisable_FiresRelease`; `PressThenUnload_FiresRelease`; `ReleaseWithoutPress_FiresNothing`; `Pad_HasNineKeys_AllWithAutomationNames`; `Keys_AreAtLeast48px` (Size.Touch.Min) at both test sizes. Commit `feat(room-cameras): hold-to-move behaviour and direction pad`.
 
-### Task RC11: Room Cameras view  *(start after the user approves the UI mockup shown in the planning session)*
+### Task RC11: Room Cameras view  *(UI mockup approved by the user on 2026-11-02)*
 
 **Files:** Create `Views/RoomCamerasView.xaml(.cs)`; Test `UiV2RoomCamerasViewTests.cs`, `ViewSmokeTests.RoomCamerasShots.cs`.
 **Consumes:** RC8 view models, RC9 styles, RC10 pad. Layout exactly as in "UI layout": chips row (`ItemsControl` + `WrapPanel` at 1920; horizontal `ScrollViewer` at narrow width), Grid `*` / `Auto` (rail min/max tokens), picture area with the five states, caption row, red Stop-not-confirmed banner row, rail (status lines, Power with inline confirm, Lock, pad, speed segment, Zoom, Focus, Auto focus). Code-behind: a `DispatcherTimer` at `VisualRoutingView.TickInterval` while loaded calls `Tick()`; `IsVisibleChanged` to false and `Unloaded` call `StopAll()`; key handling per R14 (key up ends motion; ignored while a `TextBox` has focus).
@@ -323,7 +323,7 @@ public interface IPtzCameraFactory { IPtzCamera Create(RoomCameraConfig config);
 
 ## Open items
 
-1. **UI mockup approval** (1920x1080 and 1024x720, dark) before RC9 starts.
+1. ~~UI mockup approval~~ Approved by the user on 2026-11-02 (1920x1080 and 1024x720, dark); RC9-RC12 are unblocked once the start gate (`ui-v2/round2` checkpoint 2) is met.
 2. Camera make and model, VISCA address and whether focus Direct works are confirmed on site during RC14; the transport and port come from Detect (R15), so no answer is needed before RC1.
 
 ## Self-review notes
