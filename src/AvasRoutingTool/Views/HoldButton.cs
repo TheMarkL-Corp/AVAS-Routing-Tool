@@ -204,10 +204,9 @@ namespace AvasRoutingTool.Views
                 if (source == PressSource.Touch && touch != null)
                     _button.ReleaseTouchCapture(touch);
 
+                // The release is the Stop path, so it runs whenever set, even if CanExecute now reports false.
                 var release = GetReleaseCommand(_button);
-                var parameter = GetCommandParameter(_button);
-                if (release != null && release.CanExecute(parameter))
-                    release.Execute(parameter);
+                release?.Execute(GetCommandParameter(_button));
             }
         }
     }

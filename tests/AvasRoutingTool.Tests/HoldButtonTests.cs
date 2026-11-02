@@ -34,14 +34,15 @@ namespace AvasRoutingTool.Tests
             if (failure != null) throw new Xunit.Sdk.XunitException("Hold button failure: " + failure);
         }
 
-        /// <summary>Counts Execute calls; CanExecute is always true.</summary>
+        /// <summary>Counts Execute calls; CanExecute is true unless a test clears <see cref="CanRun"/>.</summary>
         private sealed class Recorder : ICommand
         {
             public int Executions { get; private set; }
             public object? LastParameter { get; private set; }
+            public bool CanRun { get; set; } = true;
 
             public event EventHandler? CanExecuteChanged { add { } remove { } }
-            public bool CanExecute(object? parameter) => true;
+            public bool CanExecute(object? parameter) => CanRun;
             public void Execute(object? parameter)
             {
                 Executions++;
@@ -141,6 +142,22 @@ namespace AvasRoutingTool.Tests
 
                 Assert.Equal(1, press.Executions);
                 Assert.Equal(1, release.Executions);
+            });
+
+        [Fact]
+        public void Release_RunsEvenWhenCommandCannotExecute() =>
+            RunSta(() =>
+            {
+                var (button, press, release) = Held();
+
+                MouseDown(button);
+                release.CanRun = false; // e.g. the view model is locked after the press
+
+                MouseUp(button);
+
+                Assert.Equal(1, press.Executions);
+                Assert.Equal(1, release.Executions);
+                Assert.Equal(PanTiltDirection.Left, release.LastParameter);
             });
 
         [Fact]
