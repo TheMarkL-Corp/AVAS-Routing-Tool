@@ -234,10 +234,23 @@
                             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
+                        <!-- Unreachable (R16): red wins over grey, green and the selected white -->
+                        <DataTrigger Binding="{Binding Path=DataContext.LinkIsUnreachable, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                            <Setter TargetName="StatusDot" Property="Fill" Value="{DynamicResource Brush.Text.Danger}" />
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- ===== Rail link dot: the online/offline dot, red once the camera is unreachable (R16) ===== -->
+    <Style x:Key="Style.StatusDot.Link" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding LinkIsUnreachable}" Value="True">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Text.Danger}" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ===== Status line under the picture and in the rail: 12 px minimum, from the font token ===== -->

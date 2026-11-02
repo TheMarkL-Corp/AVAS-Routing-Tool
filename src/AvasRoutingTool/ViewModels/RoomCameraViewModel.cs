@@ -127,6 +127,9 @@ namespace AvasRoutingTool.ViewModels
 
         public bool LinkIsGood => Camera.LinkState == CameraLinkState.Connected;
 
+        /// <summary>True once the camera is unreachable (3 failed attempts, R16): the link dots turn red.</summary>
+        public bool LinkIsUnreachable => Camera.LinkState == CameraLinkState.Unreachable;
+
         public string PowerText => _power switch
         {
             CameraPower.On => "Camera on",
@@ -542,6 +545,7 @@ namespace AvasRoutingTool.ViewModels
         {
             OnPropertyChanged(nameof(LinkText));
             OnPropertyChanged(nameof(LinkIsGood));
+            OnPropertyChanged(nameof(LinkIsUnreachable));
             OnPropertyChanged(nameof(AutomationName));
             // A dropped link cannot be left moving: end any motion now (Stop is retried by the controller).
             if (state != CameraLinkState.Connected)

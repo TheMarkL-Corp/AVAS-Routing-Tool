@@ -93,6 +93,24 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        [Fact]
+        public void DirectionKeys_AreNotAllOneGlyph_AndDownRightIsNotTheBrokenArrow() =>
+            RunSta(() =>
+            {
+                var pad = new PtzPadView { DataContext = Camera() };
+                Hosted(pad, 1920, 1080, 360, () =>
+                {
+                    var keys = Keys(pad);
+                    var directions = keys.Where(k => AutomationProperties.GetName(k) != "Home camera, press").ToList();
+                    Assert.Equal(8, directions.Count);
+                    var symbols = directions.Select(k => ((Wpf.Ui.Controls.SymbolIcon)k.Content).Symbol).ToList();
+                    Assert.True(symbols.Distinct().Count() > 1, "all eight direction keys show the same glyph");
+
+                    var downRight = keys.Single(k => AutomationProperties.GetName(k) == "Pan down-right, hold to move");
+                    Assert.NotEqual(Wpf.Ui.Controls.SymbolRegular.ArrowDownRight24, ((Wpf.Ui.Controls.SymbolIcon)downRight.Content).Symbol);
+                });
+            });
+
         [Theory]
         [InlineData(1920, 1080, 360, false)]
         [InlineData(1920, 1080, 360, true)]

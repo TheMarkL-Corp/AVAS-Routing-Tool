@@ -14,6 +14,7 @@ using System.Windows.Threading;
 using AvasRoutingTool.Configuration;
 using AvasRoutingTool.Sdvoe;
 using AvasRoutingTool.Services;
+using AvasRoutingTool.Services.Visca;
 using AvasRoutingTool.Tests.Fakes;
 using AvasRoutingTool.ViewModels;
 using AvasRoutingTool.Views;
@@ -246,6 +247,27 @@ namespace AvasRoutingTool.Tests
                 // Nothing interactive sits inside the picture while it shows video.
                 var interactive = RoomCamerasRig.All<Control>(picture).Where(c => c.IsVisible && c is ButtonBase or Slider).ToList();
                 Assert.Empty(interactive);
+            });
+
+        [Fact]
+        public void UnreachableCamera_LinkDots_AreNotTheConnectedColour() =>
+            RunSta(() =>
+            {
+                using var rig = TwoCameras(1920, 1080);
+                rig.Fake(1).LinkState = CameraLinkState.Unreachable;
+                rig.Vm.Selected = rig.Vm.Cameras[1];
+                rig.Relayout();
+
+                var chips = RoomCamerasRig.All<RadioButton>(rig.View).Where(r => r.Tag is bool).ToList();
+                Assert.Equal(2, chips.Count);
+                var connectedChipDot = RoomCamerasRig.All<System.Windows.Shapes.Ellipse>(chips[0]).Single(e => e.Name == "StatusDot");
+                var unreachableChipDot = RoomCamerasRig.All<System.Windows.Shapes.Ellipse>(chips[1]).Single(e => e.Name == "StatusDot");
+                var railDot = rig.Named<System.Windows.Shapes.Ellipse>("LinkDot");
+
+                var connected = ((SolidColorBrush)connectedChipDot.Fill).Color;
+                var unreachable = ((SolidColorBrush)unreachableChipDot.Fill).Color;
+                Assert.NotEqual(connected, unreachable);
+                Assert.Equal(unreachable, ((SolidColorBrush)railDot.Fill).Color);
             });
 
         private static void Click(Button button)

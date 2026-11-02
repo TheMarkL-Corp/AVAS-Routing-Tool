@@ -106,7 +106,12 @@
                 views:HoldButton.CommandParameter="{x:Static visca:PanTiltDirection.DownRight}"
                 AutomationProperties.Name="Pan down-right, hold to move"
                 ToolTip="Pan and tilt down-right (hold)">
-            <ui:SymbolIcon Symbol="ArrowDownRight24" FontSize="{StaticResource Size.Icon.M}" />
+            <!-- ArrowDownRight24 renders as a broken glyph: the up-right arrow turned a quarter turn clockwise -->
+            <ui:SymbolIcon Symbol="ArrowUpRight24" FontSize="{StaticResource Size.Icon.M}" RenderTransformOrigin="0.5,0.5">
+                <ui:SymbolIcon.RenderTransform>
+                    <RotateTransform Angle="90" />
+                </ui:SymbolIcon.RenderTransform>
+            </ui:SymbolIcon>
         </Button>
 
     </UniformGrid>

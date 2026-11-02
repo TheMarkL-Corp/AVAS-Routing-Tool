@@ -219,6 +219,20 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void LinkIsUnreachable_TracksLinkState()
+        {
+            var names = Capture(_sut);
+            Assert.False(_sut.LinkIsUnreachable);
+
+            _camera.LinkState = CameraLinkState.Unreachable;
+            Assert.True(_sut.LinkIsUnreachable);
+            Assert.Contains("LinkIsUnreachable", names);
+
+            _camera.LinkState = CameraLinkState.Connecting;
+            Assert.False(_sut.LinkIsUnreachable);
+        }
+
+        [Fact]
         public void LinkStateChange_RaisesPropertyChanged_ForLinkTextAndIsGood()
         {
             var names = Capture(_sut);

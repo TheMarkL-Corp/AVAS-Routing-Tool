@@ -307,7 +307,7 @@
                         <!-- Status lines: dot plus word, never colour alone -->
                         <StackPanel Margin="0,4,0,0">
                             <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <Ellipse x:Name="LinkDot" Style="{StaticResource Style.StatusDot}" Tag="{Binding LinkIsGood, Mode=OneWay}" Margin="0,0,8,0" />
+                                <Ellipse x:Name="LinkDot" Style="{StaticResource Style.StatusDot.Link}" Tag="{Binding LinkIsGood, Mode=OneWay}" Margin="0,0,8,0" />
                                 <TextBlock x:Name="LinkLine" Text="{Binding LinkText, Mode=OneWay}" ToolTip="{Binding LinkText, Mode=OneWay}" Style="{StaticResource Style.Text.CameraStatus}" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,2">
