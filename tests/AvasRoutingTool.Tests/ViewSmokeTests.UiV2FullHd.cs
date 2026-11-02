@@ -117,10 +117,10 @@ namespace AvasRoutingTool.Tests
         // Recorded at 1920x952 before the cap change (the overview is height-bound there): the pictures must never get smaller than this.
         // Round 2 / A1: the Displays header row is a fixed 48 px (the arm banner shares it, so arming moves nothing), about 18 px taller than
         // the old idle header; the 1 and 2 display pictures were re-recorded at 640x360 (-33 px wide).
-        // Round 2 / A9: the dense source strip (an Auto row, 243 px tiles, two rows at most) gives the height back: 1 and 2 displays are 745x419.
+        // Round 2 / A9: the dense source strip (an Auto row, 243 px tiles, two rows at most) gives the height back: 1 and 2 displays were 745x419; A10b keeps an 8 px gap between the section header or arm banner and the cards, so they are 731x411.
         [Theory]
-        [InlineData(1, 745, 419)]
-        [InlineData(2, 745, 419)]
+        [InlineData(1, 731, 411)]
+        [InlineData(2, 731, 411)]
         [InlineData(3, 587, 330)]
         [InlineData(4, 430, 242)]
         [InlineData(5, 336, 189)]

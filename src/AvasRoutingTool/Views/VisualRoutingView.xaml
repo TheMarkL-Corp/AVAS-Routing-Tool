@@ -207,6 +207,7 @@
                 <!-- Displays Carousel / Horizontal List -->
                 <ScrollViewer Grid.Row="1"
                               x:Name="DisplaysScroll"
+                              Margin="0,8,0,0"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Displays}">

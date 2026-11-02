@@ -49,7 +49,7 @@ namespace AvasRoutingTool.Tests
                     var card = FindAll<DisplayCardView>(view).First(c => c.IsVisible);
                     var cardTop = BoundsIn(card, view).Top;
 
-                    Assert.True(cardTop - headerBottom < 16, $"the first display card starts {cardTop - headerBottom:F1} px under the header (it was ~80 px)");
+                    Assert.True(cardTop - headerBottom < 28, $"the first display card starts {cardTop - headerBottom:F1} px under the header (it was ~80 px)");
                     Assert.True(cardTop - BoundsIn(displays, view).Top < 16, "the first display card is not at the top of the Displays view");
                 });
             });
@@ -87,5 +87,23 @@ namespace AvasRoutingTool.Tests
                 });
             });
         }
+
+        [Fact]
+        public void ArmBanner_DoesNotTouchTheFirstDisplayCard_ThereIsAGapBelowIt() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+                Showing(view, () =>
+                {
+                    rig.Vm.ArmSource(rig.Tx2);
+                    Relayout(view);
+                    var banner = (FrameworkElement)Named(view, "ArmBanner").Single();
+                    Assert.True(banner.IsVisible, "the arm banner is not shown");
+                    var card = FindAll<DisplayCardView>(view).First(c => c.IsVisible);
+                    var gap = BoundsIn(card, view).Top - BoundsIn(banner, view).Bottom;
+                    Assert.True(gap >= 8, $"the first display card is {gap:F1} px below the arm banner (needs >= 8)");
+                });
+            });
     }
 }
