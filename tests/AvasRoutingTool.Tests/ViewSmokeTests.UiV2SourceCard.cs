@@ -95,21 +95,22 @@ namespace AvasRoutingTool.Tests
                 }));
 
         [Fact]
-        public void SourceCard_StatusBadges_AreUiBadges_AndDualLinkShowsOnlyForDualLink() =>
+        public void SourceCard_DualLinkIsTheOnlyBadge_AndStatusIsAWord_DualLinkShowsOnlyForDualLink() =>
             RunSta(() =>
             {
                 SourceCardAt(UiV2Source(link: "Dual Link"), 393, 340, view =>
                 {
                     var badges = FindAll<Badge>(view).Where(b => b.IsVisible).ToList();
-                    Assert.Equal(2, badges.Count);
+                    Assert.Single(badges);
                     Assert.Contains(badges, b => FindAll<TextBlock>(b).Any(t => t.Text == "DUAL LINK"));
-                    Assert.Contains(badges, b => FindAll<TextBlock>(b).Any(t => t.Text == "ONLINE"));
+                    AssertVisibleText(view, "Online");
+                    Assert.Empty(VisibleTexts(view, "ONLINE"));
                 });
                 SourceCardAt(UiV2Source(online: false), 393, 340, view =>
                 {
-                    var badges = FindAll<Badge>(view).Where(b => b.IsVisible).ToList();
-                    Assert.Single(badges);
-                    Assert.Contains(FindAll<TextBlock>(badges[0]), t => t.Text == "OFFLINE");
+                    Assert.Empty(FindAll<Badge>(view).Where(b => b.IsVisible));
+                    AssertVisibleText(view, "Offline");
+                    Assert.Empty(VisibleTexts(view, "OFFLINE"));
                     var dot = FindAll<System.Windows.Shapes.Ellipse>(view).First(e => e.Style == Application.Current.FindResource("Style.StatusDot.Small"));
                     Assert.Equal((double)Application.Current.FindResource("Size.Dot.S"), dot.ActualWidth);
                 });
@@ -136,10 +137,11 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void SourceCard_TapHint_ShowsOnlyForAnIdleSource() =>
+        public void SourceCard_HasNoTapHintChip() =>
             RunSta(() =>
             {
-                SourceCardAt(UiV2Source(), 393, 340, view => AssertVisibleText(view, "TAP OR DRAG TO ROUTE"));
+                // The Sources section header says "Tap a source, then tap a display"; the card itself says nothing more, idle or armed.
+                SourceCardAt(UiV2Source(), 393, 340, view => Assert.Empty(VisibleTexts(view, "TAP OR DRAG")));
                 var armed = UiV2Source();
                 armed.IsArmed = true;
                 SourceCardAt(armed, 393, 340, view => Assert.Empty(VisibleTexts(view, "TAP OR DRAG")));

@@ -76,19 +76,21 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void VisualRoutingView_SectionHeaders_UseTheSectionRole_WithSizedIcons() =>
+        public void VisualRoutingView_SectionHeaders_AreTitleSizedLevel2Headings_WithSizedIcons() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
                 var view = new VisualRoutingView { DataContext = rig.Vm };
                 Showing(view, () =>
                 {
-                    var section = (Style)Application.Current.FindResource("Style.Text.Section");
-                    foreach (var text in new[] { "VIDEO SOURCES (TX)", "TARGET DISPLAYS (RX)" })
+                    // Finding M6: sentence case at title size (14 px, primary), still announced as a level 2 heading.
+                    var title = (Style)Application.Current.FindResource("Style.Text.Title");
+                    foreach (var text in new[] { "Video sources (TX)", "Target displays (RX)" })
                     {
                         var header = FindAll<TextBlock>(view).Single(t => t.Text == text);
-                        Assert.Same(section, header.Style);
+                        Assert.Same(title, header.Style);
                         Assert.True(header.FontSize >= 14);
+                        Assert.Equal(AutomationHeadingLevel.Level2, AutomationProperties.GetHeadingLevel(header));
                     }
                     var iconSize = (double)Application.Current.FindResource("Size.Icon.S");
                     var icons = FindAll<System.Windows.Shapes.Path>(view).Where(p => p.Style == Application.Current.FindResource("Style.Icon.Section")).ToList();
@@ -98,18 +100,55 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void VisualRoutingView_DiscoveredCounts_AreInfoBadges_AndHintsHaveNoGlyphIcons() =>
+        public void VisualRoutingView_SectionHints_AreSecondaryCaptions_NotMuted() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
                 var view = new VisualRoutingView { DataContext = rig.Vm };
                 Showing(view, () =>
                 {
-                    var info = Application.Current.FindResource("Style.Badge.Info");
-                    var badges = FindAll<Badge>(view).Where(b => b.IsVisible && FindAll<TextBlock>(b).Any(t => t.Text.Contains("DISCOVERED"))).ToList();
-                    Assert.Equal(2, badges.Count);
-                    Assert.All(badges, b => Assert.Same(info, b.Style));
-                    Assert.All(badges, b => Assert.Contains(FindAll<TextBlock>(b), t => t.Text.Contains("DISCOVERED")));
+                    // Finding M6: hierarchy title 14 px primary > hint 12 px secondary > counts 12 px secondary.
+                    var caption = Application.Current.FindResource("Style.Text.Caption");
+                    var secondary = ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
+                    void AssertSecondaryCaptions(string when)
+                    {
+                        // "Tap a source, then" (not the Composer's own "Tap a source above, ..." hint, which it owns).
+                        var hints = FindAll<TextBlock>(view).Where(t => t.IsVisible && (t.Text.StartsWith("Tap a source, then") || t.Text.StartsWith("The Layout button"))).ToList();
+                        Assert.NotEmpty(hints);
+                        foreach (var hint in hints)
+                        {
+                            Assert.True(hint.FontSize >= 12, $"{when}: '{hint.Text}' is {hint.FontSize}px");
+                            Assert.Same(caption, hint.Style);
+                            Assert.Equal(secondary, ((System.Windows.Media.SolidColorBrush)hint.Foreground).Color);
+                        }
+                        var counts = FindAll<TextBlock>(view).Where(t => t.IsVisible && t.Text.Contains("discovered")).ToList();
+                        Assert.NotEmpty(counts);
+                        foreach (var count in counts)
+                            Assert.Equal(secondary, ((System.Windows.Media.SolidColorBrush)count.Foreground).Color);
+                    }
+
+                    AssertSecondaryCaptions("overview");
+                    Pump(() => rig.Vm.OpenComposerAsync(rig.Rx3, "matrix2x2"));
+                    Relayout(view);
+                    Assert.True(rig.Vm.IsComposing);
+                    AssertSecondaryCaptions("composing");
+                });
+            });
+
+        [Fact]
+        public void VisualRoutingView_DiscoveredCounts_ArePlainCaption_AndHintsHaveNoGlyphIcons() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+                Showing(view, () =>
+                {
+                    // One accent: the counts are plain caption text ("2 discovered"), not a coloured pill.
+                    var caption = Application.Current.FindResource("Style.Text.Caption");
+                    var counts = FindAll<TextBlock>(view).Where(t => t.IsVisible && t.Text.Contains("discovered")).ToList();
+                    Assert.Equal(2, counts.Count);
+                    Assert.All(counts, t => Assert.Same(caption, t.Style));
+                    Assert.Empty(FindAll<Badge>(view).Where(b => b.IsVisible && FindAll<TextBlock>(b).Any(t => t.Text.Contains("DISCOVERED"))));
                     Assert.DoesNotContain(FindAll<TextBlock>(view).Where(t => t.DataContext == rig.Vm), t => t.IsVisible && t.Text.Any(c => c >= '←' && c <= '➿'));
                     foreach (var tb in FindAll<TextBlock>(view).Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text) && t.DataContext == rig.Vm))
                         Assert.True(tb.FontSize >= 12, $"'{tb.Text}' is {tb.FontSize}px");

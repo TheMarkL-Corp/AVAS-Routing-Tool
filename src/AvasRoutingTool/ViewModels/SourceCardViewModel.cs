@@ -91,7 +91,7 @@ namespace AvasRoutingTool.ViewModels
         public bool IsArmed
         {
             get => _isArmed;
-            set { if (_isArmed == value) return; _isArmed = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutomationName)); OnPropertyChanged(nameof(ShowTapHint)); }
+            set { if (_isArmed == value) return; _isArmed = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutomationName)); }
         }
 
         /// <summary>How many blocks of the Composer's staged picture show this encoder ("in 2 blocks"); 0 outside the Composer.</summary>
@@ -106,7 +106,6 @@ namespace AvasRoutingTool.ViewModels
                 OnPropertyChanged(nameof(AutomationName));
                 OnPropertyChanged(nameof(UsedInText));
                 OnPropertyChanged(nameof(HasUsage));
-                OnPropertyChanged(nameof(ShowTapHint));
             }
         }
 
@@ -117,9 +116,6 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>The source is in at least one block of the Composer's staged picture.</summary>
         public bool HasUsage => _usedInBlocks > 0;
-
-        /// <summary>"TAP OR DRAG TO ROUTE" shows only while the source is idle: it gives way to the usage chip and the "Placing" chip.</summary>
-        public bool ShowTapHint => _usedInBlocks <= 0 && !_isArmed;
 
         /// <summary>Refresh is offered for every source that has a preview at all.</summary>
         public bool ShowRefresh => IsPreviewSupported;

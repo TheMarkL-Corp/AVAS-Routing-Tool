@@ -23,7 +23,7 @@
                 <RowDefinition Height="Auto" MinHeight="{StaticResource Size.Touch.Compact}" />
             </Grid.RowDefinitions>
 
-            <!-- Card Header: status, name, info badge (IP / MAC / MCAST tooltip), link + online badges -->
+            <!-- Card Header: status, name, info badge (IP / MAC / MCAST tooltip), link tag and the status word -->
             <Grid Grid.Row="0" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -66,27 +66,27 @@
                                    Foreground="{DynamicResource Brush.Text.Secondary}" />
                 </Border>
 
-                <!-- Link Mode Badge (Dual Link only) -->
+                <!-- Link Mode Badge (Dual Link only): a neutral tag -->
                 <ui:Badge Grid.Column="3"
                           Margin="6,0,0,0"
-                          Style="{StaticResource Style.Badge.Info}"
+                          Style="{StaticResource Style.Badge.Neutral}"
                           Visibility="{Binding IsDualLink, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <TextBlock Text="DUAL LINK" />
                 </ui:Badge>
 
-                <!-- Online / Offline Badge -->
-                <ui:Badge Grid.Column="4"
-                          Margin="6,0,0,0"
-                          Style="{StaticResource Style.Badge.Online}"
-                          Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                    <TextBlock Text="ONLINE" />
-                </ui:Badge>
-                <ui:Badge Grid.Column="4"
-                          Margin="6,0,0,0"
-                          Style="{StaticResource Style.Badge.Offline}"
-                          Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
-                    <TextBlock Text="OFFLINE" />
-                </ui:Badge>
+                <!-- Status is the dot (column 0) and one plain word: Online / Offline -->
+                <TextBlock x:Name="OnlineWord"
+                           Grid.Column="4"
+                           Margin="6,0,0,0"
+                           Text="Online"
+                           Style="{StaticResource Style.Text.Status}"
+                           Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
+                <TextBlock x:Name="OfflineWord"
+                           Grid.Column="4"
+                           Margin="6,0,0,0"
+                           Text="Offline"
+                           Style="{StaticResource Style.Text.Status}"
+                           Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
             </Grid>
 
             <!-- Live Video Preview Surface -->
@@ -166,15 +166,6 @@
                                 Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <TextBlock Text="Placing" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
                         </Border>
-
-                        <!-- Tap / drag hint (gives way to the badges: the card is narrow) -->
-                        <Border Background="{DynamicResource Brush.Surface.Elevated}"
-                                CornerRadius="4"
-                                Padding="6,3"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding ShowTapHint, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <TextBlock Text="TAP OR DRAG TO ROUTE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Secondary}" />
-                        </Border>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -221,7 +212,7 @@
                     </Button>
                     <Button x:Name="StartStreamButton"
                             Command="{Binding StartPreviewCommand, Mode=OneWay}"
-                            Style="{StaticResource Style.Button.Primary}"
+                            Style="{StaticResource Style.Button.Secondary}"
                             ToolTip="Start Preview Stream"
                             MinHeight="{StaticResource Size.Touch.Compact}"
                             Padding="10,4"

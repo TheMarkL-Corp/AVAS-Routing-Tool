@@ -9,7 +9,7 @@
         State comes from the card's DataContext (DataTrigger) or a Tag; colours are DynamicResource palette keys.
     -->
 
-    <!-- Card frame: 1 px border (routed: routed colour, drop target: cyan 2 px); frame 2 + padding 24 = the 26 px of GridSpec.DisplayCard.ChromeHeight -->
+    <!-- Card frame: 1 px neutral border whether routed or not (routed is said by the picture and the mode tag, not the frame); drop target: cyan 2 px. Frame 2 + padding 24 = the 26 px of GridSpec.DisplayCard.ChromeHeight -->
     <Style x:Key="Style.Card.Display" TargetType="{x:Type ui:Card}">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
@@ -37,13 +37,6 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
                 <Setter Property="BorderThickness" Value="2" />
             </DataTrigger>
-            <MultiDataTrigger>
-                <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding IsRouted, Mode=OneWay}" Value="True" />
-                    <Condition Binding="{Binding IsDragOver, Mode=OneWay}" Value="False" />
-                </MultiDataTrigger.Conditions>
-                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Routed}" />
-            </MultiDataTrigger>
         </Style.Triggers>
     </Style>
 
@@ -79,6 +72,19 @@
         <Setter Property="Stretch" Value="Uniform" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="Fill" Value="{DynamicResource Brush.Accent.Primary}" />
+    </Style>
+
+    <!-- Dashed neutral frame around the empty display tile (critique M7). Neutral, never cyan: cyan is the drop ring and "armed" -->
+    <Style x:Key="Style.Shape.EmptyFrame" TargetType="Rectangle">
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeDashArray" Value="4 3" />
+        <Setter Property="RadiusX" Value="6" />
+        <Setter Property="RadiusY" Value="6" />
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Stretch" Value="Fill" />
+        <Setter Property="Margin" Value="8" />
+        <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
     <!-- Copy layout: the copy colours, solid cyan while this display is the copy source -->
@@ -136,6 +142,48 @@
                             BorderThickness="2"
                             CornerRadius="8"
                             Padding="8,6">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding Id, Mode=OneWay}" Value="off">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.Danger}" />
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Danger}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                        </DataTrigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        A one-tap layout preset on the action bar (cards from Size.Breakpoint.CardPresets wide). The same parts and triggers as the
+        menu tile, at touch size; no BasedOn (the WPF-UI defaults are not inherited). Content is set by the view. Part bd is read by the tests.
+    -->
+    <Style x:Key="Style.Button.LayoutPreset" TargetType="Button">
+        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{DynamicResource Brush.Surface.Card}"
+                            BorderBrush="{DynamicResource Brush.Border.Control}"
+                            BorderThickness="2"
+                            CornerRadius="8"
+                            Padding="6,4">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>

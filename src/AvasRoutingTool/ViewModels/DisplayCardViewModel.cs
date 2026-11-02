@@ -83,6 +83,11 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The header "Layout" menu: Single View, the four MultiView presets, Off. The layout on screen is selected.</summary>
         public IReadOnlyList<LayoutItemViewModel> LayoutMenu { get; }
 
+        /// <summary>
+        /// The one-tap presets on the action bar (from Size.Breakpoint.CardPresets wide): the same instances as in <see cref="LayoutMenu"/>, in bar order.
+        /// </summary>
+        public IReadOnlyList<LayoutItemViewModel> InlineLayouts { get; }
+
         /// <summary>The header "Layout" menu is open.</summary>
         public bool IsLayoutMenuOpen
         {
@@ -184,6 +189,9 @@ namespace AvasRoutingTool.ViewModels
                 ? $"{_externalSourceCount} IN LAYOUT"
                 : IsRouted && !string.IsNullOrEmpty(ActiveSourceName) ? ActiveSourceName : "NONE";
 
+        /// <summary>Footer line 1: "SOURCE: N" once something is routed; empty while idle (the empty tile says "Ready to route a source" once).</summary>
+        public string SourceFooterText => IsRouted || IsMultiView || IsExternalLayout ? $"SOURCE: {SourceLabel}" : string.Empty;
+
         public WriteableBitmap? PreviewBitmap
         {
             get => _previewBitmap;
@@ -216,6 +224,9 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>Why the Copy layout handle is disabled ("RX1 shows nothing to copy"); empty when it is enabled.</summary>
         public string CopyFromBlockedText => CanCopyFrom ? string.Empty : $"{DeviceName} shows nothing to copy";
+
+        /// <summary>The Copy layout handle's tooltip: how to copy while it is on, why it is off otherwise (said here, not on the card).</summary>
+        public string CopyHandleToolTip => CanCopyFrom ? "Drag onto another display to copy this picture there - or tap, then tap a display" : CopyFromBlockedText;
 
         /// <summary>This display's Copy layout is armed (or being dragged): it is the copy source.</summary>
         public bool IsCopySource => _isCopySource;
@@ -285,7 +296,7 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Routed to a source that has no preview stream (non-AVAS); not shown for a layout set elsewhere, which has its own notice.</summary>
         public bool ShowRoutedNonAvasNotice => IsRouted && !IsPreviewSupported && !IsExternalLayout;
 
-        /// <summary>"Drop Source Here to Route": nothing is routed.</summary>
+        /// <summary>The empty tile ("Ready to route a source"): nothing is routed.</summary>
         public bool ShowUnroutedPlaceholder => !IsRouted;
 
         /// <summary>
@@ -361,6 +372,7 @@ namespace AvasRoutingTool.ViewModels
         {
             OnPropertyChanged(nameof(CanCopyFrom));
             OnPropertyChanged(nameof(CopyFromBlockedText));
+            OnPropertyChanged(nameof(CopyHandleToolTip));
             OnPropertyChanged(nameof(CopyHandleAutomationName));
             OnPropertyChanged(nameof(PictureAutomationName));
         }
@@ -391,6 +403,7 @@ namespace AvasRoutingTool.ViewModels
 
             var catalog = LayoutItemViewModel.CreateCatalog();
             LayoutMenu = catalog.Where(l => l.Id != "off").Concat(catalog.Where(l => l.Id == "off")).ToList();
+            InlineLayouts = new[] { "single", "pip", "side_by_side", "matrix2x2" }.Select(id => LayoutMenu.Single(l => l.Id == id)).ToList();
             SyncLayoutMenu();
 
             Slots.CollectionChanged += (_, _) => NotifyLayoutChanged();
@@ -521,6 +534,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(CanvasInfoShort));
             OnPropertyChanged(nameof(CanvasAspect));
             OnPropertyChanged(nameof(SourceLabel));
+            OnPropertyChanged(nameof(SourceFooterText));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(FirstEmptySlotIndex));
             NotifyPictureStateChanged();
@@ -589,6 +603,7 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(ActiveSourceName));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(SourceLabel));
+            OnPropertyChanged(nameof(SourceFooterText));
             OnPropertyChanged(nameof(ModeBadge));
             OnPropertyChanged(nameof(PreviewBitmap));
             OnPropertyChanged(nameof(IsPreviewSupported));

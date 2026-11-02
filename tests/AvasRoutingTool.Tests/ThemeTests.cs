@@ -154,6 +154,49 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void MutedAndOfflineTokens_MeetContrast_OnEverySurface_InBothThemes() =>
+            RunSta(() =>
+            {
+                var surfaces = new[] { "Color.Background.Dark", "Color.Surface.Card", "Color.Surface.Elevated" };
+                var failures = new System.Collections.Generic.List<string>();
+                foreach (var name in new[] { "Dark", "Light" })
+                {
+                    var dict = new ResourceDictionary
+                    {
+                        Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/Themes/Theme.{name}.xaml")
+                    };
+                    var muted = (Color)dict["Color.Text.Muted"];
+                    var offline = (Color)dict["Color.Status.Offline"];
+                    foreach (var surface in surfaces)
+                    {
+                        var bg = (Color)dict[surface];
+                        var text = Contrast(muted, bg, bg);
+                        var dot = Contrast(offline, bg, bg);
+                        if (text < 4.5) failures.Add($"{name}: Text.Muted on {surface} = {text:0.00}:1 (< 4.5)");
+                        if (dot < 3.0) failures.Add($"{name}: Status.Offline on {surface} = {dot:0.00}:1 (< 3.0)");
+                    }
+                }
+
+                Assert.True(failures.Count == 0, string.Join("\n", failures));
+            });
+
+        [Fact]
+        public void StatusOffline_IsTheSameNeutralGreyAsTextMuted_InBothThemes() =>
+            RunSta(() =>
+            {
+                foreach (var name in new[] { "Dark", "Light" })
+                {
+                    var dict = new ResourceDictionary
+                    {
+                        Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/Themes/Theme.{name}.xaml")
+                    };
+                    var muted = (Color)dict["Color.Text.Muted"];
+                    var offline = (Color)dict["Color.Status.Offline"];
+                    Assert.True(muted == offline, $"{name}: Status.Offline {offline} is not Text.Muted {muted}");
+                }
+            });
+
+        [Fact]
         public void MainViewModel_ThemeButtonLabel_ReportsActiveThemeState_AndUpdatesOnToggle() =>
             RunSta(() =>
             {

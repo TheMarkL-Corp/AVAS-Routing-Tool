@@ -218,5 +218,44 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(string.Empty, vm.ExternalLayoutText);
             Assert.Equal(string.Empty, vm.ExternalLayoutName);
         }
+
+        [Fact]
+        public void SourceFooterText_IsEmpty_WhenUnrouted_AndSourceWhenRouted()
+        {
+            var device = new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1_c059e_SFPA", IsReceiver = true, IsActive = true };
+            var vm = new DisplayCardViewModel(device, d => { d.ActiveSourceId = string.Empty; d.ActiveSourceName = string.Empty; return Task.CompletedTask; });
+            Assert.Equal(string.Empty, vm.SourceFooterText);
+
+            var changed = new System.Collections.Generic.List<string?>();
+            vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            device.ActiveSourceId = "74fe488b07bb";
+            device.ActiveSourceName = "TX2_DUAL LINK_SFPA";
+            vm.NotifyRoutingChanged();
+
+            Assert.Equal("SOURCE: TX2_DUAL LINK_SFPA", vm.SourceFooterText);
+            Assert.Contains(nameof(DisplayCardViewModel.SourceFooterText), changed);
+        }
+
+        [Fact]
+        public void CopyHandleToolTip_ExplainsWhyCopyIsOff()
+        {
+            var device = new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1_c059e_SFPA", IsReceiver = true, IsActive = true };
+            var vm = new DisplayCardViewModel(device);
+            Assert.False(vm.CanCopyFrom);
+            Assert.Equal(vm.CopyFromBlockedText, vm.CopyHandleToolTip);
+            Assert.Equal("RX1_c059e_SFPA shows nothing to copy", vm.CopyHandleToolTip);
+
+            var changed = new System.Collections.Generic.List<string?>();
+            vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            device.ActiveSourceId = "74fe488b07bb";
+            device.ActiveSourceName = "TX2_DUAL LINK_SFPA";
+            vm.NotifyRoutingChanged();
+
+            Assert.True(vm.CanCopyFrom);
+            Assert.Equal("Drag onto another display to copy this picture there - or tap, then tap a display", vm.CopyHandleToolTip);
+            Assert.Contains(nameof(DisplayCardViewModel.CopyHandleToolTip), changed);
+        }
     }
 }

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using AvasRoutingTool.ViewModels;
 using AvasRoutingTool.Views;
 using Wpf.Ui.Controls;
 using Xunit;
@@ -54,7 +56,8 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public void AppBar_AtTheFloor_HidesTheLabels_AndStillFits() => RunSta(w => Check_AppBar_HidesTheLabelsAtTheFloor_AndStillFits(w), 1024, 720);
 
-        private static readonly string[] LabelNames = { "ThemeToggleLabel", "RefreshLabel", "SettingsLabel" };
+        /// <summary>Only Settings keeps a label (M8): Theme and Refresh are icon-only at every width.</summary>
+        private static readonly string[] LabelNames = { "SettingsLabel" };
 
         private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
         {
@@ -77,9 +80,70 @@ namespace AvasRoutingTool.Tests
                 Assert.False(string.IsNullOrWhiteSpace(label.Text));
                 Assert.DoesNotContain(label.Text, ch => char.IsSurrogate(ch) || ch >= '←');
             }
-            var theme = ((TextBlock)w.FindName("ThemeToggleLabel")).Text;
-            Assert.True(theme is "Light" or "Dark", $"theme label is '{theme}'");
         }
+
+        [Fact]
+        public void AppBar_ThemeAndRefresh_AreIconOnly_AtEveryWidth_AndTouchSized()
+        {
+            RunSta(w => Check_ThemeAndRefresh_AreIconOnly_AndTouchSized(w, settingsLabelShown: true), 1920, 1040);
+            RunSta(w => Check_ThemeAndRefresh_AreIconOnly_AndTouchSized(w, settingsLabelShown: false), 1024, 720);
+        }
+
+        private static void Check_ThemeAndRefresh_AreIconOnly_AndTouchSized(MainWindow w, bool settingsLabelShown)
+        {
+            Assert.Null(w.FindName("ThemeToggleLabel"));
+            Assert.Null(w.FindName("RefreshLabel"));
+
+            foreach (var name in new[] { "ThemeToggleButton", "RefreshButton" })
+            {
+                var button = (Button)w.FindName(name);
+                Assert.True(button.ActualWidth >= 48 && button.ActualHeight >= 48, $"{name} is {button.ActualWidth}x{button.ActualHeight}, below the 48px touch minimum");
+                Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(button)), $"{name} has no automation name");
+                Assert.False(string.IsNullOrWhiteSpace(button.ToolTip as string), $"{name} has no tooltip");
+            }
+
+            var settings = (TextBlock)w.FindName("SettingsLabel");
+            Assert.Equal(settingsLabelShown, settings.IsVisible);
+        }
+
+        private static bool IsTransparentOrNull(Brush? b) => b == null || (b is SolidColorBrush s && s.Color.A == 0);
+
+        [Fact]
+        public void ConnectionDot_TellsOfflineFromConnecting_AndOnlyProblemsShowAWord() => RunSta(w =>
+        {
+            var vm = (MainViewModel)w.DataContext;
+            var badge = (Border)w.FindName("ConnectionBadge");
+            var dot = Descendants<System.Windows.Shapes.Ellipse>(badge).Single();
+            var word = (TextBlock)w.FindName("ConnectionText");
+            Assert.NotNull(word);
+            var muted = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Muted")).Color;
+            var online = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Online")).Color;
+            var danger = ((SolidColorBrush)Application.Current.FindResource("Brush.Action.Danger")).Color;
+            vm.ConnectionStatus = "Offline: 127.0.0.1:6970";
+
+            vm.ConnectionHealth = ConnectionHealth.Connecting;
+            w.UpdateLayout();
+            Assert.True(IsTransparentOrNull(dot.Fill), "connecting: the dot is filled");
+            Assert.Equal(muted, ((SolidColorBrush)dot.Stroke).Color);
+            Assert.Equal(Visibility.Visible, word.Visibility);
+
+            vm.ConnectionHealth = ConnectionHealth.Connected;
+            w.UpdateLayout();
+            Assert.Equal(online, ((SolidColorBrush)dot.Fill).Color);
+            Assert.True(IsTransparentOrNull(dot.Stroke), "connected: the dot has a ring (it should be solid)");
+            Assert.Equal(Visibility.Collapsed, word.Visibility);
+
+            vm.ConnectionHealth = ConnectionHealth.Offline;
+            w.UpdateLayout();
+            Assert.Equal(danger, ((SolidColorBrush)dot.Fill).Color);
+            Assert.True(IsTransparentOrNull(dot.Stroke), "offline: the dot has a ring (it should be solid)");
+            Assert.Equal(Visibility.Visible, word.Visibility);
+
+            Assert.Equal(vm.ConnectionStatus, (string)badge.ToolTip);
+            Assert.Equal(vm.ConnectionStatus, AutomationProperties.GetHelpText(badge));
+            Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(badge));
+            Assert.Equal("Connection status", AutomationProperties.GetName(badge));
+        });
 
         private static void Check_AppBar_HidesTheLabelsAtTheFloor_AndStillFits(MainWindow w)
         {

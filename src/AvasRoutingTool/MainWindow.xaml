@@ -100,10 +100,13 @@
                             MinHeight="{StaticResource Size.Touch.Min}"
                             Margin="0,0,6,0"
                             ToolTip="{Binding ConnectionStatus}"
-                            AutomationProperties.Name="Connection status">
+                            AutomationProperties.Name="Connection status"
+                            AutomationProperties.HelpText="{Binding ConnectionStatus}"
+                            AutomationProperties.LiveSetting="Polite">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Ellipse Style="{StaticResource Style.StatusDot}" Tag="{Binding IsConnected}" Margin="0,0,6,0" />
-                            <TextBlock Text="{Binding ConnectionStatus}"
+                            <Ellipse Style="{StaticResource Style.StatusDot.Connection}" Tag="{Binding ConnectionHealth}" Margin="0,0,6,0" />
+                            <TextBlock x:Name="ConnectionText" Text="{Binding ConnectionStatus}"
+                                       Visibility="{Binding ShowConnectionText, Converter={StaticResource Converter.Visible.True}}"
                                        Style="{StaticResource Style.Text.Body}"
                                        FontWeight="Medium"
                                        VerticalAlignment="Center"
@@ -117,17 +120,16 @@
                             BorderBrush="{DynamicResource Brush.Border.Default}"
                             Margin="0,10,10,10" />
 
-                    <!-- Icon + label from a wide window on (labels hide below Size.Breakpoint.AppBarLabels); the icon shows the active theme. -->
+                    <!-- Icon only at every width (the tooltip and automation name say what it does); the icon shows the active theme. -->
                     <Button x:Name="ThemeToggleButton"
                             Command="{Binding ToggleThemeCommand}"
                             Style="{StaticResource Style.Button.AppBar}"
                             Margin="0,0,2,0"
                             ToolTip="{Binding ThemeButtonToolTip}"
-                            AutomationProperties.Name="Toggle theme mode">
+                            AutomationProperties.Name="Toggle theme mode"
+                            AutomationProperties.HelpText="{Binding ThemeButtonToolTip}">
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Style="{StaticResource Style.Icon.ThemeToggle}" />
-                            <TextBlock x:Name="ThemeToggleLabel" Text="{Binding ThemeButtonLabel}" Margin="8,0,0,0" VerticalAlignment="Center"
-                                       Visibility="{Binding ActualWidth, ElementName=AppBar, Converter={StaticResource Converter.WidthAtLeast}, ConverterParameter={StaticResource Size.Breakpoint.AppBarLabels}}" />
                         </StackPanel>
                     </Button>
 
@@ -136,11 +138,10 @@
                             Style="{StaticResource Style.Button.AppBar}"
                             Margin="0,0,2,0"
                             ToolTip="Refresh discovered transceivers"
-                            AutomationProperties.Name="Refresh devices">
+                            AutomationProperties.Name="Refresh devices"
+                            AutomationProperties.HelpText="Refresh discovered transceivers">
                         <StackPanel Orientation="Horizontal">
                             <ui:SymbolIcon Symbol="ArrowSync24" Style="{StaticResource Style.Icon.Action}" />
-                            <TextBlock x:Name="RefreshLabel" Text="Refresh" Margin="8,0,0,0" VerticalAlignment="Center"
-                                       Visibility="{Binding ActualWidth, ElementName=AppBar, Converter={StaticResource Converter.WidthAtLeast}, ConverterParameter={StaticResource Size.Breakpoint.AppBarLabels}}" />
                         </StackPanel>
                     </Button>
 

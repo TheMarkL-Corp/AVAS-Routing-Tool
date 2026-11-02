@@ -23,7 +23,7 @@
             <!--
                 Rows (nothing but the picture ever lies on the 16:9 video):
                 0: Header (status dot, device name, info badge, copy-source tag, mode badge)
-                1: Action bar (Layout, Copy layout, draft chip, Turn Off) - always visible
+                1: Action bar (layout presets when wide, Layout, Copy layout, draft chip, Turn Off) - always visible
                 2: Live video preview surface (16:9; only its own state overlays lie on it)
                 3: Status and toast dock (SOURCE / output format / notices, or the Undo toast)
                 The fixed rows are the Size.Card.Row.* tokens: GridSpec.DisplayCard.ChromeHeight is their sum + 26.
@@ -98,11 +98,10 @@
                         <TextBlock Text="COPYING FROM HERE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
                     </Border>
 
-                    <!-- Routed status pill: the layout and its fill ("MATRIX 2X2 &#183; 3/4") -->
+                    <!-- Mode tag: the layout and its fill ("MATRIX 2X2 &#183; 3/4"); neutral, the picture and the card say routed -->
                     <ui:Badge x:Name="ModeBadge"
                               Grid.Column="4"
-                              Style="{StaticResource Style.Badge.Mode}"
-                              Tag="{Binding HasRoutedBadge, Mode=OneWay}">
+                              Style="{StaticResource Style.Badge.Neutral}">
                         <TextBlock x:Name="ModeBadgeText" Text="{Binding ModeBadge, Mode=OneWay}" />
                     </ui:Badge>
                 </Grid>
@@ -121,13 +120,56 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Layout menu button -->
+                        <!--
+                            One-tap layout presets, from Size.Breakpoint.CardPresets wide (the bar is that wide or more); narrower cards show only
+                            the Layout dropdown. A MultiView preset opens the Composer staged: nothing reaches the screen until Take.
+                        -->
+                        <ItemsControl x:Name="InlinePresets"
+                                      Grid.Column="0"
+                                      Margin="0,0,6,0"
+                                      Focusable="False"
+                                      ItemsSource="{Binding InlineLayouts, Mode=OneWay}"
+                                      Visibility="{Binding ActualWidth, ElementName=FloatingActionDock, Converter={StaticResource Converter.WidthAtLeast}, ConverterParameter={StaticResource Size.Breakpoint.CardPresets}, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button x:Name="InlinePreset"
+                                            Style="{StaticResource Style.Button.LayoutPreset}"
+                                            AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                                            AutomationProperties.ItemStatus="{Binding ItemStatusText, Mode=OneWay}"
+                                            ToolTip="{Binding InlineToolTip, Mode=OneWay}"
+                                            Click="LayoutChoice_Click">
+                                        <Grid>
+                                            <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}"
+                                                                   Width="{StaticResource Size.Schematic.Inline.Width}"
+                                                                   Height="{StaticResource Size.Schematic.Inline.Height}"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center" />
+                                            <!-- The layout on screen: a check in the corner (a shape as well as the border colour) -->
+                                            <ui:SymbolIcon Symbol="Checkmark24"
+                                                           FontSize="{StaticResource Size.Icon.S}"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Top"
+                                                           Foreground="{DynamicResource Brush.Text.Accent}"
+                                                           Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Layout menu button (the full dropdown in both modes) -->
                         <Button x:Name="LayoutButton"
-                                Grid.Column="0"
+                                Grid.Column="1"
                                 Style="{StaticResource Style.Button.CardAction}"
                                 Padding="6,2"
                                 Margin="0,0,6,0"
@@ -150,13 +192,14 @@
 
                         <!-- Copy layout Button: its full label always shows (no trimming) -->
                         <Button x:Name="CopyLayoutHandle"
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 Style="{StaticResource Style.Button.CardAction.Copy}"
                                 Padding="6,2"
                                 Margin="0,0,6,0"
                                 IsEnabled="{Binding CanCopyFrom, Mode=OneWay}"
                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
-                                ToolTip="Drag onto another display to copy this picture there - or tap, then tap a display"
+                                AutomationProperties.HelpText="{Binding CopyFromBlockedText, Mode=OneWay}"
+                                ToolTip="{Binding CopyHandleToolTip, Mode=OneWay}"
                                 ToolTipService.ShowOnDisabled="True"
                                 Click="CopyHandle_Click"
                                 PreviewMouseLeftButtonDown="CopyHandle_PreviewMouseLeftButtonDown"
@@ -175,7 +218,7 @@
                             Placed in the action bar, keeps touch height >= 48.
                         -->
                         <Button x:Name="DraftChip"
-                                Grid.Column="2"
+                                Grid.Column="3"
                                 Style="{StaticResource Style.Button.Chip.Staged}"
                                 Margin="0,0,6,0"
                                 MinHeight="{StaticResource Size.Touch.Min}"
@@ -192,10 +235,10 @@
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />
                         </Button>
 
-                        <!-- Quick Power / Turn Off Button: a vector power icon -->
+                        <!-- Quick Power / Turn Off Button: a vector power icon, a ghost button (no red at rest) -->
                         <Button x:Name="TurnOffButton"
-                                Grid.Column="4"
-                                Style="{StaticResource Style.Button.Unroute}"
+                                Grid.Column="5"
+                                Style="{StaticResource Style.Button.Ghost}"
                                 MinWidth="{StaticResource Size.Touch.Min}"
                                 MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="0"
@@ -362,26 +405,33 @@
                                        Margin="0,4,0,0" />
                         </StackPanel>
 
-                        <!-- Unrouted / Drop Target Placeholder -->
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                    Visibility="{Binding ShowUnroutedPlaceholder, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <Path Data="{StaticResource Icon.Monitor}"
-                                  Style="{StaticResource Style.Icon.State}"
-                                  Fill="{DynamicResource Brush.Text.Muted}"
-                                  Opacity="0.35" />
+                        <!-- Unrouted: the empty tile (critique M7) - the brand mark, one line of what to do, one hint, inside a dashed neutral frame. Cyan stays on the drop ring. -->
+                        <Grid x:Name="UnroutedPlaceholder"
+                              Visibility="{Binding ShowUnroutedPlaceholder, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <Rectangle x:Name="EmptyFrame" Style="{StaticResource Style.Shape.EmptyFrame}" />
 
-                            <TextBlock Text="Drop Source Here to Route"
-                                       Style="{StaticResource Style.Text.Caption}"
-                                       FontWeight="Medium"
-                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
-                                       HorizontalAlignment="Center"
-                                       Margin="0,8,0,0" />
-                            <TextBlock Text="Drag any TX card above or 'Off' to turn off"
-                                       Style="{StaticResource Style.Text.Caption}"
-                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
-                                       HorizontalAlignment="Center"
-                                       Margin="0,2,0,0" />
-                        </StackPanel>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <views:BrandMark Width="{StaticResource Size.Brand.Empty}"
+                                                 Height="{StaticResource Size.Brand.Empty}"
+                                                 Opacity="0.6"
+                                                 HorizontalAlignment="Center" />
+
+                                <TextBlock x:Name="ReadyToRouteText"
+                                           Text="Ready to route a source"
+                                           Style="{StaticResource Style.Text.Title}"
+                                           Foreground="{DynamicResource Brush.Text.OnPreview}"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,8,0,0" />
+                                <TextBlock x:Name="ReadyToRouteHint"
+                                           Text="Tap a source, then tap here - or drag it here"
+                                           Style="{StaticResource Style.Text.Caption}"
+                                           Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Grid>
 
                     <!-- Why the last layout / multiview action was refused (above both surfaces) -->
@@ -406,7 +456,7 @@
                 </Border>
 
                 <!--
-                    Status dock (Row 3): line 1 SOURCE and the output format; line 2 the stale-draft notice and why Copy layout is off.
+                    Status dock (Row 3): line 1 the source (or the idle line) and the output format; line 2 the stale-draft notice.
                     The Undo toast takes this row while it shows - never the picture.
                 -->
                 <Grid Grid.Row="3" Margin="0,8,0,0" Height="{StaticResource Size.Dock.Content}"
@@ -418,11 +468,13 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Active Source Label / Status -->
-                            <TextBlock Grid.Column="0" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Muted}" TextTrimming="CharacterEllipsis">
-                                <Run Text="SOURCE: " />
-                                <Run Text="{Binding SourceLabel, Mode=OneWay}" Foreground="{DynamicResource Brush.Text.Secondary}" />
-                            </TextBlock>
+                            <!-- Source footer: "SOURCE: <name>" once routed; empty while idle (the empty tile says "Ready to route a source" once) -->
+                            <TextBlock x:Name="SourceFooter" Grid.Column="0"
+                                       Text="{Binding SourceFooterText, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.Text.Secondary}"
+                                       TextTrimming="CharacterEllipsis" />
 
                             <!-- Decoder output format from the display's EDID (multiview and Single View); the SOURCE line above keeps the row's height -->
                             <TextBlock x:Name="OutputLine" Grid.Column="1"
@@ -445,13 +497,6 @@
                                    Foreground="{DynamicResource Brush.Status.StagedText}"
                                    TextTrimming="CharacterEllipsis"
                                    Visibility="{Binding ShowDraftNotice, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
-
-                        <!-- Why Copy layout is off, in words ("RX1 shows nothing to copy") -->
-                        <TextBlock x:Name="CopyFromBlockedLabel"
-                                   Text="{Binding CopyFromBlockedText, Mode=OneWay}"
-                                   Style="{StaticResource Style.Text.Caption}"
-                                   TextWrapping="Wrap"
-                                   Visibility="{Binding CanCopyFrom, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                     </StackPanel>
                 </Grid>
 
@@ -646,7 +691,7 @@
                                         Style="{StaticResource Style.Button.LayoutMenuTile}"
                                         AutomationProperties.Name="{Binding Title, Mode=OneWay}"
                                         ToolTip="{Binding Subtitle, Mode=OneWay}"
-                                        Click="LayoutMenuTile_Click">
+                                        Click="LayoutChoice_Click">
                                     <StackPanel>
                                         <views:LayoutSchematic LayoutId="{Binding Id, Mode=OneWay}"
                                                                Width="{StaticResource Size.Schematic.Menu.Width}"
