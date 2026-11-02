@@ -308,6 +308,59 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        /// <summary>The text colour and the fill the Copy layout button draws, as they resolved: the label's effective Foreground and part bd's Background.</summary>
+        private static (Color Text, Color Fill) CopyLayoutPaint(Button handle)
+        {
+            var label = FindAll<TextBlock>(handle).Single(t => t.Text == "Copy layout");
+            var bd = (System.Windows.Controls.Border)handle.Template.FindName("bd", handle);
+            return (ColorOf(label.Foreground), ColorOf(bd.Background));
+        }
+
+        /// <summary>Forces IsMouseOver on a control: the input system owns that property, so the test sets its read-only key.</summary>
+        private static void SetMouseOver(UIElement element, bool over)
+        {
+            var key = (DependencyPropertyKey)(typeof(UIElement)
+                .GetField("IsMouseOverPropertyKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?
+                .GetValue(null) ?? throw new InvalidOperationException("UIElement has no IsMouseOverPropertyKey field"));
+            element.SetValue(key, over);
+        }
+
+        [Theory]
+        [InlineData(ThemeMode.Dark)]
+        [InlineData(ThemeMode.Light)]
+        public void CopyLayout_WhileArmed_KeepsItsTextReadable_AtRestAndUnderTheMouse_InBothThemes(ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var theme = new ThemeService();
+                try
+                {
+                    // The rig first: its MainViewModel builds a ThemeService that re-applies the saved (Dark) theme on construction.
+                    var rig = new CopyRig();
+                    theme.SetTheme(mode);
+                    Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                    var view = rig.View(rig.Rx1, out var host);
+                    Showing(host, () =>
+                    {
+                        var handle = (Button)Named(view, "CopyLayoutHandle").Single();
+                        Assert.True(rig.Rx1.IsCopySource, "RX1 is not armed");
+                        var readings = new List<string>();
+                        bool readable = true;
+                        foreach (var hovered in new[] { false, true })
+                        {
+                            SetMouseOver(handle, hovered);
+                            Idle();
+                            var (text, fill) = CopyLayoutPaint(handle);
+                            double ratio = Contrast(text, fill);
+                            readable &= ratio >= 4.5;
+                            readings.Add($"{(hovered ? "under the mouse" : "at rest")}: text {text} on fill {fill} = {ratio:F2}:1");
+                        }
+                        SetMouseOver(handle, false);
+                        Assert.True(readable, $"{mode}, armed (need 4.5:1): " + string.Join("; ", readings));
+                    });
+                }
+                finally { theme.SetTheme(ThemeMode.Dark); }
+            });
+
         [Fact]
         public void DisplayCard_Texts_SayNoSourceAndPickASource() =>
             RunSta(() =>

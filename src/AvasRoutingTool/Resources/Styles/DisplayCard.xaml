@@ -128,6 +128,11 @@
                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                             <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
                         </Trigger>
+                        <!-- Armed: the hover fill above is set on bd, which the style's trigger cannot reach; this one comes after it and keeps the cyan and its text -->
+                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+                        </DataTrigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5" />
                             <Setter Property="Cursor" Value="Arrow" />
