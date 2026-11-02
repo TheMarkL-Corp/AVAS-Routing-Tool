@@ -24,6 +24,7 @@
                 <ResourceDictionary Source="Resources/Styles/SourceCard.xaml" />
                 <ResourceDictionary Source="Resources/Styles/DisplayCard.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Composer.xaml" />
+                <ResourceDictionary Source="Resources/Styles/RoomCameras.xaml" />
                 <ResourceDictionary Source="Resources/Theme.xaml" />
                 <ResourceDictionary Source="Resources/Icons.xaml" />
             </ResourceDictionary.MergedDictionaries>
