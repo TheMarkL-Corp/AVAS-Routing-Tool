@@ -104,7 +104,7 @@ namespace AvasRoutingTool.Tests
                 WithFullHdWindow(view, () =>
                 {
                     // Each card owns a live preview (socket + multicast membership): every one must exist, scrolled into view or not.
-                    Assert.Equal(8, FindAll<SourceCardView>(view).Count);
+                    Assert.Equal(8, FindAll<SourceCardView>(view).Count(c => !c.IsCompact));
                     Assert.Equal(6, FindAll<DisplayCardView>(view).Count);
                     Assert.Empty(FindAll<System.Windows.Controls.VirtualizingPanel>(view).Where(p => FindAll<SourceCardView>(p).Any() || FindAll<DisplayCardView>(p).Any()));
                     // The sources are a plain CenteredWrapPanel (A9/A10b, not virtualized); the displays stay on AdaptiveCardPanel. Each holds all of its cards.

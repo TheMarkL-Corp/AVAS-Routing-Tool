@@ -112,7 +112,7 @@ namespace AvasRoutingTool.Tests
                 var (vm, _, sources) = Overview();
                 foreach (var compact in new[] { false, true })
                 {
-                    UserControl Card(SourceCardViewModel s) => compact ? new CompactSourceCardView { DataContext = s } : new SourceCardView { DataContext = s };
+                    UserControl Card(SourceCardViewModel s) => compact ? new SourceCardView { IsCompact = true, DataContext = s } : new SourceCardView { DataContext = s };
                     var online = Card(sources[0]);
                     var offline = Card(sources[3]);
                     var host = new StackPanel { DataContext = vm, Children = { online, offline } };
@@ -143,7 +143,7 @@ namespace AvasRoutingTool.Tests
             {
                 var (vm, rx, sources) = Overview();
                 var full = new SourceCardView { DataContext = sources[0], Width = 340, Height = 260 };
-                var compact = new CompactSourceCardView { DataContext = sources[1] };
+                var compact = new SourceCardView { IsCompact = true, DataContext = sources[1] };
                 var offline = new SourceCardView { DataContext = sources[3], Width = 340, Height = 260 };
                 var host = new StackPanel { DataContext = vm, Children = { full, compact, offline } };
                 Showing(host, () =>
@@ -183,7 +183,7 @@ namespace AvasRoutingTool.Tests
             {
                 var (vm, rx, sources) = Overview();
                 var full = new SourceCardView { DataContext = sources[0], Width = 340, Height = 260 };
-                var compact = new CompactSourceCardView { DataContext = sources[1] };
+                var compact = new SourceCardView { IsCompact = true, DataContext = sources[1] };
                 Showing(new StackPanel { DataContext = vm, Children = { full, compact } }, () =>
                 {
                     Assert.True(full.Focus());

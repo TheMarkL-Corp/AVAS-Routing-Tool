@@ -78,12 +78,12 @@
                     <ItemsControl ItemsSource="{Binding Sources}" Focusable="False" Margin="0,0,0,4">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <views:CompactSourceCardView Margin="0,0,10,0" />
+                                <views:SourceCardView IsCompact="True" Margin="{StaticResource Size.Strip.TileMargin}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
