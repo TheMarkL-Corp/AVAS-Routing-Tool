@@ -86,7 +86,7 @@ namespace AvasRoutingTool.Tests
             ("Style.ListBox.Virtualized", "Lists.xaml"),
             ("Converter.Visible.True", "Converters.xaml"), ("Converter.Visible.False", "Converters.xaml"), ("Converter.Visible.NotNull", "Converters.xaml"),
             ("Converter.Visible.Null", "Converters.xaml"), ("Converter.Visible.NotEmpty", "Converters.xaml"), ("Converter.Visible.HasItems", "Converters.xaml"),
-            ("Converter.Visible.NoItems", "Converters.xaml"), ("Converter.WidthAtLeast", "Converters.xaml"), ("Converter.BoolToGridLength", "Converters.xaml"),
+            ("Converter.Visible.NoItems", "Converters.xaml"), ("Converter.WidthAtLeast", "Converters.xaml"), ("Converter.BoolToGridLength", "Converters.xaml"), ("Converter.FractionOf", "Converters.xaml"),
             // Take moved to Composer.xaml (X7: only the Composer uses it); the scroll bar family belongs with the implicit ScrollViewer.
             ("Style.Button.Take", "Composer.xaml"), ("Style.RepeatButton.ScrollPage", "Theme.xaml"), ("Style.Thumb.Scroll", "Theme.xaml"),
             ("Style.ScrollBar.Thin", "Theme.xaml"),

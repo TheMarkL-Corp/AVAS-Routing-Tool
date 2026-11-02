@@ -10,25 +10,14 @@
     <Grid x:Name="OverviewGrid">
         <Grid.RowDefinitions>
             <!--
-                Sources: half the screen in the overview; a compact palette strip while the Composer is open (Ruling R21).
-                No minimum heights: on the real window sizes (1264x755, 1008x615 content) two 330 px minimums pushed
-                the layout off the window; each row scrolls its cards instead. Arming a source or a copy never changes
-                the layout: the full source cards stay put. Only the Composer swaps in the compact palette.
+                Sources: as tall as the strip needs (Auto), so the displays get the rest of the height (critique M2). The strip is
+                a dense wrap of tiles, capped at a share of the overview height (Size.Strip.Max.Fraction) before it scrolls; every tile stays realized.
+                While the Composer is open its compact palette sits in the same row. Arming a source or a copy never changes the
+                layout: the tiles stay put.
             -->
-            <RowDefinition>
-                <RowDefinition.Style>
-                    <Style TargetType="RowDefinition">
-                        <Setter Property="Height" Value="2*" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsComposing, Mode=OneWay}" Value="True">
-                                <Setter Property="Height" Value="Auto" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </RowDefinition.Style>
-            </RowDefinition>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="3.4*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- TOP ROW: Sources (TX) Section (the Composer's palette while it is open) -->
@@ -101,19 +90,21 @@
                 </ScrollViewer>
 
                 <!-- Sources Carousel / Horizontal List -->
+                <!-- The overview strip: a plain WrapPanel (not virtualized: every tile owns a live preview). It never takes more than Size.Strip.Max.Fraction of the overview height; beyond that it scrolls -->
                 <ScrollViewer Grid.Row="1"
                               Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}"
+                              MaxHeight="{Binding ActualHeight, ElementName=OverviewGrid, Converter={StaticResource Converter.FractionOf}, ConverterParameter={StaticResource Size.Strip.Max.Fraction}}"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Sources}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.SourceCard}" />
+                                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <views:SourceCardView />
+                                <views:SourceCardView Margin="{StaticResource Size.Strip.TileMargin}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

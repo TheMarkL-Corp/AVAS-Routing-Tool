@@ -65,7 +65,8 @@ namespace AvasRoutingTool.Tests
                 themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Light);
                 var device = new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = "TX2", VendorId = 105, IsTransmitter = true, IsActive = true };
                 var vm = new SourceCardViewModel(device);
-                var view = new SourceCardView { DataContext = vm, Width = 340, Height = 260 };
+                vm.IsStreaming = true; // the Refresh and Stop controls are offered while the stream runs (A9)
+                var view = new SourceCardView { DataContext = vm };
                 Showing(view, () =>
                 {
                     var refresh = (Button)Named(view, "RefreshStreamButton").Single();
@@ -90,7 +91,7 @@ namespace AvasRoutingTool.Tests
                 });
 
                 var offlineVm = new SourceCardViewModel(new AvasDevice { DeviceId = "74fe488b07bc", DeviceName = "TX3", VendorId = 105, IsTransmitter = true, IsActive = false });
-                var offlineView = new SourceCardView { DataContext = offlineVm, Width = 340, Height = 260 };
+                var offlineView = new SourceCardView { DataContext = offlineVm };
                 Showing(offlineView, () =>
                 {
                     var secondary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;

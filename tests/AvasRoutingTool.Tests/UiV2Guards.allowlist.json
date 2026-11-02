@@ -20,7 +20,5 @@
   "unvirtualizedLists": [],
 
   // An inline Style without BasedOn that cannot be a central style (for example RowDefinition.Style, an ItemContainerStyle).
-  "inlineStyleExceptions": [
-    { "file": "Views/VisualRoutingView.xaml", "contains": "<Style TargetType=\"RowDefinition\">", "reason": "A RowDefinition is not an element: it cannot bind to the view model or use a converter instance, so the Sources row (2* in the overview, Auto while composing) needs this one style." }
-  ]
+  "inlineStyleExceptions": []
 }
