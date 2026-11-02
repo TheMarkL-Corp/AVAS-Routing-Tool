@@ -18,9 +18,9 @@ namespace AvasRoutingTool.Tests
     /// <summary>UI v2 source strip (critique M2): dense left-aligned tiles with a 16:9 thumbnail, the toggle footer, the Auto Sources row.</summary>
     public partial class ViewSmokeTests
     {
-        /// <summary>The thumbnail: the one Border whose child grid holds the live picture.</summary>
+        /// <summary>The thumbnail: the one shown Border whose child grid holds the live picture (the compact layout's collapsed copy is not shown).</summary>
         private static Border ThumbnailOf(FrameworkElement tile) =>
-            FindAll<Border>(tile).Single(b => b.Child is Grid g && FindAll<System.Windows.Controls.Image>(g).Count == 1);
+            FindAll<Border>(tile).Single(b => b.IsVisible && b.Child is Grid g && FindAll<System.Windows.Controls.Image>(g).Count == 1);
 
         /// <summary>The Sources list's own ScrollViewer (the one that hosts the source ItemsControl).</summary>
         private static ScrollViewer SourcesScrollOf(VisualRoutingView view, MainViewModel vm) =>
@@ -118,7 +118,7 @@ namespace AvasRoutingTool.Tests
                         $"thumbnail is {thumb.ActualWidth:F1}x{thumb.ActualHeight:F1}, expected 214x120");
                     Assert.True(Math.Abs(thumb.ActualWidth / thumb.ActualHeight - 16.0 / 9.0) < 0.02, $"thumbnail ratio {thumb.ActualWidth / thumb.ActualHeight:F3}");
 
-                    var image = FindAll<System.Windows.Controls.Image>(view).Single();
+                    var image = FindAll<System.Windows.Controls.Image>(view).Single(i => i.IsVisible);
                     Assert.Same(vm.PreviewBitmap, image.Source);
                 });
             });
@@ -199,7 +199,7 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     Assert.True(Math.Abs(view.ActualWidth - Token("Size.Strip.Tile.Width")) < 0.5, $"the tile widened to {view.ActualWidth:F1} px");
-                    var label = FindAll<TextBlock>(view).Single(t => t.Text == name);
+                    var label = FindAll<TextBlock>(view).Single(t => t.IsVisible && t.Text == name);
                     Assert.Equal(TextTrimming.CharacterEllipsis, label.TextTrimming);
                     Assert.Equal(name, label.ToolTip as string);
                     Assert.True(label.ActualWidth > 0, "the name has no width");
