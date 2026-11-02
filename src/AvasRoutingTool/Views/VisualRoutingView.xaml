@@ -129,9 +129,12 @@
         <Border Grid.Row="2" Margin="16,6,16,12"
                 Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
             <Grid>
+                <!--
+                    Row 0 is the section header, and the arm banner takes its place in the same cell (critique M1: arming
+                    must never move a card). The row's minimum is the banner's height, so the row is the same height idle or armed.
+                -->
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" MinHeight="{StaticResource Size.Section.Header.Height}" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -141,6 +144,7 @@
                 -->
                 <Border Grid.Row="0"
                         x:Name="ArmBanner"
+                        VerticalAlignment="Center"
                         Style="{StaticResource Style.Banner.Arm}"
                         Visibility="{Binding HasArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <Grid>
@@ -153,16 +157,18 @@
                                        Text="{Binding ArmBannerText, Mode=OneWay}"
                                        Visibility="{Binding ArmBannerText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
                                        AutomationProperties.LiveSetting="Polite"
-                                       Style="{StaticResource Style.Text.Lead}"
+                                       Style="{StaticResource Style.Text.Title}"
                                        Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
-                                       TextWrapping="Wrap" />
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis" />
                             <TextBlock x:Name="CopyArmBannerLabel"
                                        Text="{Binding CopyArmBanner, Mode=OneWay}"
                                        Visibility="{Binding CopyArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
                                        AutomationProperties.LiveSetting="Polite"
-                                       Style="{StaticResource Style.Text.Lead}"
+                                       Style="{StaticResource Style.Text.Title}"
                                        Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
-                                       TextWrapping="Wrap" />
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <Button Grid.Column="1"
                                 x:Name="StopPlacingButton"
@@ -176,8 +182,9 @@
                     </Grid>
                 </Border>
 
-                <!-- Section Header -->
-                <Grid Grid.Row="1" Margin="4,0,4,8">
+                <!-- Section Header (hidden while the arm banner takes its row) -->
+                <Grid Grid.Row="0" Margin="4,0" VerticalAlignment="Center"
+                      Visibility="{Binding HasArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -208,7 +215,7 @@
                 </Grid>
 
                 <!-- Displays Carousel / Horizontal List -->
-                <ScrollViewer Grid.Row="2"
+                <ScrollViewer Grid.Row="1"
                               x:Name="DisplaysScroll"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">

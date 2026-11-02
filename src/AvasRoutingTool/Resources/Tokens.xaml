@@ -33,6 +33,9 @@
     <GridLength x:Key="Size.Card.RowLength.ActionBar">56</GridLength>
     <GridLength x:Key="Size.Card.RowLength.Dock">64</GridLength>
 
+    <!-- Section header row (Displays): the arm banner shares this row with the header, so arming never changes its height. 52 = Touch.Min + 2 x 2 px banner border -->
+    <sys:Double x:Key="Size.Section.Header.Height">52</sys:Double>
+
     <!-- Main window and app bar -->
     <sys:Double x:Key="Size.AppBar.Height">56</sys:Double>
     <sys:Double x:Key="Size.Tab.MinWidth">120</sys:Double>
