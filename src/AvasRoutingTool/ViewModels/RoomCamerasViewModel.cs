@@ -85,6 +85,18 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
+        /// <summary>
+        /// Builds the editor state for a new camera (null) or an existing one: the TX list comes from the source cards this view model
+        /// holds, the duplicate-name check from the other cameras.
+        /// </summary>
+        public CameraEditorViewModel CreateEditor(RoomCameraViewModel? camera, CameraEditorViewModel.DetectFunc? detect = null) =>
+            new(
+                camera?.Config,
+                _sources,
+                _factory,
+                detect,
+                Cameras.Where(c => !ReferenceEquals(c, camera)).Select(c => c.Name).ToArray());
+
         /// <summary>Appends a camera: Load, change only RoomCameras, Save (a fresh Load every time).</summary>
         public void AddCamera(RoomCameraConfig config)
         {

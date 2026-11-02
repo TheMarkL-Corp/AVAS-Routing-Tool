@@ -14,7 +14,7 @@ namespace AvasRoutingTool.Views
     /// <summary>
     /// The Room Cameras tab (RC11). DataContext: <see cref="RoomCamerasViewModel"/>.
     /// Owns the housekeeping timer (while loaded), the Stop-on-hide / unload / focus-loss rules and the keyboard (R14).
-    /// The camera editor is not part of this view: <see cref="EditorRequested"/> is raised and the host (RC12/RC13) opens the dialog.
+    /// The camera editor (RC12) opens by default; a host that subscribes to <see cref="EditorRequested"/> takes over.
     /// </summary>
     public partial class RoomCamerasView : UserControl
     {
@@ -45,8 +45,8 @@ namespace AvasRoutingTool.Views
         }
 
         /// <summary>
-        /// The host opens the camera editor: a camera to edit, or null for a new one. The editor itself is RC12; this view only raises the request
-        /// (from the Add chip, the pencil, "Bind a source" and the empty state).
+        /// An optional host override for opening the camera editor: a camera to edit, or null for a new one (from the Add chip, the pencil,
+        /// "Bind a source" and the empty state).
         /// </summary>
         public event Action<RoomCameraViewModel?>? EditorRequested;
 
@@ -126,8 +126,63 @@ namespace AvasRoutingTool.Views
 
         private void OnEditRequested(RoomCameraViewModel camera) => RaiseEditorRequested(camera);
 
-        /// <summary>Seam for the host or a test double: the default raises <see cref="EditorRequested"/>.</summary>
-        protected virtual void RaiseEditorRequested(RoomCameraViewModel? camera) => EditorRequested?.Invoke(camera);
+        /// <summary>
+        /// A host that subscribes to <see cref="EditorRequested"/> handles the request itself; otherwise the view opens the camera editor
+        /// (<see cref="ShowEditor"/>) and applies the outcome to its view model.
+        /// </summary>
+        protected virtual void RaiseEditorRequested(RoomCameraViewModel? camera)
+        {
+            if (EditorRequested != null)
+            {
+                EditorRequested.Invoke(camera);
+                return;
+            }
+            OpenEditor(camera);
+        }
+
+        private void OpenEditor(RoomCameraViewModel? camera)
+        {
+            var vm = ViewModel;
+            if (vm == null) return;
+            try
+            {
+                var dialog = new CameraEditorDialog(vm.CreateEditor(camera), camera?.Id);
+                ShowEditor(dialog);
+                switch (dialog.Outcome)
+                {
+                    case CameraEditorOutcome.Saved when dialog.Result is { } config:
+                        if (camera == null) vm.AddCamera(config);
+                        else vm.UpdateCamera(config);
+                        break;
+                    case CameraEditorOutcome.Removed when !string.IsNullOrEmpty(dialog.RemovedCameraId):
+                        vm.RemoveCamera(dialog.RemovedCameraId);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("UI", "Camera editor failed", ex);
+            }
+        }
+
+        /// <summary>
+        /// Test hook: replaces how the editor is shown (a XAML view cannot be subclassed by a test, because its component URI is
+        /// bound to the declaring type). When set, it must show, drive and close the dialog.
+        /// </summary>
+        internal Action<CameraEditorDialog>? EditorPresenter { get; set; }
+
+        /// <summary>Seam: shows the editor modally over the hosting window and returns when it is closed.</summary>
+        protected virtual void ShowEditor(CameraEditorDialog dialog)
+        {
+            if (EditorPresenter != null)
+            {
+                EditorPresenter(dialog);
+                return;
+            }
+            var owner = Window.GetWindow(this);
+            if (owner != null) dialog.Owner = owner;
+            dialog.ShowDialog();
+        }
 
         // ---- Sliders: begin / end of a drag (final value is sent on release) ----
 

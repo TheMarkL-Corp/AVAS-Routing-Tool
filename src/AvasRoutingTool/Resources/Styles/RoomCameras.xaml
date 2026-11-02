@@ -16,6 +16,9 @@
     <sys:Double x:Key="Size.Camera.Chip.Min">48</sys:Double>
     <!-- A long camera name truncates inside its chip (full name in the tooltip) -->
     <sys:Double x:Key="Size.Camera.Chip.Name.Max">240</sys:Double>
+    <!-- Camera editor dialog (RC12): window width and port box width -->
+    <sys:Double x:Key="Size.Camera.Dialog.Width">560</sys:Double>
+    <sys:Double x:Key="Size.Camera.Dialog.Port">140</sys:Double>
 
     <!-- ===== PTZ direction key: flat tile, blue only while pressed ===== -->
     <Style x:Key="Style.Button.PtzKey" TargetType="Button">

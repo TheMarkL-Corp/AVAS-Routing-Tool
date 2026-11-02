@@ -73,6 +73,53 @@ namespace AvasRoutingTool.Tests
                             }
                         });
                         Scene("rc-07-empty", rig => { }, empty: true);
+
+                        // Camera editor dialog states (RC12): new camera, existing camera, several detect answers, remove confirmation.
+                        void Editor(string name, Action<Views.CameraEditorDialog> arrange, bool existing, bool hits = false)
+                        {
+                            var cards = new[] { RoomCamerasRig.Card("TX1_c07bb"), RoomCamerasRig.Card("TX2_e1a90", mac: "aa:bb:cc:00:00:02") };
+                            var config = RoomCamerasRig.Cam("a", "ROOM-CAM", RoomCamerasRig.Mac);
+                            CameraEditorViewModel.DetectFunc? detect = hits
+                                ? (_, _, _, _) => System.Threading.Tasks.Task.FromResult<System.Collections.Generic.IReadOnlyList<ProbeHit>>(new[]
+                                {
+                                    new ProbeHit(ViscaTransportKind.Tcp, 5678, CameraPower.On),
+                                    new ProbeHit(ViscaTransportKind.Udp, 3001, CameraPower.On),
+                                })
+                                : null;
+                            var vm = new CameraEditorViewModel(existing ? config : null, cards, new Fakes.FakePtzCameraFactory(), detect, new[] { "OR-2 ceiling" });
+                            if (!existing) { vm.Name = "OR-2 ceiling"; vm.Host = "192.168.1.170"; }
+                            themeService.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark);
+                            var dialog = new Views.CameraEditorDialog(vm, existing ? config.Id : null)
+                            {
+                                ShowInTaskbar = false,
+                                WindowStartupLocation = WindowStartupLocation.Manual,
+                                Left = -10000,
+                                Top = 0,
+                                MaxHeight = h,
+                            };
+                            try
+                            {
+                                dialog.Show();
+                                arrange(dialog);
+                                dialog.UpdateLayout();
+                                RoomCamerasRig.Idle();
+                                SavePng(ClientRoot(dialog), Path.Combine(folder, $"{name}-{suffix}.png"));
+                            }
+                            finally { dialog.Close(); }
+                        }
+
+                        Editor("rc-08-editor-new", d => { }, existing: false);
+                        Editor("rc-09-editor-existing", d => { }, existing: true);
+                        Editor("rc-10-editor-detect-hits", d =>
+                        {
+                            ((System.Windows.Controls.Button)d.FindName("DetectButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                            RoomCamerasRig.Idle();
+                        }, existing: false, hits: true);
+                        Editor("rc-11-editor-remove-confirm", d =>
+                        {
+                            ((System.Windows.Controls.Button)d.FindName("RemoveButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                            RoomCamerasRig.Idle();
+                        }, existing: true);
                     }
                 }
                 finally
