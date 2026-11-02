@@ -17,6 +17,9 @@ namespace AvasRoutingTool.Tests.Fakes
         private readonly List<string> _calls = new();
         private CameraLinkState _linkState = CameraLinkState.Connected;
         private int _failStops;
+        private int _failMoves;
+        private bool _holdStops;
+        private readonly List<TaskCompletionSource<bool>> _heldStops = new();
         private int _stopImmediatelyCount;
         private int _tickCount;
 
@@ -58,15 +61,44 @@ namespace AvasRoutingTool.Tests.Fakes
             lock (_gate) _failStops = n;
         }
 
+        /// <summary>The next n MoveAsync / ZoomAsync calls return false (recorded, but not acknowledged).</summary>
+        public void FailNextMoves(int n)
+        {
+            lock (_gate) _failMoves = n;
+        }
+
+        /// <summary>
+        /// While true, Stop calls are recorded and return a task that stays pending until
+        /// <see cref="ReleaseHeldStops"/> is called (a camera that has not answered yet).
+        /// </summary>
+        public bool HoldStops
+        {
+            get { lock (_gate) return _holdStops; }
+            set { lock (_gate) _holdStops = value; }
+        }
+
+        /// <summary>Completes every held Stop with the given result.</summary>
+        public void ReleaseHeldStops(bool ok)
+        {
+            TaskCompletionSource<bool>[] held;
+            lock (_gate)
+            {
+                held = _heldStops.ToArray();
+                _heldStops.Clear();
+            }
+            foreach (var tcs in held)
+                tcs.SetResult(ok);
+        }
+
         public Task ConnectAsync(CancellationToken ct) => Record("Connect");
 
-        public Task<bool> MoveAsync(PanTiltDirection d, PtzSpeed s, CancellationToken ct) => Ok($"Move:{d}:{s.Pan}:{s.Tilt}");
+        public Task<bool> MoveAsync(PanTiltDirection d, PtzSpeed s, CancellationToken ct) => Move($"Move:{d}:{s.Pan}:{s.Tilt}");
 
         public Task<bool> StopMoveAsync(CancellationToken ct) => Stop("StopMove");
 
         public Task<bool> HomeAsync(CancellationToken ct) => Ok("Home");
 
-        public Task<bool> ZoomAsync(ZoomDirection d, PtzSpeed s, CancellationToken ct) => Ok($"Zoom:{d}:{s.Zoom}");
+        public Task<bool> ZoomAsync(ZoomDirection d, PtzSpeed s, CancellationToken ct) => Move($"Zoom:{d}:{s.Zoom}");
 
         public Task<bool> StopZoomAsync(CancellationToken ct) => Stop("StopZoom");
 
@@ -116,6 +148,20 @@ namespace AvasRoutingTool.Tests.Fakes
             return Task.FromResult(true);
         }
 
+        private Task<bool> Move(string call)
+        {
+            Add(call);
+            lock (_gate)
+            {
+                if (_failMoves > 0)
+                {
+                    _failMoves--;
+                    return Task.FromResult(false);
+                }
+            }
+            return Task.FromResult(true);
+        }
+
         private Task<bool> Stop(string call)
         {
             Add(call);
@@ -125,6 +171,12 @@ namespace AvasRoutingTool.Tests.Fakes
                 {
                     _failStops--;
                     return Task.FromResult(false);
+                }
+                if (_holdStops)
+                {
+                    var held = new TaskCompletionSource<bool>();
+                    _heldStops.Add(held);
+                    return held.Task;
                 }
             }
             return Task.FromResult(true);
