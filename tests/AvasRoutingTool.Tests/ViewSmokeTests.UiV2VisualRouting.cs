@@ -113,7 +113,7 @@ namespace AvasRoutingTool.Tests
                     void AssertSecondaryCaptions(string when)
                     {
                         // "Tap a source, then" (not the Composer's own "Tap a source above, ..." hint, which it owns).
-                        var hints = FindAll<TextBlock>(view).Where(t => t.IsVisible && (t.Text.StartsWith("Tap a source, then") || t.Text.StartsWith("The Layout button"))).ToList();
+                        var hints = FindAll<TextBlock>(view).Where(t => t.IsVisible && (t.Text.StartsWith("Tap a source, then") || t.Text.StartsWith("Tap a layout"))).ToList();
                         Assert.NotEmpty(hints);
                         foreach (var hint in hints)
                         {

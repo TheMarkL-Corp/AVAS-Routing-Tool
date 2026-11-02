@@ -190,7 +190,7 @@
                     </StackPanel>
 
                     <TextBlock Grid.Column="1"
-                               Text="The Layout button picks a layout - Copy layout copies a display's picture onto another display"
+                               Text="Tap a layout to change a display, or copy one display's picture onto another."
                                Style="{StaticResource Style.Text.Caption}"
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center"
@@ -213,7 +213,7 @@
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <!-- The display card's chrome (56 px Layout header, Copy layout row) is taller than the source card's -->
-                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.DisplayCard}" />
+                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.DisplayCard}" CenterVertically="False" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
