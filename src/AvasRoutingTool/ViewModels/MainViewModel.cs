@@ -124,12 +124,8 @@ namespace AvasRoutingTool.ViewModels
             {
                 _connectionHealth = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(ShowConnectionText));
             }
         }
-
-        /// <summary>The status sentence is shown only while connecting or offline; a connected link is the dot alone.</summary>
-        public bool ShowConnectionText => ConnectionHealth != ConnectionHealth.Connected;
 
         public string BavmUrl
         {
