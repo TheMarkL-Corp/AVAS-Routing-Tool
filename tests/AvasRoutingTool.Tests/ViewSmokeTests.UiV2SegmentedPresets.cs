@@ -101,6 +101,53 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        /// <summary>
+        /// The topmost element a press at <paramref name="point"/> (in <paramref name="view"/>'s coordinates) reaches, as pointer input
+        /// finds it: elements that are not hit-test visible (the group's outline) or not shown are skipped with their children.
+        /// </summary>
+        private static DependencyObject? PressTarget(Visual view, Point point)
+        {
+            DependencyObject? target = null;
+            System.Windows.Media.VisualTreeHelper.HitTest(view,
+                d => d is UIElement u && (!u.IsHitTestVisible || !u.IsVisible)
+                    ? HitTestFilterBehavior.ContinueSkipSelfAndChildren
+                    : HitTestFilterBehavior.Continue,
+                r => { target = ((PointHitTestResult)r).VisualHit; return HitTestResultBehavior.Stop; },
+                new PointHitTestParameters(point));
+            return target;
+        }
+
+        [Fact]
+        public void LayoutSegments_EveryPreset_AndLayout_TakeAPressOnTheirWholeArea_IncludingTheOuterRing() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host, 613);
+                Showing(host, () =>
+                {
+                    // Four presets and Layout. A press anywhere in the 48x48 segment must land on the segment, not only in its inset block.
+                    var segments = VisiblePresets(view).Cast<Button>().Append((Button)Named(view, "LayoutButton").Single()).ToList();
+                    Assert.Equal(5, segments.Count);
+                    foreach (var segment in segments)
+                    {
+                        double w = segment.ActualWidth, h = segment.ActualHeight;
+                        var spots = new[]
+                        {
+                            new Point(1, 1), new Point(w - 1, 1), new Point(1, h - 1), new Point(w - 1, h - 1),
+                            new Point(w / 2, 1), new Point(1, h / 2), new Point(w / 2, h / 2),
+                        };
+                        foreach (var spot in spots)
+                        {
+                            var atView = segment.TranslatePoint(spot, view);
+                            var hit = PressTarget(view, atView);
+                            string landsOn = hit == null ? "nothing" : $"{hit.GetType().Name} '{(hit as FrameworkElement)?.Name}' at {(hit is FrameworkElement hf ? BoundsIn(hf, view).ToString() : "")} (segment at {BoundsIn(segment, view)})";
+                            Assert.True(hit != null && Within(hit, segment),
+                                $"{segment.Name} {w:F0}x{h:F0}: a press at ({spot.X:F1},{spot.Y:F1}) lands on {landsOn}, not on the segment");
+                        }
+                    }
+                });
+            });
+
         [Fact]
         public void InlinePresets_EachDrawsItsLayoutAsALayoutGlyph_At32x20_WithOutlineCellsAndNoText() =>
             RunSta(() =>

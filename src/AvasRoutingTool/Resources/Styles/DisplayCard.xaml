@@ -225,7 +225,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Grid>
+                    <Grid Background="Transparent">
                         <Border x:Name="bd"
                                 Background="{TemplateBinding Background}"
                                 BorderThickness="0"
