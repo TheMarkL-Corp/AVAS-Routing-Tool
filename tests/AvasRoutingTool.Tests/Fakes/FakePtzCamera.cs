@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AvasRoutingTool.Configuration;
@@ -22,6 +23,8 @@ namespace AvasRoutingTool.Tests.Fakes
         private readonly List<TaskCompletionSource<bool>> _heldStops = new();
         private int _stopImmediatelyCount;
         private int _tickCount;
+        private bool _holdPolls;
+        private readonly List<TaskCompletionSource<CameraStatus?>> _heldPolls = new();
 
         public event Action<CameraLinkState>? LinkStateChanged;
 
@@ -52,6 +55,15 @@ namespace AvasRoutingTool.Tests.Fakes
 
         public bool Disposed { get; private set; }
 
+        private int _connectCount;
+        private int _disposeCount;
+
+        /// <summary>How many times ConnectAsync was called.</summary>
+        public int ConnectCount => Volatile.Read(ref _connectCount);
+
+        /// <summary>How many times DisposeAsync was called.</summary>
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
         /// <summary>Status returned by PollAsync; null simulates no answer.</summary>
         public CameraStatus? PollResult { get; set; } = new(CameraPower.On, 0, 0, true);
 
@@ -77,6 +89,29 @@ namespace AvasRoutingTool.Tests.Fakes
             set { lock (_gate) _holdStops = value; }
         }
 
+        /// <summary>
+        /// While true, PollAsync calls are recorded and return a task that stays pending until
+        /// <see cref="ReleaseHeldPolls"/> is called (a camera that has not answered yet).
+        /// </summary>
+        public bool HoldPolls
+        {
+            get { lock (_gate) return _holdPolls; }
+            set { lock (_gate) _holdPolls = value; }
+        }
+
+        /// <summary>Completes every held poll with the given status (null = no answer).</summary>
+        public void ReleaseHeldPolls(CameraStatus? status)
+        {
+            TaskCompletionSource<CameraStatus?>[] held;
+            lock (_gate)
+            {
+                held = _heldPolls.ToArray();
+                _heldPolls.Clear();
+            }
+            foreach (var tcs in held)
+                tcs.SetResult(status);
+        }
+
         /// <summary>Completes every held Stop with the given result.</summary>
         public void ReleaseHeldStops(bool ok)
         {
@@ -90,7 +125,11 @@ namespace AvasRoutingTool.Tests.Fakes
                 tcs.SetResult(ok);
         }
 
-        public Task ConnectAsync(CancellationToken ct) => Record("Connect");
+        public Task ConnectAsync(CancellationToken ct)
+        {
+            Interlocked.Increment(ref _connectCount);
+            return Record("Connect");
+        }
 
         public Task<bool> MoveAsync(PanTiltDirection d, PtzSpeed s, CancellationToken ct) => Move($"Move:{d}:{s.Pan}:{s.Tilt}");
 
@@ -113,6 +152,15 @@ namespace AvasRoutingTool.Tests.Fakes
         public Task<CameraStatus?> PollAsync(CancellationToken ct)
         {
             Add("Poll");
+            lock (_gate)
+            {
+                if (_holdPolls)
+                {
+                    var held = new TaskCompletionSource<CameraStatus?>();
+                    _heldPolls.Add(held);
+                    return held.Task;
+                }
+            }
             return Task.FromResult(PollResult);
         }
 
@@ -127,6 +175,7 @@ namespace AvasRoutingTool.Tests.Fakes
         public ValueTask DisposeAsync()
         {
             Disposed = true;
+            Interlocked.Increment(ref _disposeCount);
             Add("Dispose");
             return ValueTask.CompletedTask;
         }
@@ -194,6 +243,12 @@ namespace AvasRoutingTool.Tests.Fakes
         }
 
         public List<FakePtzCamera> Created { get; } = new();
+
+        /// <summary>How many times Create was called.</summary>
+        public int CreateCount => Created.Count;
+
+        /// <summary>How many created cameras have been disposed.</summary>
+        public int DisposedCount => Created.Count(c => c.Disposed);
 
         public IPtzCamera Create(RoomCameraConfig config)
         {
