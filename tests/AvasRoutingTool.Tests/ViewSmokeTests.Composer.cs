@@ -133,6 +133,37 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        [Fact]
+        public void Composer_Ghost_IsLegible_AndTheHintStaysAtTheTop() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    var canvas = (FrameworkElement)Named(view, "CanvasHost").Single();
+                    var hint = FindAll<Border>(view).Single(b => b.Style == (Style)Application.Current.FindResource("Style.Panel.Placeholder"));
+
+                    // The ghost is a preview: dimmed, but clearly readable over the black mat
+                    Assert.True(ghost.Opacity >= 0.8 && ghost.Opacity < 1.0, $"ghost opacity is {ghost.Opacity}");
+
+                    // The hint card sits at the top of the canvas, where every layout leaves room, never over the lower cells
+                    Assert.True(hint.IsVisible);
+                    var hintBounds = BoundsIn(hint, canvas);
+                    Assert.True(Math.Abs(hintBounds.Top) <= 40, $"hint card top is {hintBounds.Top} in a canvas {canvas.ActualHeight} high");
+                    Assert.True(hintBounds.Bottom < canvas.ActualHeight / 2, $"hint card bottom is {hintBounds.Bottom} in a canvas {canvas.ActualHeight} high");
+
+                    // Previewing PIP large (inset bottom-right): the hint still keeps clear of the lower half
+                    var pipLarge = Named(view, "LayoutTile").Cast<Button>().Single(t => t.IsVisible && ((ComposerLayoutOptionViewModel)t.DataContext).Id == "pip_large");
+                    pipLarge.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseEnterEvent });
+                    Relayout(view);
+                    Assert.Equal("pip_large", ghost.LayoutId);
+                    Assert.True(BoundsIn(hint, canvas).Bottom < canvas.ActualHeight / 2, $"hint card covers the lower half under pip_large: bottom {BoundsIn(hint, canvas).Bottom}");
+                });
+            });
+
         [Theory]
         [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
         [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]

@@ -17,7 +17,7 @@
     <sys:Double x:Key="Size.Composer.Rail.Right.Min">264</sys:Double>
     <sys:Double x:Key="Size.Composer.Rail.Right.Max">360</sys:Double>
     <sys:Double x:Key="Size.Composer.Tile.Min">96</sys:Double>
-    <sys:Double x:Key="Size.Composer.Ghost.Opacity">0.5</sys:Double>
+    <sys:Double x:Key="Size.Composer.Ghost.Opacity">0.85</sys:Double>
 
     <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN TAKE) ===== -->
     <Style x:Key="Style.StepHeader" TargetType="controls:StepHeader">
@@ -264,7 +264,7 @@
         <Setter Property="Panel.ZIndex" Value="{Binding Index, Mode=OneWay, Converter={StaticResource Converter.Composer.PaintOrder}}" />
     </Style>
 
-    <!-- Step 1 placeholder: a card on the canvas, so its text reads over the ghost schematic -->
+    <!-- Step 1 placeholder: a card on the canvas, so its text reads over the ghost schematic. Top of the canvas: every layout leaves that band empty, so the card never covers the PIP inset or the lower cells -->
     <Style x:Key="Style.Panel.Placeholder" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
@@ -272,7 +272,7 @@
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="VerticalAlignment" Value="Top" />
         <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Text.Measure.Max}" />
         <Setter Property="Margin" Value="16" />
     </Style>
