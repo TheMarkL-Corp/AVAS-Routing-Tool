@@ -308,6 +308,97 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        [Fact]
+        public void CopyLayout_WhenThereIsNothingToCopy_IsEnabledAndFocusable_ButLooksOff() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx3 = rig.View(rig.Rx3, out var host);
+                Showing(host, () =>
+                {
+                    var handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
+                    Assert.False(rig.Rx3.CanCopyFrom);
+                    Assert.True(handle.IsEnabled, "the handle is disabled: it cannot take keyboard focus or a tap");
+                    Assert.True(handle.Focusable && handle.IsTabStop, "the handle is not a tab stop");
+                    Assert.True(handle.ActualWidth >= 48 && handle.ActualHeight >= 48, $"the handle is {handle.ActualWidth}x{handle.ActualHeight}");
+
+                    // Off is drawn by the template root (its first visual child): dimmed, with the arrow cursor.
+                    var root = (FrameworkElement)System.Windows.Media.VisualTreeHelper.GetChild(handle, 0);
+                    Assert.Equal(0.5, root.Opacity);
+                    Assert.Equal(System.Windows.Input.Cursors.Arrow, root.Cursor);
+                });
+            });
+
+        [Fact]
+        public void CopyLayout_PressedWithNothingToCopy_SaysWhyNextToTheButton_AndNothingArms() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx3 = rig.View(rig.Rx3, out var host);
+                Showing(host, () =>
+                {
+                    var handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
+                    Click(handle);
+
+                    var tip = rx3.CopyReasonTip;
+                    Assert.NotNull(tip);
+                    Assert.True(tip!.IsOpen, "pressing Copy layout with nothing to copy shows no reason");
+                    Assert.Same(handle, tip.PlacementTarget);
+                    Assert.Equal(rig.Rx3.CopyFromBlockedText, ((TextBlock)tip.Content).Text);
+                    Assert.Null(rig.Vm.ArmedDisplay);
+                    Assert.False(rig.Rx3.IsCopySource);
+                });
+            });
+
+        [Fact]
+        public void CopyLayout_TheReasonCloses_AfterItsTime() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx3 = rig.View(rig.Rx3, out var host);
+                Showing(host, () =>
+                {
+                    rx3.CopyReasonShownFor = TimeSpan.FromMilliseconds(50);
+                    var handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
+                    Click(handle);
+                    Assert.True(rx3.CopyReasonTip?.IsOpen == true, "the reason did not open");
+                    Until(() => rx3.CopyReasonTip?.IsOpen != true, "the reason did not close after its time");
+                });
+            });
+
+        [Fact]
+        public void CopyLayout_WhenThereIsSomethingToCopy_ArmsAndShowsNoReason() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var host);
+                Showing(host, () =>
+                {
+                    var handle = (Button)Named(rx1, "CopyLayoutHandle").Single();
+                    Click(handle);
+                    Until(() => rig.Vm.ArmedDisplay == rig.Rx1, "a press did not arm RX1");
+                    Assert.True(rx1.CopyReasonTip == null || !rx1.CopyReasonTip.IsOpen, "an armed copy shows a reason");
+                    Click(handle); // stop again
+                    Until(() => rig.Vm.ArmedDisplay == null, "a second press did not stop");
+                });
+            });
+
+        [Fact]
+        public void CopyLayout_IdleDisplays_ShowNoExtraText_UntilPressed() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var rx1 = rig.View(rig.Rx1, out var h1);
+                var rx3 = rig.View(rig.Rx3, out var h3);
+                Showing(new StackPanel { Children = { h1, h3 } }, () =>
+                {
+                    Assert.Null(rx1.CopyReasonTip);
+                    Assert.Null(rx3.CopyReasonTip);
+                    Assert.Empty(VisibleTexts(rx1, "RX1_c059e_SFPA shows nothing to copy"));
+                    Assert.Empty(VisibleTexts(rx3, "RX3_1080P_SFPA shows nothing to copy"));
+                });
+            });
+
         /// <summary>The text colour and the fill the Copy layout button draws, as they resolved: the label's effective Foreground and part bd's Background.</summary>
         private static (Color Text, Color Fill) CopyLayoutPaint(Button handle)
         {

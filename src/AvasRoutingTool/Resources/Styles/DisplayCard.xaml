@@ -105,7 +105,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Grid>
+                    <Grid x:Name="Root">
                         <Border x:Name="bd"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="6"
@@ -133,10 +133,11 @@
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
                             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
                         </DataTrigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.5" />
-                            <Setter Property="Cursor" Value="Arrow" />
-                        </Trigger>
+                        <!-- Nothing to copy: the handle stays enabled (focus, tap, the reason on press) but looks off; the reason is its name and help text -->
+                        <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.5" />
+                            <Setter TargetName="Root" Property="Cursor" Value="Arrow" />
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
