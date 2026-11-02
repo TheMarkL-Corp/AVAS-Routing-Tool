@@ -38,7 +38,7 @@ namespace AvasRoutingTool.Tests
             new[] { "ThemeToggleButton", "RefreshButton", "SettingsButton" }.Select(n => (Button)w.FindName(n)).ToArray();
 
         private static RadioButton[] Tabs(MainWindow w) =>
-            new[] { "TabVisualRouting", "TabBavmConsole", "TabLogs" }.Select(n => (RadioButton)w.FindName(n)).Where(t => t.Visibility == Visibility.Visible).ToArray();
+            new[] { "TabVisualRouting", "TabRoomCameras", "TabBavmConsole", "TabLogs" }.Select(n => (RadioButton)w.FindName(n)).Where(t => t.Visibility == Visibility.Visible).ToArray();
 
         [Fact]
         public void Tabs_And_Actions_AreTouchSized() => RunSta(w =>
