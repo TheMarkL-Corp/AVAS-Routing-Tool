@@ -1890,6 +1890,99 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        // ---- UI v2 round 2 C8: the place pill is two lines (the verb, then the name trimmed); the full name is in the block's tooltip ----
+
+        /// <summary>A source whose name is longer than a place pill shows on one line (48 characters).</summary>
+        private static SourceCardViewModel LongNamedSource() =>
+            new(new AvasDevice { DeviceId = "74fe488b07c0", DeviceName = "AVAS_ENCODER_OPERATING_ROOM_CAMERA_FEED_TWO_SFPA", VendorId = 105, IsTransmitter = true, IsActive = true });
+
+        [Fact]
+        public void Composer_PlacePill_TruncatesLongNames_AndTheTooltipHasTheFullName() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var longSource = LongNamedSource();
+                rig.Sources.Add(longSource);
+                var c = rig.Composer("matrix2x2");
+                c.Arm(longSource);
+                var view = rig.View(c);
+
+                Showing(view, () => // full-size blocks: the name is on line 2 (a compact block shows the verb only)
+                {
+                    var verbs = Named(view, "PlaceVerbText").Where(e => e.IsVisible).Cast<TextBlock>().ToList();
+                    var names = Named(view, "PlaceNameText").Where(e => e.IsVisible).Cast<TextBlock>().ToList();
+                    Assert.Equal(4, verbs.Count);
+                    Assert.Equal(4, names.Count);
+                    Assert.All(verbs, v => Assert.Equal("+ Place", v.Text));
+                    Assert.All(names, n => Assert.Equal(longSource.DeviceName, n.Text));
+                    Assert.All(names, n => Assert.Equal(TextTrimming.CharacterEllipsis, n.TextTrimming));
+                    var max = (double)Application.Current.FindResource("Size.Composer.Overlay.Text.Max");
+                    Assert.All(names, n => Assert.True(n.ActualWidth <= max, $"name is {n.ActualWidth} wide"));
+
+                    foreach (var pill in Named(view, "PlacePill").Where(e => e.IsVisible))
+                    {
+                        var block = Named(view, "BlockRoot").Single(r => ReferenceEquals(r.DataContext, pill.DataContext));
+                        Assert.True(pill.ActualWidth <= block.ActualWidth, $"pill {pill.ActualWidth} in block {block.ActualWidth}");
+                    }
+
+                    Assert.All(Surfaces(view), s => Assert.Equal(longSource.DeviceName, s.ToolTip as string));
+                    c.Disarm();
+                    Relayout(view);
+                    Assert.All(Surfaces(view), s => Assert.Null(s.ToolTip));
+                });
+            });
+
+        [Fact]
+        public void Composer_PlacePill_PlacedBlock_SaysReplace() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Arm(rig.Tx2);
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var placed = c.Blocks[0].Index;
+                    var empty = c.Blocks[1].Index;
+                    Assert.True(InBlock(view, "PlacePill", placed).IsVisible);
+                    Assert.Equal("Replace", ((TextBlock)InBlock(view, "PlaceVerbText", placed)).Text);
+                    Assert.Equal("+ Place", ((TextBlock)InBlock(view, "PlaceVerbText", empty)).Text);
+                });
+            });
+
+        [Fact]
+        public void Composer_PlacePill_Compact_ShowsVerbOnly() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var longSource = LongNamedSource();
+                rig.Sources.Add(longSource);
+                var c = rig.Composer("quad_1_3"); // block 1 is large, blocks 2-4 are small
+                c.Arm(longSource);
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var roots = Named(view, "BlockRoot").Where(e => e.IsVisible).ToList();
+                    var small = roots.Where(r => BlockDensity.GetIsCompact(r)).ToList();
+                    Assert.Equal(3, small.Count);
+                    foreach (var r in small)
+                    {
+                        Assert.True(Named(r, "PlacePill").Single().IsVisible);
+                        var verb = (TextBlock)Named(r, "PlaceVerbText").Single();
+                        Assert.True(verb.IsVisible);
+                        Assert.False(Named(r, "PlaceNameText").Single().IsVisible);
+                        Assert.True(verb.FontSize >= 12, $"verb is {verb.FontSize}");
+                    }
+
+                    var big = roots.Except(small).Single();
+                    Assert.True(Named(big, "PlaceNameText").Single().IsVisible);
+                });
+            });
+
         // ---- UI v2 Task 8: right rail ----
 
         [Theory]

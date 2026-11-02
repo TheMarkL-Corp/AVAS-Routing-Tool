@@ -242,7 +242,8 @@
                                             LostMouseCapture="BlockSurface_LostMouseCapture"
                                             IsTabStop="{Binding IsTabStop, Mode=OneWay}"
                                             GotKeyboardFocus="BlockSurface_GotKeyboardFocus"
-                                            AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}">
+                                            AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
+                                            ToolTip="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}">
                                         <Grid Style="{StaticResource Style.Panel.BlockContent}">
                                             <!-- Live preview, fitted uniformly: never cropped or stretched -->
                                             <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
@@ -265,7 +266,10 @@
                                     <Grid Style="{StaticResource Style.Panel.PlaceOverlay}">
                                         <Rectangle RadiusX="6" RadiusY="6" Fill="{DynamicResource Brush.Surface.ScrimTint}" Stroke="{DynamicResource Brush.Border.DropTarget}" StrokeThickness="3" />
                                         <Border x:Name="PlacePill" Style="{StaticResource Style.Pill.Action}" Background="{DynamicResource Brush.Surface.ScrimAccent}" Margin="8">
-                                            <TextBlock x:Name="PlaceText" Style="{StaticResource Style.Text.Block.PlaceAction}" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" />
+                                            <StackPanel>
+                                                <TextBlock x:Name="PlaceVerbText" Style="{StaticResource Style.Text.Block.PlaceVerb}" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" />
+                                                <TextBlock x:Name="PlaceNameText" Style="{StaticResource Style.Text.Block.PlaceName}" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" />
+                                            </StackPanel>
                                         </Border>
                                     </Grid>
 

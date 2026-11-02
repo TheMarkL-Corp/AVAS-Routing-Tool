@@ -476,12 +476,29 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="Style.Text.Block.PlaceAction" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
-        <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, StringFormat='+ Place {0}'}" />
+    <!-- The pill's first line: the verb. Line two is the name, trimmed (the full name is in the block's tooltip) -->
+    <Style x:Key="Style.Text.Block.PlaceVerb" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
+        <Setter Property="Text" Value="+ Place" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
-                <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, StringFormat='Replace with {0}'}" />
+                <Setter Property="Text" Value="Replace" />
             </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The pill's second line: the armed source's name, one line, ellipsis at the overlay text width; a compact block shows the verb only -->
+    <Style x:Key="Style.Text.Block.PlaceName" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Overlay.Text.Max}" />
+        <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
         </Style.Triggers>
     </Style>
 
