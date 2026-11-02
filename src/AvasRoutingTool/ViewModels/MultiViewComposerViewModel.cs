@@ -205,6 +205,9 @@ namespace AvasRoutingTool.ViewModels
         public double LiveAspectRatio =>
             _live is { Plan: { Width: > 0, Height: > 0 } plan } ? (double)plan.Width / plan.Height : 16.0 / 9.0;
 
+        /// <summary>The display's name: the name plate on the empty ON SCREEN NOW picture (it never changes).</summary>
+        public string DisplayName => _display.DeviceName;
+
         /// <summary>What the ON SCREEN NOW picture shows, in words (the thumbnail itself has no text for a screen reader).</summary>
         public string OnScreenSummary
         {

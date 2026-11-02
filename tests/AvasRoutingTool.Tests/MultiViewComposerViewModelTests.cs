@@ -112,6 +112,14 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void DisplayName_IsTheDisplaysName()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            Assert.Equal(rig.Rx.DeviceName, vm.DisplayName);
+        }
+
+        [Fact]
         public async Task LiveAspectRatio_FollowsTheLivePlan_AndDefaultsTo16x9()
         {
             var rig = new Rig();

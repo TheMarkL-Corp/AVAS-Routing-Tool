@@ -398,8 +398,14 @@
                 </Grid.RowDefinitions>
 
                 <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-                    <StackPanel>
-                        <ui:Card Style="{StaticResource Style.Card.Rail}">
+                    <!-- At least as tall as the rail, so the Changes card stretches into the free height; taller content still scrolls -->
+                    <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Mode=OneWay}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <ui:Card x:Name="OnScreenCard" Grid.Row="0" Style="{StaticResource Style.Card.Rail}">
                             <StackPanel>
                                 <TextBlock Text="ON SCREEN NOW" Style="{StaticResource Style.Text.RailHeading}" Margin="0,0,0,8" />
                                 <Grid x:Name="OnScreenPicture" AutomationProperties.Name="{Binding OnScreenSummary, Mode=OneWay}">
@@ -427,15 +433,19 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <TextBlock Text="No MultiView on this screen" Style="{StaticResource Style.Text.Title}" Foreground="{DynamicResource Brush.Text.OnPreview}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Visibility="{Binding LiveBlocks, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}" />
+                                    <!-- Empty mat: the display's name as a name plate, then the sentence -->
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Visibility="{Binding LiveBlocks, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}">
+                                        <TextBlock x:Name="NamePlateText" Text="{Binding DisplayName, Mode=OneWay}" Style="{StaticResource Style.Text.Block.NamePlate}" Foreground="{DynamicResource Brush.Text.OnPreview}" />
+                                        <TextBlock Text="No MultiView on this screen" Style="{StaticResource Style.Text.Title}" Foreground="{DynamicResource Brush.Text.OnPreview}"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
                                 </Grid>
                                 <TextBlock Text="{Binding OutputText, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,8,0,0" />
                             </StackPanel>
                         </ui:Card>
 
-                        <ui:Card Style="{StaticResource Style.Card.Rail}">
+                        <ui:Card x:Name="ChangesCard" Grid.Row="1" Style="{StaticResource Style.Card.Rail.Fill}">
                             <StackPanel>
                                 <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions>
@@ -460,7 +470,7 @@
                                 </ItemsControl>
                             </StackPanel>
                         </ui:Card>
-                    </StackPanel>
+                    </Grid>
                 </ScrollViewer>
 
                 <StackPanel Grid.Row="1" Margin="0,8,0,0">

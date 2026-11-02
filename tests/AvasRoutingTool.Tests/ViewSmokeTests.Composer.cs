@@ -1992,9 +1992,11 @@ namespace AvasRoutingTool.Tests
                     var cards = FindAll<Wpf.Ui.Controls.Card>(view);
                     Assert.Equal(2, cards.Count); // ON SCREEN NOW and CHANGES
                     var surface = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Card")).Color;
+                    var changes = Named(view, "ChangesCard").Single(); // the last card takes the free height: Style.Card.Rail.Fill
                     Assert.All(cards, c =>
                     {
-                        Assert.Same(Application.Current.FindResource("Style.Card.Rail"), c.Style);
+                        var style = ReferenceEquals(c, changes) ? "Style.Card.Rail.Fill" : "Style.Card.Rail";
+                        Assert.Same(Application.Current.FindResource(style), c.Style);
                         Assert.Equal(surface, ((SolidColorBrush)c.Background).Color);
                         Assert.False(c.Focusable);
                     });
@@ -2433,6 +2435,122 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(2, panels.Count); // the mat and the live blocks
                     Assert.All(panels, p => Assert.Equal(c.LiveAspectRatio, p.AspectRatio, 5));
                     Assert.NotEqual(16.0 / 9.0, c.LiveAspectRatio, 3);
+                });
+            });
+
+        // ---- Critique C4: the right rail fills the free height; the empty preview names the display ----
+
+        [Fact]
+        public void Composer_RightRail_ChangesCardFillsTheFreeHeight() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "RightRailScroll").Single();
+                    var changes = (FrameworkElement)Named(view, "ChangesCard").Single();
+                    var changesBottom = BoundsIn(changes, scroll).Bottom;
+                    Assert.True(Math.Abs(changesBottom - scroll.ViewportHeight) <= 1, $"Changes card ends at {changesBottom} in a {scroll.ViewportHeight} high rail");
+
+                    // The pinned cluster (banner, Take) starts 8 px under the rail: no dead zone between them
+                    var clusterTop = BoundsIn((FrameworkElement)Named(view, "BannerHost").Single(), view).Top;
+                    var railBottom = BoundsIn(scroll, view).Bottom;
+                    Assert.True(clusterTop - railBottom <= 8.5, $"{clusterTop - railBottom} px between the rail and the pinned cluster");
+                });
+            });
+
+        [Fact]
+        public void Composer_RightRail_StillScrolls_WhenTheContentIsTall() =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[1]); // the longest name, in every block: four staged changes
+                foreach (var b in c.Blocks.ToList()) c.TapBlock(b.Index);
+                c.Disarm();
+                Assert.Equal(4, c.ChangeCount);
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "RightRailScroll").Single();
+                    Assert.True(scroll.ScrollableHeight > 0, $"rail content {scroll.ExtentHeight} in a {scroll.ViewportHeight} high rail");
+
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    Assert.True(take.IsVisible);
+                    var tr = BoundsIn(take, view);
+                    Assert.True(tr.Top >= 0 && tr.Bottom <= view.ActualHeight + 0.5, $"Take at {tr} in a {view.ActualHeight} high view");
+                });
+            });
+
+        [Fact]
+        public void Composer_OnScreenPicture_EmptyShowsTheDisplayName() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var empty = rig.View(c);
+                ShowingAt(empty, 1904, 940, () =>
+                {
+                    var plate = (TextBlock)Named(empty, "NamePlateText").Single();
+                    Assert.True(plate.IsVisible);
+                    Assert.Equal(rig.Rx.DeviceName, plate.Text);
+                    AssertVisibleText(empty, "No MultiView on this screen");
+                });
+
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                var live = rig.View(c);
+                ShowingAt(live, 1904, 940, () =>
+                {
+                    Assert.False(Named(live, "NamePlateText").Single().IsVisible);
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_NamePlate_HasEnoughContrast_OnThePreviewMat(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                new AvasRoutingTool.Services.ThemeService().SetTheme(mode);
+                var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.OnPreview")).Color;
+                var mat = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.PreviewMat")).Color;
+                Assert.True(Contrast(text, mat) >= 4.5, $"name plate in {mode}: {Contrast(text, mat):0.0}:1");
+            });
+
+        [Theory]
+        [InlineData(1904, 940)] // a maximized window at 1920x1080
+        [InlineData(1008, 615)] // the MainWindow minimum
+        public void Composer_ArmingDoesNotMoveTake(int width, int height) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    var before = take.TranslatePoint(new Point(0, 0), view);
+                    var beforeSize = new Size(take.ActualWidth, take.ActualHeight);
+
+                    c.Arm(rig.Tx1);
+                    Relayout(view);
+
+                    var after = take.TranslatePoint(new Point(0, 0), view);
+                    Assert.True(Math.Abs(after.X - before.X) <= 0.5 && Math.Abs(after.Y - before.Y) <= 0.5, $"Take moved from {before} to {after}");
+                    Assert.True(Math.Abs(take.ActualWidth - beforeSize.Width) <= 0.5 && Math.Abs(take.ActualHeight - beforeSize.Height) <= 0.5,
+                        $"Take resized from {beforeSize} to {take.ActualWidth}x{take.ActualHeight}");
                 });
             });
 

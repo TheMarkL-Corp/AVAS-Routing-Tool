@@ -154,6 +154,13 @@
         <Setter Property="Focusable" Value="False" />
     </Style>
 
+    <!-- The last card of the rail takes the free height down to the pinned cluster; its list scrolls inside the rail only when it must -->
+    <Style x:Key="Style.Card.Rail.Fill" TargetType="{x:Type ui:Card}" BasedOn="{StaticResource Style.Card.Rail}">
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+
     <Style x:Key="Style.Text.RailHeading" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Section}">
         <Setter Property="FontWeight" Value="Bold" />
     </Style>
@@ -374,6 +381,15 @@
                 <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- The display's name on the empty ON SCREEN NOW mat: one bold Lead line, truncated with an ellipsis, never wrapped -->
+    <Style x:Key="Style.Text.Block.NamePlate" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Overlay.Text.Max}" />
     </Style>
 
     <Style x:Key="Style.Text.Block.Title" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
