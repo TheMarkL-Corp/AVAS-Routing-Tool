@@ -50,14 +50,16 @@
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" />
 
-                    <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard -->
+                    <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard.
+                         Hit area is 36 x 36 (Padding 10 around the 16 px icon); the negative margins keep the footprint, and the
+                         icon's centre, exactly what the 24 px badge had, so the tile's height and the icon do not move. -->
                     <Border x:Name="SourceInfoBadge"
                             Focusable="True"
                             KeyboardNavigation.IsTabStop="True"
                             AutomationProperties.Name="Device network telemetry: IP, MAC, multicast"
                             Grid.Column="2"
-                            Padding="4"
-                            Margin="2,0,0,0"
+                            Padding="10"
+                            Margin="-4,-6,-6,-6"
                             Background="Transparent"
                             Cursor="Help"
                             VerticalAlignment="Center">
