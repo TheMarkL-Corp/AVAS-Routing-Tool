@@ -29,7 +29,7 @@
 |---|---|
 | R1 | Preview path: the bound TX's existing SDVoE preview only. RTSP is out of scope for v1 (would need LibVLCSharp or FFmpeg native binaries and a second socket surface). |
 | R2 | Storage: `AppConfig.RoomCameras` (`List<RoomCameraConfig>`) in `appsettings.json` via `IConfigService`. The TX binding is the TX MAC (`AvasDevice.DeviceId`), so renames and IP changes do not break it. |
-| R3 | Transport per camera: `Udp` (VISCA over IP with the 8-byte header, default port 52381) or `Tcp` (raw VISCA, default port 5678). Any port may be entered. |
+| R3 | Transport per camera: `Udp` (VISCA over IP with the 8-byte header, default port 52381) or `Tcp` (raw VISCA, default port 5678). Any port may be entered: the on-site cameras use generic VISCA over IP on a user-set port (for example 1259 or 3001). The editor has a **Detect** button (R15). |
 | R4 | Press-and-hold motion plus the Stop-on-everything and watchdog safety model above. |
 | R5 | Preview: reuse the bound TX's `SourceCardViewModel` stream (one socket owner). Source cards auto-start previews on discovery (`MainViewModel.cs` ~l.355-368), so a bound camera is usually already live; the tab offers Start only when the card is in standby. |
 | R6 | Camera setup is in the tab: a pencil opens `CameraEditorDialog` (name, host, port, transport, bound TX, Test connection). `SettingsDialog` is untouched. |
@@ -41,6 +41,8 @@
 | R12 | Speed is a three-step segmented control (Slow, Medium, Fast), not a slider, so the operator never needs a second hand while holding a key. Remembered per camera for the session. |
 | R13 | A Lock switch disables every motion control (accidental touches by staff leaning on the screen). Not persisted, one tap to unlock. |
 | R14 | Keyboard: arrow keys move, `+` and `-` zoom, `Home` sends the camera home, `Esc` stops; Stop on key up. Active only when the Room Cameras view has focus and no text box is focused. |
+| R15 | Generic VISCA IP with a user-configurable port (for example 1259 or 3001). Auto-detect: from the host the operator typed, probe a short candidate list of (transport, port) pairs with a power inquiry and offer what answers (RC6A). |
+| R16 | Link state colours: neutral grey while retrying, red after 3 failed attempts (amber stays reserved for staged). Round 2 `MainWindow.xaml` scope: the tab plus one content-host line. No further UI inspirations beyond the two screenshots. Start gate and branch confirmed. |
 
 ## Reference study: why we write our own client
 
@@ -145,7 +147,7 @@ sideways instead of wrapping; rail content scrolls inside its own ScrollViewer
 
 Visual rules from the design consult (Operate mode: the tool disappears into the task): flat surfaces (tone steps, no shadows, no gradients); one blue only for a pressed key, the selected chip and the primary action; the pad shows the pressed key blue and a live "Moving up-left" line (dot plus word) beside the picture border switching to the selected-chip blue while moving; link states: green dot "Connected", neutral grey "Not connected - retrying in 4 s", red "Cannot reach 192.168.1.163:1259" after 3 failed attempts; red banner row above the picture for "Stop not confirmed - press Stop or switch the camera off" (never a toast, never over the picture). End words under the sliders (Wide/Tele, Near/Far) so no slider relies on an icon. Every control has an `AutomationProperties.Name` that includes its state (spoken: "Pan left, hold to move").
 
-**Further inspirations:** the user will send more screenshots later. Task RC11 is paused until they are folded in here; add each as a short "adopt / not adopt" line with the reason, then finalise RC9-RC12. The Caresyntax-style bar-above layout was considered and rejected for the measured picture-size reason in R10.
+**Inspirations used:** the ViscaCamLink window (compact pad, status dots, slider look) and the Caresyntax OR screen (camera chip, power tile, Zoom and Focus sliders with Auto, picture hero). The Caresyntax bar-above layout was rejected for the measured picture-size reason in R10. These are the only inspirations (R16). Mockup of both sizes was shown to the user for approval before RC9 starts; in the mockup the failed-Stop banner is drawn at the top of the picture area, in the build it is its own row above the picture so it covers no picture pixels.
 
 ## Ownership (prevents collisions with round 2)
 
@@ -175,7 +177,7 @@ Failure modes the feature implies that need a named test (each is in the task sh
 
 ## Execution model
 
-Same as round 2: a lead session creates `ui-v2/room-cameras` from `ui-v2/round2`, and for each task dispatches **one fresh Haiku 5.5 subagent** (`model: "haiku"`, `subagent_type: "general-purpose"`, no worktree isolation, sequential on the branch) with a task card: branch and BaseOutputPath `bin/rc/`; the task text copied from this plan; the exact files, test names, assertions, interfaces consumed and produced; steps red, confirm FAIL for the stated reason, implement, focused PASS, full non-live suite PASS, commit; stop conditions (any other test red, any guard failure, any edit outside the task's files). A Haiku subagent that fails a task twice is re-dispatched once on Sonnet 5.5; XAML-heavy RC9, RC11, RC12 get a pre-written XAML skeleton in the card. The lead reads every diff and runs the full suite per task. Two lanes may run at once because their files are disjoint: **Lane P** (RC1-RC8, protocol and logic) and **Lane V** (RC9, RC10, then RC11-RC12 once RC8 is merged). RC13-RC14 are sequential at the end. A Sonnet reviewer checks `git diff ui-v2/round2..ui-v2/room-cameras` after RC8 and after RC14 (standards and this plan); findings return as new tasks.
+Same as round 2: a lead session creates `ui-v2/room-cameras` from `ui-v2/round2`, and for each task dispatches **one fresh Haiku 5.5 subagent** (`model: "haiku"`, `subagent_type: "general-purpose"`, no worktree isolation, sequential on the branch) with a task card: branch and BaseOutputPath `bin/rc/`; the task text copied from this plan; the exact files, test names, assertions, interfaces consumed and produced; steps red, confirm FAIL for the stated reason, implement, focused PASS, full non-live suite PASS, commit; stop conditions (any other test red, any guard failure, any edit outside the task's files). A Haiku subagent that fails a task twice is re-dispatched once on Sonnet 5.5; XAML-heavy RC9, RC11, RC12 get a pre-written XAML skeleton in the card. The lead reads every diff and runs the full suite per task. Two lanes may run at once because their files are disjoint: **Lane P** (RC1-RC8 including RC6A, protocol and logic) and **Lane V** (RC9, RC10, then RC11-RC12 once RC8 is merged). RC13-RC14 are sequential at the end. A Sonnet reviewer checks `git diff ui-v2/round2..ui-v2/room-cameras` after RC8 and after RC14 (standards and this plan); findings return as new tasks.
 
 ## Tasks
 
@@ -242,6 +244,14 @@ public interface IPtzCameraFactory { IPtzCamera Create(RoomCameraConfig config);
 - [ ] Red tests against `FakeViscaServer` (both transports, `[Theory]`): `Move_ThenStop_ServerSeesDriveThenStop`; `Stop_JumpsTheQueue_WhenMoveIsAwaitingCompletion` (Stop is sent before the Move's completion arrives and Move result is false); `CommandWithoutAck_RetriesTwice_ThenReturnsFalse` for non-stop commands, 3 retries for Stop; `Poll_ReadsPowerZoomFocus`; `Poll_NoAnswer_ReturnsNull_AndSetsUnreachableAfter3`; `ConnectFailure_SetsConnecting_ThenUnreachable_BackoffDoublesTo30s` (clock injected as `Func<DateTime>` plus explicit `Tick`); `ServerDisconnect_MovesToDisconnected_AndReconnects`; `StopImmediately_SendsStopWithoutAwait`; `DisposeTwice_IsSafe`; `Dispose_ReleasesAllSockets`. `FakePtzCamera` records calls and lets a test fail the next Stop.
 - [ ] Implement: one `SemaphoreSlim` serialises commands; Stop takes a priority path that bypasses the queue; ack timeout 1 s. Factory picks the transport from `Transport`. Commit `feat(room-cameras): PTZ camera facade with link state machine`.
 
+### Task RC6A: Auto-detect probe
+
+**Files:** Create `Services/Visca/ViscaProbe.cs`; Test `ViscaProbeTests.cs`.
+**Consumes:** `IPtzCameraFactory`-free: uses `ViscaCommands.InquirePower`, `ViscaFrame`, the two transports (RC4, RC5).
+**Produces:** `public record ProbeHit(ViscaTransportKind Transport, int Port, CameraPower Power)`; `public static class ViscaProbe { public static readonly (ViscaTransportKind, int)[] DefaultCandidates; public static Task<IReadOnlyList<ProbeHit>> DetectAsync(string host, IEnumerable<(ViscaTransportKind, int)>? candidates, TimeSpan perProbeTimeout, CancellationToken ct); }`. Default candidates: Tcp 5678, Tcp 1259, Tcp 3001, Udp 52381, Udp 1259, Udp 3001, plus any port the operator already typed (tried first, on both transports).
+- [ ] Red tests against `FakeViscaServer` on random ports with injected candidate lists: `FindsTcpCameraOnCustomPort`; `FindsUdpCameraOnCustomPort`; `NothingListening_ReturnsEmpty_WithinTimeoutBudget` (candidates probed in parallel, at most 4 at once, total under 3 s for 6 candidates at 1 s timeout); `PortThatAcceptsButNeverReplies_IsNotAHit`; `Cancellation_StopsAndDisposesEverySocket` (ports rebindable afterwards); `GarbageReply_IsNotAHit`; `TwoHits_BothReturned_TcpFirst`.
+- [ ] Implement with one short-lived transport per candidate, disposed in `finally`. Commit `feat(room-cameras): VISCA port and transport auto-detect`.
+
 ### Task RC7: Motion safety controller
 
 **Files:** Create `Services/PtzMotionController.cs`; Test `PtzMotionControllerTests.cs`.
@@ -269,7 +279,7 @@ public interface IPtzCameraFactory { IPtzCamera Create(RoomCameraConfig config);
 **Produces:** attached properties `HoldButton.PressCommand` / `ReleaseCommand` / `CommandParameter` on any `ButtonBase`; fires Press on `PreviewMouseLeftButtonDown`/`TouchDown`/key `Space`+`Enter` down, and Release exactly once on mouse up, touch up, `LostMouseCapture`, `LostTouchCapture`, `LostKeyboardFocus`, `IsEnabledChanged` to false, `Unloaded`, and `Window.Deactivated`. `PtzPadView` is a 3x3 `UniformGrid` of eight direction keys plus Home (`ui:SymbolIcon` arrows, tooltips, spoken names "Pan left, hold to move"); keys bind `HoldButton` to `Motion.BeginMove`/`End`.
 - [ ] Red STA tests: `Press_Release_FiresOnceEach`; `PressThenLoseCapture_FiresRelease`; `PressThenDisable_FiresRelease`; `PressThenUnload_FiresRelease`; `ReleaseWithoutPress_FiresNothing`; `Pad_HasNineKeys_AllWithAutomationNames`; `Keys_AreAtLeast48px` (Size.Touch.Min) at both test sizes. Commit `feat(room-cameras): hold-to-move behaviour and direction pad`.
 
-### Task RC11: Room Cameras view  *(paused until further UI inspirations are folded in)*
+### Task RC11: Room Cameras view  *(start after the user approves the UI mockup shown in the planning session)*
 
 **Files:** Create `Views/RoomCamerasView.xaml(.cs)`; Test `UiV2RoomCamerasViewTests.cs`, `ViewSmokeTests.RoomCamerasShots.cs`.
 **Consumes:** RC8 view models, RC9 styles, RC10 pad. Layout exactly as in "UI layout": chips row (`ItemsControl` + `WrapPanel` at 1920; horizontal `ScrollViewer` at narrow width), Grid `*` / `Auto` (rail min/max tokens), picture area with the five states, caption row, red Stop-not-confirmed banner row, rail (status lines, Power with inline confirm, Lock, pad, speed segment, Zoom, Focus, Auto focus). Code-behind: a `DispatcherTimer` at `VisualRoutingView.TickInterval` while loaded calls `Tick()`; `IsVisibleChanged` to false and `Unloaded` call `StopAll()`; key handling per R14 (key up ends motion; ignored while a `TextBox` has focus).
@@ -278,8 +288,8 @@ public interface IPtzCameraFactory { IPtzCamera Create(RoomCameraConfig config);
 ### Task RC12: Camera editor dialog
 
 **Files:** Create `Views/CameraEditorDialog.xaml(.cs)`; Test `UiV2CameraEditorDialogTests.cs`.
-**Consumes:** `CameraEditorViewModel`. WPF-UI controls only (`ui:TextBox`, `ComboBox`, segmented transport choice); fields: name, host, port, transport, bound TX (list shows name and MAC; "None" allowed); `Test connection` runs `ConnectAsync` + `PollAsync` on a temporary camera and reports "Connected, camera on" / "No answer on 192.168.1.163:1259 (UDP)" in words, always disposing the temporary camera; Save disabled with the reason beside it; Remove asks an inline confirmation.
-- [ ] Red STA tests: `Save_Disabled_WhenHostInvalid_WithVisibleReason`; `TestConnection_Failure_ShowsWords_AndDisposesCamera` (fake factory counts Create vs Dispose); `Escape_Cancels_NoConfigWritten`; `EmptyTxList_StillSavesUnbound`; both themes, both sizes. Commit `feat(room-cameras): camera editor dialog`.
+**Consumes:** `CameraEditorViewModel`. WPF-UI controls only (`ui:TextBox`, `ComboBox`, segmented transport choice); fields: name, host, port, transport, bound TX (list shows name and MAC; "None" allowed); a **Detect** button next to the port runs `ViscaProbe.DetectAsync` and fills port and transport from the first hit (several hits are offered as a list; none shows "No camera answered on 192.168.1.163. Check the address, or enter the port by hand."); `Test connection` runs `ConnectAsync` + `PollAsync` on a temporary camera and reports "Connected, camera on" / "No answer on 192.168.1.163:1259 (UDP)" in words, always disposing the temporary camera; Save disabled with the reason beside it; Remove asks an inline confirmation.
+- [ ] Red STA tests: `Detect_FillsPortAndTransport_FromFirstHit`; `Detect_NoHit_ShowsWordsAndKeepsManualEntry`; `Detect_Cancelled_OnDialogClose_LeaksNoSocket`; `Save_Disabled_WhenHostInvalid_WithVisibleReason`; `TestConnection_Failure_ShowsWords_AndDisposesCamera` (fake factory counts Create vs Dispose); `Escape_Cancels_NoConfigWritten`; `EmptyTxList_StillSavesUnbound`; both themes, both sizes. Commit `feat(room-cameras): camera editor dialog`.
 
 ### Task RC13: Main window integration
 
@@ -309,15 +319,12 @@ public interface IPtzCameraFactory { IPtzCamera Create(RoomCameraConfig config);
 | Preview auto-start by `MainViewModel` races a tab Start. | Tab Start is disabled while a card is Refreshing or Streaming; stop only if `_startedByTab`. |
 | Three tabs plus Logs no longer fit at 1024. | `ThreeTabsFitAt1024` test; fall back to the `Style.Tab.Nav` compact padding if it fails. |
 | Config file written by two code paths. | Read-modify-write only (RC1, RC8 tests). |
-| Further UI inspirations change the layout. | RC11 and RC12 are held until they are folded in; RC1-RC10 do not depend on them. |
+| The approved mockup changes after review. | RC1-RC8 do not depend on layout; RC9-RC12 start only after approval. |
 
-## Decisions still needed from the user
+## Open items
 
-1. **Camera on site:** make and model, which transport it answers (UDP 52381, TCP, or a custom port such as the 1259 in your screenshot), its VISCA address, and whether the picture is expected through one TX per camera. Needed before RC14, not before RC1.
-2. **Link-state colour:** the earlier option text said amber for "Not connected"; round-2 role Q-B reserves amber for staged only. This plan uses neutral grey while retrying and red after 3 failed attempts. Confirm.
-3. **`MainWindow.xaml` scope:** this plan edits the tab strip and adds one content-host line (a tab with no view to show is not possible). Confirm the second line is acceptable.
-4. **Additional UI inspirations** to fold into RC11 and RC12.
-5. **Start:** confirm work starts only after `ui-v2/round2` checkpoint 2, on branch `ui-v2/room-cameras`.
+1. **UI mockup approval** (1920x1080 and 1024x720, dark) before RC9 starts.
+2. Camera make and model, VISCA address and whether focus Direct works are confirmed on site during RC14; the transport and port come from Detect (R15), so no answer is needed before RC1.
 
 ## Self-review notes
 
