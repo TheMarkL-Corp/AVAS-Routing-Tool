@@ -92,6 +92,52 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void SourceCard_StopStreamButton_IsTheGhostButton_NotTheRedUnrouteStyle() =>
+            RunSta(() =>
+            {
+                // Stopping a preview is not an error: the Stop control is the quiet ghost button, red is for errors only (A12-5)
+                var vm = UiV2Source();
+                vm.IsStreaming = true;
+                SourceCardAt(vm, view =>
+                {
+                    var stop = (Button)Named(view, "StopStreamButton").Single();
+                    Assert.True(stop.IsVisible);
+                    Assert.Same(Application.Current.FindResource("Style.Button.Ghost"), stop.Style);
+                    Assert.NotSame(Application.Current.FindResource("Style.Button.Unroute"), stop.Style);
+                    Assert.True(stop.ActualHeight >= 36 && stop.IsTabStop, $"stop {stop.ActualWidth}x{stop.ActualHeight}");
+                    Assert.Equal(SymbolRegular.Stop24, FindAll<SymbolIcon>(stop).Single().Symbol);
+                    var word = FindAll<TextBlock>(stop).Single(t => t.Text == "Stop");
+                    Assert.True(word.FontSize >= 12, $"Stop word {word.FontSize}px");
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void SourceCard_StopStreamButton_AtRest_IsTransparent_WithSecondaryText_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var theme = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    theme.SetTheme(mode);
+                    var vm = UiV2Source();
+                    vm.IsStreaming = true;
+                    SourceCardAt(vm, view =>
+                    {
+                        var stop = (Button)Named(view, "StopStreamButton").Single();
+                        var ring = (Border)stop.Template.FindName("FocusRing", stop);
+                        var body = FindAll<Border>(stop).First(b => !ReferenceEquals(b, ring));
+                        Assert.True(body.Background is null || ((System.Windows.Media.SolidColorBrush)body.Background).Color.A == 0, $"{mode}: stop body background {body.Background}");
+                        Assert.Equal(Visibility.Collapsed, ring.Visibility);
+                        var secondary = ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
+                        Assert.Equal(secondary, ((System.Windows.Media.SolidColorBrush)stop.Foreground).Color);
+                    });
+                }
+                finally { theme.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark); }
+            });
+
+        [Fact]
         public void SourceCard_InfoBadge_IsAFocusableInfoIcon_WithTheSameNameAndTooltip() =>
             RunSta(() =>
                 SourceCardAt(UiV2Source(), view =>

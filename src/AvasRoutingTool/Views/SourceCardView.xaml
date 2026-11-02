@@ -207,7 +207,7 @@
                         </Button>
                         <Button x:Name="StopStreamButton"
                                 Command="{Binding StopPreviewCommand, Mode=OneWay}"
-                                Style="{StaticResource Style.Button.Unroute}"
+                                Style="{StaticResource Style.Button.Ghost}"
                                 ToolTip="Stop Preview Stream"
                                 MinHeight="{StaticResource Size.Touch.Compact}"
                                 Padding="10,4"
