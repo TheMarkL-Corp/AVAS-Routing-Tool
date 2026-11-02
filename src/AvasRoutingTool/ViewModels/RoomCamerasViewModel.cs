@@ -4,6 +4,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using AvasRoutingTool.Configuration;
@@ -23,6 +24,7 @@ namespace AvasRoutingTool.ViewModels
         private readonly ObservableCollection<SourceCardViewModel> _sources;
         private readonly Func<DateTime> _now;
         private RoomCameraViewModel? _selected;
+        private readonly System.Collections.Generic.Dictionary<RoomCameraViewModel, CancellationTokenSource> _connects = new();
         private bool _disposed;
 
         public RoomCamerasViewModel(
@@ -205,7 +207,29 @@ namespace AvasRoutingTool.ViewModels
             var camera = _factory.Create(config);
             var vm = new RoomCameraViewModel(config, camera, _now);
             vm.ResolveSource(FindCard(config.BoundTxMac));
+            StartConnect(vm);
             return vm;
+        }
+
+        // ViscaCamera.Tick does nothing until ConnectAsync has been called once, so connect on create.
+        // Fire-and-forget with every exception observed; the token is cancelled when the camera is removed.
+        private void StartConnect(RoomCameraViewModel vm)
+        {
+            var cts = new CancellationTokenSource();
+            _connects[vm] = cts;
+            _ = ConnectQuietlyAsync(vm.Camera, cts.Token);
+        }
+
+        private static async Task ConnectQuietlyAsync(IPtzCamera camera, CancellationToken token)
+        {
+            try
+            {
+                await camera.ConnectAsync(token).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Cancelled, or the camera is unreachable: the link state and retry backoff report it.
+            }
         }
 
         private void ReplaceCamera(int index, RoomCameraConfig config)
@@ -240,8 +264,13 @@ namespace AvasRoutingTool.ViewModels
                 EditRequested?.Invoke(cam);
         }
 
-        private static void DisposeCamera(RoomCameraViewModel cam)
+        private void DisposeCamera(RoomCameraViewModel cam)
         {
+            if (_connects.Remove(cam, out var connect))
+            {
+                connect.Cancel();
+                connect.Dispose();
+            }
             cam.StopAll();
             cam.Dispose();
             try

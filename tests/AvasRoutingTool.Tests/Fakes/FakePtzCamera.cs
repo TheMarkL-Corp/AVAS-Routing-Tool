@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AvasRoutingTool.Configuration;
@@ -53,6 +54,15 @@ namespace AvasRoutingTool.Tests.Fakes
         public int TickCount => Volatile.Read(ref _tickCount);
 
         public bool Disposed { get; private set; }
+
+        private int _connectCount;
+        private int _disposeCount;
+
+        /// <summary>How many times ConnectAsync was called.</summary>
+        public int ConnectCount => Volatile.Read(ref _connectCount);
+
+        /// <summary>How many times DisposeAsync was called.</summary>
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
 
         /// <summary>Status returned by PollAsync; null simulates no answer.</summary>
         public CameraStatus? PollResult { get; set; } = new(CameraPower.On, 0, 0, true);
@@ -115,7 +125,11 @@ namespace AvasRoutingTool.Tests.Fakes
                 tcs.SetResult(ok);
         }
 
-        public Task ConnectAsync(CancellationToken ct) => Record("Connect");
+        public Task ConnectAsync(CancellationToken ct)
+        {
+            Interlocked.Increment(ref _connectCount);
+            return Record("Connect");
+        }
 
         public Task<bool> MoveAsync(PanTiltDirection d, PtzSpeed s, CancellationToken ct) => Move($"Move:{d}:{s.Pan}:{s.Tilt}");
 
@@ -161,6 +175,7 @@ namespace AvasRoutingTool.Tests.Fakes
         public ValueTask DisposeAsync()
         {
             Disposed = true;
+            Interlocked.Increment(ref _disposeCount);
             Add("Dispose");
             return ValueTask.CompletedTask;
         }
@@ -228,6 +243,12 @@ namespace AvasRoutingTool.Tests.Fakes
         }
 
         public List<FakePtzCamera> Created { get; } = new();
+
+        /// <summary>How many times Create was called.</summary>
+        public int CreateCount => Created.Count;
+
+        /// <summary>How many created cameras have been disposed.</summary>
+        public int DisposedCount => Created.Count(c => c.Disposed);
 
         public IPtzCamera Create(RoomCameraConfig config)
         {

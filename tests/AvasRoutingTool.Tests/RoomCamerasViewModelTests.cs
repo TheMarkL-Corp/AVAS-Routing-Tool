@@ -106,6 +106,19 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void Camera_IsConnected_WhenCreated()
+        {
+            var sut = Build(Cam("a"));
+            Assert.Equal(1, _factory.Created[0].ConnectCount);
+
+            sut.AddCamera(Cam("b"));
+            Assert.Equal(1, _factory.Created[1].ConnectCount);
+
+            sut.UpdateCamera(Cam("b", "Renamed"));
+            Assert.Equal(1, _factory.Created[2].ConnectCount);
+        }
+
+        [Fact]
         public void Add_Edit_Remove_Persist_ThroughReadModifyWrite()
         {
             var sut = Build(Cam("a", "First"));
