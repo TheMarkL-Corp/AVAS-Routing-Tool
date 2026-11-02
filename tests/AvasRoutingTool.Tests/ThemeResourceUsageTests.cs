@@ -75,7 +75,6 @@ namespace AvasRoutingTool.Tests
         [InlineData("MultiViewComposerView.xaml", "PlaceVerbText", "name", "Brush.Text.OnScrimAccent")]
         [InlineData("MultiViewComposerView.xaml", "PlaceNameText", "name", "Brush.Text.OnScrimAccent")]
         [InlineData("MultiViewComposerView.xaml", "NamePlateText", "name", "Brush.Text.OnPreview")]
-        [InlineData("CompactSourceCardView.xaml", "NO PREVIEW", null, "Brush.Text.OnPreview")]
         [InlineData("SourceCardView.xaml", "Preview not supported", null, "Brush.Text.OnPreview")]
         [InlineData("SourceCardView.xaml", "Non-AVAS Device", null, "Brush.Text.OnPreviewMuted")]
         [InlineData("SourceCardView.xaml", "Preview Standby", null, "Brush.Text.OnPreviewMuted")]

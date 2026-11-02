@@ -84,7 +84,7 @@ namespace AvasRoutingTool.Tests
                 var (eight, eightVm) = FullHdOverview(sources: 8, displays: 2);
                 WithFullHdWindow(eight, () =>
                 {
-                    var tiles = FindAll<SourceCardView>(eight).ToList();
+                    var tiles = FindAll<SourceCardView>(eight).Where(c => !c.IsCompact).ToList();
                     Assert.Equal(8, tiles.Count);
                     Assert.Equal(2, tiles.Select(t => Math.Round(BoundsIn(t, eight).Top)).Distinct().Count());
                     AssertCappedAndScrolling(eight, SourcesScrollOf(eight, eightVm), "8 sources");
@@ -95,7 +95,7 @@ namespace AvasRoutingTool.Tests
                 WithFullHdWindow(many, () =>
                 {
                     // Every card owns a live preview, so every tile is realized (D11), scrolled into view or not.
-                    Assert.Equal(22, FindAll<SourceCardView>(many).Count());
+                    Assert.Equal(22, FindAll<SourceCardView>(many).Count(c => !c.IsCompact));
                     Assert.Empty(FindAll<VirtualizingPanel>(many).Where(p => FindAll<SourceCardView>(p).Any()));
                     AssertCappedAndScrolling(many, SourcesScrollOf(many, manyVm), "22 sources");
                     return 0;

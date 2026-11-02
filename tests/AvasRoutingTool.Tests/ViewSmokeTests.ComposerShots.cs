@@ -208,7 +208,7 @@ namespace AvasRoutingTool.Tests
             }
             var tiles = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible && s.Name != "GhostSchematic").Select(s => $"{s.ActualWidth:F0}x{s.ActualHeight:F0}");
             var blocks = Named(view, "BlockSurface").Where(b => b.IsVisible).Select(b => $"{b.ActualWidth:F0}x{b.ActualHeight:F0}");
-            var palette = FindAll<CompactSourceCardView>(view).Where(p => p.IsVisible).Select(p => $"{p.ActualWidth:F0}x{p.ActualHeight:F0}").FirstOrDefault() ?? "-";
+            var palette = FindAll<SourceCardView>(view).Where(p => p.IsVisible && p.IsCompact).Select(p => $"{p.ActualWidth:F0}x{p.ActualHeight:F0}").FirstOrDefault() ?? "-";
             var strip = Named(view, "CompactSourcePalette").FirstOrDefault(p => p.IsVisible);
             var rail = Named(view, "RightRailScroll").OfType<ScrollViewer>().FirstOrDefault(s => s.IsVisible);
             return new()

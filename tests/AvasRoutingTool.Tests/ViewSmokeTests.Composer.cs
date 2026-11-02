@@ -423,11 +423,12 @@ namespace AvasRoutingTool.Tests
 
                 ShowingAt(view, width, height, () =>
                 {
-                    // The sources stay above as a compact palette.
-                    Assert.Empty(FindAll<SourceCardView>(view).Where(s => s.IsVisible));
-                    var palette = FindAll<CompactSourceCardView>(view).Where(s => s.IsVisible).ToList();
-                    Assert.Equal(4, palette.Count);
+                    // The sources stay above as a compact palette: the shared tile in its compact density, and no full tile.
+                    Assert.All(FindAll<SourceCardView>(view).Where(s => s.IsVisible), s => Assert.True(s.IsCompact, "a full source tile shows in the Composer"));
                     var strip = (ScrollViewer)Named(view, "CompactSourcePalette").Single();
+                    var palette = FindAll<SourceCardView>(strip).Where(s => s.IsVisible).ToList();
+                    Assert.Equal(4, palette.Count);
+                    Assert.All(palette, s => Assert.True(s.IsCompact, "a palette tile is not compact"));
                     Assert.True(strip.ActualHeight <= 160, $"palette strip is {strip.ActualHeight} high");
 
                     // Touch panning: the palette scrolls sideways, the rails up and down.
@@ -625,27 +626,23 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void CompactSourceCard_ArmedRing_AndUsedInBlocksBadge_Render() =>
+        public void Composer_Palette_HostsCompactSourceCards_Centred() =>
             RunSta(() =>
             {
-                var (_, _, sources) = Overview();
-                sources[0].IsArmed = true;
-                sources[0].UsedInBlocks = 2;
-                var armed = new CompactSourceCardView { DataContext = sources[0] };
-                Showing(armed, () =>
+                var (vm, rx, _) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var view = new VisualRoutingView { DataContext = vm };
+                ShowingAt(view, 1904, 940, () =>
                 {
-                    Assert.True(Named(armed, "ArmedRing").Single().IsVisible);
-                    AssertVisibleText(armed, "Placing");
-                    AssertVisibleText(armed, "in 2 blocks");
-                    Assert.True(armed.ActualHeight >= 56, "compact card is too small to tap");
-                });
+                    var strip = (ScrollViewer)Named(view, "CompactSourcePalette").Single();
+                    var tiles = FindAll<SourceCardView>(strip).Where(s => s.IsVisible).ToList();
+                    Assert.Equal(4, tiles.Count);
+                    Assert.All(tiles, t => Assert.True(t.IsCompact, "a palette tile is not compact"));
 
-                var plain = new CompactSourceCardView { DataContext = sources[2] };
-                Showing(plain, () =>
-                {
-                    Assert.False(Named(plain, "ArmedRing").Single().IsVisible);
-                    Assert.False(Named(plain, "UsedInBlocksBadge").Single().IsVisible);
-                    AssertVisibleText(plain, "NO PREVIEW");
+                    var left = tiles.Min(t => BoundsIn(t, strip).Left);
+                    var right = tiles.Max(t => BoundsIn(t, strip).Right);
+                    Assert.True(Math.Abs(left - (strip.ActualWidth - right)) <= 2,
+                        $"tiles span {left:F0}..{right:F0} in a {strip.ActualWidth:F0} wide strip");
                 });
             });
 
@@ -2734,85 +2731,6 @@ namespace AvasRoutingTool.Tests
                         Assert.Single(locks);
                         Assert.Equal(!t.IsEnabled, locks[0].IsVisible);
                     }
-                });
-            });
-
-        // ---- UI v2 Task 11: palette card ----
-
-        [Fact]
-        public void CompactSourceCard_HasNoFixedSize_AndKeepsAThumbnailAt16x9() =>
-            RunSta(() =>
-            {
-                var (_, _, sources) = Overview();
-                var card = new CompactSourceCardView { DataContext = sources[0] };
-                Assert.Same(DependencyProperty.UnsetValue, card.ReadLocalValue(FrameworkElement.WidthProperty));
-                Assert.Same(DependencyProperty.UnsetValue, card.ReadLocalValue(FrameworkElement.HeightProperty));
-                Showing(card, () =>
-                {
-                    var min = (double)Application.Current.FindResource("Size.Composer.Palette.Card.Min");
-                    Assert.True(card.ActualWidth >= min, $"palette card is {card.ActualWidth} wide");
-                    var thumb = FindAll<AvasRoutingTool.Controls.FractionalLayoutPanel>(card).Single();
-                    Assert.InRange(thumb.ActualWidth / thumb.ActualHeight, 16.0 / 9.0 - 0.05, 16.0 / 9.0 + 0.05);
-                    Assert.True(thumb.ActualWidth >= 140, $"thumbnail {thumb.ActualWidth}x{thumb.ActualHeight}");
-                    Assert.True(card.DesiredSize.Height <= 160, $"palette card wants {card.DesiredSize.Height} high"); // content-sized: it stretches in a bare window
-                });
-            });
-
-        [Fact]
-        public void CompactSourceCard_Badges_AreUiBadges() =>
-            RunSta(() =>
-            {
-                var (_, _, sources) = Overview();
-                sources[0].IsArmed = true;
-                sources[0].UsedInBlocks = 1;
-                sources[1].UsedInBlocks = 2;
-                var one = new CompactSourceCardView { DataContext = sources[0] };
-                var two = new CompactSourceCardView { DataContext = sources[1] };
-                Showing(one, () =>
-                {
-                    var used = Assert.IsType<Wpf.Ui.Controls.Badge>(Named(one, "UsedInBlocksBadge").Single());
-                    Assert.True(used.IsVisible);
-                    AssertVisibleText(one, "in 1 block");
-                    var placing = FindAll<Wpf.Ui.Controls.Badge>(one).Single(b => !ReferenceEquals(b, used));
-                    Assert.True(placing.IsVisible);
-                    Assert.Same(Application.Current.FindResource("Style.Badge.Armed"), placing.Style);
-                    Assert.Same(Application.Current.FindResource("Style.Badge.Staged"), ((Style)used.Style).BasedOn);
-                });
-                Showing(two, () =>
-                {
-                    AssertVisibleText(two, "in 2 blocks");
-                    Assert.False(FindAll<Wpf.Ui.Controls.Badge>(two).Single(b => b.Name != "UsedInBlocksBadge").IsVisible);
-                });
-            });
-
-        [Fact]
-        public void CompactSourceCard_UsedInBadge_FollowsTheViewModelText() =>
-            RunSta(() =>
-            {
-                var (_, _, sources) = Overview();
-                var source = sources[0];
-                source.UsedInBlocks = 0;
-                var card = new CompactSourceCardView { DataContext = source };
-                Showing(card, () =>
-                {
-                    var used = Assert.IsType<Wpf.Ui.Controls.Badge>(Named(card, "UsedInBlocksBadge").Single());
-                    Assert.False(used.IsVisible);
-
-                    source.UsedInBlocks = 3;
-                    Relayout(card);
-                    Assert.True(used.IsVisible);
-                    AssertVisibleText(card, "in 3 blocks");
-                    var text = Assert.IsType<string>(used.Content);
-                    Assert.Equal(source.UsedInText, text);
-                    Assert.True(string.IsNullOrEmpty(used.ContentStringFormat));
-
-                    source.UsedInBlocks = 1;
-                    Relayout(card);
-                    AssertVisibleText(card, "in 1 block");
-
-                    source.UsedInBlocks = 0;
-                    Relayout(card);
-                    Assert.False(used.IsVisible);
                 });
             });
     }
