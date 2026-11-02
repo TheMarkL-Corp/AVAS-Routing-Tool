@@ -45,6 +45,12 @@ namespace AvasRoutingTool.Views
             nameof(Sources), typeof(IEnumerable<SourceCardViewModel>), typeof(MultiViewComposerView),
             new PropertyMetadata(null, (d, _) => ((MultiViewComposerView)d).SchedulePicker()));
 
+        /// <summary>The layout the empty Step 1 canvas draws as a ghost: the tile under the pointer or the keyboard, else the default.</summary>
+        public static readonly DependencyProperty PreviewLayoutIdProperty = DependencyProperty.Register(
+            nameof(PreviewLayoutId), typeof(string), typeof(MultiViewComposerView), new PropertyMetadata(DefaultPreviewLayoutId));
+
+        private const string DefaultPreviewLayoutId = "matrix2x2";
+
         private MultiViewComposerViewModel? _watched;
         private bool _closingPicker;
 
@@ -101,6 +107,13 @@ namespace AvasRoutingTool.Views
             set => SetValue(SourcesProperty, value);
         }
 
+        /// <summary>The layout the ghost on the empty canvas draws (view only: nothing is staged by previewing).</summary>
+        public string PreviewLayoutId
+        {
+            get => (string)GetValue(PreviewLayoutIdProperty);
+            set => SetValue(PreviewLayoutIdProperty, value);
+        }
+
         private MultiViewComposerViewModel? Composer => DataContext as MultiViewComposerViewModel;
 
         // ---- taps -> view model ----
@@ -110,6 +123,15 @@ namespace AvasRoutingTool.Views
             if (sender is FrameworkElement { DataContext: ComposerLayoutOptionViewModel option } && Composer is { } c)
                 await Run(() => c.SelectLayoutAsync(option.Id), "Layout selection");
         }
+
+        // ---- hover or keyboard focus on a tile: the ghost on the empty canvas previews that layout (view only) ----
+
+        private void LayoutTile_Preview(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { DataContext: ComposerLayoutOptionViewModel option }) PreviewLayoutId = option.Id;
+        }
+
+        private void LayoutTile_PreviewEnd(object sender, RoutedEventArgs e) => PreviewLayoutId = DefaultPreviewLayoutId;
 
         private void Block_Click(object sender, RoutedEventArgs e)
         {

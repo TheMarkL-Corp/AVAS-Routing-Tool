@@ -42,12 +42,12 @@
             <StackPanel VerticalAlignment="Center">
                 <WrapPanel Orientation="Horizontal">
                     <TextBlock Text="{Binding HeaderNotice, Mode=OneWay}" Style="{StaticResource Style.Text.Lead}" Margin="0,0,12,0" VerticalAlignment="Center" />
-                    <ui:Badge Style="{StaticResource Style.Badge.Info}" Margin="0,2,8,2"
-                              Content="{Binding OutputText, Mode=OneWay}"
-                              Visibility="{Binding OutputText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
-                    <ui:Badge Style="{StaticResource Style.Badge.Info}" Margin="0,2"
-                              Content="{Binding RateNote, Mode=OneWay}"
-                              Visibility="{Binding RateNote, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                    <TextBlock x:Name="OutputChip" Style="{StaticResource Style.Text.Meta}"
+                               Text="{Binding OutputText, Mode=OneWay}"
+                               Visibility="{Binding OutputText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                    <TextBlock x:Name="RateChip" Style="{StaticResource Style.Text.Meta}"
+                               Text="{Binding RateNote, Mode=OneWay}"
+                               Visibility="{Binding RateNote, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
                 </WrapPanel>
                 <TextBlock x:Name="PreviewCaption"
                            Style="{StaticResource Style.Text.ComposerLabel}"
@@ -81,7 +81,7 @@
                                   MinWidth="{StaticResource Size.Composer.Rail.Right.Min}" MaxWidth="{StaticResource Size.Composer.Rail.Right.Max}" />
             </Grid.ColumnDefinitions>
 
-            <!-- ===== Left rail: Step 1 layout, Step 2 place, Step 3 check and take ===== -->
+            <!-- ===== Left rail: Step 1 layout and the sources a layout change left unplaced ===== -->
             <ScrollViewer x:Name="LeftRailScroll" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="0,0,4,0" Style="{StaticResource Style.Panel.BusyDisables}">
 
@@ -96,7 +96,11 @@
                                 <Button x:Name="LayoutTile"
                                         Style="{StaticResource Style.Button.ComposerLayoutOption}"
                                         AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
-                                        Click="LayoutTile_Click">
+                                        Click="LayoutTile_Click"
+                                        MouseEnter="LayoutTile_Preview"
+                                        GotKeyboardFocus="LayoutTile_Preview"
+                                        MouseLeave="LayoutTile_PreviewEnd"
+                                        LostKeyboardFocus="LayoutTile_PreviewEnd">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="6*" />
@@ -120,13 +124,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Step 2 -->
-                    <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,4"
-                                         Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
-                                         AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,0,0,6"
-                               Text="Tap a source above, then its blocks - or tap an empty block." />
-
                     <!-- Sources a layout change left without a block -->
                     <StackPanel Margin="0,0,0,6"
                                 Visibility="{Binding UnplacedSources, Mode=OneWay, Converter={StaticResource Converter.Visible.HasItems}}">
@@ -148,12 +145,6 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
-
-                    <!-- Step 3 -->
-                    <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,4,0,4"
-                                         Number="3" Title="CHECK, THEN TAKE" IsDone="{Binding CanTake, Mode=OneWay}"
-                                         AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Style.Text.ComposerLabel}" Text="Nothing changes on screen until Take." />
                 </StackPanel>
             </ScrollViewer>
 
@@ -171,16 +162,31 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <TextBlock x:Name="StagedLabel"
-                                   Text="STAGED - not on screen yet"
-                                   Style="{StaticResource Style.Text.Status.Staged}"
-                                   Visibility="{Binding IsStaged, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
-                        <TextBlock x:Name="OnScreenLabel"
-                                   Text="ON SCREEN - this is what the surgeon sees"
-                                   Style="{StaticResource Style.Text.Status.OnScreen}"
-                                   Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
-                    </StackPanel>
+                    <!-- Step 2 heads this row. The WrapPanel moves the status under the heading when the canvas is narrow (a 1024 px window) -->
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,12,0" VerticalAlignment="Center"
+                                             Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
+                                             AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}"
+                                             AutomationProperties.HelpText="Tap a source in the strip above, then its blocks - or tap an empty block." />
+
+                        <StackPanel VerticalAlignment="Center">
+                            <!-- A Grid, not a horizontal StackPanel: the word may wrap beside its dot, and a StackPanel would give it unlimited width -->
+                            <Grid Visibility="{Binding IsStaged, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse x:Name="StagedDot" Style="{StaticResource Style.Shape.StagedDot}" />
+                                <TextBlock x:Name="StagedLabel" Grid.Column="1"
+                                           Text="STAGED - not on screen yet"
+                                           Style="{StaticResource Style.Text.Status.Staged}" />
+                            </Grid>
+                            <TextBlock x:Name="OnScreenLabel"
+                                       Text="ON SCREEN - this is what the surgeon sees"
+                                       Style="{StaticResource Style.Text.Status.OnScreen}"
+                                       Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </WrapPanel>
 
                     <!-- Done placing / Cancel move (Disarm stops both) -->
                     <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Center" Style="{StaticResource Style.Button.Done}" />
@@ -197,17 +203,23 @@
                             </MultiBinding>
                         </controls:FractionalLayoutPanel.AspectRatio>
                         <Border controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" Background="{DynamicResource Brush.Surface.PreviewMat}" />
+                        <!-- Step 1 not done: a ghost of the layout under the pointer or the keyboard (default 2x2); view only, never staged -->
+                        <views:LayoutSchematic x:Name="GhostSchematic" Style="{StaticResource Style.Panel.Ghost}"
+                                               LayoutId="{Binding PreviewLayoutId, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}"
+                                               controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" />
                         <Rectangle x:Name="CanvasFrame" Style="{StaticResource Style.Shape.CanvasFrame}"
                                    controls:FractionalLayoutPanel.W="1" controls:FractionalLayoutPanel.H="1" />
                     </controls:FractionalLayoutPanel>
 
                     <!-- Step 1 not done: say what to do -->
-                    <StackPanel Style="{StaticResource Style.Panel.Placeholder}"
-                                Visibility="{Binding Draft, Mode=OneWay, Converter={StaticResource Converter.Visible.Null}}">
-                        <TextBlock Text="Step 1 · Choose a layout on the left" Style="{StaticResource Style.Text.Lead}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-                        <TextBlock Text="The blocks appear here empty. Nothing changes on the surgeon's screen until you press Take."
-                                   Style="{StaticResource Style.Text.ComposerLabel}" TextAlignment="Center" Margin="0,8,0,0" />
-                    </StackPanel>
+                    <Border Style="{StaticResource Style.Panel.Placeholder}"
+                            Visibility="{Binding Draft, Mode=OneWay, Converter={StaticResource Converter.Visible.Null}}">
+                        <StackPanel>
+                            <TextBlock Text="Step 1 · Choose a layout on the left" Style="{StaticResource Style.Text.Lead}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                            <TextBlock Text="The blocks appear here empty. Nothing changes on the surgeon's screen until you press Take."
+                                       Style="{StaticResource Style.Text.ComposerLabel}" TextAlignment="Center" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
 
                     <!-- The blocks -->
                     <ItemsControl x:Name="BlocksHost" ItemsSource="{Binding Blocks, Mode=OneWay}" Focusable="False" ItemContainerStyle="{StaticResource Style.Item.Fractional.Block}">
@@ -242,7 +254,8 @@
                                             LostMouseCapture="BlockSurface_LostMouseCapture"
                                             IsTabStop="{Binding IsTabStop, Mode=OneWay}"
                                             GotKeyboardFocus="BlockSurface_GotKeyboardFocus"
-                                            AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}">
+                                            AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
+                                            ToolTip="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}">
                                         <Grid Style="{StaticResource Style.Panel.BlockContent}">
                                             <!-- Live preview, fitted uniformly: never cropped or stretched -->
                                             <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
@@ -263,9 +276,12 @@
 
                                     <!-- 3. Armed and this block can take it: cyan ring + "+ Place TX2" -->
                                     <Grid Style="{StaticResource Style.Panel.PlaceOverlay}">
-                                        <Rectangle RadiusX="6" RadiusY="6" Fill="{DynamicResource Brush.Surface.ScrimTint}" Stroke="{DynamicResource Brush.Border.DropTarget}" StrokeThickness="3" />
+                                        <Rectangle x:Name="PlaceRing" Style="{StaticResource Style.Shape.PlaceRing}" />
                                         <Border x:Name="PlacePill" Style="{StaticResource Style.Pill.Action}" Background="{DynamicResource Brush.Surface.ScrimAccent}" Margin="8">
-                                            <TextBlock x:Name="PlaceText" Style="{StaticResource Style.Text.Block.PlaceAction}" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" />
+                                            <StackPanel>
+                                                <TextBlock x:Name="PlaceVerbText" Style="{StaticResource Style.Text.Block.PlaceVerb}" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" />
+                                                <TextBlock x:Name="PlaceNameText" Style="{StaticResource Style.Text.Block.PlaceName}" Foreground="{DynamicResource Brush.Text.OnScrimAccent}" />
+                                            </StackPanel>
                                         </Border>
                                     </Grid>
 
@@ -377,8 +393,14 @@
                 </Grid.RowDefinitions>
 
                 <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-                    <StackPanel>
-                        <ui:Card Style="{StaticResource Style.Card.Rail}">
+                    <!-- At least as tall as the rail, so the Changes card stretches into the free height; taller content still scrolls -->
+                    <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Mode=OneWay}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <ui:Card x:Name="OnScreenCard" Grid.Row="0" Style="{StaticResource Style.Card.Rail}">
                             <StackPanel>
                                 <TextBlock Text="ON SCREEN NOW" Style="{StaticResource Style.Text.RailHeading}" Margin="0,0,0,8" />
                                 <Grid x:Name="OnScreenPicture" AutomationProperties.Name="{Binding OnScreenSummary, Mode=OneWay}">
@@ -406,19 +428,32 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <TextBlock Text="No MultiView on this screen" Style="{StaticResource Style.Text.Title}" Foreground="{DynamicResource Brush.Text.OnPreview}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Visibility="{Binding LiveBlocks, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}" />
+                                    <!-- Empty mat: the display's name as a name plate, then the sentence -->
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Visibility="{Binding LiveBlocks, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}">
+                                        <TextBlock x:Name="NamePlateText" Text="{Binding DisplayName, Mode=OneWay}" Style="{StaticResource Style.Text.Block.NamePlate}" Foreground="{DynamicResource Brush.Text.OnPreview}" />
+                                        <TextBlock Text="No MultiView on this screen" Style="{StaticResource Style.Text.Title}" Foreground="{DynamicResource Brush.Text.OnPreview}"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
                                 </Grid>
                                 <TextBlock Text="{Binding OutputText, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,8,0,0" />
                             </StackPanel>
                         </ui:Card>
 
-                        <ui:Card Style="{StaticResource Style.Card.Rail}">
+                        <ui:Card x:Name="ChangesCard" Grid.Row="1" Style="{StaticResource Style.Card.Rail.Fill}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Style.Text.RailHeading.Staged}" Margin="0,0,0,6">
-                                    <Run Text="CHANGES (" /><Run Text="{Binding ChangeCount, Mode=OneWay}" /><Run Text=")" />
-                                </TextBlock>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <!-- The dot shows only while there is something staged -->
+                                    <Ellipse x:Name="ChangesDot" Style="{StaticResource Style.Shape.StagedDot}"
+                                             Visibility="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource Converter.Visible.HasItems}}" />
+                                    <TextBlock Grid.Column="1" Style="{StaticResource Style.Text.RailHeading.Staged}">
+                                        <Run Text="CHANGES (" /><Run Text="{Binding ChangeCount, Mode=OneWay}" /><Run Text=")" />
+                                    </TextBlock>
+                                </Grid>
                                 <TextBlock Text="No staged changes." Style="{StaticResource Style.Text.ComposerLabel}"
                                            Visibility="{Binding ChangeLines, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}" />
                                 <ItemsControl ItemsSource="{Binding ChangeLines, Mode=OneWay}" Focusable="False">
@@ -430,10 +465,16 @@
                                 </ItemsControl>
                             </StackPanel>
                         </ui:Card>
-                    </StackPanel>
+                    </Grid>
                 </ScrollViewer>
 
                 <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                    <!-- Step 3 heads the pinned cluster: the check and the Take below it -->
+                    <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,4"
+                                         Number="3" Title="CHECK, THEN TAKE" IsDone="{Binding CanTake, Mode=OneWay}"
+                                         AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}"
+                                         AutomationProperties.HelpText="Nothing changes on screen until you press Take." />
+
                     <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
                     <Border x:Name="BannerHost" Style="{StaticResource Style.Banner.Composer}">
                         <Grid>

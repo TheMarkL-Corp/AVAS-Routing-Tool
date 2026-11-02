@@ -17,6 +17,7 @@
     <sys:Double x:Key="Size.Composer.Rail.Right.Min">264</sys:Double>
     <sys:Double x:Key="Size.Composer.Rail.Right.Max">360</sys:Double>
     <sys:Double x:Key="Size.Composer.Tile.Min">96</sys:Double>
+    <sys:Double x:Key="Size.Composer.Ghost.Opacity">0.85</sys:Double>
 
     <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN TAKE) ===== -->
     <Style x:Key="Style.StepHeader" TargetType="controls:StepHeader">
@@ -153,18 +154,40 @@
         <Setter Property="Focusable" Value="False" />
     </Style>
 
+    <!-- The last card of the rail takes the free height down to the pinned cluster; its list scrolls inside the rail only when it must -->
+    <Style x:Key="Style.Card.Rail.Fill" TargetType="{x:Type ui:Card}" BasedOn="{StaticResource Style.Card.Rail}">
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+
     <Style x:Key="Style.Text.RailHeading" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Section}">
         <Setter Property="FontWeight" Value="Bold" />
     </Style>
 
+    <!-- STAGED and CHANGES: the state is the amber dot plus a neutral word; amber is staged only, never the text -->
     <Style x:Key="Style.Text.RailHeading.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.RailHeading}">
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
     </Style>
 
     <Style x:Key="Style.Text.Status.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Style.Shape.StagedDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Staged}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <!-- Header facts (output, rate): plain Caption text, not pills; the Info badge stays for the shared badges -->
+    <Style x:Key="Style.Text.Meta" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Caption}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,12,0" />
     </Style>
 
     <Style x:Key="Style.Text.Status.OnScreen" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
@@ -217,9 +240,7 @@
             <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
                 <Setter Property="Visibility" Value="Visible" />
                 <Setter Property="Content" Value="Done placing" />
-                <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
-                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
             </DataTrigger>
         </Style.Triggers>
     </Style>
@@ -243,12 +264,31 @@
         <Setter Property="Panel.ZIndex" Value="{Binding Index, Mode=OneWay, Converter={StaticResource Converter.Composer.PaintOrder}}" />
     </Style>
 
-    <!-- Step 1 placeholder -->
-    <Style x:Key="Style.Panel.Placeholder" TargetType="StackPanel">
+    <!-- Step 1 placeholder: a card on the canvas, so its text reads over the ghost schematic. Top of the canvas: every layout leaves that band empty, so the card never covers the PIP inset or the lower cells -->
+    <Style x:Key="Style.Panel.Placeholder" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="16" />
         <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Top" />
         <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Text.Measure.Max}" />
         <Setter Property="Margin" Value="16" />
+    </Style>
+
+    <!-- Step 1 ghost: a dimmed schematic of the layout the operator hovers or focuses on the empty canvas. Not a tab stop, no name; shown only while no layout is staged -->
+    <Style x:Key="Style.Panel.Ghost" TargetType="views:LayoutSchematic">
+        <Setter Property="Opacity" Value="{StaticResource Size.Composer.Ghost.Opacity}" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Draft, Mode=OneWay}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- Small dark chip over a preview (legible on any picture) -->
@@ -341,6 +381,15 @@
                 <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- The display's name on the empty ON SCREEN NOW mat: one bold Lead line, truncated with an ellipsis, never wrapped -->
+    <Style x:Key="Style.Text.Block.NamePlate" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Overlay.Text.Max}" />
     </Style>
 
     <Style x:Key="Style.Text.Block.Title" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
@@ -478,12 +527,29 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="Style.Text.Block.PlaceAction" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
-        <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, StringFormat='+ Place {0}'}" />
+    <!-- The pill's first line: the verb. Line two is the name, trimmed (the full name is in the block's tooltip) -->
+    <Style x:Key="Style.Text.Block.PlaceVerb" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
+        <Setter Property="Text" Value="+ Place" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
-                <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, StringFormat='Replace with {0}'}" />
+                <Setter Property="Text" Value="Replace" />
             </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The pill's second line: the armed source's name, one line, ellipsis at the overlay text width; a compact block shows the verb only -->
+    <Style x:Key="Style.Text.Block.PlaceName" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Overlay.Text.Max}" />
+        <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
         </Style.Triggers>
     </Style>
 
@@ -561,7 +627,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- The state line: staged = dashed amber, on screen = solid blue, problem = red, selected = light blue -->
+    <!-- The state line: staged = dashed neutral (the amber is the canvas frame's alone), on screen = solid blue, problem = red, selected = light blue -->
     <Style x:Key="Style.Shape.BlockState" TargetType="Rectangle">
         <Setter Property="RadiusX" Value="6" />
         <Setter Property="RadiusY" Value="6" />
@@ -569,9 +635,11 @@
         <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Control}" />
         <Setter Property="StrokeThickness" Value="2" />
         <Style.Triggers>
+            <!-- Neutral staged outline, measured on Surface.PreviewMat (black), need 3:1: Border.Strong 2.77 dark (fails) / 8.19 light;
+                 Text.Secondary 8.19 dark / 2.77 light (fails); Text.Muted 4.41 dark / 4.41 light (chosen) -->
             <DataTrigger Binding="{Binding State, Mode=OneWay}" Value="Staged">
-                <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Staged}" />
-                <Setter Property="StrokeThickness" Value="3" />
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Text.Muted}" />
+                <Setter Property="StrokeThickness" Value="2" />
                 <Setter Property="StrokeDashArray" Value="4 2" />
             </DataTrigger>
             <MultiDataTrigger>
@@ -596,6 +664,14 @@
                 <Setter Property="StrokeDashArray" Value="2 2" />
             </DataTrigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- The armed ring on a block that can take the source: a plain 2 px cyan outline, no tint (the place pill sits on the scrim) -->
+    <Style x:Key="Style.Shape.PlaceRing" TargetType="Rectangle">
+        <Setter Property="RadiusX" Value="6" />
+        <Setter Property="RadiusY" Value="6" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.DropTarget}" />
+        <Setter Property="StrokeThickness" Value="2" />
     </Style>
 
     <!-- Keyboard focus: a 2 px ring in the block's margin (drawn, not an adorner, so it also renders); shown by a DataTemplate trigger -->
@@ -871,7 +947,6 @@
     <Style x:Key="Style.Button.Undo" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
         <Setter Property="Margin" Value="0,8,0,0" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Online}" />
         <Setter Property="Visibility" Value="Collapsed" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding CanUndo, Mode=OneWay}" Value="True">

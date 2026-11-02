@@ -31,7 +31,7 @@ namespace AvasRoutingTool.Tests
 
                 Showing(view, () =>
                 {
-                    var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible).ToList();
+                    var schematics = FindAll<LayoutSchematic>(view).Where(s => s.IsVisible && s.Name != "GhostSchematic").ToList();
                     Assert.Equal(new[] { "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3" }, schematics.Select(s => s.LayoutId));
                     Assert.Equal(new[] { 4, 2, 2, 2, 4 }, schematics.Select(s => s.CellCount));
                     Assert.All(schematics, s => Assert.True(s.ActualWidth >= 100 && s.ActualHeight >= 56, $"schematic {s.ActualWidth}x{s.ActualHeight}"));
@@ -40,6 +40,151 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(5, tiles.Count);
                     Assert.All(tiles, t => Assert.True(t.ActualWidth >= 200 && t.ActualHeight >= 96, $"tile {t.ActualWidth}x{t.ActualHeight}"));
                     AssertVisibleText(view, "Step 1");
+                });
+            });
+
+        [Fact]
+        public void Composer_Step1_ShowsAGhostSchematic_NotABlankCanvas() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    Assert.True(ghost.IsVisible);
+                    Assert.Equal("matrix2x2", ghost.LayoutId);
+                    Assert.Equal(4, ghost.CellCount);
+                    Assert.True(ghost.Opacity < 1, $"ghost opacity is {ghost.Opacity}");
+                    Assert.True(ghost.ActualWidth > 600 && ghost.ActualHeight > 300, $"ghost is {ghost.ActualWidth}x{ghost.ActualHeight}");
+                    Assert.False(ghost.Focusable);
+                    AssertVisibleText(view, "Step 1");
+
+                    // Hovering a tile previews its layout on the ghost; leaving the tile goes back to the default
+                    var pip = Named(view, "LayoutTile").Cast<Button>().Single(t => t.IsVisible && ((ComposerLayoutOptionViewModel)t.DataContext).Id == "pip");
+                    pip.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseEnterEvent });
+                    Assert.Equal("pip", ghost.LayoutId);
+                    Assert.Equal(2, ghost.CellCount);
+                    pip.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseLeaveEvent });
+                    Assert.Equal("matrix2x2", ghost.LayoutId);
+                });
+            });
+
+        [Fact]
+        public void Composer_Ghost_FollowsKeyboardFocus() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                Showing(view, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    var tiles = Named(view, "LayoutTile").Cast<Button>().ToList();
+                    Button Tile(string id) => tiles.Single(t => ((ComposerLayoutOptionViewModel)t.DataContext).Id == id);
+                    var close = (Button)Assert.Single(Named(view, "CloseComposerButton"));
+
+                    KeyboardMode();
+                    Assert.True(Tile("quad_1_3").Focus(), "the quad tile did not take keyboard focus");
+                    Idle();
+                    Assert.Equal("quad_1_3", ghost.LayoutId);
+
+                    Assert.True(Tile("pip").Focus(), "the pip tile did not take keyboard focus");
+                    Idle();
+                    Assert.Equal("pip", ghost.LayoutId);
+
+                    // Focus leaves the tiles for the header: the ghost is back on the default
+                    Assert.True(close.Focus(), "the header button did not take keyboard focus");
+                    Idle();
+                    Assert.Same(close, Keyboard.FocusedElement);
+                    Assert.Equal("matrix2x2", ghost.LayoutId);
+                });
+            });
+
+        [Fact]
+        public void Composer_Ghost_DisappearsWhenALayoutIsStaged() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer("matrix2x2"));
+
+                Showing(view, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    Assert.False(ghost.IsVisible);
+                    Assert.Empty(VisibleTexts(view, "Step 1"));
+                });
+            });
+
+        [Fact]
+        public void Composer_Ghost_IsNotATabStop() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                Showing(view, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    Assert.False(ghost.IsTabStop);
+                    Assert.False(ghost.Focusable);
+                    Assert.True(string.IsNullOrEmpty(System.Windows.Automation.AutomationProperties.GetName(ghost)), "the ghost has an automation name");
+                });
+            });
+
+        [Fact]
+        public void Composer_Ghost_IsLegible_AndTheHintStaysAtTheTop() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    var canvas = (FrameworkElement)Named(view, "CanvasHost").Single();
+                    var hint = FindAll<Border>(view).Single(b => b.Style == (Style)Application.Current.FindResource("Style.Panel.Placeholder"));
+
+                    // The ghost is a preview: dimmed, but clearly readable over the black mat
+                    Assert.True(ghost.Opacity >= 0.8 && ghost.Opacity < 1.0, $"ghost opacity is {ghost.Opacity}");
+
+                    // The hint card sits at the top of the canvas, where every layout leaves room, never over the lower cells
+                    Assert.True(hint.IsVisible);
+                    var hintBounds = BoundsIn(hint, canvas);
+                    Assert.True(Math.Abs(hintBounds.Top) <= 40, $"hint card top is {hintBounds.Top} in a canvas {canvas.ActualHeight} high");
+                    Assert.True(hintBounds.Bottom < canvas.ActualHeight / 2, $"hint card bottom is {hintBounds.Bottom} in a canvas {canvas.ActualHeight} high");
+
+                    // Previewing PIP large (inset bottom-right): the hint still keeps clear of the lower half
+                    var pipLarge = Named(view, "LayoutTile").Cast<Button>().Single(t => t.IsVisible && ((ComposerLayoutOptionViewModel)t.DataContext).Id == "pip_large");
+                    pipLarge.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = Mouse.MouseEnterEvent });
+                    Relayout(view);
+                    Assert.Equal("pip_large", ghost.LayoutId);
+                    Assert.True(BoundsIn(hint, canvas).Bottom < canvas.ActualHeight / 2, $"hint card covers the lower half under pip_large: bottom {BoundsIn(hint, canvas).Bottom}");
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_Step1Placeholder_TextReadsOnItsCard_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+                new AvasRoutingTool.Services.ThemeService().SetTheme(mode);
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    // The placeholder is a card on the canvas: its two lines are measured against the card, not the ghost behind it
+                    var card = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Elevated")).Color;
+                    var lines = VisibleTexts(view, "Step 1").Concat(VisibleTexts(view, "The blocks appear")).ToList();
+                    Assert.Equal(2, lines.Count);
+                    foreach (var line in lines)
+                    {
+                        var text = ((SolidColorBrush)line.Foreground).Color;
+                        Assert.True(Contrast(text, card) >= 4.5, $"'{line.Text}' in {mode}: {Contrast(text, card):0.0}:1");
+                    }
                 });
             });
 
@@ -72,6 +217,73 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal("On screen now: no MultiView on this screen", System.Windows.Automation.AutomationProperties.GetName(onScreen));
                 });
             });
+
+        // ---- Composer round 2 C6: the left rail keeps Step 1 only; Step 2 heads the canvas, Step 3 heads the Take cluster ----
+
+        [Fact]
+        public void Composer_LeftRail_HoldsOnlyStep1_AndUnplaced() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var rail = (ScrollViewer)Named(view, "LeftRailScroll").Single();
+                    var railColumn = (ColumnDefinition)view.FindName("LeftRailColumn");
+                    var rightRail = (ScrollViewer)Named(view, "RightRailScroll").Single();
+                    var layout = Named(view, "StepLayoutHeading").Single();
+                    var place = Named(view, "StepPlaceHeading").Single();
+                    var take = Named(view, "StepTakeHeading").Single();
+                    var canvas = (FrameworkElement)Named(view, "CanvasHost").Single();
+                    var takeButton = (FrameworkElement)Named(view, "TakeButton").Single();
+
+                    Assert.True(IsInside(layout, rail), "the Step 1 heading is not in the left rail");
+                    Assert.False(IsInside(place, rail), "the Step 2 heading is still in the left rail");
+                    Assert.False(IsInside(take, rail), "the Step 3 heading is still in the left rail");
+
+                    // Step 2 heads the canvas status row: right of the rail and above the canvas
+                    var placeBounds = BoundsIn(place, view);
+                    Assert.True(placeBounds.Left >= railColumn.ActualWidth - 0.5, $"Step 2 at x {placeBounds.Left}, the left rail is {railColumn.ActualWidth} wide");
+                    Assert.True(placeBounds.Top < BoundsIn(canvas, view).Top, $"Step 2 at y {placeBounds.Top}, the canvas starts at {BoundsIn(canvas, view).Top}");
+
+                    // Step 3 heads the Take cluster: above the Take button and right of the canvas
+                    var takeHeading = BoundsIn(take, view);
+                    Assert.True(takeHeading.Bottom <= BoundsIn(takeButton, view).Top + 0.5, $"Step 3 ends at {takeHeading.Bottom}, Take starts at {BoundsIn(takeButton, view).Top}");
+                    Assert.True(takeHeading.Left >= BoundsIn(rightRail, view).Left - 0.5, $"Step 3 at x {takeHeading.Left}, the right rail starts at {BoundsIn(rightRail, view).Left}");
+
+                    // The two instruction sentences are gone from the screen; screen readers get them as help text on the headings
+                    Assert.Empty(VisibleTexts(view, "Tap a source above"));
+                    Assert.Empty(VisibleTexts(view, "Nothing changes on screen until Take."));
+                    Assert.Equal("Tap a source in the strip above, then its blocks - or tap an empty block.", System.Windows.Automation.AutomationProperties.GetHelpText(place));
+                    Assert.Equal("Nothing changes on screen until you press Take.", System.Windows.Automation.AutomationProperties.GetHelpText(take));
+                });
+            });
+
+        [Fact]
+        public void Composer_Canvas_StaysAtLeast1144x635_AtFullHd() =>
+            RunSta(() =>
+            {
+                // In the real screen: the composer under the source strip and the header, as the checkpoint harness shows it
+                var (vm, rx, sources) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var canvas = (FrameworkElement)Named(view, "CanvasHost").Single();
+                    Assert.True(canvas.ActualWidth >= 1140 && canvas.ActualHeight >= 630, $"the canvas is {canvas.ActualWidth}x{canvas.ActualHeight}");
+                });
+            });
+
+        private static bool IsInside(DependencyObject element, DependencyObject ancestor)
+        {
+            for (var parent = System.Windows.Media.VisualTreeHelper.GetParent(element); parent != null; parent = System.Windows.Media.VisualTreeHelper.GetParent(parent))
+            {
+                if (ReferenceEquals(parent, ancestor)) return true;
+            }
+            return false;
+        }
 
         [Fact]
         public void Composer_WithStagedDuplicate_ShowsSameAsChip_AndStagedLabel() =>
@@ -1494,6 +1706,213 @@ namespace AvasRoutingTool.Tests
                 }
             });
 
+        // ---- Composer round 2 C2: Done placing is an outline button; Take is the only filled button ----
+
+        [Fact]
+        public void Composer_DoneButton_IsSecondary_TakeIsTheOnlyFilledButton_InDarkMode() =>
+            RunSta(() => AssertDoneIsOutlineAndTakeIsTheOnlyFilled(AvasRoutingTool.Services.ThemeMode.Dark));
+
+        [Fact]
+        public void Composer_DoneButton_IsSecondary_TakeIsTheOnlyFilledButton_InLightMode() =>
+            RunSta(() => AssertDoneIsOutlineAndTakeIsTheOnlyFilled(AvasRoutingTool.Services.ThemeMode.Light));
+
+        [Fact]
+        public void Composer_DoneButton_Outline_HasEnoughContrast_InDarkMode() =>
+            RunSta(() => AssertDoneOutlineHasEnoughContrast(AvasRoutingTool.Services.ThemeMode.Dark));
+
+        [Fact]
+        public void Composer_DoneButton_Outline_HasEnoughContrast_InLightMode() =>
+            RunSta(() => AssertDoneOutlineHasEnoughContrast(AvasRoutingTool.Services.ThemeMode.Light));
+
+        private static void AssertDoneIsOutlineAndTakeIsTheOnlyFilled(AvasRoutingTool.Services.ThemeMode mode)
+        {
+            var themeService = new AvasRoutingTool.Services.ThemeService();
+            try
+            {
+                themeService.SetTheme(mode);
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0); // a placed block: Take is ready
+                c.Arm(rig.Tx2); // armed again: Done placing is on screen
+                Assert.True(c.CanTake, "Take is not ready after a placement");
+                Assert.Same(rig.Tx2, c.ArmedSource);
+                var view = rig.View(c);
+
+                Showing(view, () =>
+                {
+                    Relayout(view);
+                    var done = (Button)Named(view, "DoneButton").Single();
+                    var take = (Button)Named(view, "TakeButton").Single();
+                    Assert.True(done.IsVisible, "Done placing is not on screen while a source is armed");
+                    Assert.True(take.IsVisible, "Take is not on screen");
+
+                    var elevated = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Elevated")).Color;
+                    var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color;
+                    var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                    var takeFill = ((SolidColorBrush)Application.Current.FindResource("Brush.Action.Take")).Color;
+
+                    // Done placing: the secondary look (elevated fill, cyan outline = armed, primary text), never a cyan fill
+                    Assert.Equal(elevated, ((SolidColorBrush)done.Background).Color);
+                    Assert.Equal(outline, ((SolidColorBrush)done.BorderBrush).Color);
+                    Assert.Equal(text, ((SolidColorBrush)done.Foreground).Color);
+                    Assert.NotEqual(outline, ((SolidColorBrush)done.Background).Color);
+                    Assert.NotEqual(takeFill, ((SolidColorBrush)done.Background).Color);
+
+                    // Take is the only visible filled button
+                    var filled = FindAll<Button>(view)
+                        .Where(b => b.IsVisible && b.Background is SolidColorBrush s && s.Color == takeFill)
+                        .ToList();
+                    Assert.Single(filled);
+                    Assert.Same(take, filled[0]);
+                });
+            }
+            finally
+            {
+                themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+            }
+        }
+
+        private static void AssertDoneOutlineHasEnoughContrast(AvasRoutingTool.Services.ThemeMode mode)
+        {
+            var themeService = new AvasRoutingTool.Services.ThemeService();
+            try
+            {
+                themeService.SetTheme(mode);
+                var elevated = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Elevated")).Color;
+                var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color;
+                var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                var page = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
+
+                Assert.True(Contrast(text, elevated) >= 4.5, $"Done placing text on Surface.Elevated: {Contrast(text, elevated):F2} (need 4.5)");
+                Assert.True(Contrast(outline, elevated) >= 3.0, $"Done placing outline on Surface.Elevated: {Contrast(outline, elevated):F2} (need 3.0)");
+                Assert.True(Contrast(outline, page) >= 3.0, $"Done placing outline on the page surface: {Contrast(outline, page):F2} (need 3.0)");
+            }
+            finally
+            {
+                themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+            }
+        }
+
+        // ---- Composer round 2 C3 (part a): one amber frame, neutral staged blocks, a plain armed ring, a neutral Undo ----
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_StagedColours_AreOneAmberFrame(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var rig = new ComposerRig();
+                    var c = rig.Composer("matrix2x2");
+                    c.Arm(rig.Tx1);
+                    c.TapBlock(0);
+                    var view = rig.View(c);
+
+                    ShowingAt(view, 1904, 940, () =>
+                    {
+                        var amber = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Staged")).Color;
+                        var neutral = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Muted")).Color;
+
+                        // The canvas frame is the one amber frame while the layout is staged
+                        var frame = (System.Windows.Shapes.Rectangle)Named(view, "CanvasFrame").Single();
+                        Assert.Equal(amber, ((SolidColorBrush)frame.Stroke).Color);
+                        Assert.NotEmpty(frame.StrokeDashArray);
+
+                        // The staged block's state line is a neutral dashed outline, 2 px
+                        var stateStyle = (Style)Application.Current.FindResource("Style.Shape.BlockState");
+                        var stateLines = FindAll<System.Windows.Shapes.Rectangle>(view).Where(r => r.Style == stateStyle && r.IsVisible).ToList();
+                        var staged = stateLines.Single(r => r.DataContext is ComposerBlockViewModel b && b.State == BlockState.Staged);
+                        Assert.Equal(neutral, ((SolidColorBrush)staged.Stroke).Color);
+                        Assert.NotEmpty(staged.StrokeDashArray);
+                        Assert.Equal(2.0, staged.StrokeThickness);
+
+                        // No other state line is amber
+                        Assert.DoesNotContain(stateLines, r => ((SolidColorBrush)r.Stroke).Color == amber);
+                    });
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
+        [Fact]
+        public void Composer_ArmedOverlay_HasNoTintFill() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1); // the empty blocks offer "+ Place"
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    Relayout(view);
+                    var rings = Named(view, "PlaceRing").Where(r => r.IsVisible).Cast<System.Windows.Shapes.Rectangle>().ToList();
+                    Assert.NotEmpty(rings);
+                    var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color;
+                    foreach (var ring in rings)
+                    {
+                        Assert.Null(ring.Fill);
+                        Assert.Equal(outline, ((SolidColorBrush)ring.Stroke).Color);
+                        Assert.Equal(2.0, ring.StrokeThickness);
+                    }
+                });
+            });
+
+        [Fact]
+        public void Composer_Undo_BorderIsNeutral_GreenStaysOnTheSuccessBanner() =>
+            RunSta(() =>
+            {
+                var now = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
+                var (vm, rx, sources) = Overview(() => now);
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[0]);
+                c.TapBlock(c.Blocks[0].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                c.Arm(sources[1]);
+                c.TapBlock(c.Blocks[1].Index);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                Assert.Equal(BannerKind.Success, c.Banner.Kind);
+                var view = new VisualRoutingView { DataContext = vm };
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var undo = (Button)Named(view, "UndoButton").Single();
+                    var neutral = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.Control")).Color;
+                    Assert.Equal(neutral, ((SolidColorBrush)undo.BorderBrush).Color);
+
+                    var online = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Online")).Color;
+                    var banner = (Border)Named(view, "BannerHost").Single();
+                    Assert.Equal(online, ((SolidColorBrush)banner.BorderBrush).Color);
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_NeutralStagedOutline_HasEnoughContrast_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var neutral = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Muted")).Color;
+                    var mat = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.PreviewMat")).Color;
+                    Assert.True(Contrast(neutral, mat) >= 3.0, $"staged outline on the mat in {mode}: {Contrast(neutral, mat):F2} (need 3.0)");
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
         // ---- UI v2 Task 5a: rails are token-clamped star columns ----
 
         [Fact]
@@ -1671,9 +2090,11 @@ namespace AvasRoutingTool.Tests
                     var cards = FindAll<Wpf.Ui.Controls.Card>(view);
                     Assert.Equal(2, cards.Count); // ON SCREEN NOW and CHANGES
                     var surface = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Card")).Color;
+                    var changes = Named(view, "ChangesCard").Single(); // the last card takes the free height: Style.Card.Rail.Fill
                     Assert.All(cards, c =>
                     {
-                        Assert.Same(Application.Current.FindResource("Style.Card.Rail"), c.Style);
+                        var style = ReferenceEquals(c, changes) ? "Style.Card.Rail.Fill" : "Style.Card.Rail";
+                        Assert.Same(Application.Current.FindResource(style), c.Style);
                         Assert.Equal(surface, ((SolidColorBrush)c.Background).Color);
                         Assert.False(c.Focusable);
                     });
@@ -1682,7 +2103,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void Composer_HeaderChips_AreBadges_AndCollapseWhenEmpty() =>
+        public void Composer_HeaderChips_ArePlainText_AndCollapseWhenEmpty() =>
             RunSta(() =>
             {
                 var rig = new ComposerRig();
@@ -1691,16 +2112,116 @@ namespace AvasRoutingTool.Tests
 
                 Showing(chosen, () =>
                 {
-                    var badges = FindAll<Wpf.Ui.Controls.Badge>(chosen);
-                    Assert.NotEmpty(badges);
-                    Assert.All(badges, b => Assert.Same(Application.Current.FindResource("Style.Badge.Info"), b.Style));
-                    Assert.Contains(badges, b => b.IsVisible && b.Content is string s && s.Length > 0);
+                    var output = (TextBlock)Assert.Single(Named(chosen, "OutputChip"));
+                    Assert.True(output.IsVisible && output.Text.Length > 0, $"the output chip is not shown ('{output.Text}')");
+                    Assert.Same(Application.Current.FindResource("Style.Text.Meta"), output.Style);
+
+                    var rate = (TextBlock)Assert.Single(Named(chosen, "RateChip"));
+                    Assert.Same(Application.Current.FindResource("Style.Text.Meta"), rate.Style);
+                    Assert.Equal(!string.IsNullOrEmpty(rate.Text), rate.IsVisible);
+
+                    // The header facts are plain text now: no badge in the view keeps the shared Info style
+                    var info = Application.Current.FindResource("Style.Badge.Info");
+                    Assert.DoesNotContain(FindAll<Wpf.Ui.Controls.Badge>(chosen), b => ReferenceEquals(b.Style, info));
                 });
                 Showing(none, () =>
                 {
                     // no layout chosen yet: the output chip has nothing to say and takes no room
-                    Assert.All(FindAll<Wpf.Ui.Controls.Badge>(none), b => Assert.False(b.IsVisible && string.IsNullOrEmpty(b.Content as string)));
+                    var output = (TextBlock)Assert.Single(Named(none, "OutputChip"));
+                    Assert.False(output.IsVisible, $"the output chip is shown ('{output.Text}') before a layout is chosen");
                 });
+            });
+
+        // ---- Composer round 2 C3 (part b): STAGED and CHANGES are neutral text with an amber dot; amber stays for staged only ----
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_StatusHeadings_AreNeutralText_WithAnAmberDot(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                    var amber = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Staged")).Color;
+                    var accent = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Accent")).Color;
+                    var dotSize = (double)Application.Current.FindResource("Size.Dot.M");
+
+                    // Staged: the status word and the CHANGES heading are primary text, each with a 10 px amber dot in front of it
+                    var rig = new ComposerRig();
+                    var c = rig.Composer("matrix2x2");
+                    c.Arm(rig.Tx1);
+                    c.TapBlock(0);
+                    c.Disarm();
+                    var staged = rig.View(c);
+                    ShowingAt(staged, 1904, 940, () =>
+                    {
+                        var label = (TextBlock)Assert.Single(Named(staged, "StagedLabel"));
+                        Assert.True(label.IsVisible, "STAGED is not shown");
+                        Assert.Equal(text, ((SolidColorBrush)label.Foreground).Color);
+                        var dot = (System.Windows.Shapes.Ellipse)Assert.Single(Named(staged, "StagedDot"));
+                        Assert.True(dot.IsVisible, "the STAGED dot is not shown");
+                        Assert.Same(Application.Current.FindResource("Style.Shape.StagedDot"), dot.Style);
+                        Assert.Equal(amber, ((SolidColorBrush)dot.Fill).Color);
+                        Assert.Equal(dotSize, dot.ActualWidth);
+                        Assert.Equal(dotSize, dot.ActualHeight);
+                        Assert.Same(label.Parent, dot.Parent); // the dot and the word share one row
+
+                        var changes = FindAll<TextBlock>(staged).Single(t =>
+                            t.IsVisible && string.Concat(t.Inlines.OfType<Run>().Select(r => r.Text)).StartsWith("CHANGES (", StringComparison.Ordinal));
+                        Assert.Equal(text, ((SolidColorBrush)changes.Foreground).Color);
+                        var changesDot = (System.Windows.Shapes.Ellipse)Assert.Single(Named(staged, "ChangesDot"));
+                        Assert.True(changesDot.IsVisible, "the CHANGES dot is not shown while a change is staged");
+                        Assert.Equal(amber, ((SolidColorBrush)changesDot.Fill).Color);
+                        Assert.Equal(dotSize, changesDot.ActualWidth);
+                        Assert.Same(changes.Parent, changesDot.Parent);
+                    });
+
+                    // On screen: the status word stays blue, and no dot shows (nothing is staged, so CHANGES has none either)
+                    var live = new ComposerRig();
+                    var on = live.Composer("matrix2x2");
+                    on.Arm(live.Tx1);
+                    on.TapBlock(0);
+                    on.Disarm();
+                    Pump(on.TakeAsync);
+                    var onScreen = live.View(on);
+                    ShowingAt(onScreen, 1904, 940, () =>
+                    {
+                        var word = (TextBlock)Assert.Single(Named(onScreen, "OnScreenLabel"));
+                        Assert.True(word.IsVisible, "ON SCREEN is not shown");
+                        Assert.Equal(accent, ((SolidColorBrush)word.Foreground).Color);
+                        Assert.False(Named(onScreen, "StagedDot").Single().IsVisible, "a STAGED dot shows while the screen is the staged picture");
+                        Assert.False(Named(onScreen, "ChangesDot").Single().IsVisible, "a CHANGES dot shows with nothing staged");
+                    });
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_PlainHeaderFacts_AndStatusWords_HaveEnoughContrastOnThePage(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var themeService = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    themeService.SetTheme(mode);
+                    var page = ((SolidColorBrush)Application.Current.FindResource("Brush.Background.Dark")).Color;
+                    var secondary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
+                    var primary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                    Assert.True(Contrast(secondary, page) >= 4.5, $"Text.Secondary on Background.Dark in {mode}: {Contrast(secondary, page):F2} (need 4.5)");
+                    Assert.True(Contrast(primary, page) >= 4.5, $"Text.Primary on Background.Dark in {mode}: {Contrast(primary, page):F2} (need 4.5)");
+                }
+                finally
+                {
+                    themeService.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark);
+                }
             });
 
         [Fact]
@@ -1799,6 +2320,99 @@ namespace AvasRoutingTool.Tests
                     var locks = Named(view, "LockIcon").Where(e => e.IsVisible).ToList();
                     Assert.Equal(3, locks.Count);
                     Assert.All(locks, l => Assert.Equal(Wpf.Ui.Controls.SymbolRegular.LockClosed24, ((Wpf.Ui.Controls.SymbolIcon)l).Symbol));
+                });
+            });
+
+        // ---- UI v2 round 2 C8: the place pill is two lines (the verb, then the name trimmed); the full name is in the block's tooltip ----
+
+        /// <summary>A source whose name is longer than a place pill shows on one line (48 characters).</summary>
+        private static SourceCardViewModel LongNamedSource() =>
+            new(new AvasDevice { DeviceId = "74fe488b07c0", DeviceName = "AVAS_ENCODER_OPERATING_ROOM_CAMERA_FEED_TWO_SFPA", VendorId = 105, IsTransmitter = true, IsActive = true });
+
+        [Fact]
+        public void Composer_PlacePill_TruncatesLongNames_AndTheTooltipHasTheFullName() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var longSource = LongNamedSource();
+                rig.Sources.Add(longSource);
+                var c = rig.Composer("matrix2x2");
+                c.Arm(longSource);
+                var view = rig.View(c);
+
+                Showing(view, () => // full-size blocks: the name is on line 2 (a compact block shows the verb only)
+                {
+                    var verbs = Named(view, "PlaceVerbText").Where(e => e.IsVisible).Cast<TextBlock>().ToList();
+                    var names = Named(view, "PlaceNameText").Where(e => e.IsVisible).Cast<TextBlock>().ToList();
+                    Assert.Equal(4, verbs.Count);
+                    Assert.Equal(4, names.Count);
+                    Assert.All(verbs, v => Assert.Equal("+ Place", v.Text));
+                    Assert.All(names, n => Assert.Equal(longSource.DeviceName, n.Text));
+                    Assert.All(names, n => Assert.Equal(TextTrimming.CharacterEllipsis, n.TextTrimming));
+                    var max = (double)Application.Current.FindResource("Size.Composer.Overlay.Text.Max");
+                    Assert.All(names, n => Assert.True(n.ActualWidth <= max, $"name is {n.ActualWidth} wide"));
+
+                    foreach (var pill in Named(view, "PlacePill").Where(e => e.IsVisible))
+                    {
+                        var block = Named(view, "BlockRoot").Single(r => ReferenceEquals(r.DataContext, pill.DataContext));
+                        Assert.True(pill.ActualWidth <= block.ActualWidth, $"pill {pill.ActualWidth} in block {block.ActualWidth}");
+                    }
+
+                    Assert.All(Surfaces(view), s => Assert.Equal(longSource.DeviceName, s.ToolTip as string));
+                    c.Disarm();
+                    Relayout(view);
+                    Assert.All(Surfaces(view), s => Assert.Null(s.ToolTip));
+                });
+            });
+
+        [Fact]
+        public void Composer_PlacePill_PlacedBlock_SaysReplace() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Arm(rig.Tx2);
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var placed = c.Blocks[0].Index;
+                    var empty = c.Blocks[1].Index;
+                    Assert.True(InBlock(view, "PlacePill", placed).IsVisible);
+                    Assert.Equal("Replace", ((TextBlock)InBlock(view, "PlaceVerbText", placed)).Text);
+                    Assert.Equal("+ Place", ((TextBlock)InBlock(view, "PlaceVerbText", empty)).Text);
+                });
+            });
+
+        [Fact]
+        public void Composer_PlacePill_Compact_ShowsVerbOnly() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var longSource = LongNamedSource();
+                rig.Sources.Add(longSource);
+                var c = rig.Composer("quad_1_3"); // block 1 is large, blocks 2-4 are small
+                c.Arm(longSource);
+                var view = rig.View(c);
+
+                ShowingAt(view, 976, 600, () =>
+                {
+                    var roots = Named(view, "BlockRoot").Where(e => e.IsVisible).ToList();
+                    var small = roots.Where(r => BlockDensity.GetIsCompact(r)).ToList();
+                    Assert.Equal(3, small.Count);
+                    foreach (var r in small)
+                    {
+                        Assert.True(Named(r, "PlacePill").Single().IsVisible);
+                        var verb = (TextBlock)Named(r, "PlaceVerbText").Single();
+                        Assert.True(verb.IsVisible);
+                        Assert.False(Named(r, "PlaceNameText").Single().IsVisible);
+                        Assert.True(verb.FontSize >= 12, $"verb is {verb.FontSize}");
+                    }
+
+                    var big = roots.Except(small).Single();
+                    Assert.True(Named(big, "PlaceNameText").Single().IsVisible);
                 });
             });
 
@@ -1919,6 +2533,122 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(2, panels.Count); // the mat and the live blocks
                     Assert.All(panels, p => Assert.Equal(c.LiveAspectRatio, p.AspectRatio, 5));
                     Assert.NotEqual(16.0 / 9.0, c.LiveAspectRatio, 3);
+                });
+            });
+
+        // ---- Critique C4: the right rail fills the free height; the empty preview names the display ----
+
+        [Fact]
+        public void Composer_RightRail_ChangesCardFillsTheFreeHeight() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                var view = rig.View(c);
+
+                ShowingAt(view, 1904, 940, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "RightRailScroll").Single();
+                    var changes = (FrameworkElement)Named(view, "ChangesCard").Single();
+                    var changesBottom = BoundsIn(changes, scroll).Bottom;
+                    Assert.True(Math.Abs(changesBottom - scroll.ViewportHeight) <= 1, $"Changes card ends at {changesBottom} in a {scroll.ViewportHeight} high rail");
+
+                    // The pinned cluster (its Step 3 heading, banner, Take) starts 8 px under the rail: no dead zone between them
+                    var clusterTop = BoundsIn((FrameworkElement)Named(view, "StepTakeHeading").Single(), view).Top;
+                    var railBottom = BoundsIn(scroll, view).Bottom;
+                    Assert.True(clusterTop - railBottom <= 8.5, $"{clusterTop - railBottom} px between the rail and the pinned cluster");
+                });
+            });
+
+        [Fact]
+        public void Composer_RightRail_StillScrolls_WhenTheContentIsTall() =>
+            RunSta(() =>
+            {
+                var (vm, rx, sources) = Overview();
+                Pump(() => vm.OpenComposerAsync(rx, "matrix2x2"));
+                var c = vm.ActiveComposer!;
+                c.Arm(sources[1]); // the longest name, in every block: four staged changes
+                foreach (var b in c.Blocks.ToList()) c.TapBlock(b.Index);
+                c.Disarm();
+                Assert.Equal(4, c.ChangeCount);
+                var view = new VisualRoutingView { DataContext = vm };
+
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "RightRailScroll").Single();
+                    Assert.True(scroll.ScrollableHeight > 0, $"rail content {scroll.ExtentHeight} in a {scroll.ViewportHeight} high rail");
+
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    Assert.True(take.IsVisible);
+                    var tr = BoundsIn(take, view);
+                    Assert.True(tr.Top >= 0 && tr.Bottom <= view.ActualHeight + 0.5, $"Take at {tr} in a {view.ActualHeight} high view");
+                });
+            });
+
+        [Fact]
+        public void Composer_OnScreenPicture_EmptyShowsTheDisplayName() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var empty = rig.View(c);
+                ShowingAt(empty, 1904, 940, () =>
+                {
+                    var plate = (TextBlock)Named(empty, "NamePlateText").Single();
+                    Assert.True(plate.IsVisible);
+                    Assert.Equal(rig.Rx.DeviceName, plate.Text);
+                    AssertVisibleText(empty, "No MultiView on this screen");
+                });
+
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                c.Disarm();
+                Pump(c.TakeAsync);
+                var live = rig.View(c);
+                ShowingAt(live, 1904, 940, () =>
+                {
+                    Assert.False(Named(live, "NamePlateText").Single().IsVisible);
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void Composer_NamePlate_HasEnoughContrast_OnThePreviewMat(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                new AvasRoutingTool.Services.ThemeService().SetTheme(mode);
+                var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.OnPreview")).Color;
+                var mat = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.PreviewMat")).Color;
+                Assert.True(Contrast(text, mat) >= 4.5, $"name plate in {mode}: {Contrast(text, mat):0.0}:1");
+            });
+
+        [Theory]
+        [InlineData(1904, 940)] // a maximized window at 1920x1080
+        [InlineData(1008, 615)] // the MainWindow minimum
+        public void Composer_ArmingDoesNotMoveTake(int width, int height) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                var view = rig.View(c);
+
+                ShowingAt(view, width, height, () =>
+                {
+                    var take = (FrameworkElement)Named(view, "TakeButton").Single();
+                    var before = take.TranslatePoint(new Point(0, 0), view);
+                    var beforeSize = new Size(take.ActualWidth, take.ActualHeight);
+
+                    c.Arm(rig.Tx1);
+                    Relayout(view);
+
+                    var after = take.TranslatePoint(new Point(0, 0), view);
+                    Assert.True(Math.Abs(after.X - before.X) <= 0.5 && Math.Abs(after.Y - before.Y) <= 0.5, $"Take moved from {before} to {after}");
+                    Assert.True(Math.Abs(take.ActualWidth - beforeSize.Width) <= 0.5 && Math.Abs(take.ActualHeight - beforeSize.Height) <= 0.5,
+                        $"Take resized from {beforeSize} to {take.ActualWidth}x{take.ActualHeight}");
                 });
             });
 

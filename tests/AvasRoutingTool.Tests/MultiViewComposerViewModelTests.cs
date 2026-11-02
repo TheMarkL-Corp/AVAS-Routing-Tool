@@ -112,6 +112,14 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void DisplayName_IsTheDisplaysName()
+        {
+            var rig = new Rig();
+            var vm = rig.Composer();
+            Assert.Equal(rig.Rx.DeviceName, vm.DisplayName);
+        }
+
+        [Fact]
         public async Task LiveAspectRatio_FollowsTheLivePlan_AndDefaultsTo16x9()
         {
             var rig = new Rig();
@@ -149,7 +157,25 @@ namespace AvasRoutingTool.Tests
             vm.TapBlock(0);
 
             Assert.Contains(nameof(MultiViewComposerViewModel.ChangeLines), raised);
-            Assert.Equal(new[] { "1: - -> TX1" }, vm.ChangeLines);
+            Assert.Equal(new[] { "Block 1: empty -> TX1" }, vm.ChangeLines);
+        }
+
+        [Fact]
+        public async Task ChangeLines_ReadAsWords_ForPlace_Remove_Replace()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            Assert.Equal(new[] { "Block 1: empty -> TX1" }, vm.ChangeLines);
+
+            await vm.TakeAsync(); // TX1 is now on screen in block 1
+            vm.Arm(rig.Tx2);
+            vm.TapBlock(0); // replace
+            Assert.Equal(new[] { "Block 1: TX1 -> TX2" }, vm.ChangeLines);
+
+            vm.Clear(0); // remove
+            Assert.Equal(new[] { "Block 1: TX1 -> empty" }, vm.ChangeLines);
         }
 
         [Fact]
@@ -1051,7 +1077,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal(new[] { "1:tx1" }, Placed(vm.Draft));
             Assert.Equal(1, vm.Changes[0].SlotIndex); // raw change keeps the API index
-            Assert.Equal(new[] { "2: - -> TX1" }, vm.ChangeLines); // the list shows the display number
+            Assert.Equal(new[] { "Block 2: empty -> TX1" }, vm.ChangeLines); // the list shows the display number
             rig.Tx1.SetOnlineState(false);
             Assert.Equal("TX1 is offline - clear or replace block 2", vm.TakeBlockedReason);
         }

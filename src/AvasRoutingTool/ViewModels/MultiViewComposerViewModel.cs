@@ -177,9 +177,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Blocks that differ from the screen. <see cref="DraftChange.SlotIndex"/> is the API window index; see <see cref="ChangeLines"/> for display numbers.</summary>
         public IReadOnlyList<DraftChange> Changes => _changes;
 
-        /// <summary>The change list as the operator reads it, by display number: "2: - -> TX1" ("-" = empty).</summary>
+        /// <summary>The change list as the operator reads it, by display number: "Block 2: empty -> TX1", "Block 4: TX2 -> empty", "Block 2: TX1 -> TX2".</summary>
         public IReadOnlyList<string> ChangeLines =>
-            _changes.Select(c => $"{NumberOf(c.SlotIndex)}: {c.From ?? "-"} -> {c.To ?? "-"}").ToList();
+            _changes.Select(c => $"Block {NumberOf(c.SlotIndex)}: {c.From ?? "empty"} -> {c.To ?? "empty"}").ToList();
 
         /// <summary>How many blocks differ from the screen ("CHANGES (n)").</summary>
         public int ChangeCount => _changes.Count;
@@ -204,6 +204,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Width / height of the plan that is on screen now (the ON SCREEN NOW picture follows it); 16:9 when nothing is live.</summary>
         public double LiveAspectRatio =>
             _live is { Plan: { Width: > 0, Height: > 0 } plan } ? (double)plan.Width / plan.Height : 16.0 / 9.0;
+
+        /// <summary>The display's name: the name plate on the empty ON SCREEN NOW picture (it never changes).</summary>
+        public string DisplayName => _display.DeviceName;
 
         /// <summary>What the ON SCREEN NOW picture shows, in words (the thumbnail itself has no text for a screen reader).</summary>
         public string OnScreenSummary
