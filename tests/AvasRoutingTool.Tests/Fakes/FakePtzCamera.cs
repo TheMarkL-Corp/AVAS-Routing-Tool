@@ -22,6 +22,8 @@ namespace AvasRoutingTool.Tests.Fakes
         private readonly List<TaskCompletionSource<bool>> _heldStops = new();
         private int _stopImmediatelyCount;
         private int _tickCount;
+        private bool _holdPolls;
+        private readonly List<TaskCompletionSource<CameraStatus?>> _heldPolls = new();
 
         public event Action<CameraLinkState>? LinkStateChanged;
 
@@ -77,6 +79,29 @@ namespace AvasRoutingTool.Tests.Fakes
             set { lock (_gate) _holdStops = value; }
         }
 
+        /// <summary>
+        /// While true, PollAsync calls are recorded and return a task that stays pending until
+        /// <see cref="ReleaseHeldPolls"/> is called (a camera that has not answered yet).
+        /// </summary>
+        public bool HoldPolls
+        {
+            get { lock (_gate) return _holdPolls; }
+            set { lock (_gate) _holdPolls = value; }
+        }
+
+        /// <summary>Completes every held poll with the given status (null = no answer).</summary>
+        public void ReleaseHeldPolls(CameraStatus? status)
+        {
+            TaskCompletionSource<CameraStatus?>[] held;
+            lock (_gate)
+            {
+                held = _heldPolls.ToArray();
+                _heldPolls.Clear();
+            }
+            foreach (var tcs in held)
+                tcs.SetResult(status);
+        }
+
         /// <summary>Completes every held Stop with the given result.</summary>
         public void ReleaseHeldStops(bool ok)
         {
@@ -113,6 +138,15 @@ namespace AvasRoutingTool.Tests.Fakes
         public Task<CameraStatus?> PollAsync(CancellationToken ct)
         {
             Add("Poll");
+            lock (_gate)
+            {
+                if (_holdPolls)
+                {
+                    var held = new TaskCompletionSource<CameraStatus?>();
+                    _heldPolls.Add(held);
+                    return held.Task;
+                }
+            }
             return Task.FromResult(PollResult);
         }
 
