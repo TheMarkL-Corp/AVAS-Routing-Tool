@@ -7,6 +7,7 @@
           Info    - a fact about the device (DUAL LINK, mode, counts)     Surface.RoutedBadge / Border.RoutedBadge / Text.OnRoutedBadge
           Staged  - something kept but not on screen (in N blocks, draft)  Surface.Staged / Status.Staged / Status.StagedChipText
           Armed   - tapped and waiting for a target (Placing)             Surface.CopyTarget / Border.DropTarget / Text.CopyAccent
+          Neutral - a tag that carries no state (DUAL LINK, mode tag)     Surface.Elevated / Border.Default / Text.Secondary
         Each pair is contrast-tested (>= 4.5:1) in Dark and Light.
 
         WPF-UI's own Badge template forces a Foreground and a Border background per Appearance through template triggers, which beat any style
@@ -86,6 +87,15 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
         <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
         <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <!-- A tag that carries no state: the card surface tone with a 1 px border and secondary text -->
+    <Style x:Key="Style.Badge.Neutral" TargetType="{x:Type ui:Badge}" BasedOn="{StaticResource Style.Badge.Base}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
 </ResourceDictionary>

@@ -15,11 +15,11 @@
     <Color x:Key="Color.Accent.Primary">#2563EB</Color>
     <Color x:Key="Color.Accent.PrimaryHover">#1D4ED8</Color>
     <Color x:Key="Color.Status.Online">#10B981</Color>
-    <Color x:Key="Color.Status.Offline">#64748B</Color>
+    <Color x:Key="Color.Status.Offline">#8190A6</Color>
     <Color x:Key="Color.Status.Routed">#3B82F6</Color>
     <Color x:Key="Color.Text.Primary">#F8FAFC</Color>
     <Color x:Key="Color.Text.Secondary">#94A3B8</Color>
-    <Color x:Key="Color.Text.Muted">#64748B</Color>
+    <Color x:Key="Color.Text.Muted">#8190A6</Color>
     <Color x:Key="Color.Action.Danger">#EF4444</Color>
 
     <!-- MultiView Composer: Staged Status -->

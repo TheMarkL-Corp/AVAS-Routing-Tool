@@ -266,6 +266,8 @@ namespace AvasRoutingTool.Tests
         [InlineData("Style.Badge.Staged", ThemeMode.Light)]
         [InlineData("Style.Badge.Armed", ThemeMode.Dark)]
         [InlineData("Style.Badge.Armed", ThemeMode.Light)]
+        [InlineData("Style.Badge.Neutral", ThemeMode.Dark)]
+        [InlineData("Style.Badge.Neutral", ThemeMode.Light)]
         public void Badges_AreWpfUiBadges_WithReadableText_InBothThemes(string key, ThemeMode mode) =>
             RunSta(() =>
             {
@@ -290,6 +292,81 @@ namespace AvasRoutingTool.Tests
                     Assert.True(badge.FontSize >= 12);
                 }
                 finally { window.Close(); }
+            });
+
+        [Theory]
+        [InlineData(ThemeMode.Dark)]
+        [InlineData(ThemeMode.Light)]
+        public void TextStatus_IsCaptionSized_AndReadableOnTheCard_InBothThemes(ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var style = (Style)Application.Current.FindResource("Style.Text.Status");
+                Assert.Equal(typeof(TextBlock), style.TargetType);
+                try
+                {
+                    new ThemeService().SetTheme(mode);
+                    var word = new TextBlock { Text = "Online", Style = style };
+                    var window = new Window { Content = word, Width = 300, Height = 200, ShowInTaskbar = false, Left = -10000 };
+                    try
+                    {
+                        window.Show();
+                        window.UpdateLayout();
+                        Assert.True(word.FontSize >= 12, $"{mode}: Text.Status FontSize {word.FontSize}");
+                        var fg = ((SolidColorBrush)word.Foreground).Color;
+                        var card = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Card")).Color;
+                        Assert.True(Contrast(fg, card) >= 4.5, $"{mode}: Text.Status on the card {Contrast(fg, card):0.00}:1");
+                    }
+                    finally { window.Close(); }
+                }
+                finally { new ThemeService().SetTheme(ThemeMode.Dark); }
+            });
+
+        [Fact]
+        public void GhostButton_IsTransparentAtRest_TintsDangerOnHover_AndKeepsTheRing() =>
+            RunSta(() =>
+            {
+                var style = (Style)Application.Current.FindResource("Style.Button.Ghost");
+                Assert.Equal(typeof(Button), style.TargetType);
+                Assert.Null(style.BasedOn);
+                Assert.Equal(Colors.Transparent, ((SolidColorBrush)Setter(style, Control.BackgroundProperty)).Color);
+
+                var template = (ControlTemplate)Setter(style, Control.TemplateProperty);
+                var hover = template.Triggers.OfType<Trigger>().SingleOrDefault(t => t.Property == UIElement.IsMouseOverProperty && t.Value is true);
+                Assert.NotNull(hover);
+                var hoverTokens = hover!.Setters.OfType<Setter>().ToDictionary(s => s.Property.Name, s => ((DynamicResourceExtension)s.Value).ResourceKey.ToString());
+                Assert.Equal("Brush.Surface.Danger", hoverTokens["Background"]);
+                Assert.Equal("Brush.Border.Danger", hoverTokens["BorderBrush"]);
+                Assert.Equal("Brush.Text.DangerSoft", hoverTokens["Foreground"]);
+                Assert.Contains(template.Triggers.OfType<Trigger>(), t => t.Property == InputModality.ShowsFocusProperty);
+
+                var rest = (DynamicResourceExtension)Setter(style, Control.ForegroundProperty);
+                Assert.Equal("Brush.Text.Secondary", rest.ResourceKey.ToString());
+                try
+                {
+                    foreach (var mode in new[] { ThemeMode.Dark, ThemeMode.Light })
+                    {
+                        new ThemeService().SetTheme(mode);
+                        var fg = ((SolidColorBrush)Application.Current.FindResource(rest.ResourceKey)).Color;
+                        var card = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Card")).Color;
+                        Assert.True(Contrast(fg, card) >= 4.5, $"{mode}: ghost rest text on the card {Contrast(fg, card):0.00}:1");
+                    }
+
+                    new ThemeService().SetTheme(ThemeMode.Dark);
+                    var button = new Button { Style = style, Content = "Turn Off" };
+                    var window = new Window { Content = button, Width = 300, Height = 200, ShowInTaskbar = false, Left = -10000 };
+                    try
+                    {
+                        window.Show();
+                        window.UpdateLayout();
+                        var ring = (Border)button.Template.FindName("FocusRing", button);
+                        Assert.Equal(Visibility.Collapsed, ring.Visibility);
+                        button.SetValue(InputModality.ShowsFocusProperty, true);
+                        Assert.Equal(Visibility.Visible, ring.Visibility);
+                        Assert.Equal(2.0, ring.BorderThickness.Left);
+                    }
+                    finally { window.Close(); }
+                }
+                finally { new ThemeService().SetTheme(ThemeMode.Dark); }
             });
 
         // ----- virtualized list -----

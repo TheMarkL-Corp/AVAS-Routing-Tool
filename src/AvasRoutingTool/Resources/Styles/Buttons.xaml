@@ -108,6 +108,57 @@
         </Setter>
     </Style>
 
+    <!--
+        Ghost button (the quiet Turn Off look): no fill or border at rest, the danger tint only on hover, and the 2 px keyboard ring
+        through InputModality.ShowsFocus. Own template, not based on WPF-UI.
+    -->
+    <Style x:Key="Style.Button.Ghost" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                        </Border>
+                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Danger}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Danger}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.DangerSoft}" />
+                        </Trigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- MultiView Composer and the generic touch button: 48 px (D4), 16 px semibold, own focus ring so it shows over any local border colour -->
     <Style x:Key="Style.Button.Composer" TargetType="Button">
         <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
