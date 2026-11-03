@@ -185,6 +185,22 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void PtzSlider_KnobIsSmall_ButKeepsTheTouchHitArea() =>
+            RunSta(() =>
+            {
+                var app = TestResources.Ensure();
+                var slider = new Slider { Style = (Style)app.FindResource("Style.Slider.Ptz"), Minimum = 0, Maximum = 7, Value = 3 };
+                slider.ApplyTemplate();
+                var thumb = (Thumb)slider.Template.FindName("PtzThumb", slider);
+                thumb.ApplyTemplate();
+                var body = (FrameworkElement)thumb.Template.FindName("ThumbBody", thumb);
+                Assert.Equal(Token("Size.Camera.Knob"), body.Width);
+                Assert.Equal(Token("Size.Camera.Knob"), body.Height);
+                Assert.True(body.Width < Token("Size.Touch.Min"), "the drawn knob is smaller than the 48 px hit area");
+                Assert.Equal(Token("Size.Touch.Min"), thumb.Width);
+            });
+
+        [Fact]
         public void Segment_IsCheckedBlue_AndHasADisabledTrigger() =>
             RunSta(() =>
             {

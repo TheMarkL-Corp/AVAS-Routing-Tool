@@ -205,6 +205,28 @@ namespace AvasRoutingTool.Tests
             }));
 
         [Fact]
+        public void ControlRail_DoesNotShift_WhenMotionStartsAndStops() =>
+            RunSta(() =>
+            {
+                using var rig = TwoCameras(1024, 720);
+                var camera = rig.Vm.Cameras[0];
+                string[] names = { "PowerButton", "ZoomSlider", "FocusSlider" };
+                double[] Tops() => names.Select(n => rig.BoundsOf(rig.Named<FrameworkElement>(n)).Top).ToArray();
+
+                rig.Relayout();
+                var idle = Tops();
+
+                camera.BeginMove(AvasRoutingTool.Services.Visca.PanTiltDirection.Left);
+                rig.Relayout();
+                Assert.Equal("Moving left", rig.Named<TextBlock>("MotionLine").Text);
+                Assert.Equal(idle, Tops());
+
+                camera.EndMove();
+                rig.Relayout();
+                Assert.Equal(idle, Tops());
+            });
+
+        [Fact]
         public void PictureIsNotCoveredByAnyControl() =>
             RunSta(() =>
             {
