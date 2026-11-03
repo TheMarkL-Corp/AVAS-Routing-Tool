@@ -87,6 +87,16 @@
                                  Visibility="Collapsed"
                                  AutomationProperties.Name="Diagnostics and Logs"
                                  ToolTip="Diagnostics and live logs" />
+
+                    <RadioButton x:Name="TabAdvanced"
+                                 Style="{StaticResource Style.Tab.Nav}"
+                                 Content="Advanced"
+                                 GroupName="MainTabs"
+                                 Checked="Tab_Checked"
+                                 Visibility="Collapsed"
+                                 Margin="6,0,0,0"
+                                 AutomationProperties.Name="Advanced"
+                                 ToolTip="Link mode, temperature and maintenance" />
                 </StackPanel>
 
                 <!-- Actions & Status Area -->
@@ -167,6 +177,9 @@
             <Grid x:Name="ViewBavmConsole" Visibility="Collapsed">
                 <wv2:WebView2 x:Name="BavmWebView" />
             </Grid>
+
+            <!-- Mode 4: Advanced (maintenance), hidden unless ShowAdvanced -->
+            <views:AdvancedView x:Name="ViewAdvanced" Visibility="Collapsed" />
 
             <!-- Mode 3: Diagnostics & Live Logs -->
             <Grid x:Name="ViewLogs" Visibility="Collapsed" Background="{DynamicResource Brush.Background.Dark}">

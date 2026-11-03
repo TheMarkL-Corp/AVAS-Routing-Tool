@@ -143,6 +143,14 @@ namespace AvasRoutingTool.ViewModels
             set { if (_showLogs == value) return; _showLogs = value; OnPropertyChanged(); }
         }
 
+        private bool _showAdvanced;
+        /// <summary>Whether the Advanced tab is offered. Off by default; switched on in Settings.</summary>
+        public bool ShowAdvanced
+        {
+            get => _showAdvanced;
+            set { if (_showAdvanced == value) return; _showAdvanced = value; OnPropertyChanged(); }
+        }
+
         public int OnlineSourcesCount => Sources.Count(s => s.IsActive);
         public int OnlineDisplaysCount => Displays.Count(d => d.IsActive);
 
@@ -265,6 +273,7 @@ namespace AvasRoutingTool.ViewModels
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
             ShowLogs = _config.ShowLogs;
+            ShowAdvanced = _config.ShowAdvanced;
 
             ThemeService = themeService ?? new ThemeService(_configService);
             ThemeService.ThemeChanged += (_, _) =>
@@ -324,6 +333,7 @@ namespace AvasRoutingTool.ViewModels
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
             ShowLogs = _config.ShowLogs;
+            ShowAdvanced = _config.ShowAdvanced;
             string host = _config.DerivedControlServerIp;
 
             AppLogger.Info("APP", $"Initializing AVAS Routing Tool with BAVM URL: {BavmUrl}, Control Server: {host}:{_config.TelnetPort} (REST: {_config.RestPort})");

@@ -45,8 +45,10 @@ namespace AvasRoutingTool
             _viewModel.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(MainViewModel.ShowLogs)) ApplyLogsVisibility();
+                if (e.PropertyName == nameof(MainViewModel.ShowAdvanced)) ApplyAdvancedVisibility();
             };
             ApplyLogsVisibility();
+            ApplyAdvancedVisibility();
 
             Loaded += MainWindow_Loaded;
             Closed += MainWindow_Closed;
@@ -69,15 +71,22 @@ namespace AvasRoutingTool
             if (!_viewModel.ShowLogs && TabLogs.IsChecked == true) TabVisualRouting.IsChecked = true;
         }
 
+        private void ApplyAdvancedVisibility()
+        {
+            TabAdvanced.Visibility = _viewModel.ShowAdvanced ? Visibility.Visible : Visibility.Collapsed;
+            if (!_viewModel.ShowAdvanced && TabAdvanced.IsChecked == true) TabVisualRouting.IsChecked = true;
+        }
+
         private async void Tab_Checked(object sender, RoutedEventArgs e)
         {
-            if (ViewVisualRouting == null || ViewBavmConsole == null || ViewLogs == null) return;
+            if (ViewVisualRouting == null || ViewBavmConsole == null || ViewLogs == null || ViewAdvanced == null) return;
 
             if (TabVisualRouting.IsChecked == true)
             {
                 ViewVisualRouting.Visibility = Visibility.Visible;
                 ViewBavmConsole.Visibility = Visibility.Collapsed;
                 ViewLogs.Visibility = Visibility.Collapsed;
+                ViewAdvanced.Visibility = Visibility.Collapsed;
 
                 // Routes may have been changed in the BAVM console meanwhile: re-read what the decoders really do.
                 if (_leftVisualRouting && _viewModel != null)
@@ -92,6 +101,7 @@ namespace AvasRoutingTool
                 ViewVisualRouting.Visibility = Visibility.Collapsed;
                 ViewBavmConsole.Visibility = Visibility.Visible;
                 ViewLogs.Visibility = Visibility.Collapsed;
+                ViewAdvanced.Visibility = Visibility.Collapsed;
                 await EnsureBavmWebViewAsync();
             }
             else if (TabLogs.IsChecked == true)
@@ -99,6 +109,15 @@ namespace AvasRoutingTool
                 ViewVisualRouting.Visibility = Visibility.Collapsed;
                 ViewBavmConsole.Visibility = Visibility.Collapsed;
                 ViewLogs.Visibility = Visibility.Visible;
+                ViewAdvanced.Visibility = Visibility.Collapsed;
+            }
+            else if (TabAdvanced.IsChecked == true)
+            {
+                _leftVisualRouting = true;
+                ViewVisualRouting.Visibility = Visibility.Collapsed;
+                ViewBavmConsole.Visibility = Visibility.Collapsed;
+                ViewLogs.Visibility = Visibility.Collapsed;
+                ViewAdvanced.Visibility = Visibility.Visible;
             }
         }
 

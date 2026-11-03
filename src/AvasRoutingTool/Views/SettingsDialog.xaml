@@ -115,6 +115,12 @@
                                  Content="Show Logs tab (diagnostics)"
                                  Margin="0,16,0,0"
                                  AutomationProperties.Name="Show Logs tab" />
+
+                <ui:ToggleSwitch x:Name="ChkShowAdvanced"
+                                 Style="{StaticResource Style.ToggleSwitch.Setting}"
+                                 Content="Show Advanced tab (maintenance)"
+                                 Margin="0,8,0,0"
+                                 AutomationProperties.Name="Show Advanced tab" />
             </StackPanel>
         </ScrollViewer>
 
