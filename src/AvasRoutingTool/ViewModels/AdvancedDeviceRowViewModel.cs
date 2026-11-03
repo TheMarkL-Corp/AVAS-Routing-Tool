@@ -140,6 +140,9 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
+        /// <summary>False when the status line only repeats the state word (a single chip), so the row does not say it twice.</summary>
+        public bool HasChipDetail => ChipStatusText != ChipStatusState;
+
         /// <summary>The word beside the chip status dot: Online (everything is), Partly online (one chip is missing or offline) or Offline.</summary>
         public string ChipStatusState
         {

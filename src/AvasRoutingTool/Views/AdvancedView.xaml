@@ -49,12 +49,12 @@
         <!-- Column headings -->
         <Grid Grid.Row="2" Margin="14,0,14,4">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="1.2*" />
+                <ColumnDefinition Width="5*" />
                 <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="6*" />
             </Grid.ColumnDefinitions>
             <TextBlock Text="Device" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
             <TextBlock Grid.Column="1" Text="Role" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
@@ -77,12 +77,12 @@
                                 AutomationProperties.Name="{Binding Name}">
                             <Grid VerticalAlignment="Center" Margin="0,6">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="5*" />
                                     <ColumnDefinition Width="3*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="3*" />
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="3*" />
-                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="6*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="{Binding Name}" Style="{StaticResource Style.Text.Body}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
@@ -96,7 +96,8 @@
                                         <Ellipse Style="{StaticResource Style.Dot.ChipStatus}" Margin="0,0,8,0" />
                                         <TextBlock Text="{Binding ChipStatusState}" Style="{StaticResource Style.Text.Body}" />
                                     </StackPanel>
-                                    <TextBlock Text="{Binding ChipStatusText}" Style="{StaticResource Style.Text.Caption}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding ChipStatusText}" Style="{StaticResource Style.Text.Caption}" TextWrapping="Wrap"
+                                               Visibility="{Binding HasChipDetail, Converter={StaticResource Converter.Visible.True}}" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="3" Text="{Binding LinkMode}" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">

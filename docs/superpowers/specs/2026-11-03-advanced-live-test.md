@@ -27,7 +27,12 @@ Everything in the test suite runs against fakes (a fake REST handler and a loopb
 | 2.3 | Confirm | The row shows "Rebooting". The multi-view loses the TX's block; the Single View route stays (its picture drops while the TX reboots). Nothing is routed again by itself. |
 | 2.4 | Time how long the row takes to be listed again after Refresh | **Record the number here** (the plan's A5 step 2). The row keeps saying "Rebooting" until the device has left and come back, or 90 s pass; if the measured wait is longer than 90 s, raise `AdvancedViewModel.RebootTimeout`. |
 | 2.5 | Check the link mode after it is back | It is the mode you asked for. On a dual-link TX the companion chip is listed as its own device. |
-| 2.6 | Try to switch from the companion chip's row | There is no switch button on chip 1. |
+| 2.6 | Look at a dual-link TX in the list | Its two chips are **one row** (both MACs under the name), with a "Chips" status: "Online" and "Chip 0 online · Chip 1 online". Chip 1 is not listed on its own (the Danger zone still lists it, so one chip can be rebooted alone). |
+| 2.7 | Unplug chip 1 (or its SFP) and Refresh | The row says "Partly online · Chip 1 offline" (or "not found") and shows why the switch is not offered; no switch button. Plug it back: the button returns. |
+| 2.8 | Press the switch with both chips online | Both chips get the same mode: in the app log (ADVANCED) there are two `set:multi_link` calls, chip 0 then chip 1, then one reboot of chip 0. After it is back, **both** chips report the new mode (`get device` of each: `MULTI_LINK_TRANSMITTER` `link_mode`). |
+| 2.9 | **Verify against the wrapper's note.** The wrapper sent `set:multi_link` to chip 0 only ("the Control Server coordinates the companion"); this app sends it to both as requested. Check that chip 1 accepts the command and that the pair ends up consistent, with no extra reboot of chip 1. | If chip 1 refuses, the app puts chip 0 back and shows a banner; nothing is rebooted. If the pair does not come back consistent, report it: the fix is to go back to chip 0 only or to reboot chip 1 as well. |
+| 2.10 | Check what "online" means for chip 1 while the TX is in Single mode | The check reads `status.active` of each chip just before the switch. If a healthy chip 1 reports `active: false` in Single mode, the switch to Dual is wrongly blocked: tell the developer, the test then needs "reachable" instead of "active". |
+| 2.11 | Switch where chip 0 lists a different companion (only possible with a mislabelled lab setup) | Blocked with "chip 0 and chip 1 are not companions". |
 
 Measured reboot wait: ______ s (device: ______, date: ______)
 
@@ -54,6 +59,6 @@ Choose the device in the Danger zone list; only AVAS devices are listed. Every b
 | Reboot MCU | REST `{stream_type: rs232, stream_index: 1, op: switch:api}`, then `{op: send:rs232, port_index: 1, data_string: "set system reboot\r\n"}` to chip 0; Telnet fallback `send <chip0Mac> rs232:1 set system reboot` |
 | Factory reset MCU | Same two steps with `set factory default` |
 | Factory reset chip | Telnet `factory <mac>`; REST fallback `{op: factory_default}`, then `{op: factory}` |
-| Link switch | REST `{op: set:multi_link, mode: SINGLE or DUAL}` to chip 0, then `{op: reboot}` |
+| Link switch | REST `{op: set:multi_link, mode: SINGLE or DUAL}` to chip 0, the same to chip 1 (chip 0 is put back if chip 1 refuses), then `{op: reboot}` to chip 0 |
 
 The app log (`Logs` tab, category ADVANCED) records each command and a refusal reason.

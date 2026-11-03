@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using AvasRoutingTool.Sdvoe;
@@ -46,20 +47,27 @@ namespace AvasRoutingTool.Tests
                             ((FrameworkElement)window.FindName("ViewAdvanced")).DataContext = advanced;
                             advanced.SetDevices(new[]
                             {
+                                // TX2: a healthy dual-link pair (one row for both chips). TX4: chip 1 offline. TX3: chip 1 not found.
                                 new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = "TX2_DUAL LINK_SFPA", IsTransmitter = true },
                                 new AvasDevice { DeviceId = "74fe488b07bc", DeviceName = "TX2_DUAL LINK_SFPB", IsTransmitter = true, ChipId = 1 },
                                 new AvasDevice { DeviceId = "74fe488b0a01", DeviceName = "TX3_1080P_SFPA", IsTransmitter = true },
+                                new AvasDevice { DeviceId = "74fe488b0c01", DeviceName = "TX4_DUAL LINK_SFPA", IsTransmitter = true },
+                                new AvasDevice { DeviceId = "74fe488b0c02", DeviceName = "TX4_DUAL LINK_SFPB", IsTransmitter = true, ChipId = 1, IsActive = false },
                                 new AvasDevice { DeviceId = "0016c0589c1e", DeviceName = "VEGA camera", IsTransmitter = true, VendorId = 7 },
                                 new AvasDevice { DeviceId = "74fe483c059e", DeviceName = "RX1_1080P_SFPA", IsReceiver = true },
-                                new AvasDevice { DeviceId = "74fe483c05a1", DeviceName = "RX3_1080P_SFPB", IsReceiver = true },
+                                new AvasDevice { DeviceId = "74fe483c05a1", DeviceName = "RX3_1080P_SFPB", IsReceiver = true, IsActive = false },
                             });
-                            var rows = advanced.Rows;
-                            rows[0].ApplyTemperature(58); rows[0].ApplyLinkMode(new LinkModeInfo(LinkMode.Dual, "74fe488b07bc", "SINGLE,DUAL"));
-                            rows[1].ApplyTemperature(64);
-                            rows[2].ApplyTemperature(null); rows[2].ApplyLinkMode(new LinkModeInfo(LinkMode.Single, "NONE", "SINGLE,DUAL"));
-                            rows[2].SetRebooting(true);
-                            rows[4].ApplyTemperature(73);
-                            rows[5].ApplyTemperature(49);
+                            AdvancedDeviceRowViewModel Row(string name) => advanced.Rows.First(r => r.Name == name);
+                            var tx2 = Row("TX2_DUAL LINK_SFPA");
+                            tx2.ApplyTemperature(58); tx2.ApplyCompanionTemperature(64);
+                            tx2.ApplyLinkMode(new LinkModeInfo(LinkMode.Dual, "74fe488b07bc", "SINGLE,DUAL"));
+                            var tx3 = Row("TX3_1080P_SFPA");
+                            tx3.ApplyTemperature(null); tx3.ApplyLinkMode(new LinkModeInfo(LinkMode.Single, "NONE", "SINGLE,DUAL"));
+                            var tx4 = Row("TX4_DUAL LINK_SFPA");
+                            tx4.ApplyTemperature(61); tx4.ApplyCompanionTemperature(null);
+                            tx4.ApplyLinkMode(new LinkModeInfo(LinkMode.Single, "NONE", "SINGLE,DUAL"));
+                            Row("RX1_1080P_SFPA").ApplyTemperature(73);
+                            Row("RX3_1080P_SFPB").ApplyTemperature(49);
                             ((RadioButton)window.FindName("TabAdvanced")).IsChecked = true;
                             Relayout(window);
                             SavePng(ClientRoot(window), Path.Combine(folder, $"01-advanced-tab-{suffix}.png"));
