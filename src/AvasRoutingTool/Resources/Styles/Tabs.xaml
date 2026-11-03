@@ -7,7 +7,7 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
         <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="Padding" Value="14,0" />
         <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
         <Setter Property="MinWidth" Value="{StaticResource Size.Tab.MinWidth}" />
         <Setter Property="Cursor" Value="Hand" />
