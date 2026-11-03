@@ -99,24 +99,35 @@ namespace AvasRoutingTool.ViewModels
         public void SetDevices(IEnumerable<AvasDevice> devices)
         {
             var list = devices.ToList();
-            var ordered = list.Where(d => d.IsTransmitter).OrderBy(d => d.DeviceName)
-                .Concat(list.Where(d => d.IsReceiver && !d.IsTransmitter).OrderBy(d => d.DeviceName));
+            var pairs = ChipPairing.Build(list);
+            var ordered = pairs.Where(p => p.Primary.IsTransmitter).OrderBy(p => p.Primary.DeviceName)
+                .Concat(pairs.Where(p => p.Primary.IsReceiver && !p.Primary.IsTransmitter).OrderBy(p => p.Primary.DeviceName));
 
             UpdateRebootWatches(list);
 
             Rows.Clear();
-            foreach (var d in ordered)
-            {
-                var row = new AdvancedDeviceRowViewModel(d);
-                if (_rebooting.ContainsKey(SdvoeClient.NormalizeMac(d.DeviceId))) row.SetRebooting(true);
-                Rows.Add(row);
-            }
-            string? keep = SelectedDangerRow?.Mac;
             DangerRows.Clear();
-            foreach (var row in Rows.Where(r => r.IsAvas)) DangerRows.Add(row);
+            string? keep = SelectedDangerRow?.Mac;
+            foreach (var pair in ordered)
+            {
+                var row = new AdvancedDeviceRowViewModel(pair.Primary, pair.Companion);
+                if (IsWatched(pair.Primary) || (pair.Companion != null && IsWatched(pair.Companion))) row.SetRebooting(true);
+                Rows.Add(row);
+
+                // The Danger zone acts on one chip at a time, so chip 1 of a pair is listed there on its own.
+                if (row.IsAvas) DangerRows.Add(row);
+                if (pair.Companion is { IsAvasDevice: true } companion)
+                {
+                    var chip1 = new AdvancedDeviceRowViewModel(companion);
+                    if (IsWatched(companion)) chip1.SetRebooting(true);
+                    DangerRows.Add(chip1);
+                }
+            }
             SelectedDangerRow = DangerRows.FirstOrDefault(r => r.Mac == keep) ?? DangerRows.FirstOrDefault();
             OnPropertyChanged(nameof(IsEmpty));
         }
+
+        private bool IsWatched(AvasDevice device) => _rebooting.ContainsKey(SdvoeClient.NormalizeMac(device.DeviceId));
 
         // A device that was switched is "Rebooting" until it has been seen to leave and come back (or the timeout passes).
         private void UpdateRebootWatches(List<AvasDevice> devices)
@@ -132,7 +143,7 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
-        /// <summary>Reads temperature (every AVAS device) and link mode (AVAS transmitters). Non-AVAS rows are not queried.</summary>
+        /// <summary>Reads temperature (both chips of a pair) and link mode (AVAS transmitters). Non-AVAS rows are not queried.</summary>
         public async Task RefreshStatusAsync(IDeviceReader? reader)
         {
             if (reader == null || IsRefreshing) return;
@@ -144,6 +155,7 @@ namespace AvasRoutingTool.ViewModels
                 foreach (var row in Rows.ToList().Where(r => r.IsAvas))
                 {
                     row.ApplyTemperature(await temperature.ReadAsync(row.Mac));
+                    if (row.HasCompanion) row.ApplyCompanionTemperature(await temperature.ReadAsync(row.CompanionMac));
                     if (row.IsTransmitter) row.ApplyLinkMode(await link.ReadAsync(row.Mac));
                 }
             }
@@ -151,18 +163,55 @@ namespace AvasRoutingTool.ViewModels
         }
 
         /// <summary>
-        /// Switches the transmitter to the other link mode (D-A3): the operator confirms with what is affected, the mode is set
-        /// and the chip rebooted, then the transmitter is unrouted from every multi-view (Single View routes stay) and the row
-        /// shows "Rebooting" until the device is rediscovered. Nothing is re-routed afterwards. Cancel changes nothing.
+        /// Checks, with fresh reads, that both chips answer, are online and are companions of each other. Returns the reason the
+        /// switch must not go ahead, or null. Without a reader the discovery state the row already shows is all there is.
+        /// </summary>
+        private async Task<string?> CheckChipPairAsync(AdvancedDeviceRowViewModel row)
+        {
+            if (Reader == null) return null;
+
+            string? json0 = await Reader.ReadDeviceSubsetAsync(row.Mac, "device");
+            string? json1 = await Reader.ReadDeviceSubsetAsync(row.CompanionMac, "device");
+            const string both = "Both chips must be online to switch the link mode.";
+
+            if (json0 == null) return $"{row.Name}: chip 0 can't be reached. {both}";
+            if (json1 == null) return $"{row.Name}: chip 1 can't be reached. {both}";
+            if (DeviceReplyReader.IsActive(json0) == false) return $"{row.Name}: chip 0 is offline. {both}";
+            if (DeviceReplyReader.IsActive(json1) == false) return $"{row.Name}: chip 1 is offline. {both}";
+
+            var info0 = LinkModeReader.Parse(json0);
+            if (info0.HasCompanion && SdvoeClient.NormalizeMac(info0.CompanionMac) != SdvoeClient.NormalizeMac(row.CompanionMac))
+                return $"{row.Name}: chip 0 and chip 1 are not companions (chip 0 lists {info0.CompanionMac}).";
+            var info1 = LinkModeReader.Parse(json1);
+            if (info1.HasCompanion && SdvoeClient.NormalizeMac(info1.CompanionMac) != SdvoeClient.NormalizeMac(row.Mac))
+                return $"{row.Name}: chip 0 and chip 1 are not companions (chip 1 lists {info1.CompanionMac}).";
+            return null;
+        }
+
+        /// <summary>
+        /// Switches the transmitter to the other link mode (D-A3) on both of its chips: both must be online and companions
+        /// (checked again just before), the operator confirms with what is affected, the same mode is set on chip 0 and chip 1
+        /// and the primary chip rebooted, then the transmitter is unrouted from every multi-view (Single View routes stay) and the
+        /// row shows "Rebooting" until both chips are rediscovered. Nothing is re-routed afterwards. Cancel changes nothing.
         /// </summary>
         public async Task SwitchLinkAsync(AdvancedDeviceRowViewModel row)
         {
-            if (Switcher == null || !row.CanSwitchLink) return;
+            if (Switcher == null) return;
+            if (!row.CanSwitchLink)
+            {
+                if (row.SwitchBlockedReason.Length > 0) Banner = row.SwitchBlockedReason;
+                return;
+            }
+
+            string? problem = await CheckChipPairAsync(row);
+            if (problem != null)
+            {
+                Banner = problem;
+                return;
+            }
 
             var target = row.SwitchTarget;
-            var macs = new List<string> { row.Mac };
-            if (row.LinkInfo.HasCompanion) macs.Add(row.LinkInfo.CompanionMac);
-            IReadOnlyList<string> chips = macs.Select(SdvoeClient.NormalizeMac).Distinct().ToList();
+            IReadOnlyList<string> chips = new[] { row.Mac, row.CompanionMac }.Select(SdvoeClient.NormalizeMac).ToList();
 
             var request = new LinkSwitchRequest(row.Name, target, ImpactProvider(chips));
             if (Confirm != null && !await Confirm(request)) return;
@@ -170,7 +219,7 @@ namespace AvasRoutingTool.ViewModels
             Banner = string.Empty;
             string modeWord = target == LinkMode.Dual ? "dual" : "single";
             bool ok;
-            try { ok = await Switcher.SetLinkModeAsync(row.Device, target); }
+            try { ok = await Switcher.SetLinkModeAsync(row.Device, row.Companion, target); }
             catch (Exception ex)
             {
                 AppLogger.Error("ADVANCED", $"Link switch on '{row.Name}' failed", ex);
@@ -183,9 +232,9 @@ namespace AvasRoutingTool.ViewModels
                 return;
             }
 
-            _rebooting[SdvoeClient.NormalizeMac(row.Mac)] = new RebootWatch { StartedAt = Clock() };
+            foreach (var chip in chips) _rebooting[chip] = new RebootWatch { StartedAt = Clock() };
             row.SetRebooting(true);
-            Banner = $"{row.Name} is rebooting into {modeWord} link. Route it again when it is back.";
+            Banner = $"{row.Name} is rebooting into {modeWord} link on both chips. Route it again when it is back.";
 
             try { await UnrouteFromMultiViews(chips); }
             catch (Exception ex) { AppLogger.Error("ADVANCED", $"Unrouting '{row.Name}' from multi-views failed", ex); }

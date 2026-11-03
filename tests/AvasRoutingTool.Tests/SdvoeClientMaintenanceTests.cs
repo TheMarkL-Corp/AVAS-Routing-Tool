@@ -12,52 +12,89 @@ namespace AvasRoutingTool.Tests
         private static SdvoeClient Client(RecordingHandler h) =>
             new(h) { PollInterval = TimeSpan.FromMilliseconds(5), RequestTimeout = TimeSpan.FromMilliseconds(400), LinkSettleDelay = TimeSpan.Zero };
 
-        private static AvasDevice Tx(int chip = 0, int vendor = 105) =>
-            new() { DeviceId = "74:FE:48:8B:07:BB", DeviceName = "TX2", IsTransmitter = true, ChipId = chip, VendorId = vendor };
+        private const string Chip0Mac = "74:FE:48:8B:07:BB";
+        private const string Chip1Mac = "74:FE:48:8B:07:BC";
+
+        private static AvasDevice Tx(int chip = 0, int vendor = 105, bool active = true) =>
+            new()
+            {
+                DeviceId = chip == 0 ? Chip0Mac : Chip1Mac, DeviceName = chip == 0 ? "TX2_SFPA" : "TX2_SFPB",
+                IsTransmitter = true, ChipId = chip, VendorId = vendor, IsActive = active
+            };
+
+        private static string OpOf(RecordingHandler h, int i) => h.Calls[i].Body.GetProperty("op").GetString()!;
 
         [Theory]
         [InlineData(LinkMode.Dual, "DUAL")]
         [InlineData(LinkMode.Single, "SINGLE")]
-        public async Task SetsTheMode_ThenRebootsThePrimaryChip(LinkMode target, string wire)
+        public async Task SetsTheSameMode_OnChip0AndChip1_ThenRebootsThePrimaryChip(LinkMode target, string wire)
         {
             var h = new RecordingHandler();
 
-            Assert.True(await Client(h).SetLinkModeAsync(Tx(), target));
+            Assert.True(await Client(h).SetLinkModeAsync(Tx(0), Tx(1), target));
 
-            Assert.Equal(2, h.Calls.Count);
-            Assert.All(h.Calls, c => Assert.Equal("/api/device/74fe488b07bb", c.Path));
-            Assert.Equal("set:multi_link", h.Calls[0].Body.GetProperty("op").GetString());
+            Assert.Equal(3, h.Calls.Count);
+            Assert.Equal("/api/device/74fe488b07bb", h.Calls[0].Path);
+            Assert.Equal("set:multi_link", OpOf(h, 0));
             Assert.Equal(wire, h.Calls[0].Body.GetProperty("mode").GetString());
-            Assert.Equal("reboot", h.Calls[1].Body.GetProperty("op").GetString());
+            Assert.Equal("/api/device/74fe488b07bc", h.Calls[1].Path);
+            Assert.Equal("set:multi_link", OpOf(h, 1));
+            Assert.Equal(wire, h.Calls[1].Body.GetProperty("mode").GetString());
+            Assert.Equal("/api/device/74fe488b07bb", h.Calls[2].Path);
+            Assert.Equal("reboot", OpOf(h, 2));
         }
 
         [Fact]
-        public async Task WhenTheModeIsRefused_NoRebootIsSent()
+        public async Task WhenChip0RefusesTheMode_NothingElseIsSent()
         {
             var h = new RecordingHandler { FailFromCall = 1 };
 
-            Assert.False(await Client(h).SetLinkModeAsync(Tx(), LinkMode.Dual));
+            Assert.False(await Client(h).SetLinkModeAsync(Tx(0), Tx(1), LinkMode.Dual));
 
             Assert.Single(h.Calls);
         }
 
         [Fact]
-        public async Task WhenTheRebootIsRefused_ItIsReportedAsAFailure()
+        public async Task WhenChip1RefusesTheMode_Chip0IsPutBack_NoRebootIsSent_AndItIsAFailure()
         {
-            var h = new RecordingHandler { FailFromCall = 2 };
-            Assert.False(await Client(h).SetLinkModeAsync(Tx(), LinkMode.Dual));
+            var h = new RecordingHandler
+            {
+                Responder = (m, p, b) => p.EndsWith("74fe488b07bc")
+                    ? "{\"status\":\"ERROR\",\"request_id\":null,\"result\":null,\"error\":null}"
+                    : null
+            };
+
+            Assert.False(await Client(h).SetLinkModeAsync(Tx(0), Tx(1), LinkMode.Dual));
+
+            Assert.Equal(3, h.Calls.Count);
+            Assert.Equal("/api/device/74fe488b07bb", h.Calls[2].Path);
+            Assert.Equal("set:multi_link", OpOf(h, 2));
+            Assert.Equal("SINGLE", h.Calls[2].Body.GetProperty("mode").GetString()); // chip 0 back to the other mode
+            Assert.DoesNotContain(h.Calls, c => c.Body.GetProperty("op").GetString() == "reboot");
         }
 
         [Fact]
-        public async Task NonAvasDevice_CompanionChip_AndUnknownTarget_AreRefusedWithoutAnyCall()
+        public async Task WhenTheRebootIsRefused_ItIsReportedAsAFailure()
+        {
+            var h = new RecordingHandler { FailFromCall = 3 };
+            Assert.False(await Client(h).SetLinkModeAsync(Tx(0), Tx(1), LinkMode.Dual));
+        }
+
+        [Fact]
+        public async Task ItIsRefusedWithoutAnyCall_UnlessBothChipsAreOnlineAvasChipsOfTheRightNumbers()
         {
             var h = new RecordingHandler();
             var c = Client(h);
 
-            Assert.False(await c.SetLinkModeAsync(Tx(vendor: 7), LinkMode.Dual));
-            Assert.False(await c.SetLinkModeAsync(Tx(chip: 1), LinkMode.Dual));
-            Assert.False(await c.SetLinkModeAsync(Tx(), LinkMode.Unknown));
-            Assert.False(await c.SetLinkModeAsync(new AvasDevice { DeviceId = "r", IsReceiver = true }, LinkMode.Dual));
+            Assert.False(await c.SetLinkModeAsync(Tx(0), null, LinkMode.Dual));                      // no chip 1
+            Assert.False(await c.SetLinkModeAsync(Tx(0), Tx(1, active: false), LinkMode.Dual));      // chip 1 offline
+            Assert.False(await c.SetLinkModeAsync(Tx(0, active: false), Tx(1), LinkMode.Dual));      // chip 0 offline
+            Assert.False(await c.SetLinkModeAsync(Tx(0, vendor: 7), Tx(1), LinkMode.Dual));          // not AVAS
+            Assert.False(await c.SetLinkModeAsync(Tx(0), Tx(1, vendor: 7), LinkMode.Dual));
+            Assert.False(await c.SetLinkModeAsync(Tx(1), Tx(0), LinkMode.Dual));                     // swapped chips
+            Assert.False(await c.SetLinkModeAsync(Tx(0), Tx(0), LinkMode.Dual));                     // the same chip twice
+            Assert.False(await c.SetLinkModeAsync(Tx(0), Tx(1), LinkMode.Unknown));
+            Assert.False(await c.SetLinkModeAsync(new AvasDevice { DeviceId = "r", IsReceiver = true }, Tx(1), LinkMode.Dual));
 
             Assert.Empty(h.Calls);
         }

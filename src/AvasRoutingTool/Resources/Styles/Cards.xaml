@@ -38,6 +38,19 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Advanced page chip status dot, bound to ChipStatusState (Online / Partly online / Offline): the word beside it says the same. -->
+    <Style x:Key="Style.Dot.ChipStatus" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding ChipStatusState}" Value="Online">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding ChipStatusState}" Value="Partly online">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Text.Secondary}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Stroked / filled vector icon beside a section heading (static StreamGeometry, Size.Icon.S) -->
     <Style x:Key="Style.Icon.Section" TargetType="Path">
         <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />

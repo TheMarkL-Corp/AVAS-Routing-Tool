@@ -62,7 +62,8 @@ namespace AvasRoutingTool.Tests
                 Vm.SetDevices(new[] { Tx, Companion, Vega, Rx });
             }
 
-            public AdvancedDeviceRowViewModel Row(string mac) => Vm.Rows.Single(r => r.Mac == mac);
+            /// <summary>The device's row; chip 1 of a pair is no row of its own, it is listed in the Danger zone.</summary>
+            public AdvancedDeviceRowViewModel Row(string mac) => Vm.Rows.Concat(Vm.DangerRows).First(r => r.Mac == mac);
         }
 
         [Fact]
