@@ -105,7 +105,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Grid>
+                    <Grid x:Name="Root">
                         <Border x:Name="bd"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="6"
@@ -128,10 +128,16 @@
                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                             <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
                         </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.5" />
-                            <Setter Property="Cursor" Value="Arrow" />
-                        </Trigger>
+                        <!-- Armed: the hover fill above is set on bd, which the style's trigger cannot reach; this one comes after it and keeps the cyan and its text -->
+                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+                        </DataTrigger>
+                        <!-- Nothing to copy: the handle stays enabled (focus, tap, the reason on press) but looks off; the reason is its name and help text -->
+                        <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.5" />
+                            <Setter TargetName="Root" Property="Cursor" Value="Arrow" />
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -225,7 +231,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Grid>
+                    <Grid Background="Transparent">
                         <Border x:Name="bd"
                                 Background="{TemplateBinding Background}"
                                 BorderThickness="0"

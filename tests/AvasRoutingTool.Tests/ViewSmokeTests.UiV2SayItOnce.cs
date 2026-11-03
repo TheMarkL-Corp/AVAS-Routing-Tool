@@ -42,7 +42,7 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
-                    Assert.False(handle.IsEnabled);
+                    Assert.True(handle.IsEnabled); // enabled: it takes focus and a tap, and shows the reason when pressed
                     Assert.False(string.IsNullOrEmpty(rig.Rx3.CopyFromBlockedText));
                     Assert.Equal("No layout to copy yet", (string?)handle.ToolTip); // the tooltip says what is off; the reason is the help text
                     Assert.Equal(rig.Rx3.CopyFromBlockedText, AutomationProperties.GetHelpText(handle));

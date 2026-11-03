@@ -138,37 +138,45 @@
                         Style="{StaticResource Style.Banner.Arm}"
                         Visibility="{Binding HasArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock x:Name="ArmBannerLabel"
-                                       Text="{Binding ArmBannerText, Mode=OneWay}"
-                                       Visibility="{Binding ArmBannerText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
-                                       AutomationProperties.LiveSetting="Polite"
-                                       Style="{StaticResource Style.Text.Title}"
-                                       Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
-                                       TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis" />
-                            <TextBlock x:Name="CopyArmBannerLabel"
-                                       Text="{Binding CopyArmBanner, Mode=OneWay}"
-                                       Visibility="{Binding CopyArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
-                                       AutomationProperties.LiveSetting="Polite"
-                                       Style="{StaticResource Style.Text.Title}"
-                                       Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
-                                       TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                        <Button Grid.Column="1"
-                                x:Name="StopPlacingButton"
-                                Style="{StaticResource Style.Button.Composer}"
-                                Background="{DynamicResource Brush.Border.DropTarget}"
-                                BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-                                Foreground="{DynamicResource Brush.Text.OnDropTarget}"
-                                Content="Stop"
-                                Margin="12,-2,0,-2"
-                                Click="StopPlacing_Click" />
+                        <!--
+                            The 2 px ring, drawn beneath the content and over the banner's full size: the Stop button's own keyboard focus ring sits
+                            on its outer 2 px and must draw over it. The content sits 14 px in (the 2 px ring + 12 px, as before) and keeps the full 48 px.
+                        -->
+                        <Border x:Name="ArmBannerRing"
+                                Style="{StaticResource Style.Banner.Arm.Ring}" />
+                        <Grid Margin="14,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="ArmBannerLabel"
+                                           Text="{Binding ArmBannerText, Mode=OneWay}"
+                                           Visibility="{Binding ArmBannerText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Style="{StaticResource Style.Text.Title}"
+                                           Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="CopyArmBannerLabel"
+                                           Text="{Binding CopyArmBanner, Mode=OneWay}"
+                                           Visibility="{Binding CopyArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Style="{StaticResource Style.Text.Title}"
+                                           Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    x:Name="StopPlacingButton"
+                                    Style="{StaticResource Style.Button.Composer}"
+                                    Background="{DynamicResource Brush.Border.DropTarget}"
+                                    BorderBrush="{DynamicResource Brush.Border.DropTarget}"
+                                    Foreground="{DynamicResource Brush.Text.OnDropTarget}"
+                                    Content="Stop"
+                                    Margin="12,0,0,0"
+                                    Click="StopPlacing_Click" />
+                        </Grid>
                     </Grid>
                 </Border>
 

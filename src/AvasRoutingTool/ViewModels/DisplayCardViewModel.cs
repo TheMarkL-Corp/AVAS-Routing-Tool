@@ -284,9 +284,6 @@ namespace AvasRoutingTool.ViewModels
 
         // ---- View state: read-only, derived from the flags above; the card view binds these instead of stacking XAML triggers. ----
 
-        /// <summary>The mode badge ("MATRIX 2X2 - 3/4", "SINGLE VIEW") takes the routed look: a source is routed, or a layout is active.</summary>
-        public bool HasRoutedBadge => IsRouted || IsMultiView;
-
         /// <summary>The Single View picture (mirrored video, notices, placeholder) shows; a multiview layout replaces it with its windows.</summary>
         public bool ShowSingleViewPicture => !IsMultiView;
 
@@ -545,7 +542,6 @@ namespace AvasRoutingTool.ViewModels
         private void NotifyPictureStateChanged()
         {
             SyncLayoutMenu();
-            OnPropertyChanged(nameof(HasRoutedBadge));
             OnPropertyChanged(nameof(ShowSingleViewPicture));
             OnPropertyChanged(nameof(ShowActiveSourceTag));
             OnPropertyChanged(nameof(ShowRoutedNonAvasNotice));

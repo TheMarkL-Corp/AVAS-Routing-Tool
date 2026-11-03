@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using AvasRoutingTool.ViewModels;
 using Xunit;
 
 namespace AvasRoutingTool.Tests
@@ -76,6 +77,11 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public void AppBar_FitsAtMinimumWindowWidth() => RunSta(w =>
         {
+            // The longest connected readout (dot + host:port) must still fit beside the tabs at the floor.
+            var vm = (MainViewModel)w.DataContext;
+            vm.ConnectionStatus = "Connected: 192.168.100.100:6970";
+            vm.ConnectionHealth = ConnectionHealth.Connected;
+            w.UpdateLayout();
             var right = ActionButtons(w).Max(b => b.TranslatePoint(new Point(b.ActualWidth, 0), w).X);
             var tabsLeft = Tabs(w).Min(b => b.TranslatePoint(new Point(0, 0), w).X);
             var brandRight = ((FrameworkElement)w.FindName("BrandBlock")).TranslatePoint(new Point(((FrameworkElement)w.FindName("BrandBlock")).ActualWidth, 0), w).X;

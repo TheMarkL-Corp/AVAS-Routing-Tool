@@ -23,7 +23,6 @@ namespace AvasRoutingTool.Tests
         {
             var card = Card();
 
-            Assert.False(card.HasRoutedBadge);
             Assert.True(card.ShowSingleViewPicture);
             Assert.True(card.ShowUnroutedPlaceholder);
             Assert.False(card.ShowActiveSourceTag);
@@ -31,12 +30,11 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void ARoutedAvasCard_ShowsTheActiveSourceTag_AndTheRoutedBadge()
+        public void ARoutedAvasCard_ShowsTheActiveSourceTag()
         {
             var card = Card("TX2");
             card.IsPreviewSupported = true;
 
-            Assert.True(card.HasRoutedBadge);
             Assert.True(card.ShowActiveSourceTag);
             Assert.False(card.ShowUnroutedPlaceholder);
             Assert.False(card.ShowRoutedNonAvasNotice);
@@ -53,18 +51,16 @@ namespace AvasRoutingTool.Tests
 
             card.SetExternalLayout("avas_matrix", new[] { "TX1" }, "OUT 1920x1080@60");
             Assert.False(card.ShowRoutedNonAvasNotice);
-            Assert.True(card.HasRoutedBadge);
         }
 
         [Fact]
-        public void AMultiViewCard_HidesTheSingleViewPicture_AndKeepsTheBadge()
+        public void AMultiViewCard_HidesTheSingleViewPicture()
         {
             var card = Card();
             ApplyMatrix(card);
 
             Assert.True(card.IsMultiView);
             Assert.False(card.ShowSingleViewPicture);
-            Assert.True(card.HasRoutedBadge);
         }
 
         [Fact]
@@ -122,7 +118,6 @@ namespace AvasRoutingTool.Tests
             changed.Clear();
             ApplyMatrix(card);
             Assert.Contains(nameof(DisplayCardViewModel.ShowSingleViewPicture), changed);
-            Assert.Contains(nameof(DisplayCardViewModel.HasRoutedBadge), changed);
             Assert.Contains(nameof(DisplayCardViewModel.ShowUnroutedPlaceholder), changed);
 
             changed.Clear();

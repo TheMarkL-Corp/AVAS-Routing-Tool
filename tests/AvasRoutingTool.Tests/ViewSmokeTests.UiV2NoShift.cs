@@ -139,6 +139,7 @@ namespace AvasRoutingTool.Tests
                     Assert.True(bannerBounds.Top >= -0.5 && bannerBounds.Bottom <= headerRow + 0.5,
                         $"banner {bannerBounds} is not inside the header row (height {headerRow})");
                     Assert.True(banner.ActualHeight >= 48, $"banner is {banner.ActualHeight} px");
+                    Assert.True(Math.Abs(banner.ActualHeight - headerRow) < 0.5, $"banner {banner.ActualHeight} px, header row {headerRow} px: arming must not change the row");
 
                     var stop = (Button)Named(view, "StopPlacingButton").Single();
                     Assert.True(stop.ActualHeight >= 48, $"Stop is {stop.ActualHeight} px");
@@ -156,6 +157,118 @@ namespace AvasRoutingTool.Tests
                         $"the arm label {labelBounds} overflows the banner {bannerBounds}");
                     Assert.True(label.FontSize >= 14, $"the arm label is {label.FontSize} px");
                     Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(label));
+                });
+            });
+
+        /// <summary>
+        /// The banner keeps its footprint without pulling its Stop button over its own edge: no element inside it may have a
+        /// negative margin (the old -2 px margins on Stop drew it across the banner's 2 px ring to keep the banner 48 px tall).
+        /// </summary>
+        [Fact]
+        public void ArmBanner_NoElementInsideHasANegativeMargin() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+                Showing(view, () =>
+                {
+                    rig.Vm.ArmSource(rig.Tx2);
+                    Relayout(view);
+                    var banner = Named(view, "ArmBanner").Single();
+                    Assert.True(banner.IsVisible, "the arm banner is not shown");
+                    var inside = FindAll<FrameworkElement>(banner).Prepend(banner).ToList();
+                    Assert.True(inside.Count > 5, $"the banner's tree did not load ({inside.Count} elements)");
+                    foreach (var el in inside)
+                    {
+                        var m = el.Margin;
+                        Assert.True(m.Left >= 0 && m.Top >= 0 && m.Right >= 0 && m.Bottom >= 0,
+                            $"{el.GetType().Name} '{el.Name}' in the arm banner has a negative margin {m}");
+                    }
+                });
+            });
+
+        /// <summary>
+        /// The banner's 2 px ring is its own layer (not the Border's BorderThickness, which would take 4 px off the content),
+        /// it takes no presses, and it is the Stop button's colour in both themes.
+        /// </summary>
+        [Fact]
+        public void ArmBanner_RingLayer_IsNotHitTestable_AndMatchesTheStopButton_InBothThemes() =>
+            RunSta(() =>
+            {
+                var theme = new AvasRoutingTool.Services.ThemeService();
+                var ringColours = new Dictionary<AvasRoutingTool.Services.ThemeMode, System.Windows.Media.Color>();
+                try
+                {
+                    foreach (var mode in new[] { AvasRoutingTool.Services.ThemeMode.Light, AvasRoutingTool.Services.ThemeMode.Dark })
+                    {
+                        // The rig first: its MainViewModel re-applies the saved (Dark) theme when it is built.
+                        var rig = new CopyRig();
+                        var view = new VisualRoutingView { DataContext = rig.Vm };
+                        Showing(view, () =>
+                        {
+                            rig.Vm.ArmSource(rig.Tx2);
+                            theme.SetTheme(mode);
+                            Relayout(view);
+
+                            var banner = Named(view, "ArmBanner").Single();
+                            Assert.True(banner.IsVisible, $"{mode}: the arm banner is not shown");
+                            var ring = Named(view, "ArmBannerRing").OfType<Border>().Single();
+                            Assert.True(ring.IsVisible, $"{mode}: the ring is not shown");
+                            Assert.False(ring.IsHitTestVisible, $"{mode}: the ring takes presses away from the banner and Stop");
+                            Assert.Equal(new Thickness(2), ring.BorderThickness);
+                            Assert.Equal(new Thickness(0), ((Border)banner).BorderThickness);
+
+                            var stop = (Button)Named(view, "StopPlacingButton").Single();
+                            var stopColour = ((System.Windows.Media.SolidColorBrush)stop.Background).Color;
+                            var ringColour = ((System.Windows.Media.SolidColorBrush)ring.BorderBrush).Color;
+                            Assert.Equal(stopColour, ringColour);
+                            Assert.Equal(((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color, ringColour);
+                            ringColours[mode] = ringColour;
+                        });
+                    }
+                }
+                finally { theme.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark); }
+                Assert.NotEqual(ringColours[AvasRoutingTool.Services.ThemeMode.Light], ringColours[AvasRoutingTool.Services.ThemeMode.Dark]);
+            });
+
+        /// <summary>The ring is the banner's edge (not an inset line inside its padding) and the content sits 14 px in from it, so the label and Stop do not touch the ring.</summary>
+        [Fact]
+        public void ArmBanner_RingIsTheBannersEdge_AndTheContentSitsInsideIt() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+                Showing(view, () =>
+                {
+                    rig.Vm.ArmSource(rig.Tx2);
+                    Relayout(view);
+                    var banner = (FrameworkElement)Named(view, "ArmBanner").Single();
+                    var ring = Named(view, "ArmBannerRing").Single();
+                    var stop = Named(view, "StopPlacingButton").Single();
+                    var label = Named(view, "ArmBannerLabel").Single();
+                    var b = BoundsIn(banner, view);
+                    var r = BoundsIn(ring, view);
+                    Assert.True(Math.Abs(r.Left - b.Left) < 0.5 && Math.Abs(r.Right - b.Right) < 0.5 && Math.Abs(r.Top - b.Top) < 0.5 && Math.Abs(r.Bottom - b.Bottom) < 0.5,
+                        $"the ring {r} is not the banner's edge {b}");
+                    Assert.True(BoundsIn(label, view).Left - b.Left >= 13.5, $"the label is {BoundsIn(label, view).Left - b.Left:F1} px from the banner's edge");
+                    Assert.True(b.Right - BoundsIn(stop, view).Right >= 13.5, $"Stop is {b.Right - BoundsIn(stop, view).Right:F1} px from the banner's edge");
+                });
+            });
+
+        /// <summary>The Stop button draws its own keyboard focus ring over its outer 2 px, so the ring layer must sit beneath it, or the focus ring is hidden.</summary>
+        [Fact]
+        public void ArmBanner_StopButton_KeepsItsKeyboardFocusRing() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+                Showing(view, () =>
+                {
+                    rig.Vm.ArmSource(rig.Tx2);
+                    Relayout(view);
+                    var banner = Named(view, "ArmBanner").Single();
+                    var stop = (Button)Named(view, "StopPlacingButton").Single();
+                    AssertShowsFocus(stop, banner, "the Stop button in the arm banner");
                 });
             });
 

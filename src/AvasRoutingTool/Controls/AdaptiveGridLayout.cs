@@ -29,9 +29,6 @@ namespace AvasRoutingTool.Controls
         /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
         /// </summary>
         public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26 };
-
-        /// <summary>Source cards are passive drag/tap handles: capped narrower so the displays get the room.</summary>
-        public static GridSpec SourceCard { get; } = Default with { MaxCardWidth = 480 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>

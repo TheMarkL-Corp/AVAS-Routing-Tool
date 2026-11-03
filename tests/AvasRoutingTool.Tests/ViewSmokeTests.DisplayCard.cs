@@ -247,9 +247,9 @@ namespace AvasRoutingTool.Tests
                     Assert.Contains(FindAll<TextBlock>(handle), t => t.Text == "Copy layout");
                     Assert.Empty(VisibleTexts(rx1, "RX1_c059e_SFPA shows nothing to copy"));
 
-                    // RX3 shows nothing: the handle is disabled and the card says why in words.
+                    // RX3 shows nothing: the handle stays enabled (focusable, a tap shows the reason) but looks off.
                     var blocked = (Button)Named(rx3, "CopyLayoutHandle").Single();
-                    Assert.False(blocked.IsEnabled);
+                    Assert.True(blocked.IsEnabled);
                     Assert.True(blocked.ActualHeight >= 48);
                     // The reason is said once, on the button's tooltip and help text (DisplayCard_CopyButton_ExplainsWhyDisabled_ByTooltipAndHelpText), not on the card.
                     Assert.Empty(VisibleTexts(rx3, "RX3_1080P_SFPA shows nothing to copy"));

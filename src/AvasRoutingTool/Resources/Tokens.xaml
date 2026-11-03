@@ -38,16 +38,19 @@
     <!-- Source strip (critique M2): dense tiles with a 16:9 thumbnail (214 x 120 inside a 240 px tile). The strip holds two tile rows before it scrolls. -->
     <sys:Double x:Key="Size.Strip.Tile.Width">240</sys:Double>
     <sys:Double x:Key="Size.Strip.Thumb.Height">120</sys:Double>
-    <sys:Double x:Key="Size.Strip.Gap">10</sys:Double>
     <!-- The Sources strip never takes more than this share of the overview height (2/5.4 = 0.37, the old Sources share); beyond it the strip scrolls -->
     <sys:Double x:Key="Size.Strip.Max.Fraction">0.37</sys:Double>
-    <!-- The space around each tile: left and right 5 px (a 10 px gap between tiles, so a centred row is centred on the tiles), bottom 10 px (Size.Strip.Gap) -->
+    <!-- The space around each tile: left and right 5 px (a 10 px gap between tiles, so a centred row is centred on the tiles), bottom 10 px -->
     <Thickness x:Key="Size.Strip.TileMargin">5,0,5,10</Thickness>
 
     <!-- Compact tile (the Composer palette, SourceCardView.IsCompact): a 16:9 thumbnail (112 x 63) on the left, the name and status beside it; card padding 8 instead of 12 -->
     <sys:Double x:Key="Size.Strip.Compact.Thumb.Width">112</sys:Double>
     <sys:Double x:Key="Size.Strip.Compact.Thumb.Height">63</sys:Double>
     <Thickness x:Key="Size.Strip.Compact.Padding">8</Thickness>
+
+    <!-- The device name in the compact tile: wraps to at most two lines. BlockLineHeight makes each line exactly LineHeight, so MaxHeight (two lines) is exact. -->
+    <sys:Double x:Key="Size.Strip.Compact.Name.LineHeight">18</sys:Double>
+    <sys:Double x:Key="Size.Strip.Compact.Name.MaxHeight">36</sys:Double>
 
     <!-- Section header row (Displays): the arm banner shares this row with the header, so arming never changes its height. 48 = Touch.Min: the Stop button overlaps the banner border (same colour) -->
     <sys:Double x:Key="Size.Section.Header.Height">48</sys:Double>

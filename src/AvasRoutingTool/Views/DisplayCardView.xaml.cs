@@ -29,6 +29,8 @@ namespace AvasRoutingTool.Views
         private readonly TapGesture _copyGesture = new();
         private bool _tapPending;
         private ToolTip? _copyTip;
+        private ToolTip? _copyReasonTip;
+        private DispatcherTimer? _copyReasonTimer;
         private CopyGhostAdorner? _ghost;
         private AdornerLayer? _ghostLayer;
         private UIElement? _ghostRoot;
@@ -64,6 +66,7 @@ namespace AvasRoutingTool.Views
             {
                 Watch(null);
                 HideCopyTip();
+                HideCopyReason();
                 HideGhost();
             };
         }
@@ -99,6 +102,7 @@ namespace AvasRoutingTool.Views
             if (_watched != null) _watched.PropertyChanged -= OnCardChanged;
             _watched = card;
             if (_watched != null) _watched.PropertyChanged += OnCardChanged;
+            HideCopyReason(); // a reason belongs to the display it was asked about
         }
 
         private void OnCardChanged(object? sender, PropertyChangedEventArgs e)
@@ -109,6 +113,13 @@ namespace AvasRoutingTool.Views
             if (e.PropertyName == nameof(DisplayCardViewModel.IsLayoutMenuOpen) && !vm.IsLayoutMenuOpen)
             {
                 RecordMenuClosed();
+                return;
+            }
+
+            // The display can be copied now: the reason it said why not is no longer true.
+            if (e.PropertyName == nameof(DisplayCardViewModel.CanCopyFrom) && vm.CanCopyFrom)
+            {
+                HideCopyReason();
                 return;
             }
 
@@ -371,7 +382,44 @@ namespace AvasRoutingTool.Views
 
         private async void CopyHandle_Click(object sender, RoutedEventArgs e)
         {
-            if (Card is { CanCopyFrom: true } vm && Main is { } main) await Run(() => main.ToggleCopyArmAsync(vm), "Copy layout");
+            if (Card is not { } vm) return;
+            if (!vm.CanCopyFrom)
+            {
+                // Nothing to copy: the handle takes the press but does not arm; the reason is said next to it for a while.
+                if (sender is UIElement anchor) ShowCopyReason(vm.CopyFromBlockedText, anchor);
+                return;
+            }
+            if (Main is { } main) await Run(() => main.ToggleCopyArmAsync(vm), "Copy layout");
+        }
+
+        /// <summary>The reason shown by the last press on a Copy layout handle with nothing to copy (tests); null before the first one.</summary>
+        internal ToolTip? CopyReasonTip => _copyReasonTip;
+
+        /// <summary>How long the reason for a blocked Copy layout press stays open (tests shorten it).</summary>
+        internal TimeSpan CopyReasonShownFor { get; set; } = TimeSpan.FromSeconds(3);
+
+        private void ShowCopyReason(string text, UIElement anchor)
+        {
+            HideCopyReason();
+            _copyReasonTip = new ToolTip
+            {
+                PlacementTarget = anchor,
+                Placement = PlacementMode.Bottom,
+                StaysOpen = false,
+                MaxWidth = 360,
+                Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 13 },
+            };
+            _copyReasonTip.IsOpen = true;
+            _copyReasonTimer = new DispatcherTimer { Interval = CopyReasonShownFor };
+            _copyReasonTimer.Tick += (_, _) => HideCopyReason();
+            _copyReasonTimer.Start();
+        }
+
+        private void HideCopyReason()
+        {
+            _copyReasonTimer?.Stop();
+            _copyReasonTimer = null;
+            if (_copyReasonTip != null) _copyReasonTip.IsOpen = false;
         }
 
         private void CopyHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => _copyGesture.Press(e.GetPosition(this));

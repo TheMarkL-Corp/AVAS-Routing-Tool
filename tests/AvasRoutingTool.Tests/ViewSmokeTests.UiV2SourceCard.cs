@@ -92,6 +92,52 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void SourceCard_StopStreamButton_IsTheGhostButton_NotTheRedUnrouteStyle() =>
+            RunSta(() =>
+            {
+                // Stopping a preview is not an error: the Stop control is the quiet ghost button, red is for errors only (A12-5)
+                var vm = UiV2Source();
+                vm.IsStreaming = true;
+                SourceCardAt(vm, view =>
+                {
+                    var stop = (Button)Named(view, "StopStreamButton").Single();
+                    Assert.True(stop.IsVisible);
+                    Assert.Same(Application.Current.FindResource("Style.Button.Ghost"), stop.Style);
+                    Assert.NotSame(Application.Current.FindResource("Style.Button.Unroute"), stop.Style);
+                    Assert.True(stop.ActualHeight >= 36 && stop.IsTabStop, $"stop {stop.ActualWidth}x{stop.ActualHeight}");
+                    Assert.Equal(SymbolRegular.Stop24, FindAll<SymbolIcon>(stop).Single().Symbol);
+                    var word = FindAll<TextBlock>(stop).Single(t => t.Text == "Stop");
+                    Assert.True(word.FontSize >= 12, $"Stop word {word.FontSize}px");
+                });
+            });
+
+        [Theory]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
+        [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
+        public void SourceCard_StopStreamButton_AtRest_IsTransparent_WithSecondaryText_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var theme = new AvasRoutingTool.Services.ThemeService();
+                try
+                {
+                    theme.SetTheme(mode);
+                    var vm = UiV2Source();
+                    vm.IsStreaming = true;
+                    SourceCardAt(vm, view =>
+                    {
+                        var stop = (Button)Named(view, "StopStreamButton").Single();
+                        var ring = (Border)stop.Template.FindName("FocusRing", stop);
+                        var body = FindAll<Border>(stop).First(b => !ReferenceEquals(b, ring));
+                        Assert.True(body.Background is null || ((System.Windows.Media.SolidColorBrush)body.Background).Color.A == 0, $"{mode}: stop body background {body.Background}");
+                        Assert.Equal(Visibility.Collapsed, ring.Visibility);
+                        var secondary = ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
+                        Assert.Equal(secondary, ((System.Windows.Media.SolidColorBrush)stop.Foreground).Color);
+                    });
+                }
+                finally { theme.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark); }
+            });
+
+        [Fact]
         public void SourceCard_InfoBadge_IsAFocusableInfoIcon_WithTheSameNameAndTooltip() =>
             RunSta(() =>
                 SourceCardAt(UiV2Source(), view =>
@@ -157,6 +203,81 @@ namespace AvasRoutingTool.Tests
                 var armed = UiV2Source();
                 armed.IsArmed = true;
                 SourceCardAt(armed, view => Assert.Empty(VisibleTexts(view, "TAP OR DRAG")));
+            });
+
+        // Baseline on the unchanged tile (A12-6), measured at 240 px wide: the info icon's centre in the tile's coordinates,
+        // the full tile's natural height (idle and streaming) and the compact tile's natural height.
+        private const double InfoBadgeIconCentreX = 215.0;
+        private const double InfoBadgeIconCentreY = 25.72;
+        private const double FullTileHeightAt240 = 243.4;
+        private const double CompactTileHeightAt240 = 81.0;
+
+        [Fact]
+        public void SourceCard_InfoBadge_IsAtLeast36By36() =>
+            RunSta(() =>
+                SourceCardAt(UiV2Source(), view =>
+                {
+                    var badge = Named(view, "SourceInfoBadge").Single();
+                    Assert.True(badge.ActualWidth >= 36 && badge.ActualHeight >= 36, $"info badge is {badge.ActualWidth:F1} x {badge.ActualHeight:F1}");
+                }));
+
+        [Fact]
+        public void SourceCard_InfoBadge_TakesAPressOnA36By36Area_CentredOnTheIcon() =>
+            RunSta(() =>
+                SourceCardAt(UiV2Source(), view =>
+                {
+                    // The 36 x 36 target is centred on the icon; its corners are taken 1 px inside, plus the centre.
+                    var badge = Named(view, "SourceInfoBadge").Single();
+                    var icon = FindAll<SymbolIcon>(badge).Single();
+                    var box = BoundsIn(icon, view);
+                    double cx = box.X + box.Width / 2, cy = box.Y + box.Height / 2;
+                    var spots = new[] { new Point(cx - 17, cy - 17), new Point(cx + 17, cy - 17), new Point(cx - 17, cy + 17), new Point(cx + 17, cy + 17), new Point(cx, cy) };
+                    foreach (var spot in spots)
+                    {
+                        var hit = PressTarget(view, spot);
+                        string landsOn = hit == null ? "nothing" : $"{hit.GetType().Name} '{(hit as FrameworkElement)?.Name}'";
+                        Assert.True(hit != null && Within(hit, badge), $"a press at ({spot.X:F1},{spot.Y:F1}) lands on {landsOn}, not on the info badge");
+                    }
+                }));
+
+        [Fact]
+        public void SourceCard_InfoBadge_IconCentreDoesNotMove() =>
+            RunSta(() =>
+                SourceCardAt(UiV2Source(), view =>
+                {
+                    var icon = FindAll<SymbolIcon>(Named(view, "SourceInfoBadge").Single()).Single();
+                    var box = BoundsIn(icon, view);
+                    Assert.Equal(InfoBadgeIconCentreX, box.X + box.Width / 2, 0.5);
+                    Assert.Equal(InfoBadgeIconCentreY, box.Y + box.Height / 2, 0.5);
+                }));
+
+        [Fact]
+        public void SourceCard_TileHeight_IsUnchangedAt240_IdleAndStreaming() =>
+            RunSta(() =>
+            {
+                foreach (var streaming in new[] { false, true })
+                {
+                    var vm = UiV2Source();
+                    vm.IsStreaming = streaming;
+                    SourceCardAt(vm, view =>
+                    {
+                        view.Measure(new Size(240, double.PositiveInfinity));
+                        Assert.Equal(FullTileHeightAt240, view.DesiredSize.Height, 0.5);
+                    });
+                }
+            });
+
+        [Fact]
+        public void SourceCard_Compact_HasNoInfoBadge_AndItsHeightIsUnchanged() =>
+            RunSta(() =>
+            {
+                var view = new SourceCardView { DataContext = UiV2Source(), IsCompact = true, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
+                Showing(view, () =>
+                {
+                    Assert.False(Named(view, "SourceInfoBadge").Single().IsVisible);
+                    view.Measure(new Size(240, double.PositiveInfinity));
+                    Assert.Equal(CompactTileHeightAt240, view.DesiredSize.Height, 0.5);
+                });
             });
 
         [Fact]

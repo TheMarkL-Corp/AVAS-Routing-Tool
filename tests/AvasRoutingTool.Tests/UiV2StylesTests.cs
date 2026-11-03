@@ -322,7 +322,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void GhostButton_IsTransparentAtRest_TintsDangerOnHover_AndKeepsTheRing() =>
+        public void GhostButton_IsTransparentAtRest_HoversNeutral_AndKeepsTheRing() =>
             RunSta(() =>
             {
                 var style = (Style)Application.Current.FindResource("Style.Button.Ghost");
@@ -334,9 +334,11 @@ namespace AvasRoutingTool.Tests
                 var hover = template.Triggers.OfType<Trigger>().SingleOrDefault(t => t.Property == UIElement.IsMouseOverProperty && t.Value is true);
                 Assert.NotNull(hover);
                 var hoverTokens = hover!.Setters.OfType<Setter>().ToDictionary(s => s.Property.Name, s => ((DynamicResourceExtension)s.Value).ResourceKey.ToString());
-                Assert.Equal("Brush.Surface.Danger", hoverTokens["Background"]);
-                Assert.Equal("Brush.Border.Danger", hoverTokens["BorderBrush"]);
-                Assert.Equal("Brush.Text.DangerSoft", hoverTokens["Foreground"]);
+                // Red is for errors only: the hover is the neutral row hover (as Style.Button.CopyLayout), and the border stays Transparent
+                Assert.Equal("Brush.Surface.Hover", hoverTokens["Background"]);
+                Assert.Equal("Brush.Text.Primary", hoverTokens["Foreground"]);
+                Assert.False(hoverTokens.ContainsKey("BorderBrush"));
+                Assert.Equal(Colors.Transparent, ((SolidColorBrush)Setter(style, Control.BorderBrushProperty)).Color);
                 Assert.Contains(template.Triggers.OfType<Trigger>(), t => t.Property == InputModality.ShowsFocusProperty);
 
                 var rest = (DynamicResourceExtension)Setter(style, Control.ForegroundProperty);
@@ -365,6 +367,32 @@ namespace AvasRoutingTool.Tests
                         Assert.Equal(2.0, ring.BorderThickness.Left);
                     }
                     finally { window.Close(); }
+                }
+                finally { new ThemeService().SetTheme(ThemeMode.Dark); }
+            });
+
+        [Theory]
+        [InlineData(ThemeMode.Dark)]
+        [InlineData(ThemeMode.Light)]
+        public void GhostButton_Hover_IsNotRed_InBothThemes(ThemeMode mode) =>
+            RunSta(() =>
+            {
+                var style = (Style)Application.Current.FindResource("Style.Button.Ghost");
+                var template = (ControlTemplate)Setter(style, Control.TemplateProperty);
+                var hover = template.Triggers.OfType<Trigger>().Single(t => t.Property == UIElement.IsMouseOverProperty && t.Value is true);
+                var keys = hover.Setters.OfType<Setter>().ToDictionary(s => s.Property.Name, s => ((DynamicResourceExtension)s.Value).ResourceKey.ToString());
+                Assert.Equal("Brush.Surface.Hover", keys["Background"]);
+                Assert.Equal("Brush.Text.Primary", keys["Foreground"]);
+                Assert.DoesNotContain(keys.Values, k => k is "Brush.Surface.Danger" or "Brush.Border.Danger" or "Brush.Text.DangerSoft");
+                try
+                {
+                    new ThemeService().SetTheme(mode);
+                    var hoverFill = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Hover")).Color;
+                    var danger = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Danger")).Color;
+                    var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                    var dangerText = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.DangerSoft")).Color;
+                    Assert.NotEqual(danger, hoverFill);
+                    Assert.NotEqual(dangerText, text);
                 }
                 finally { new ThemeService().SetTheme(ThemeMode.Dark); }
             });
