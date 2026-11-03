@@ -28,6 +28,9 @@ namespace AvasRoutingTool.Sdvoe
 
         /// <summary>Soft-reboots the MCU through chip 0: UART 1 in API mode, then <c>send:rs232</c> "set system reboot".</summary>
         Task<bool> RebootMcuAsync(AvasDevice device);
+
+        /// <summary>Restores the MCU's factory defaults through chip 0: <c>send:rs232</c> "set factory default".</summary>
+        Task<bool> FactoryResetMcuAsync(AvasDevice device);
     }
 
     public partial class SdvoeClient : IDeviceReader, ILinkSwitcher, IMaintenanceActions
@@ -97,6 +100,8 @@ namespace AvasRoutingTool.Sdvoe
         }
 
         public Task<bool> RebootMcuAsync(AvasDevice device) => SendMcuCommandAsync(device, "set system reboot");
+
+        public Task<bool> FactoryResetMcuAsync(AvasDevice device) => SendMcuCommandAsync(device, "set factory default");
 
         /// <summary>
         /// An in-band MCU command over UART 1 of chip 0 (wrapper SendMcuCommandAsync): the UART is switched to API mode first

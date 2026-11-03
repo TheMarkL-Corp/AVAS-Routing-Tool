@@ -150,6 +150,14 @@
                                 MinHeight="{StaticResource Size.Touch.Min}"
                                 Margin="0,0,8,0"
                                 AutomationProperties.Name="Reboot MCU" />
+                        <Button x:Name="FactoryResetMcuButton"
+                                Content="Factory reset MCU"
+                                Command="{Binding DangerCommand}"
+                                CommandParameter="{x:Static vm:DangerAction.FactoryResetMcu}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="0,0,8,0"
+                                AutomationProperties.Name="Factory reset MCU" />
                     </WrapPanel>
                 </Grid>
             </StackPanel>

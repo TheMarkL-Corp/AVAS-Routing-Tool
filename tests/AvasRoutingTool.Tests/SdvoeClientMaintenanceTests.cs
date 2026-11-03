@@ -113,6 +113,47 @@ namespace AvasRoutingTool.Tests
             Assert.Empty(h.Calls);
         }
 
+        // ---- A8: MCU factory reset (rs232 port 1 of chip 0: send:rs232 "set factory default") ----
+
+        [Fact]
+        public async Task FactoryResetMcu_SendsSetFactoryDefaultToChip0()
+        {
+            var h = new RecordingHandler();
+
+            Assert.True(await Client(h).FactoryResetMcuAsync(Avas()));
+
+            Assert.Equal(2, h.Calls.Count);
+            Assert.All(h.Calls, c => Assert.Equal("/api/device/74fe488b07bb", c.Path));
+            Assert.Equal("switch:api", h.Calls[0].Body.GetProperty("op").GetString());
+            Assert.Equal("send:rs232", h.Calls[1].Body.GetProperty("op").GetString());
+            Assert.Equal("set factory default\r\n", h.Calls[1].Body.GetProperty("data_string").GetString());
+        }
+
+        [Fact]
+        public async Task FactoryResetMcu_WhenRestRefuses_FallsBackToTheTelnetSendCommand()
+        {
+            using var telnet = new FakeTelnetServer();
+            var h = new RecordingHandler { FailFromCall = 1 };
+            var c = Client(h);
+            await c.ConnectAsync("127.0.0.1", telnet.Port, 8080);
+
+            Assert.True(await c.FactoryResetMcuAsync(Avas()));
+
+            Assert.Contains("send 74fe488b07bb rs232:1 set factory default", telnet.Lines);
+        }
+
+        [Fact]
+        public async Task FactoryResetMcu_IsRefusedForNonAvas_AndForTheCompanionChip_WithoutAnyCall()
+        {
+            var h = new RecordingHandler();
+            var c = Client(h);
+
+            Assert.False(await c.FactoryResetMcuAsync(Avas(vendor: 7)));
+            Assert.False(await c.FactoryResetMcuAsync(Avas(chip: 1)));
+
+            Assert.Empty(h.Calls);
+        }
+
         // ---- A6: chip reboot (Telnet "reboot <mac>", REST fallback {op: reboot}) ----
 
         private static AvasDevice Avas(int chip = 0, int vendor = 105, bool rx = false) =>

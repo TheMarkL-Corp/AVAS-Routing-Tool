@@ -203,7 +203,7 @@ namespace AvasRoutingTool.ViewModels
                 Banner = $"{row.Name} is not an AVAS device. Reboots and resets are only offered for AVAS devices.";
                 return;
             }
-            if (action == DangerAction.RebootMcu && row.Device.ChipId != 0)
+            if (action is DangerAction.RebootMcu or DangerAction.FactoryResetMcu && row.Device.ChipId != 0)
             {
                 Banner = $"MCU commands go through chip 0. Choose the primary chip of {row.Name}.";
                 return;
@@ -240,6 +240,7 @@ namespace AvasRoutingTool.ViewModels
         {
             DangerAction.RebootChip => Maintenance!.RebootChipAsync(row.Device, row.Mac),
             DangerAction.RebootMcu => Maintenance!.RebootMcuAsync(row.Device),
+            DangerAction.FactoryResetMcu => Maintenance!.FactoryResetMcuAsync(row.Device),
             _ => Task.FromResult(false)
         };
 
@@ -249,6 +250,9 @@ namespace AvasRoutingTool.ViewModels
                 $"{row.Name} restarts and its picture is lost for a while. Routes to it are not changed.", "Reboot", null),
             DangerAction.RebootMcu => new DangerRequest(action, row.Name, $"Reboot the MCU of {row.Name}?",
                 $"The control processor of {row.Name} restarts. Its video keeps running.", "Reboot MCU", null),
+            DangerAction.FactoryResetMcu => new DangerRequest(action, row.Name, $"Factory reset the MCU of {row.Name}?",
+                $"The control processor of {row.Name} goes back to its factory settings. Its own settings are lost and cannot be recovered.",
+                "Factory reset", row.Name),
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
 
@@ -256,6 +260,7 @@ namespace AvasRoutingTool.ViewModels
         {
             DangerAction.RebootChip => "reboot",
             DangerAction.RebootMcu => "reboot the MCU of",
+            DangerAction.FactoryResetMcu => "factory reset the MCU of",
             _ => "run the action on"
         };
 
@@ -263,6 +268,7 @@ namespace AvasRoutingTool.ViewModels
         {
             DangerAction.RebootChip => "Rebooting",
             DangerAction.RebootMcu => "Rebooting the MCU of",
+            DangerAction.FactoryResetMcu => "Factory reset sent to the MCU of",
             _ => "Done:"
         };
 

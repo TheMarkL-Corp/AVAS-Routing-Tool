@@ -30,6 +30,12 @@ namespace AvasRoutingTool.Tests
                 Calls.Add($"reboot-mcu {device.DeviceId}");
                 return Task.FromResult(Result);
             }
+
+            public Task<bool> FactoryResetMcuAsync(AvasDevice device)
+            {
+                Calls.Add($"factory-mcu {device.DeviceId}");
+                return Task.FromResult(Result);
+            }
         }
 
         private sealed class Rig
@@ -142,6 +148,54 @@ namespace AvasRoutingTool.Tests
             Assert.Contains("Couldn't reboot the MCU of TX2", r.Vm.Banner);
         }
 
+        // ---- A8: MCU factory reset (typed device name) ----
+
+        [Fact]
+        public async Task FactoryResetMcu_AsksForTheTypedDeviceName_AndResetsTheMcuOfChip0()
+        {
+            var r = new Rig();
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetMcu, r.Row("74fe488b07bb"));
+
+            Assert.Equal("Factory reset the MCU of TX2?", r.Asked!.Title);
+            Assert.Equal("TX2", r.Asked.TypedName);
+            Assert.Equal(new[] { "factory-mcu 74fe488b07bb" }, r.Maintenance.Calls);
+            Assert.Contains("TX2", r.Vm.Banner);
+        }
+
+        [Fact]
+        public async Task FactoryResetMcu_Cancel_ChangesNothing()
+        {
+            var r = new Rig { Answer = false };
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetMcu, r.Row("74fe488b07bb"));
+
+            Assert.Empty(r.Maintenance.Calls);
+        }
+
+        [Fact]
+        public async Task FactoryResetMcu_FromTheCompanionChip_AndOnNonAvas_IsRefused()
+        {
+            var r = new Rig();
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetMcu, r.Row("74fe488b07bc"));
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetMcu, r.Row("0016c0589c1e"));
+
+            Assert.Null(r.Asked);
+            Assert.Empty(r.Maintenance.Calls);
+        }
+
+        [Fact]
+        public async Task FactoryResetMcu_Failure_ShowsABanner()
+        {
+            var r = new Rig();
+            r.Maintenance.Result = false;
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetMcu, r.Row("74fe488b07bb"));
+
+            Assert.Contains("Couldn't factory reset the MCU of TX2", r.Vm.Banner);
+        }
+
         [Fact]
         public async Task NonAvasDevice_IsRefused_WithoutAskingOrCalling()
         {
@@ -188,6 +242,42 @@ namespace AvasRoutingTool.Tests
                 Assert.NotSame(d.FindResource("Style.Button.Primary"), confirm.Style); // a destructive action is never the primary button
                 Assert.True(cancel.IsCancel);
                 Assert.False(confirm.IsDefault);
+            }
+            finally { d.Close(); }
+        });
+
+        [Fact]
+        public void TypedConfirm_StaysDisabledUntilTheNameMatchesExactly() => RunSta(() =>
+        {
+            var d = new DangerDialog(new DangerRequest(DangerAction.FactoryResetMcu, "TX2", "Factory reset the MCU of TX2?", "Settings are lost.", "Factory reset", "TX2"));
+            try
+            {
+                var confirm = (Button)d.FindName("ConfirmButton");
+                var typed = (TextBox)d.FindName("TypedNameBox");
+                Assert.Contains("TX2", ((TextBlock)d.FindName("TypedPrompt")).Text);
+                Assert.False(confirm.IsEnabled);
+
+                foreach (var wrong in new[] { "", "tx2", "TX2 ", " TX2", "TX", "TX22" })
+                {
+                    typed.Text = wrong;
+                    Assert.False(confirm.IsEnabled, $"'{wrong}' must not enable the button");
+                }
+
+                typed.Text = "TX2";
+                Assert.True(confirm.IsEnabled);
+                Assert.NotSame(d.FindResource("Style.Button.Primary"), confirm.Style);
+            }
+            finally { d.Close(); }
+        });
+
+        [Fact]
+        public void WithoutATypedName_NoTypedFieldIsShown() => RunSta(() =>
+        {
+            var d = new DangerDialog(new DangerRequest(DangerAction.RebootChip, "TX2", "Reboot TX2?", "Body.", "Reboot", null));
+            try
+            {
+                Assert.Equal(System.Windows.Visibility.Collapsed, ((TextBox)d.FindName("TypedNameBox")).Visibility);
+                Assert.Equal(System.Windows.Visibility.Collapsed, ((TextBlock)d.FindName("TypedPrompt")).Visibility);
             }
             finally { d.Close(); }
         });

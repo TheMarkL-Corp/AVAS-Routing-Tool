@@ -3,7 +3,8 @@ namespace AvasRoutingTool.ViewModels
     public enum DangerAction
     {
         RebootChip,
-        RebootMcu
+        RebootMcu,
+        FactoryResetMcu
     }
 
     /// <summary>
