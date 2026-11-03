@@ -139,10 +139,22 @@ namespace AvasRoutingTool.ViewModels
         public ICommand StartPreviewCommand { get; }
         public ICommand StopPreviewCommand { get; }
 
+        /// <summary>The pencil: opens the rename dialog for this device (runs <see cref="RenameHandler"/>).</summary>
+        public ICommand RenameCommand { get; }
+
+        /// <summary>Set by <see cref="MainViewModel"/> when discovery builds the card; without it the command is disabled.</summary>
+        public Func<Task>? RenameHandler { get; set; }
+
+        /// <summary>What a screen reader says for the pencil button ("Rename TX2").</summary>
+        public string RenameAutomationName => $"Rename {DeviceName}";
+
+        public string RenameToolTip => "Rename";
+
         public SourceCardViewModel(AvasDevice device)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
 
+            RenameCommand = new RelayCommand(async _ => await RunRenameAsync(), _ => RenameHandler != null);
             RefreshPreviewCommand = new RelayCommand(async _ => await RefreshPreviewAsync(), _ => IsActive && IsPreviewSupported && !IsRefreshing);
             StartPreviewCommand = new RelayCommand(async _ => await StartManualPreviewAsync(), _ => IsActive && IsPreviewSupported && !IsStreaming && !IsRefreshing);
             StopPreviewCommand = new RelayCommand(async _ => await StopPreviewAsync(), _ => IsStreaming && !IsRefreshing);
@@ -228,6 +240,20 @@ namespace AvasRoutingTool.ViewModels
             finally
             {
                 IsRefreshing = false;
+            }
+        }
+
+        private async Task RunRenameAsync()
+        {
+            var handler = RenameHandler;
+            if (handler == null) return;
+            try
+            {
+                await handler();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("RENAME", $"Renaming {DeviceName} failed", ex);
             }
         }
 
