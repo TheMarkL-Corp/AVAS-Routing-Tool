@@ -44,6 +44,19 @@ namespace AvasRoutingTool.ViewModels
             TemperatureState = state;
         }
 
+        public LinkModeInfo LinkInfo { get; private set; } = LinkModeInfo.Unknown;
+
+        public void ApplyLinkMode(LinkModeInfo info)
+        {
+            LinkInfo = info;
+            LinkMode = info.Mode switch
+            {
+                Sdvoe.LinkMode.Single => "Single link",
+                Sdvoe.LinkMode.Dual => "Dual link",
+                _ => "n/a"
+            };
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
