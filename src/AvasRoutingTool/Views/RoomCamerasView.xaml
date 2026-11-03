@@ -1,0 +1,450 @@
+<UserControl x:Class="AvasRoutingTool.Views.RoomCamerasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:views="clr-namespace:AvasRoutingTool.Views"
+             xmlns:conv="clr-namespace:AvasRoutingTool.Converters"
+             Background="{DynamicResource Brush.Background.Dark}"
+             Focusable="True"
+             AutomationProperties.Name="Room Cameras">
+
+    <!--
+        Room Cameras tab (RC11). DataContext: RoomCamerasViewModel.
+        Chips row on top, then the picture hero (left) and the control rail (right). Controls are never drawn over the picture:
+        the Stop-not-confirmed banner is its own row above it and the caption row is under it.
+        The rail has its own ScrollViewer so a short window never scrolls the picture.
+    -->
+    <UserControl.Resources>
+        <conv:ValueEqualsConverter x:Key="Converter.ValueEquals" />
+        <conv:SameReferenceConverter x:Key="Converter.SameReference" />
+        <conv:LinkWordConverter x:Key="Converter.LinkWord" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== Empty state: no camera configured ===== -->
+        <StackPanel Grid.Row="0" Grid.RowSpan="2"
+                    x:Name="EmptyState"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding Cameras, Mode=OneWay, Converter={StaticResource Converter.Visible.NoItems}}">
+            <ui:SymbolIcon Symbol="Video24" FontSize="{StaticResource Size.Icon.L}" Foreground="{DynamicResource Brush.Text.Muted}" HorizontalAlignment="Center" />
+            <TextBlock Text="No room cameras yet" Style="{StaticResource Style.Text.Title}" HorizontalAlignment="Center" Margin="0,12,0,4" />
+            <TextBlock Text="Add a camera to move it and see its picture here." Style="{StaticResource Style.Text.Caption}" HorizontalAlignment="Center" />
+            <Button x:Name="EmptyAddButton"
+                    Content="Add a camera"
+                    Style="{StaticResource Style.Button.Primary}"
+                    MinHeight="{StaticResource Size.Touch.Min}"
+                    HorizontalAlignment="Center"
+                    Margin="0,16,0,0"
+                    Command="{Binding AddCommand}"
+                    AutomationProperties.Name="Add a camera" />
+        </StackPanel>
+
+        <!-- ===== Chips row ===== -->
+        <Grid Grid.Row="0" x:Name="ChipsRow" Margin="12,10,12,2"
+              Visibility="{Binding Cameras, Mode=OneWay, Converter={StaticResource Converter.Visible.HasItems}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- A WrapPanel in a horizontal ScrollViewer: one row that scrolls sideways at narrow widths -->
+            <ScrollViewer x:Name="ChipsScroller"
+                          Grid.Column="0"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Cameras}" Focusable="False" AutomationProperties.Name="Cameras">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton Style="{StaticResource Style.Chip.Camera}"
+                                         Tag="{Binding LinkIsGood, Mode=OneWay}"
+                                         Command="{Binding DataContext.SelectCommand, RelativeSource={RelativeSource AncestorType=views:RoomCamerasView}}"
+                                         CommandParameter="{Binding}"
+                                         AutomationProperties.Name="{Binding AutomationName, Mode=OneWay}"
+                                         ToolTip="{Binding Name, Mode=OneWay}">
+                                <RadioButton.IsChecked>
+                                    <MultiBinding Mode="OneWay" Converter="{StaticResource Converter.SameReference}">
+                                        <Binding />
+                                        <Binding Path="DataContext.Selected" RelativeSource="{RelativeSource AncestorType=views:RoomCamerasView}" />
+                                    </MultiBinding>
+                                </RadioButton.IsChecked>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Name, Mode=OneWay}"
+                                               MaxWidth="{StaticResource Size.Camera.Chip.Name.Max}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Name, Mode=OneWay}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding LinkText, Mode=OneWay, Converter={StaticResource Converter.LinkWord}}"
+                                               Style="{StaticResource Style.Text.CameraStatus}"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                               Margin="8,0,0,0" />
+                                </StackPanel>
+                            </RadioButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Button x:Name="AddCameraButton"
+                    Grid.Column="1"
+                    Style="{StaticResource Style.Button.Secondary}"
+                    MinHeight="{StaticResource Size.Touch.Min}"
+                    Margin="0,0,0,8"
+                    Command="{Binding AddCommand}"
+                    AutomationProperties.Name="Add camera"
+                    ToolTip="Add a room camera">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Add24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center" />
+                    <TextBlock Text="Add" Margin="6,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- ===== Body: picture hero and control rail of the selected camera ===== -->
+        <Grid Grid.Row="1" x:Name="Body"
+              Margin="12,4,12,12"
+              DataContext="{Binding Selected}"
+              Visibility="{Binding Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="0.25*"
+                                  MinWidth="{StaticResource Size.Camera.Rail.Min}"
+                                  MaxWidth="{StaticResource Size.Camera.Rail.Max}" />
+            </Grid.ColumnDefinitions>
+
+            <!-- == Picture column: banner, picture, caption == -->
+            <Grid Grid.Column="0" x:Name="PictureColumn" Margin="0,0,12,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Stop not confirmed: its own row, never over the picture -->
+                <Border x:Name="StopBanner"
+                        Grid.Row="0"
+                        Margin="0,0,0,8"
+                        Padding="12,6"
+                        CornerRadius="8"
+                        BorderThickness="1"
+                        Background="{DynamicResource Brush.Surface.Danger}"
+                        BorderBrush="{DynamicResource Brush.Border.Danger}"
+                        AutomationProperties.LiveSetting="Assertive"
+                        Visibility="{Binding MotionState, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=StopNotConfirmed}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="ErrorCircle24" FontSize="{StaticResource Size.Icon.M}" Foreground="{DynamicResource Brush.Text.Danger}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock Grid.Column="1"
+                                   Text="Stop not confirmed - press Stop or switch the camera off"
+                                   Style="{StaticResource Style.Text.Body}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.Text.Danger}"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="2"
+                                Content="Stop"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="12,0,0,0"
+                                Command="{Binding MoveEndCommand}"
+                                AutomationProperties.Name="Stop camera motion" />
+                    </Grid>
+                </Border>
+
+                <!-- Picture area: the five preview states -->
+                <Border x:Name="PictureArea"
+                        Grid.Row="1"
+                        Background="{DynamicResource Brush.Background.Dark}"
+                        BorderBrush="{DynamicResource Brush.Border.Default}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        ClipToBounds="True"
+                        AutomationProperties.Name="Camera picture">
+                    <Grid>
+                        <!-- Live -->
+                        <Image x:Name="LiveImage"
+                               Source="{Binding PreviewBitmap, Mode=OneWay}"
+                               Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="LowQuality" />
+
+                        <!-- No source bound -->
+                        <StackPanel x:Name="StateNoSource" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Preview, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=NoSourceBound}">
+                            <ui:SymbolIcon Symbol="VideoOff24" FontSize="{StaticResource Size.Icon.L}" Foreground="{DynamicResource Brush.Text.Muted}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding PreviewMessage, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,10,0,0" />
+                            <Button x:Name="BindSourceButton"
+                                    Content="Bind a source"
+                                    Style="{StaticResource Style.Button.Primary}"
+                                    MinHeight="{StaticResource Size.Touch.Min}"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,14,0,0"
+                                    Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=views:RoomCamerasView}}"
+                                    CommandParameter="{Binding}"
+                                    AutomationProperties.Name="Bind a source to this camera" />
+                        </StackPanel>
+
+                        <!-- Source offline -->
+                        <StackPanel x:Name="StateOffline" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Preview, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=SourceOffline}">
+                            <ui:SymbolIcon Symbol="VideoOff24" FontSize="{StaticResource Size.Icon.L}" Foreground="{DynamicResource Brush.Text.Muted}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding PreviewMessage, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,10,0,0" />
+                            <TextBlock Text="The picture returns when the source is back." Style="{StaticResource Style.Text.Caption}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <!-- Standby -->
+                        <StackPanel x:Name="StateStandby" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Preview, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Standby}">
+                            <ui:SymbolIcon Symbol="Video24" FontSize="{StaticResource Size.Icon.L}" Foreground="{DynamicResource Brush.Text.Muted}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding PreviewMessage, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,10,0,0" />
+                            <Button x:Name="StartPreviewButton"
+                                    Content="Start preview"
+                                    Style="{StaticResource Style.Button.Primary}"
+                                    MinHeight="{StaticResource Size.Touch.Min}"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,14,0,0"
+                                    Command="{Binding StartPreviewCommand}"
+                                    AutomationProperties.Name="Start preview" />
+                            <TextBlock x:Name="StartReason"
+                                       Text="{Binding StartDisabledReason, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,6,0,0"
+                                       Visibility="{Binding StartDisabledReason, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                        </StackPanel>
+
+                        <!-- Starting -->
+                        <StackPanel x:Name="StateStarting" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Preview, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Starting}">
+                            <ui:ProgressRing IsIndeterminate="True" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding PreviewMessage, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" HorizontalAlignment="Center" Margin="0,10,0,0" />
+                        </StackPanel>
+
+                        <!-- Moving: the picture frame takes the selected-chip blue -->
+                        <Border x:Name="MovingFrame"
+                                IsHitTestVisible="False"
+                                BorderBrush="{DynamicResource Brush.Accent.Primary}"
+                                BorderThickness="3"
+                                CornerRadius="8"
+                                Visibility="{Binding MotionState, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Moving}" />
+                    </Grid>
+                </Border>
+
+                <!-- Caption row under the picture -->
+                <Grid Grid.Row="2" x:Name="CaptionRow" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="CaptionText"
+                               Grid.Column="0"
+                               Text="{Binding CaptionText, Mode=OneWay}"
+                               ToolTip="{Binding CaptionText, Mode=OneWay}"
+                               Style="{StaticResource Style.Text.CameraStatus}"
+                               VerticalAlignment="Center" />
+                    <Button x:Name="StopPreviewButton"
+                            Grid.Column="1"
+                            Content="Stop preview"
+                            Style="{StaticResource Style.Button.Secondary}"
+                            MinHeight="{StaticResource Size.Touch.Min}"
+                            Margin="12,0,0,0"
+                            Command="{Binding StopPreviewCommand}"
+                            AutomationProperties.Name="Stop preview"
+                            Visibility="{Binding ShowStopPreview, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
+                </Grid>
+            </Grid>
+
+            <!-- == Control rail (scrolls inside itself only) == -->
+            <Border Grid.Column="2" x:Name="Rail"
+                    Background="{DynamicResource Brush.Surface.Card}"
+                    BorderBrush="{DynamicResource Brush.Border.Default}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <ScrollViewer x:Name="RailScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <StackPanel Margin="12">
+
+                        <!-- Name and edit -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="RailName"
+                                       Grid.Column="0"
+                                       Text="{Binding Name, Mode=OneWay}"
+                                       ToolTip="{Binding Name, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.Lead}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       AutomationProperties.HeadingLevel="Level2" />
+                            <Button x:Name="EditButton"
+                                    Grid.Column="1"
+                                    Style="{StaticResource Style.Button.Ghost}"
+                                    MinWidth="{StaticResource Size.Touch.Min}"
+                                    MinHeight="{StaticResource Size.Touch.Min}"
+                                    Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=views:RoomCamerasView}}"
+                                    CommandParameter="{Binding}"
+                                    AutomationProperties.Name="Edit camera"
+                                    ToolTip="Edit this camera">
+                                <ui:SymbolIcon Symbol="Edit24" FontSize="{StaticResource Size.Icon.M}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Status lines: dot plus word, never colour alone -->
+                        <StackPanel Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Ellipse x:Name="LinkDot" Style="{StaticResource Style.StatusDot.Link}" Tag="{Binding LinkIsGood, Mode=OneWay}" Margin="0,0,8,0" />
+                                <TextBlock x:Name="LinkLine" Text="{Binding LinkText, Mode=OneWay}" ToolTip="{Binding LinkText, Mode=OneWay}" Style="{StaticResource Style.Text.CameraStatus}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Ellipse x:Name="PowerDot" Style="{StaticResource Style.StatusDot}" Tag="{Binding PowerText, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter='Camera on'}" Margin="0,0,8,0" />
+                                <TextBlock x:Name="PowerLine" Text="{Binding PowerText, Mode=OneWay}" Style="{StaticResource Style.Text.CameraStatus}" />
+                            </StackPanel>
+                            <TextBlock x:Name="MotionLine"
+                                       Text="{Binding MotionText, Mode=OneWay}"
+                                       Style="{StaticResource Style.Text.CameraStatus}"
+                                       Margin="0,2"
+                                       AutomationProperties.LiveSetting="Polite"
+                                       Visibility="{Binding MotionText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                        </StackPanel>
+
+                        <!-- Power and Lock -->
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="PowerButton"
+                                    Grid.Column="0"
+                                    Style="{StaticResource Style.Button.Secondary}"
+                                    MinHeight="{StaticResource Size.Touch.Min}"
+                                    Margin="0,0,8,0"
+                                    Command="{Binding PowerCommand}"
+                                    AutomationProperties.Name="{Binding PowerText, Mode=OneWay, StringFormat='Power, {0}'}"
+                                    ToolTip="Switch the camera on or off">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Power24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Power" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <ui:ToggleSwitch x:Name="LockSwitch"
+                                             Grid.Column="1"
+                                             Style="{StaticResource Style.ToggleSwitch.Setting}"
+                                             Content="Lock"
+                                             IsChecked="{Binding IsLocked, Mode=TwoWay}"
+                                             AutomationProperties.Name="Lock controls"
+                                             ToolTip="Lock every motion control" />
+                        </Grid>
+
+                        <!-- Power-off confirmation, inline (not a modal) -->
+                        <Border x:Name="PowerConfirm"
+                                Margin="0,8,0,0"
+                                Padding="10,8"
+                                CornerRadius="8"
+                                BorderThickness="1"
+                                Background="{DynamicResource Brush.Surface.Elevated}"
+                                BorderBrush="{DynamicResource Brush.Border.Control}"
+                                AutomationProperties.LiveSetting="Assertive"
+                                Visibility="{Binding IsPowerOffPending, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding PowerOffPrompt, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="ConfirmOffButton" Grid.Column="0" Content="Turn off" Style="{StaticResource Style.Button.Primary}" MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,4,0" Command="{Binding ConfirmPowerOffCommand}" AutomationProperties.Name="Turn the camera off" />
+                                    <Button x:Name="CancelOffButton" Grid.Column="1" Content="Cancel" Style="{StaticResource Style.Button.Secondary}" MinHeight="{StaticResource Size.Touch.Min}" Margin="4,0,0,0" Command="{Binding CancelPowerOffCommand}" AutomationProperties.Name="Cancel, keep the camera on" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Direction pad -->
+                        <views:PtzPadView x:Name="Pad"
+                                          Margin="0,12,0,0"
+                                          HorizontalAlignment="Center"
+                                          IsEnabled="{Binding MotionEnabled, Mode=OneWay}" />
+
+                        <!-- Speed: three steps -->
+                        <TextBlock Text="Speed" Style="{StaticResource Style.Text.CameraStatus}" Margin="0,12,0,4" />
+                        <Grid x:Name="SpeedSegment" IsEnabled="{Binding MotionEnabled, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <RadioButton x:Name="SpeedSlow" Grid.Column="0" GroupName="CameraSpeed" Content="Slow" Style="{StaticResource Style.ToggleButton.Segment}" Margin="0,0,3,0"
+                                         IsChecked="{Binding SpeedStep, Mode=TwoWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Slow}"
+                                         AutomationProperties.Name="Speed slow" />
+                            <RadioButton x:Name="SpeedMedium" Grid.Column="1" GroupName="CameraSpeed" Content="Medium" Style="{StaticResource Style.ToggleButton.Segment}" Margin="3,0"
+                                         IsChecked="{Binding SpeedStep, Mode=TwoWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Medium}"
+                                         AutomationProperties.Name="Speed medium" />
+                            <RadioButton x:Name="SpeedFast" Grid.Column="2" GroupName="CameraSpeed" Content="Fast" Style="{StaticResource Style.ToggleButton.Segment}" Margin="3,0,0,0"
+                                         IsChecked="{Binding SpeedStep, Mode=TwoWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Fast}"
+                                         AutomationProperties.Name="Speed fast" />
+                        </Grid>
+
+                        <!-- Zoom -->
+                        <TextBlock Text="Zoom" Style="{StaticResource Style.Text.CameraStatus}" Margin="0,12,0,0" />
+                        <Slider x:Name="ZoomSlider"
+                                Style="{StaticResource Style.Slider.Ptz}"
+                                Minimum="0"
+                                Maximum="{Binding ZoomMaximum, Mode=OneWay}"
+                                Value="{Binding ZoomValue, Mode=TwoWay}"
+                                IsEnabled="{Binding ZoomEnabled, Mode=OneWay}"
+                                AutomationProperties.Name="Zoom"
+                                PreviewMouseLeftButtonDown="ZoomSlider_DragStart"
+                                PreviewMouseLeftButtonUp="ZoomSlider_DragEnd"
+                                LostMouseCapture="ZoomSlider_DragEnd"
+                                PreviewTouchDown="ZoomSlider_DragStart"
+                                PreviewTouchUp="ZoomSlider_DragEnd" />
+                        <Grid>
+                            <TextBlock Text="Wide" Style="{StaticResource Style.Text.CameraStatus}" HorizontalAlignment="Left" />
+                            <TextBlock Text="Tele" Style="{StaticResource Style.Text.CameraStatus}" HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <!-- Focus -->
+                        <TextBlock Text="Focus" Style="{StaticResource Style.Text.CameraStatus}" Margin="0,12,0,0" />
+                        <Slider x:Name="FocusSlider"
+                                Style="{StaticResource Style.Slider.Ptz}"
+                                Minimum="0"
+                                Maximum="{Binding FocusMaximum, Mode=OneWay}"
+                                Value="{Binding FocusValue, Mode=TwoWay}"
+                                IsEnabled="{Binding FocusEnabled, Mode=OneWay}"
+                                AutomationProperties.Name="Focus"
+                                PreviewMouseLeftButtonDown="FocusSlider_DragStart"
+                                PreviewMouseLeftButtonUp="FocusSlider_DragEnd"
+                                LostMouseCapture="FocusSlider_DragEnd"
+                                PreviewTouchDown="FocusSlider_DragStart"
+                                PreviewTouchUp="FocusSlider_DragEnd" />
+                        <Grid>
+                            <TextBlock Text="Near" Style="{StaticResource Style.Text.CameraStatus}" HorizontalAlignment="Left" />
+                            <TextBlock Text="Far" Style="{StaticResource Style.Text.CameraStatus}" HorizontalAlignment="Right" />
+                        </Grid>
+                        <ui:ToggleSwitch x:Name="AutoFocusSwitch"
+                                         Style="{StaticResource Style.ToggleSwitch.Setting}"
+                                         Content="Auto focus"
+                                         Margin="0,6,0,0"
+                                         IsChecked="{Binding AutoFocus, Mode=TwoWay}"
+                                         IsEnabled="{Binding AutoFocusEnabled, Mode=OneWay}"
+                                         AutomationProperties.Name="Auto focus" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
