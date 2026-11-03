@@ -49,6 +49,10 @@
     <sys:Double x:Key="Size.Strip.Compact.Thumb.Height">63</sys:Double>
     <Thickness x:Key="Size.Strip.Compact.Padding">8</Thickness>
 
+    <!-- The device name in the compact tile: wraps to at most two lines. BlockLineHeight makes each line exactly LineHeight, so MaxHeight (two lines) is exact. -->
+    <sys:Double x:Key="Size.Strip.Compact.Name.LineHeight">18</sys:Double>
+    <sys:Double x:Key="Size.Strip.Compact.Name.MaxHeight">36</sys:Double>
+
     <!-- Section header row (Displays): the arm banner shares this row with the header, so arming never changes its height. 48 = Touch.Min: the Stop button overlaps the banner border (same colour) -->
     <sys:Double x:Key="Size.Section.Header.Height">48</sys:Double>
 
