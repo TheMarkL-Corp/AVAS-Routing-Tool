@@ -102,6 +102,9 @@ namespace AvasRoutingTool.ViewModels
         public ObservableCollection<LayoutItemViewModel> Layouts { get; } = new();
         public ObservableCollection<LogEntry> Logs { get; } = new();
 
+        /// <summary>The Advanced (maintenance) page; its rows follow every discovery refresh.</summary>
+        public AdvancedViewModel Advanced { get; } = new();
+
         public bool IsConnected
         {
             get => _isConnected;
@@ -141,6 +144,14 @@ namespace AvasRoutingTool.ViewModels
         {
             get => _showLogs;
             set { if (_showLogs == value) return; _showLogs = value; OnPropertyChanged(); }
+        }
+
+        private bool _showAdvanced;
+        /// <summary>Whether the Advanced tab is offered. Off by default; switched on in Settings.</summary>
+        public bool ShowAdvanced
+        {
+            get => _showAdvanced;
+            set { if (_showAdvanced == value) return; _showAdvanced = value; OnPropertyChanged(); }
         }
 
         public int OnlineSourcesCount => Sources.Count(s => s.IsActive);
@@ -247,6 +258,11 @@ namespace AvasRoutingTool.ViewModels
             _motion = new MotionPolicy(animationsEnabled);
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
+            Advanced.Reader = sdvoeClient as IDeviceReader;
+            Advanced.Switcher = sdvoeClient as ILinkSwitcher;
+            Advanced.Maintenance = sdvoeClient as IMaintenanceActions;
+            Advanced.ImpactProvider = GetLinkSwitchImpact;
+            Advanced.UnrouteFromMultiViews = UnrouteSourceFromMultiViewsAsync;
             _rtpReceiver = rtpReceiver ?? throw new ArgumentNullException(nameof(rtpReceiver));
             _ipManager = ipManager ?? throw new ArgumentNullException(nameof(ipManager));
             _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
@@ -265,6 +281,7 @@ namespace AvasRoutingTool.ViewModels
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
             ShowLogs = _config.ShowLogs;
+            ShowAdvanced = _config.ShowAdvanced;
 
             ThemeService = themeService ?? new ThemeService(_configService);
             ThemeService.ThemeChanged += (_, _) =>
@@ -324,6 +341,7 @@ namespace AvasRoutingTool.ViewModels
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
             ShowLogs = _config.ShowLogs;
+            ShowAdvanced = _config.ShowAdvanced;
             string host = _config.DerivedControlServerIp;
 
             AppLogger.Info("APP", $"Initializing AVAS Routing Tool with BAVM URL: {BavmUrl}, Control Server: {host}:{_config.TelnetPort} (REST: {_config.RestPort})");
@@ -351,6 +369,59 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
+        /// <summary>
+        /// What switching the link mode of these transmitter chips touches: displays routed to one of them in Single View, and
+        /// displays whose multi-view shows one of them.
+        /// </summary>
+        public LinkSwitchImpact GetLinkSwitchImpact(IReadOnlyList<string> txMacs)
+        {
+            var macs = txMacs.Select(SdvoeClient.NormalizeMac).ToHashSet();
+            var single = new List<string>();
+            var multi = new List<string>();
+            foreach (var display in Displays)
+            {
+                var live = _multiView.GetLive(display.Device);
+                if (live != null)
+                {
+                    if (macs.Any(m => live.SlotsShowing(m).Any())) multi.Add(display.Device.DeviceName);
+                }
+                else if (!display.IsMultiView && macs.Contains(SdvoeClient.NormalizeMac(display.ActiveSourceId)))
+                {
+                    single.Add(display.Device.DeviceName);
+                }
+            }
+            return new LinkSwitchImpact(single, multi);
+        }
+
+        /// <summary>
+        /// Takes these transmitter chips out of every multi-view layout (their blocks go black); a display left with no
+        /// block at all is turned off. Single View routes are left alone.
+        /// </summary>
+        public async Task UnrouteSourceFromMultiViewsAsync(IReadOnlyList<string> txMacs)
+        {
+            var macs = txMacs.Select(SdvoeClient.NormalizeMac).ToList();
+            foreach (var display in Displays.ToList())
+            {
+                var live = _multiView.GetLive(display.Device);
+                if (live == null) continue;
+                var slots = macs.SelectMany(m => live.SlotsShowing(m)).Distinct().ToList();
+                if (slots.Count == 0) continue;
+
+                foreach (var slot in slots) live.Clear(slot);
+                if (live.Placements.Count == 0)
+                {
+                    await UnrouteVideoAsync(display.Device);
+                    continue;
+                }
+
+                var result = await _multiView.TakeAsync(display.Device, live);
+                if (result.Outcome == TakeOutcome.Applied)
+                    await RestoreDisplayAsync(display); // the card shows what the display really does now
+                else
+                    AppLogger.Warn("ADVANCED", $"Could not take the switched transmitter out of the layout on '{display.Device.DeviceName}': {result.Error ?? result.Outcome.ToString()}");
+            }
+        }
+
         public async Task RefreshDevicesAsync()
         {
             AppLogger.Info("DISCOVERY", "Starting transceiver refresh cycle...");
@@ -365,6 +436,8 @@ namespace AvasRoutingTool.ViewModels
             // Dynamic Cards: populate TX Sources and RX Displays in deterministic order
             Sources.Clear();
             Displays.Clear();
+
+            Advanced.SetDevices(devices);
 
             var transmitters = devices.Where(d => d.IsTransmitter).OrderBy(d => d.DeviceName).ToList();
             var receivers = devices.Where(d => d.IsReceiver).OrderBy(d => d.DeviceName).ToList();

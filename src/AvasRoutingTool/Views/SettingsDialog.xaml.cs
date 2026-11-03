@@ -27,6 +27,7 @@ namespace AvasRoutingTool.Views
             TxtMcastEnd.Text = _config.MulticastEndIp;
             TxtBasePort.Text = _config.BasePort.ToString();
             ChkShowLogs.IsChecked = _config.ShowLogs;
+            ChkShowAdvanced.IsChecked = _config.ShowAdvanced;
         }
 
         private void TxtBavmUrl_TextChanged(object sender, TextChangedEventArgs e)
@@ -69,6 +70,7 @@ namespace AvasRoutingTool.Views
                 _config.BasePort = basePort;
 
             _config.ShowLogs = ChkShowLogs.IsChecked == true;
+            _config.ShowAdvanced = ChkShowAdvanced.IsChecked == true;
 
             _configService.Save(_config);
         }

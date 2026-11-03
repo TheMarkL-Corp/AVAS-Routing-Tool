@@ -21,6 +21,23 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Advanced page temperature dot: Tag-less, bound to TemperatureState (Normal / Warm / Hot / Unknown). Status = dot plus a word.
+         Normal is the online green; Warm is neutral; Hot is the one red (a fault); Unknown is the offline grey. -->
+    <Style x:Key="Style.Dot.Temperature" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding TemperatureState}" Value="Normal">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding TemperatureState}" Value="Warm">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Text.Secondary}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding TemperatureState}" Value="Hot">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Text.Danger}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Stroked / filled vector icon beside a section heading (static StreamGeometry, Size.Icon.S) -->
     <Style x:Key="Style.Icon.Section" TargetType="Path">
         <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />

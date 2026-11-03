@@ -12,7 +12,7 @@ using AvasRoutingTool.Rtp;
 
 namespace AvasRoutingTool.Sdvoe
 {
-    public class SdvoeClient : ISdvoeClient
+    public partial class SdvoeClient : ISdvoeClient
     {
         private TcpClient? _tcpClient;
         private NetworkStream? _stream;
