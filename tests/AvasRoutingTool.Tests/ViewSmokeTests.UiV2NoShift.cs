@@ -231,6 +231,30 @@ namespace AvasRoutingTool.Tests
                 Assert.NotEqual(ringColours[AvasRoutingTool.Services.ThemeMode.Light], ringColours[AvasRoutingTool.Services.ThemeMode.Dark]);
             });
 
+        /// <summary>The ring is the banner's edge (not an inset line inside its padding) and the content sits 14 px in from it, so the label and Stop do not touch the ring.</summary>
+        [Fact]
+        public void ArmBanner_RingIsTheBannersEdge_AndTheContentSitsInsideIt() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = new VisualRoutingView { DataContext = rig.Vm };
+                Showing(view, () =>
+                {
+                    rig.Vm.ArmSource(rig.Tx2);
+                    Relayout(view);
+                    var banner = (FrameworkElement)Named(view, "ArmBanner").Single();
+                    var ring = Named(view, "ArmBannerRing").Single();
+                    var stop = Named(view, "StopPlacingButton").Single();
+                    var label = Named(view, "ArmBannerLabel").Single();
+                    var b = BoundsIn(banner, view);
+                    var r = BoundsIn(ring, view);
+                    Assert.True(Math.Abs(r.Left - b.Left) < 0.5 && Math.Abs(r.Right - b.Right) < 0.5 && Math.Abs(r.Top - b.Top) < 0.5 && Math.Abs(r.Bottom - b.Bottom) < 0.5,
+                        $"the ring {r} is not the banner's edge {b}");
+                    Assert.True(BoundsIn(label, view).Left - b.Left >= 13.5, $"the label is {BoundsIn(label, view).Left - b.Left:F1} px from the banner's edge");
+                    Assert.True(b.Right - BoundsIn(stop, view).Right >= 13.5, $"Stop is {b.Right - BoundsIn(stop, view).Right:F1} px from the banner's edge");
+                });
+            });
+
         /// <summary>The Stop button draws its own keyboard focus ring over its outer 2 px, so the ring layer must sit beneath it, or the focus ring is hidden.</summary>
         [Fact]
         public void ArmBanner_StopButton_KeepsItsKeyboardFocusRing() =>
