@@ -27,13 +27,15 @@ namespace AvasRoutingTool.Tests
         [Theory]
         [InlineData(LinkMode.Dual, "DUAL")]
         [InlineData(LinkMode.Single, "SINGLE")]
-        public async Task SetsTheSameMode_OnChip0AndChip1_ThenRebootsThePrimaryChip(LinkMode target, string wire)
+        public async Task SetsTheSameMode_OnChip0AndChip1_ThenRebootsBothChips(LinkMode target, string wire)
         {
             var h = new RecordingHandler();
 
             Assert.True(await Client(h).SetLinkModeAsync(Tx(0), Tx(1), target));
 
-            Assert.Equal(3, h.Calls.Count);
+            Assert.Equal(4, h.Calls.Count);
+            Assert.Equal("/api/device/74fe488b07bc", h.Calls[3].Path);
+            Assert.Equal("reboot", OpOf(h, 3));
             Assert.Equal("/api/device/74fe488b07bb", h.Calls[0].Path);
             Assert.Equal("set:multi_link", OpOf(h, 0));
             Assert.Equal(wire, h.Calls[0].Body.GetProperty("mode").GetString());
@@ -74,10 +76,16 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task WhenTheRebootIsRefused_ItIsReportedAsAFailure()
+        public async Task WhenARebootIsRefused_ItIsAFailure_AndTheOtherChipIsStillRebooted()
         {
-            var h = new RecordingHandler { FailFromCall = 3 };
+            // chip 0's reboot refused: chip 1 is still rebooted so the pair restarts together
+            var h = new RecordingHandler { Responder = (m, p, b) => b.GetProperty("op").GetString() == "reboot" && p.EndsWith("07bb") ? "{\"status\":\"ERROR\",\"request_id\":null,\"result\":null,\"error\":null}" : null };
             Assert.False(await Client(h).SetLinkModeAsync(Tx(0), Tx(1), LinkMode.Dual));
+            Assert.Equal(4, h.Calls.Count);
+
+            // chip 1's reboot refused
+            var h2 = new RecordingHandler { Responder = (m, p, b) => b.GetProperty("op").GetString() == "reboot" && p.EndsWith("07bc") ? "{\"status\":\"ERROR\",\"request_id\":null,\"result\":null,\"error\":null}" : null };
+            Assert.False(await Client(h2).SetLinkModeAsync(Tx(0), Tx(1), LinkMode.Dual));
         }
 
         [Fact]

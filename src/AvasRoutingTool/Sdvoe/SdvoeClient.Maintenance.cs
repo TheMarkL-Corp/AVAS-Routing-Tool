@@ -14,7 +14,7 @@ namespace AvasRoutingTool.Sdvoe
     /// <summary>Switches a transmitter (both of its chips) between single and dual link.</summary>
     public interface ILinkSwitcher
     {
-        /// <summary>Sets the same mode on chip 0 and chip 1 of one transmitter and reboots the primary chip.</summary>
+        /// <summary>Sets the same mode on chip 0 and chip 1 of one transmitter and reboots both chips.</summary>
         Task<bool> SetLinkModeAsync(AvasDevice chip0, AvasDevice? chip1, LinkMode target);
     }
 
@@ -55,8 +55,8 @@ namespace AvasRoutingTool.Sdvoe
         public TimeSpan LinkSettleDelay { get; set; } = TimeSpan.FromMilliseconds(300);
 
         /// <summary>
-        /// Switches a dual-link transmitter: the same <c>set:multi_link</c> mode goes to chip 0 and then to chip 1, then the primary
-        /// chip is rebooted and the Control Server coordinates the pair (wrapper MultiLinkService, which sent it to chip 0 only).
+        /// Switches a dual-link transmitter: the same <c>set:multi_link</c> mode goes to chip 0 and then to chip 1, then
+        /// chip 0 and chip 1 are both rebooted (the wrapper's MultiLinkService sent the mode and the reboot to chip 0 only).
         /// Refused, with no call, unless both are online AVAS transmitter chips numbered 0 and 1. When chip 1 refuses the mode,
         /// chip 0 is put back to the other mode and no reboot is sent, so the pair is never left in two different modes. Returns
         /// false when any step fails, so a mode that was set but never applied is not reported as done.
@@ -92,13 +92,18 @@ namespace AvasRoutingTool.Sdvoe
 
             if (LinkSettleDelay > TimeSpan.Zero) await Task.Delay(LinkSettleDelay);
 
-            var reboot = await RequestAsync("POST", $"/api/device/{mac0}", new { op = "reboot" });
-            if (!reboot.Ok)
+            // Both chips restart so the pair comes back together; a refused reboot does not stop the other one.
+            bool rebooted = true;
+            foreach (var (label, mac) in new[] { ("chip 0", mac0), ("chip 1", mac1) })
             {
-                AppLogger.Warn("ADVANCED", $"Reboot of {mac0} after the link switch failed: {reboot.Failure ?? "no reply"}");
-                return false;
+                var reboot = await RequestAsync("POST", $"/api/device/{mac}", new { op = "reboot" });
+                if (!reboot.Ok)
+                {
+                    AppLogger.Warn("ADVANCED", $"Reboot of {label} {mac} after the link switch failed: {reboot.Failure ?? "no reply"}");
+                    rebooted = false;
+                }
             }
-            return true;
+            return rebooted;
         }
 
         private static string ModeWord(LinkMode mode) => mode == LinkMode.Dual ? "DUAL" : "SINGLE";
