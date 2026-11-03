@@ -142,6 +142,13 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <!--
+                            The 2 px ring, drawn beneath the content: the Stop button's own keyboard focus ring sits on its outer 2 px and
+                            must draw over it. Both are the same colour, so the banner looks as it did; the content keeps the full 48 px.
+                        -->
+                        <Border x:Name="ArmBannerRing"
+                                Grid.ColumnSpan="2"
+                                Style="{StaticResource Style.Banner.Arm.Ring}" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock x:Name="ArmBannerLabel"
                                        Text="{Binding ArmBannerText, Mode=OneWay}"
@@ -167,7 +174,7 @@
                                 BorderBrush="{DynamicResource Brush.Border.DropTarget}"
                                 Foreground="{DynamicResource Brush.Text.OnDropTarget}"
                                 Content="Stop"
-                                Margin="12,-2,0,-2"
+                                Margin="12,0,0,0"
                                 Click="StopPlacing_Click" />
                     </Grid>
                 </Border>
