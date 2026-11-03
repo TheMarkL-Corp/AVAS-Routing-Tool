@@ -64,6 +64,7 @@ namespace AvasRoutingTool.ViewModels
             _isRebooting = value;
             Raise(nameof(IsRebooting));
             Raise(nameof(CanSwitchLink));
+            Raise(nameof(CanRunDangerActions));
             ShowLinkMode();
         }
 
@@ -88,6 +89,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Only an AVAS primary transmitter chip (chip 0) whose mode is known and that is not already rebooting can be switched.</summary>
         public bool CanSwitchLink => IsAvas && IsTransmitter && Device.ChipId == 0 && !_isRebooting &&
                                      SwitchTarget != Sdvoe.LinkMode.Unknown;
+
+        /// <summary>Reboots and resets are offered for AVAS devices only (D-A4), and not while the device is already rebooting.</summary>
+        public bool CanRunDangerActions => IsAvas && !_isRebooting;
 
         public string SwitchLinkLabel => SwitchTarget switch
         {

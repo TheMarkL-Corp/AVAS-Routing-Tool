@@ -17,7 +17,17 @@ namespace AvasRoutingTool.Sdvoe
         Task<bool> SetLinkModeAsync(AvasDevice tx, LinkMode target);
     }
 
-    public partial class SdvoeClient : IDeviceReader, ILinkSwitcher
+    /// <summary>
+    /// The destructive actions of the Advanced page, ported from the wrapper's SdvoeClient. AVAS devices only (VendorId 105);
+    /// anything else is refused without a call.
+    /// </summary>
+    public interface IMaintenanceActions
+    {
+        /// <summary>Power-cycles one AVP chip: Telnet <c>reboot &lt;mac&gt;</c>, REST <c>{op: reboot}</c> as the fallback.</summary>
+        Task<bool> RebootChipAsync(AvasDevice device, string mac);
+    }
+
+    public partial class SdvoeClient : IDeviceReader, ILinkSwitcher, IMaintenanceActions
     {
         public async Task<string?> ReadDeviceSubsetAsync(string mac, string subset)
         {
@@ -68,6 +78,36 @@ namespace AvasRoutingTool.Sdvoe
                 return false;
             }
             return true;
+        }
+
+        public async Task<bool> RebootChipAsync(AvasDevice device, string mac)
+        {
+            string norm = NormalizeMac(mac);
+            if (!IsMaintenanceTarget(device) || norm.Length == 0) return false;
+
+            AppLogger.Info("ADVANCED", $"Rebooting chip {norm} of '{device.DeviceName}'...");
+            if (await TelnetCommandOkAsync($"reboot {norm}")) return true;
+
+            var rest = await RequestAsync("POST", $"/api/device/{norm}", new { op = "reboot" });
+            if (!rest.Ok) AppLogger.Warn("ADVANCED", $"Reboot of {norm} failed: {rest.Failure ?? "no reply"}");
+            return rest.Ok;
+        }
+
+        private static bool IsMaintenanceTarget(AvasDevice? device)
+        {
+            if (device != null && device.IsAvasDevice) return true;
+            AppLogger.Warn("ADVANCED", $"Maintenance action refused for '{device?.DeviceName}': AVAS devices only.");
+            return false;
+        }
+
+        /// <summary>Sends a Telnet command and reports whether the Control Server answered SUCCESS or PROCESSING without an error. False when not connected.</summary>
+        private async Task<bool> TelnetCommandOkAsync(string command)
+        {
+            if (!IsConnected) return false;
+            var inspection = RestResponse.Inspect(await SendCommandAsync(command));
+            return inspection != null && inspection.Failure == null &&
+                   (string.Equals(inspection.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(inspection.Status, "PROCESSING", StringComparison.OrdinalIgnoreCase));
         }
     }
 }

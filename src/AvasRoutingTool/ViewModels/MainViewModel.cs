@@ -260,6 +260,7 @@ namespace AvasRoutingTool.ViewModels
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
             Advanced.Reader = sdvoeClient as IDeviceReader;
             Advanced.Switcher = sdvoeClient as ILinkSwitcher;
+            Advanced.Maintenance = sdvoeClient as IMaintenanceActions;
             Advanced.ImpactProvider = GetLinkSwitchImpact;
             Advanced.UnrouteFromMultiViews = UnrouteSourceFromMultiViewsAsync;
             _rtpReceiver = rtpReceiver ?? throw new ArgumentNullException(nameof(rtpReceiver));

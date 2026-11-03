@@ -30,6 +30,8 @@ namespace AvasRoutingTool.ViewModels
         public AdvancedViewModel()
         {
             RefreshCommand = new RelayCommand(async _ => await RefreshStatusAsync(Reader), _ => !IsRefreshing && Reader != null);
+            DangerCommand = new RelayCommand(async p => { if (p is DangerAction a && SelectedDangerRow != null) await RunDangerAsync(a, SelectedDangerRow); },
+                p => p is DangerAction && SelectedDangerRow is { CanRunDangerActions: true } && Maintenance != null);
             SwitchLinkCommand = new RelayCommand(async p => { if (p is AdvancedDeviceRowViewModel row) await SwitchLinkAsync(row); },
                 p => p is AdvancedDeviceRowViewModel row && row.CanSwitchLink && Switcher != null);
         }
@@ -53,8 +55,29 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Asks the operator; the view shows the dialog. Without one the switch goes ahead unasked (tests only).</summary>
         public Func<LinkSwitchRequest, Task<bool>>? Confirm { get; set; }
 
+        /// <summary>The destructive actions (Danger zone); null until connected.</summary>
+        public IMaintenanceActions? Maintenance { get; set; }
+
+        /// <summary>Asks the operator to confirm a destructive action; the view shows the dialog.</summary>
+        public Func<DangerRequest, Task<bool>>? ConfirmDanger { get; set; }
+
+        /// <summary>AVAS devices the Danger zone can act on (D-A4), in list order.</summary>
+        public ObservableCollection<AdvancedDeviceRowViewModel> DangerRows { get; } = new();
+
+        private AdvancedDeviceRowViewModel? _selectedDangerRow;
+
+        /// <summary>The device the Danger zone buttons act on.</summary>
+        public AdvancedDeviceRowViewModel? SelectedDangerRow
+        {
+            get => _selectedDangerRow;
+            set { if (ReferenceEquals(_selectedDangerRow, value)) return; _selectedDangerRow = value; OnPropertyChanged(); }
+        }
+
         public ICommand RefreshCommand { get; }
         public ICommand SwitchLinkCommand { get; }
+
+        /// <summary>Runs the <see cref="DangerAction"/> given as the parameter on <see cref="SelectedDangerRow"/>.</summary>
+        public ICommand DangerCommand { get; }
 
         public bool IsRefreshing
         {
@@ -88,6 +111,10 @@ namespace AvasRoutingTool.ViewModels
                 if (_rebooting.ContainsKey(SdvoeClient.NormalizeMac(d.DeviceId))) row.SetRebooting(true);
                 Rows.Add(row);
             }
+            string? keep = SelectedDangerRow?.Mac;
+            DangerRows.Clear();
+            foreach (var row in Rows.Where(r => r.IsAvas)) DangerRows.Add(row);
+            SelectedDangerRow = DangerRows.FirstOrDefault(r => r.Mac == keep) ?? DangerRows.FirstOrDefault();
             OnPropertyChanged(nameof(IsEmpty));
         }
 
@@ -163,6 +190,71 @@ namespace AvasRoutingTool.ViewModels
             try { await UnrouteFromMultiViews(chips); }
             catch (Exception ex) { AppLogger.Error("ADVANCED", $"Unrouting '{row.Name}' from multi-views failed", ex); }
         }
+
+        /// <summary>
+        /// Runs one destructive action on a device after the operator confirms it (a dialog whose title names the device).
+        /// AVAS devices only (D-A4): anything else is refused with a banner, without asking and without a call.
+        /// </summary>
+        public async Task RunDangerAsync(DangerAction action, AdvancedDeviceRowViewModel row)
+        {
+            if (Maintenance == null) return;
+            if (!row.IsAvas)
+            {
+                Banner = $"{row.Name} is not an AVAS device. Reboots and resets are only offered for AVAS devices.";
+                return;
+            }
+            if (!row.CanRunDangerActions) return;
+
+            var request = DescribeDanger(action, row);
+            if (ConfirmDanger != null && !await ConfirmDanger(request)) return;
+
+            Banner = string.Empty;
+            bool ok;
+            try { ok = await RunAsync(action, row); }
+            catch (Exception ex)
+            {
+                AppLogger.Error("ADVANCED", $"{request.Title} failed", ex);
+                ok = false;
+            }
+
+            if (!ok)
+            {
+                Banner = $"Couldn't {VerbPhrase(action)} {row.Name}. Nothing was changed.";
+                return;
+            }
+
+            Banner = $"{DonePhrase(action)} {row.Name}.";
+            if (action == DangerAction.RebootChip)
+            {
+                _rebooting[SdvoeClient.NormalizeMac(row.Mac)] = new RebootWatch { StartedAt = Clock() };
+                row.SetRebooting(true);
+            }
+        }
+
+        private Task<bool> RunAsync(DangerAction action, AdvancedDeviceRowViewModel row) => action switch
+        {
+            DangerAction.RebootChip => Maintenance!.RebootChipAsync(row.Device, row.Mac),
+            _ => Task.FromResult(false)
+        };
+
+        private static DangerRequest DescribeDanger(DangerAction action, AdvancedDeviceRowViewModel row) => action switch
+        {
+            DangerAction.RebootChip => new DangerRequest(action, row.Name, $"Reboot {row.Name}?",
+                $"{row.Name} restarts and its picture is lost for a while. Routes to it are not changed.", "Reboot", null),
+            _ => throw new ArgumentOutOfRangeException(nameof(action))
+        };
+
+        private static string VerbPhrase(DangerAction action) => action switch
+        {
+            DangerAction.RebootChip => "reboot",
+            _ => "run the action on"
+        };
+
+        private static string DonePhrase(DangerAction action) => action switch
+        {
+            DangerAction.RebootChip => "Rebooting",
+            _ => "Done:"
+        };
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

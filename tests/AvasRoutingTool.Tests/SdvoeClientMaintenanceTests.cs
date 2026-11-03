@@ -61,5 +61,70 @@ namespace AvasRoutingTool.Tests
 
             Assert.Empty(h.Calls);
         }
+
+        // ---- A6: chip reboot (Telnet "reboot <mac>", REST fallback {op: reboot}) ----
+
+        private static AvasDevice Avas(int chip = 0, int vendor = 105, bool rx = false) =>
+            new() { DeviceId = "74fe488b07bb", DeviceName = "TX2", IsTransmitter = !rx, IsReceiver = rx, ChipId = chip, VendorId = vendor };
+
+        [Fact]
+        public async Task RebootChip_OverTelnet_SendsRebootAndTheMac_AndNothingOverRest()
+        {
+            using var telnet = new FakeTelnetServer();
+            var h = new RecordingHandler();
+            var c = Client(h);
+            Assert.True(await c.ConnectAsync("127.0.0.1", telnet.Port, 8080));
+
+            Assert.True(await c.RebootChipAsync(Avas(), "74:FE:48:8B:07:BC"));
+
+            Assert.Contains("reboot 74fe488b07bc", telnet.Lines);
+            Assert.Empty(h.Calls);
+        }
+
+        [Fact]
+        public async Task RebootChip_WithoutTelnet_FallsBackToRest()
+        {
+            var h = new RecordingHandler();
+
+            Assert.True(await Client(h).RebootChipAsync(Avas(), "74fe488b07bb"));
+
+            var call = Assert.Single(h.Calls);
+            Assert.Equal("/api/device/74fe488b07bb", call.Path);
+            Assert.Equal("reboot", call.Body.GetProperty("op").GetString());
+        }
+
+        [Fact]
+        public async Task RebootChip_WhenTelnetRefuses_FallsBackToRest()
+        {
+            using var telnet = new FakeTelnetServer { Status = _ => "ERROR" };
+            var h = new RecordingHandler();
+            var c = Client(h);
+            await c.ConnectAsync("127.0.0.1", telnet.Port, 8080);
+
+            Assert.True(await c.RebootChipAsync(Avas(), "74fe488b07bb"));
+
+            Assert.Single(h.Calls);
+        }
+
+        [Fact]
+        public async Task RebootChip_WhenEverythingRefuses_ReturnsFalse()
+        {
+            var h = new RecordingHandler { FailFromCall = 1 };
+            Assert.False(await Client(h).RebootChipAsync(Avas(), "74fe488b07bb"));
+        }
+
+        [Fact]
+        public async Task RebootChip_IsRefusedForNonAvas_WithoutAnyCall()
+        {
+            using var telnet = new FakeTelnetServer();
+            var h = new RecordingHandler();
+            var c = Client(h);
+            await c.ConnectAsync("127.0.0.1", telnet.Port, 8080);
+
+            Assert.False(await c.RebootChipAsync(Avas(vendor: 7), "74fe488b07bb"));
+
+            Assert.Empty(h.Calls);
+            Assert.DoesNotContain(telnet.Lines, l => l.StartsWith("reboot"));
+        }
     }
 }

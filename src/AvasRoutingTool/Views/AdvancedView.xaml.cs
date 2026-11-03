@@ -13,7 +13,7 @@ namespace AvasRoutingTool.Views
             IsVisibleChanged += OnIsVisibleChanged;
             DataContextChanged += (_, e) =>
             {
-                if (e.NewValue is AdvancedViewModel vm) vm.Confirm = ConfirmLinkSwitch;
+                if (e.NewValue is AdvancedViewModel vm) { vm.Confirm = ConfirmLinkSwitch; vm.ConfirmDanger = ConfirmDanger; }
             };
         }
 
@@ -22,6 +22,12 @@ namespace AvasRoutingTool.Views
         {
             if (e.NewValue is true && DataContext is AdvancedViewModel vm && vm.RefreshCommand.CanExecute(null))
                 vm.RefreshCommand.Execute(null);
+        }
+
+        private Task<bool> ConfirmDanger(DangerRequest request)
+        {
+            var dialog = new DangerDialog(request) { Owner = Window.GetWindow(this) };
+            return Task.FromResult(dialog.ShowDialog() == true);
         }
 
         private Task<bool> ConfirmLinkSwitch(LinkSwitchRequest request)

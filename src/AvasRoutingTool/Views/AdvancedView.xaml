@@ -1,6 +1,7 @@
 <UserControl x:Class="AvasRoutingTool.Views.AdvancedView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AvasRoutingTool.ViewModels"
              Background="{DynamicResource Brush.Background.Dark}">
 
     <Grid Margin="16,12,16,16">
@@ -9,6 +10,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,10">
@@ -105,5 +107,44 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
+
+        <!-- Danger zone: reboots and factory resets. AVAS devices only; every action asks first and none is the primary button. -->
+        <Border x:Name="DangerZone"
+                Grid.Row="4"
+                Background="{DynamicResource Brush.Surface.Card}"
+                BorderBrush="{DynamicResource Brush.Border.Strong}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,12"
+                Margin="0,10,0,0">
+            <StackPanel>
+                <TextBlock Text="Danger zone" Style="{StaticResource Style.Text.Lead}" />
+                <TextBlock Text="Reboots and factory resets of one AVAS device. Each one asks first."
+                           Style="{StaticResource Style.Text.Caption}" Margin="0,2,0,10" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="3*" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="DangerDevicePicker"
+                              ItemsSource="{Binding DangerRows}"
+                              SelectedItem="{Binding SelectedDangerRow}"
+                              DisplayMemberPath="Name"
+                              MinHeight="{StaticResource Size.Touch.Min}"
+                              Margin="0,0,12,0"
+                              AutomationProperties.Name="Device for reboots and resets" />
+                    <WrapPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="RebootChipButton"
+                                Content="Reboot chip"
+                                Command="{Binding DangerCommand}"
+                                CommandParameter="{x:Static vm:DangerAction.RebootChip}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="0,0,8,0"
+                                AutomationProperties.Name="Reboot chip" />
+                    </WrapPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>
