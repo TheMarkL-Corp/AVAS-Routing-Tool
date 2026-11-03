@@ -93,6 +93,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Reboots and resets are offered for AVAS devices only (D-A4), and not while the device is already rebooting.</summary>
         public bool CanRunDangerActions => IsAvas && !_isRebooting;
 
+        /// <summary>MCU commands go through chip 0, so they are offered on the primary chip only.</summary>
+        public bool CanRunMcuActions => CanRunDangerActions && Device.ChipId == 0;
+
         public string SwitchLinkLabel => SwitchTarget switch
         {
             Sdvoe.LinkMode.Dual => "Switch to dual link",

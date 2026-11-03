@@ -25,6 +25,9 @@ namespace AvasRoutingTool.Sdvoe
     {
         /// <summary>Power-cycles one AVP chip: Telnet <c>reboot &lt;mac&gt;</c>, REST <c>{op: reboot}</c> as the fallback.</summary>
         Task<bool> RebootChipAsync(AvasDevice device, string mac);
+
+        /// <summary>Soft-reboots the MCU through chip 0: UART 1 in API mode, then <c>send:rs232</c> "set system reboot".</summary>
+        Task<bool> RebootMcuAsync(AvasDevice device);
     }
 
     public partial class SdvoeClient : IDeviceReader, ILinkSwitcher, IMaintenanceActions
@@ -91,6 +94,34 @@ namespace AvasRoutingTool.Sdvoe
             var rest = await RequestAsync("POST", $"/api/device/{norm}", new { op = "reboot" });
             if (!rest.Ok) AppLogger.Warn("ADVANCED", $"Reboot of {norm} failed: {rest.Failure ?? "no reply"}");
             return rest.Ok;
+        }
+
+        public Task<bool> RebootMcuAsync(AvasDevice device) => SendMcuCommandAsync(device, "set system reboot");
+
+        /// <summary>
+        /// An in-band MCU command over UART 1 of chip 0 (wrapper SendMcuCommandAsync): the UART is switched to API mode first
+        /// (its result is not decisive, as in the wrapper), then <c>send:rs232</c> carries the command; when REST fails the
+        /// Telnet <c>send &lt;mac&gt; rs232:1 &lt;command&gt;</c> is tried. Refused for a non-AVAS device and for any chip but chip 0.
+        /// </summary>
+        private async Task<bool> SendMcuCommandAsync(AvasDevice device, string command)
+        {
+            if (!IsMaintenanceTarget(device)) return false;
+            if (device.ChipId != 0)
+            {
+                AppLogger.Warn("ADVANCED", $"MCU command refused for '{device.DeviceName}': MCU commands go through chip 0.");
+                return false;
+            }
+
+            string norm = NormalizeMac(device.DeviceId);
+            string path = $"/api/device/{norm}";
+            AppLogger.Info("ADVANCED", $"MCU command '{command}' to chip 0 {norm} of '{device.DeviceName}'...");
+
+            await RequestAsync("POST", path, new { stream_type = "rs232", stream_index = 1, op = "switch:api" });
+            var send = await RequestAsync("POST", path, new { op = "send:rs232", port_index = 1, data_string = command + "\r\n" });
+            if (send.Ok) return true;
+
+            AppLogger.Warn("ADVANCED", $"send:rs232 '{command}' to {norm} failed: {send.Failure ?? "no reply"}");
+            return await TelnetCommandOkAsync($"send {norm} rs232:1 {command}");
         }
 
         private static bool IsMaintenanceTarget(AvasDevice? device)

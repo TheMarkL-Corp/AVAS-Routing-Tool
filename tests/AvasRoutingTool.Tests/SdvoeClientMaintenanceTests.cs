@@ -62,6 +62,57 @@ namespace AvasRoutingTool.Tests
             Assert.Empty(h.Calls);
         }
 
+        // ---- A7: MCU reboot (rs232 port 1 of chip 0: switch:api, then send:rs232 "set system reboot") ----
+
+        [Fact]
+        public async Task RebootMcu_PutsTheUartInApiMode_ThenSendsTheRebootToChip0()
+        {
+            var h = new RecordingHandler();
+
+            Assert.True(await Client(h).RebootMcuAsync(Avas()));
+
+            Assert.Equal(2, h.Calls.Count);
+            Assert.All(h.Calls, c => Assert.Equal("/api/device/74fe488b07bb", c.Path));
+            Assert.Equal("switch:api", h.Calls[0].Body.GetProperty("op").GetString());
+            Assert.Equal("rs232", h.Calls[0].Body.GetProperty("stream_type").GetString());
+            Assert.Equal(1, h.Calls[0].Body.GetProperty("stream_index").GetInt32());
+            Assert.Equal("send:rs232", h.Calls[1].Body.GetProperty("op").GetString());
+            Assert.Equal(1, h.Calls[1].Body.GetProperty("port_index").GetInt32());
+            Assert.Equal("set system reboot\r\n", h.Calls[1].Body.GetProperty("data_string").GetString());
+        }
+
+        [Fact]
+        public async Task RebootMcu_WhenRestRefuses_FallsBackToTheTelnetSendCommand()
+        {
+            using var telnet = new FakeTelnetServer();
+            var h = new RecordingHandler { FailFromCall = 1 };
+            var c = Client(h);
+            await c.ConnectAsync("127.0.0.1", telnet.Port, 8080);
+
+            Assert.True(await c.RebootMcuAsync(Avas()));
+
+            Assert.Contains("send 74fe488b07bb rs232:1 set system reboot", telnet.Lines);
+        }
+
+        [Fact]
+        public async Task RebootMcu_WhenEverythingRefuses_ReturnsFalse()
+        {
+            var h = new RecordingHandler { FailFromCall = 1 };
+            Assert.False(await Client(h).RebootMcuAsync(Avas()));
+        }
+
+        [Fact]
+        public async Task RebootMcu_IsRefusedForNonAvas_AndForTheCompanionChip_WithoutAnyCall()
+        {
+            var h = new RecordingHandler();
+            var c = Client(h);
+
+            Assert.False(await c.RebootMcuAsync(Avas(vendor: 7)));
+            Assert.False(await c.RebootMcuAsync(Avas(chip: 1)));
+
+            Assert.Empty(h.Calls);
+        }
+
         // ---- A6: chip reboot (Telnet "reboot <mac>", REST fallback {op: reboot}) ----
 
         private static AvasDevice Avas(int chip = 0, int vendor = 105, bool rx = false) =>

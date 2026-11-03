@@ -24,6 +24,12 @@ namespace AvasRoutingTool.Tests
                 Calls.Add($"reboot-chip {mac}");
                 return Task.FromResult(Result);
             }
+
+            public Task<bool> RebootMcuAsync(AvasDevice device)
+            {
+                Calls.Add($"reboot-mcu {device.DeviceId}");
+                return Task.FromResult(Result);
+            }
         }
 
         private sealed class Rig
@@ -93,6 +99,47 @@ namespace AvasRoutingTool.Tests
             await r.Vm.RunDangerAsync(DangerAction.RebootChip, r.Row("74fe483c059e"));
 
             Assert.Equal(new[] { "reboot-chip 74fe488b07bc", "reboot-chip 74fe483c059e" }, r.Maintenance.Calls);
+        }
+
+        // ---- A7: MCU reboot (through chip 0) ----
+
+        [Fact]
+        public async Task RebootMcu_AsksWithATitleNamingTheDevice_ThenRebootsTheMcuOfChip0()
+        {
+            var r = new Rig();
+
+            await r.Vm.RunDangerAsync(DangerAction.RebootMcu, r.Row("74fe488b07bb"));
+
+            Assert.Equal("Reboot the MCU of TX2?", r.Asked!.Title);
+            Assert.Null(r.Asked.TypedName);
+            Assert.Equal(new[] { "reboot-mcu 74fe488b07bb" }, r.Maintenance.Calls);
+            Assert.False(r.Row("74fe488b07bb").IsRebooting); // only the MCU restarts, the chip keeps running
+            Assert.Contains("TX2", r.Vm.Banner);
+        }
+
+        [Fact]
+        public async Task RebootMcu_FromTheCompanionChipRow_IsRefused_BecauseMcuCommandsGoThroughChip0()
+        {
+            var r = new Rig();
+            var companion = r.Row("74fe488b07bc");
+
+            Assert.False(companion.CanRunMcuActions);
+            await r.Vm.RunDangerAsync(DangerAction.RebootMcu, companion);
+
+            Assert.Null(r.Asked);
+            Assert.Empty(r.Maintenance.Calls);
+            Assert.Contains("chip 0", r.Vm.Banner);
+        }
+
+        [Fact]
+        public async Task RebootMcu_Failure_ShowsABanner()
+        {
+            var r = new Rig();
+            r.Maintenance.Result = false;
+
+            await r.Vm.RunDangerAsync(DangerAction.RebootMcu, r.Row("74fe488b07bb"));
+
+            Assert.Contains("Couldn't reboot the MCU of TX2", r.Vm.Banner);
         }
 
         [Fact]

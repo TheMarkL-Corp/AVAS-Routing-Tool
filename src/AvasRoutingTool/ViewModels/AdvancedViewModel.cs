@@ -203,6 +203,11 @@ namespace AvasRoutingTool.ViewModels
                 Banner = $"{row.Name} is not an AVAS device. Reboots and resets are only offered for AVAS devices.";
                 return;
             }
+            if (action == DangerAction.RebootMcu && row.Device.ChipId != 0)
+            {
+                Banner = $"MCU commands go through chip 0. Choose the primary chip of {row.Name}.";
+                return;
+            }
             if (!row.CanRunDangerActions) return;
 
             var request = DescribeDanger(action, row);
@@ -234,6 +239,7 @@ namespace AvasRoutingTool.ViewModels
         private Task<bool> RunAsync(DangerAction action, AdvancedDeviceRowViewModel row) => action switch
         {
             DangerAction.RebootChip => Maintenance!.RebootChipAsync(row.Device, row.Mac),
+            DangerAction.RebootMcu => Maintenance!.RebootMcuAsync(row.Device),
             _ => Task.FromResult(false)
         };
 
@@ -241,18 +247,22 @@ namespace AvasRoutingTool.ViewModels
         {
             DangerAction.RebootChip => new DangerRequest(action, row.Name, $"Reboot {row.Name}?",
                 $"{row.Name} restarts and its picture is lost for a while. Routes to it are not changed.", "Reboot", null),
+            DangerAction.RebootMcu => new DangerRequest(action, row.Name, $"Reboot the MCU of {row.Name}?",
+                $"The control processor of {row.Name} restarts. Its video keeps running.", "Reboot MCU", null),
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
 
         private static string VerbPhrase(DangerAction action) => action switch
         {
             DangerAction.RebootChip => "reboot",
+            DangerAction.RebootMcu => "reboot the MCU of",
             _ => "run the action on"
         };
 
         private static string DonePhrase(DangerAction action) => action switch
         {
             DangerAction.RebootChip => "Rebooting",
+            DangerAction.RebootMcu => "Rebooting the MCU of",
             _ => "Done:"
         };
 
