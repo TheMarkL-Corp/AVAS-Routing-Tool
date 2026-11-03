@@ -154,6 +154,70 @@ namespace AvasRoutingTool.Tests
             Assert.Empty(h.Calls);
         }
 
+        // ---- A9: chip factory reset (Telnet "factory <mac>", REST {op: factory_default}, then {op: factory}) ----
+
+        [Fact]
+        public async Task FactoryResetChip_OverTelnet_SendsFactoryAndTheMac_AndNothingOverRest()
+        {
+            using var telnet = new FakeTelnetServer();
+            var h = new RecordingHandler();
+            var c = Client(h);
+            await c.ConnectAsync("127.0.0.1", telnet.Port, 8080);
+
+            Assert.True(await c.FactoryResetChipAsync(Avas(), "74:FE:48:8B:07:BC"));
+
+            Assert.Contains("factory 74fe488b07bc", telnet.Lines);
+            Assert.Empty(h.Calls);
+        }
+
+        [Fact]
+        public async Task FactoryResetChip_WithoutTelnet_UsesRestFactoryDefault()
+        {
+            var h = new RecordingHandler();
+
+            Assert.True(await Client(h).FactoryResetChipAsync(Avas(), "74fe488b07bb"));
+
+            var call = Assert.Single(h.Calls);
+            Assert.Equal("/api/device/74fe488b07bb", call.Path);
+            Assert.Equal("factory_default", call.Body.GetProperty("op").GetString());
+        }
+
+        [Fact]
+        public async Task FactoryResetChip_WhenFactoryDefaultIsRefused_TriesTheAlternativeFactoryOp()
+        {
+            var h = new RecordingHandler
+            {
+                Responder = (m, p, b) => b.GetProperty("op").GetString() == "factory_default"
+                    ? "{\"status\":\"ERROR\",\"request_id\":null,\"result\":null,\"error\":null}"
+                    : null
+            };
+
+            Assert.True(await Client(h).FactoryResetChipAsync(Avas(), "74fe488b07bb"));
+
+            Assert.Equal(new[] { "factory_default", "factory" }, h.Calls.Select(c => c.Body.GetProperty("op").GetString()).ToArray());
+        }
+
+        [Fact]
+        public async Task FactoryResetChip_WhenEverythingRefuses_ReturnsFalse()
+        {
+            var h = new RecordingHandler { FailFromCall = 1 };
+            Assert.False(await Client(h).FactoryResetChipAsync(Avas(), "74fe488b07bb"));
+        }
+
+        [Fact]
+        public async Task FactoryResetChip_IsRefusedForNonAvas_WithoutAnyCall()
+        {
+            using var telnet = new FakeTelnetServer();
+            var h = new RecordingHandler();
+            var c = Client(h);
+            await c.ConnectAsync("127.0.0.1", telnet.Port, 8080);
+
+            Assert.False(await c.FactoryResetChipAsync(Avas(vendor: 7), "74fe488b07bb"));
+
+            Assert.Empty(h.Calls);
+            Assert.DoesNotContain(telnet.Lines, l => l.StartsWith("factory"));
+        }
+
         // ---- A6: chip reboot (Telnet "reboot <mac>", REST fallback {op: reboot}) ----
 
         private static AvasDevice Avas(int chip = 0, int vendor = 105, bool rx = false) =>

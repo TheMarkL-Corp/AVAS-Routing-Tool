@@ -31,6 +31,9 @@ namespace AvasRoutingTool.Sdvoe
 
         /// <summary>Restores the MCU's factory defaults through chip 0: <c>send:rs232</c> "set factory default".</summary>
         Task<bool> FactoryResetMcuAsync(AvasDevice device);
+
+        /// <summary>Restores one AVP chip to factory defaults: Telnet <c>factory &lt;mac&gt;</c>, REST <c>{op: factory_default}</c> then <c>{op: factory}</c> as fallbacks.</summary>
+        Task<bool> FactoryResetChipAsync(AvasDevice device, string mac);
     }
 
     public partial class SdvoeClient : IDeviceReader, ILinkSwitcher, IMaintenanceActions
@@ -100,6 +103,22 @@ namespace AvasRoutingTool.Sdvoe
         }
 
         public Task<bool> RebootMcuAsync(AvasDevice device) => SendMcuCommandAsync(device, "set system reboot");
+
+        public async Task<bool> FactoryResetChipAsync(AvasDevice device, string mac)
+        {
+            string norm = NormalizeMac(mac);
+            if (!IsMaintenanceTarget(device) || norm.Length == 0) return false;
+
+            AppLogger.Info("ADVANCED", $"Factory reset of chip {norm} of '{device.DeviceName}'...");
+            if (await TelnetCommandOkAsync($"factory {norm}")) return true;
+
+            string path = $"/api/device/{norm}";
+            if ((await RequestAsync("POST", path, new { op = "factory_default" })).Ok) return true;
+
+            var alt = await RequestAsync("POST", path, new { op = "factory" });
+            if (!alt.Ok) AppLogger.Warn("ADVANCED", $"Factory reset of {norm} failed: {alt.Failure ?? "no reply"}");
+            return alt.Ok;
+        }
 
         public Task<bool> FactoryResetMcuAsync(AvasDevice device) => SendMcuCommandAsync(device, "set factory default");
 

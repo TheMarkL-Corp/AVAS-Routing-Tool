@@ -31,6 +31,12 @@ namespace AvasRoutingTool.Tests
                 return Task.FromResult(Result);
             }
 
+            public Task<bool> FactoryResetChipAsync(AvasDevice device, string mac)
+            {
+                Calls.Add($"factory-chip {mac}");
+                return Task.FromResult(Result);
+            }
+
             public Task<bool> FactoryResetMcuAsync(AvasDevice device)
             {
                 Calls.Add($"factory-mcu {device.DeviceId}");
@@ -194,6 +200,56 @@ namespace AvasRoutingTool.Tests
             await r.Vm.RunDangerAsync(DangerAction.FactoryResetMcu, r.Row("74fe488b07bb"));
 
             Assert.Contains("Couldn't factory reset the MCU of TX2", r.Vm.Banner);
+        }
+
+        // ---- A9: chip factory reset (typed device name) ----
+
+        [Fact]
+        public async Task FactoryResetChip_AsksForTheTypedDeviceName_ThenResetsThatChip()
+        {
+            var r = new Rig();
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetChip, r.Row("74fe488b07bb"));
+
+            Assert.Equal("Factory reset the chip of TX2?", r.Asked!.Title);
+            Assert.Equal("TX2", r.Asked.TypedName);
+            Assert.Equal(new[] { "factory-chip 74fe488b07bb" }, r.Maintenance.Calls);
+            Assert.True(r.Row("74fe488b07bb").IsRebooting); // a reset chip restarts
+            Assert.Contains("TX2", r.Vm.Banner);
+        }
+
+        [Fact]
+        public async Task FactoryResetChip_Cancel_ChangesNothing()
+        {
+            var r = new Rig { Answer = false };
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetChip, r.Row("74fe488b07bb"));
+
+            Assert.Empty(r.Maintenance.Calls);
+            Assert.False(r.Row("74fe488b07bb").IsRebooting);
+        }
+
+        [Fact]
+        public async Task FactoryResetChip_OnTheCompanionChip_TargetsThatChip_AndNonAvasIsRefused()
+        {
+            var r = new Rig();
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetChip, r.Row("74fe488b07bc"));
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetChip, r.Row("0016c0589c1e"));
+
+            Assert.Equal(new[] { "factory-chip 74fe488b07bc" }, r.Maintenance.Calls);
+        }
+
+        [Fact]
+        public async Task FactoryResetChip_Failure_ShowsABanner_AndNoRebootingState()
+        {
+            var r = new Rig();
+            r.Maintenance.Result = false;
+
+            await r.Vm.RunDangerAsync(DangerAction.FactoryResetChip, r.Row("74fe488b07bb"));
+
+            Assert.Contains("Couldn't factory reset the chip of TX2", r.Vm.Banner);
+            Assert.False(r.Row("74fe488b07bb").IsRebooting);
         }
 
         [Fact]

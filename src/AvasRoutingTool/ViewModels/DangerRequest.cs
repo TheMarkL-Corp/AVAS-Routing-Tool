@@ -4,7 +4,8 @@ namespace AvasRoutingTool.ViewModels
     {
         RebootChip,
         RebootMcu,
-        FactoryResetMcu
+        FactoryResetMcu,
+        FactoryResetChip
     }
 
     /// <summary>
