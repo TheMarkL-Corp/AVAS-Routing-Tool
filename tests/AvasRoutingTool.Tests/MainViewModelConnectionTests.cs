@@ -26,7 +26,6 @@ namespace AvasRoutingTool.Tests
             var vm = Build(new MockSdvoeClient());
 
             Assert.Equal(ConnectionHealth.Connecting, vm.ConnectionHealth);
-            Assert.True(vm.ShowConnectionText);
         }
 
         [Fact]
@@ -47,7 +46,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public async Task ConnectionHealth_BecomesConnected_WhenTheClientConnects_AndOnlyProblemsShowText()
+        public async Task ConnectionHealth_BecomesConnected_WhenTheClientConnects()
         {
             var vm = Build(new MockSdvoeClient { ConnectResult = true });
 
@@ -55,7 +54,6 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal(ConnectionHealth.Connected, vm.ConnectionHealth);
             Assert.True(vm.IsConnected);
-            Assert.False(vm.ShowConnectionText);
             Assert.StartsWith("Connected: ", vm.ConnectionStatus);
         }
 
@@ -68,12 +66,11 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal(ConnectionHealth.Offline, vm.ConnectionHealth);
             Assert.False(vm.IsConnected);
-            Assert.True(vm.ShowConnectionText);
             Assert.StartsWith("Offline: ", vm.ConnectionStatus);
         }
 
         [Fact]
-        public async Task ConnectionHealth_AndShowConnectionText_RaisePropertyChanged()
+        public async Task ConnectionHealth_RaisesPropertyChanged()
         {
             var vm = Build(new MockSdvoeClient { ConnectResult = true });
             var changed = new List<string?>();
@@ -82,7 +79,6 @@ namespace AvasRoutingTool.Tests
             await vm.InitializeAsync();
 
             Assert.Contains(nameof(MainViewModel.ConnectionHealth), changed);
-            Assert.Contains(nameof(MainViewModel.ShowConnectionText), changed);
         }
     }
 }

@@ -83,11 +83,6 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The header "Layout" menu: Single View, the four MultiView presets, Off. The layout on screen is selected.</summary>
         public IReadOnlyList<LayoutItemViewModel> LayoutMenu { get; }
 
-        /// <summary>
-        /// The one-tap presets on the action bar (from Size.Breakpoint.CardPresets wide): the same instances as in <see cref="LayoutMenu"/>, in bar order.
-        /// </summary>
-        public IReadOnlyList<LayoutItemViewModel> InlineLayouts { get; }
-
         /// <summary>The header "Layout" menu is open.</summary>
         public bool IsLayoutMenuOpen
         {
@@ -284,9 +279,6 @@ namespace AvasRoutingTool.ViewModels
 
         // ---- View state: read-only, derived from the flags above; the card view binds these instead of stacking XAML triggers. ----
 
-        /// <summary>The mode badge ("MATRIX 2X2 - 3/4", "SINGLE VIEW") takes the routed look: a source is routed, or a layout is active.</summary>
-        public bool HasRoutedBadge => IsRouted || IsMultiView;
-
         /// <summary>The Single View picture (mirrored video, notices, placeholder) shows; a multiview layout replaces it with its windows.</summary>
         public bool ShowSingleViewPicture => !IsMultiView;
 
@@ -403,7 +395,6 @@ namespace AvasRoutingTool.ViewModels
 
             var catalog = LayoutItemViewModel.CreateCatalog();
             LayoutMenu = catalog.Where(l => l.Id != "off").Concat(catalog.Where(l => l.Id == "off")).ToList();
-            InlineLayouts = new[] { "single", "pip", "side_by_side", "matrix2x2" }.Select(id => LayoutMenu.Single(l => l.Id == id)).ToList();
             SyncLayoutMenu();
 
             Slots.CollectionChanged += (_, _) => NotifyLayoutChanged();
@@ -545,7 +536,6 @@ namespace AvasRoutingTool.ViewModels
         private void NotifyPictureStateChanged()
         {
             SyncLayoutMenu();
-            OnPropertyChanged(nameof(HasRoutedBadge));
             OnPropertyChanged(nameof(ShowSingleViewPicture));
             OnPropertyChanged(nameof(ShowActiveSourceTag));
             OnPropertyChanged(nameof(ShowRoutedNonAvasNotice));

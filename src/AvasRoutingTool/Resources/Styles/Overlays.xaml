@@ -10,13 +10,20 @@
         <Setter Property="CornerRadius" Value="6" />
     </Style>
 
-    <!-- One line above the displays while a source or a display is armed (tapped, waiting for a target): words, never colour alone -->
+    <!-- One line above the displays while a source or a display is armed (tapped, waiting for a target): words, never colour alone.
+         No border or padding of its own: the 2 px ring is Style.Banner.Arm.Ring, a layer over the whole surface (the view insets the
+         content 14 px = the ring + 12 px), so the content gets the full 48 px. -->
     <Style x:Key="Style.Banner.Arm" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <!-- The arm banner's 2 px ring: a layer with no presses of its own (Stop and the banner take them). Same colour as the Stop button -->
+    <Style x:Key="Style.Banner.Arm.Ring" TargetType="Border">
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
         <Setter Property="BorderThickness" Value="2" />
         <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
 
 </ResourceDictionary>

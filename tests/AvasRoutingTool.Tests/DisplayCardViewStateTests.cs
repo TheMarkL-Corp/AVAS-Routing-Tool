@@ -23,7 +23,6 @@ namespace AvasRoutingTool.Tests
         {
             var card = Card();
 
-            Assert.False(card.HasRoutedBadge);
             Assert.True(card.ShowSingleViewPicture);
             Assert.True(card.ShowUnroutedPlaceholder);
             Assert.False(card.ShowActiveSourceTag);
@@ -31,12 +30,11 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void ARoutedAvasCard_ShowsTheActiveSourceTag_AndTheRoutedBadge()
+        public void ARoutedAvasCard_ShowsTheActiveSourceTag()
         {
             var card = Card("TX2");
             card.IsPreviewSupported = true;
 
-            Assert.True(card.HasRoutedBadge);
             Assert.True(card.ShowActiveSourceTag);
             Assert.False(card.ShowUnroutedPlaceholder);
             Assert.False(card.ShowRoutedNonAvasNotice);
@@ -53,18 +51,16 @@ namespace AvasRoutingTool.Tests
 
             card.SetExternalLayout("avas_matrix", new[] { "TX1" }, "OUT 1920x1080@60");
             Assert.False(card.ShowRoutedNonAvasNotice);
-            Assert.True(card.HasRoutedBadge);
         }
 
         [Fact]
-        public void AMultiViewCard_HidesTheSingleViewPicture_AndKeepsTheBadge()
+        public void AMultiViewCard_HidesTheSingleViewPicture()
         {
             var card = Card();
             ApplyMatrix(card);
 
             Assert.True(card.IsMultiView);
             Assert.False(card.ShowSingleViewPicture);
-            Assert.True(card.HasRoutedBadge);
         }
 
         [Fact]
@@ -122,7 +118,6 @@ namespace AvasRoutingTool.Tests
             changed.Clear();
             ApplyMatrix(card);
             Assert.Contains(nameof(DisplayCardViewModel.ShowSingleViewPicture), changed);
-            Assert.Contains(nameof(DisplayCardViewModel.HasRoutedBadge), changed);
             Assert.Contains(nameof(DisplayCardViewModel.ShowUnroutedPlaceholder), changed);
 
             changed.Clear();
@@ -164,48 +159,6 @@ namespace AvasRoutingTool.Tests
 
             Assert.False(single.IsOnScreen);
             Assert.Contains(nameof(LayoutItemViewModel.IsOnScreen), changed);
-        }
-
-        [Fact]
-        public void InlineLayouts_AreTheMenuInstances_InTheBarOrder()
-        {
-            var card = Card("TX1");
-            Assert.Equal(new[] { "single", "pip", "side_by_side", "matrix2x2" }, card.InlineLayouts.Select(l => l.Id));
-            foreach (var id in new[] { "single", "pip", "side_by_side", "matrix2x2" })
-                Assert.Same(card.LayoutMenu.Single(l => l.Id == id), card.InlineLayouts.Single(l => l.Id == id));
-
-            // The same instances carry the on-screen state of the menu.
-            ApplyMatrix(card);
-            Assert.Equal(new[] { "matrix2x2" }, card.InlineLayouts.Where(l => l.IsOnScreen).Select(l => l.Id));
-        }
-
-        [Fact]
-        public void LayoutItem_ItemStatusText_FollowsIsOnScreen()
-        {
-            var card = Card("TX1");
-            var single = card.LayoutMenu.Single(t => t.Id == "single");
-            Assert.Equal("On screen", single.ItemStatusText);
-
-            var changed = new List<string?>();
-            single.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
-            card.Device.ActiveSourceId = string.Empty;
-            card.NotifyRoutingChanged();
-
-            Assert.Equal(string.Empty, single.ItemStatusText);
-            Assert.Contains(nameof(LayoutItemViewModel.ItemStatusText), changed);
-        }
-
-        [Fact]
-        public void LayoutItem_InlineToolTip_IsTheShortName_AndAMultiViewPresetSaysItOpensTheComposer()
-        {
-            var catalog = LayoutItemViewModel.CreateCatalog();
-            var single = catalog.Single(l => l.Id == "single");
-            var matrix = catalog.Single(l => l.Id == "matrix2x2");
-
-            Assert.Equal("Single view", single.InlineToolTip);
-            Assert.Equal("Quad", matrix.InlineToolTip);
-            Assert.Equal(string.Empty, single.InlineHelpText);
-            Assert.Equal("Opens the Composer. Nothing changes on screen until Take.", matrix.InlineHelpText);
         }
 
         [Fact]

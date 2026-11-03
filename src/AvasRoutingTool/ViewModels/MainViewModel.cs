@@ -124,12 +124,8 @@ namespace AvasRoutingTool.ViewModels
             {
                 _connectionHealth = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(ShowConnectionText));
             }
         }
-
-        /// <summary>The status sentence is shown only while connecting or offline; a connected link is the dot alone.</summary>
-        public bool ShowConnectionText => ConnectionHealth != ConnectionHealth.Connected;
 
         public string BavmUrl
         {
@@ -218,9 +214,6 @@ namespace AvasRoutingTool.ViewModels
         public ThemeMode CurrentTheme => ThemeService.CurrentTheme;
         public bool IsLightMode => ThemeService.EffectiveTheme == ThemeMode.Light;
 
-        /// <summary>Names the theme that is showing now (not the one a click switches to).</summary>
-        public string ThemeButtonLabel => IsLightMode ? "Light" : "Dark";
-
         public string ThemeButtonToolTip => IsLightMode
             ? "Current theme: Clinical Light. Click to switch to Slate Dark."
             : "Current theme: Slate Dark. Click to switch to Clinical Light.";
@@ -278,7 +271,6 @@ namespace AvasRoutingTool.ViewModels
             {
                 OnPropertyChanged(nameof(CurrentTheme));
                 OnPropertyChanged(nameof(IsLightMode));
-                OnPropertyChanged(nameof(ThemeButtonLabel));
                 OnPropertyChanged(nameof(ThemeButtonToolTip));
             };
             ToggleThemeCommand = new RelayCommand(_ => ThemeService.ToggleTheme());

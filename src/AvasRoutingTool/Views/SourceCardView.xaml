@@ -50,14 +50,16 @@
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" />
 
-                    <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard -->
+                    <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard.
+                         Hit area is 36 x 36 (Padding 10 around the 16 px icon); the negative margins keep the footprint, and the
+                         icon's centre, exactly what the 24 px badge had, so the tile's height and the icon do not move. -->
                     <Border x:Name="SourceInfoBadge"
                             Focusable="True"
                             KeyboardNavigation.IsTabStop="True"
                             AutomationProperties.Name="Device network telemetry: IP, MAC, multicast"
                             Grid.Column="2"
-                            Padding="4"
-                            Margin="2,0,0,0"
+                            Padding="10"
+                            Margin="-4,-6,-6,-6"
                             Background="Transparent"
                             Cursor="Help"
                             VerticalAlignment="Center">
@@ -207,7 +209,7 @@
                         </Button>
                         <Button x:Name="StopStreamButton"
                                 Command="{Binding StopPreviewCommand, Mode=OneWay}"
-                                Style="{StaticResource Style.Button.Unroute}"
+                                Style="{StaticResource Style.Button.Ghost}"
                                 ToolTip="Stop Preview Stream"
                                 MinHeight="{StaticResource Size.Touch.Compact}"
                                 Padding="10,4"
@@ -238,7 +240,10 @@
             </Grid>
 
             <!-- Compact layout: a 16:9 thumbnail (112 x 63) and, beside it, the name, the status word and the chips. No stream controls, no info badge, no Dual Link tag and nothing focusable: the whole tile is the target. -->
+            <!-- Background is transparent (not empty) so the whole tile takes the hover, and its tooltip is the full device name -->
             <Grid x:Name="CompactLayout"
+                  Background="Transparent"
+                  ToolTip="{Binding DeviceName, Mode=OneWay}"
                   Visibility="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                 <Grid.ColumnDefinitions>
                     <!-- The thumbnail column is as wide as the thumbnail (its Width token); the text takes the rest -->
@@ -261,13 +266,15 @@
                                Stretch="Uniform"
                                RenderOptions.BitmapScalingMode="LowQuality" />
 
-                        <!-- Non-AVAS Device: no preview -->
-                        <StackPanel VerticalAlignment="Center"
+                        <!-- Non-AVAS Device: no preview. The stack sits at the top of the picture, above the Placing chip; while armed the icon steps aside for the caption. -->
+                        <StackPanel VerticalAlignment="Top"
                                     HorizontalAlignment="Center"
+                                    Margin="0,11,0,0"
                                     Visibility="{Binding ShowUnsupported, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <Path Data="{StaticResource Icon.Video}"
                                   Style="{StaticResource Style.Icon.Placeholder}"
-                                  Opacity="0.4" />
+                                  Opacity="0.4"
+                                  Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                             <TextBlock Text="No preview"
                                        Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
@@ -275,29 +282,48 @@
                                        Margin="0,2,0,0" />
                         </StackPanel>
 
-                        <!-- AVAS Standby: supported but not streaming -->
-                        <StackPanel VerticalAlignment="Center"
+                        <!-- AVAS Standby: supported but not streaming. Same placement as No preview (top, above the Placing chip). -->
+                        <StackPanel VerticalAlignment="Top"
                                     HorizontalAlignment="Center"
+                                    Margin="0,11,0,0"
                                     Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <Path Data="{StaticResource Icon.Video}"
                                   Style="{StaticResource Style.Icon.Placeholder}"
-                                  Opacity="0.4" />
+                                  Opacity="0.4"
+                                  Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                             <TextBlock Text="Standby"
                                        Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,2,0,0" />
                         </StackPanel>
+
+                        <!-- Tapped to place: the same chip as the full tile, bottom-left on the picture -->
+                        <Border x:Name="CompactPlacingBadge"
+                                Background="{DynamicResource Brush.Surface.CopyTarget}"
+                                BorderBrush="{DynamicResource Brush.Border.DropTarget}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="5,1"
+                                Margin="4"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Bottom"
+                                Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <TextBlock Text="Placing" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
+                        </Border>
                     </Grid>
                 </Border>
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
-                    <!-- Device name (ellipsis; the full name is its tooltip) -->
+                    <!-- Device name: up to two lines, so the distinguishing end of a long name stays visible (the full name is the tile's tooltip) -->
                     <TextBlock x:Name="CompactName"
                                Text="{Binding DeviceName, Mode=OneWay}"
-                               ToolTip="{Binding DeviceName, Mode=OneWay}"
                                Style="{StaticResource Style.Text.Title}"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               LineHeight="{StaticResource Size.Strip.Compact.Name.LineHeight}"
+                               LineStackingStrategy="BlockLineHeight"
+                               MaxHeight="{StaticResource Size.Strip.Compact.Name.MaxHeight}" />
 
                     <!-- Status: the dot and the word (Online / Offline) -->
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
@@ -314,7 +340,7 @@
                                    Visibility="{Binding IsActive, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                     </StackPanel>
 
-                    <!-- Chips, wrapped to the column: the staged count (the same chip as the full tile) and Placing -->
+                    <!-- The staged count, the same chip as the full tile. Placing is on the thumbnail, so the name's two lines fit the tile's height budget. -->
                     <WrapPanel Margin="0,4,0,0">
                         <Border x:Name="CompactUsedInBadge"
                                 Background="{DynamicResource Brush.Surface.Staged}"
@@ -328,18 +354,6 @@
                                        Style="{StaticResource Style.Text.Caption}"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />
-                        </Border>
-
-                        <!-- Tapped to place: the same chip as the full tile -->
-                        <Border x:Name="CompactPlacingBadge"
-                                Background="{DynamicResource Brush.Surface.CopyTarget}"
-                                BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-                                BorderThickness="1"
-                                CornerRadius="4"
-                                Padding="5,1"
-                                Margin="0,0,4,2"
-                                Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <TextBlock Text="Placing" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.CopyAccent}" />
                         </Border>
                     </WrapPanel>
                 </StackPanel>

@@ -109,13 +109,11 @@ namespace AvasRoutingTool.Tests
         private static bool IsTransparentOrNull(Brush? b) => b == null || (b is SolidColorBrush s && s.Color.A == 0);
 
         [Fact]
-        public void ConnectionDot_TellsOfflineFromConnecting_AndOnlyProblemsShowAWord() => RunSta(w =>
+        public void ConnectionDot_TellsOfflineFromConnecting_AndConnectedIsSolid() => RunSta(w =>
         {
             var vm = (MainViewModel)w.DataContext;
             var badge = (Border)w.FindName("ConnectionBadge");
             var dot = Descendants<System.Windows.Shapes.Ellipse>(badge).Single();
-            var word = (TextBlock)w.FindName("ConnectionText");
-            Assert.NotNull(word);
             var muted = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Muted")).Color;
             var online = ((SolidColorBrush)Application.Current.FindResource("Brush.Status.Online")).Color;
             var danger = ((SolidColorBrush)Application.Current.FindResource("Brush.Action.Danger")).Color;
@@ -125,25 +123,84 @@ namespace AvasRoutingTool.Tests
             w.UpdateLayout();
             Assert.True(IsTransparentOrNull(dot.Fill), "connecting: the dot is filled");
             Assert.Equal(muted, ((SolidColorBrush)dot.Stroke).Color);
-            Assert.Equal(Visibility.Visible, word.Visibility);
 
             vm.ConnectionHealth = ConnectionHealth.Connected;
             w.UpdateLayout();
             Assert.Equal(online, ((SolidColorBrush)dot.Fill).Color);
             Assert.True(IsTransparentOrNull(dot.Stroke), "connected: the dot has a ring (it should be solid)");
-            Assert.Equal(Visibility.Collapsed, word.Visibility);
 
             vm.ConnectionHealth = ConnectionHealth.Offline;
             w.UpdateLayout();
             Assert.Equal(danger, ((SolidColorBrush)dot.Fill).Color);
             Assert.True(IsTransparentOrNull(dot.Stroke), "offline: the dot has a ring (it should be solid)");
-            Assert.Equal(Visibility.Visible, word.Visibility);
 
             Assert.Equal(vm.ConnectionStatus, (string)badge.ToolTip);
-            Assert.Equal(vm.ConnectionStatus, AutomationProperties.GetHelpText(badge));
             Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(badge));
-            Assert.Equal("Connection status", AutomationProperties.GetName(badge));
         });
+
+        /// <summary>The app bar shows the dot and the word, always: the word is the connection status in every state, at 12px or more.</summary>
+        [Fact]
+        public void ConnectionWord_IsShownInEveryState_AtLeast12px() => RunSta(w =>
+        {
+            var vm = (MainViewModel)w.DataContext;
+            var word = (TextBlock)w.FindName("ConnectionText");
+            foreach (var (health, status) in ConnectionStates)
+            {
+                vm.ConnectionStatus = status;
+                vm.ConnectionHealth = health;
+                w.UpdateLayout();
+                Assert.True(word.IsVisible, $"{health}: the status word is hidden");
+                Assert.False(string.IsNullOrWhiteSpace(word.Text), $"{health}: the status word is empty");
+                Assert.Equal(status, word.Text);
+                Assert.True(word.FontSize >= 12, $"{health}: the status word is {word.FontSize}px");
+            }
+        });
+
+        /// <summary>Narrator reads the badge name: it carries the state and changes with it (Polite live region).</summary>
+        [Fact]
+        public void ConnectionBadge_AutomationName_CarriesTheStatus_AndChangesWithIt() => RunSta(w =>
+        {
+            var vm = (MainViewModel)w.DataContext;
+            var badge = (Border)w.FindName("ConnectionBadge");
+            var names = new List<string>();
+            foreach (var (health, status) in ConnectionStates)
+            {
+                vm.ConnectionStatus = status;
+                vm.ConnectionHealth = health;
+                w.UpdateLayout();
+                var name = AutomationProperties.GetName(badge);
+                Assert.Equal("Connection status: " + status, name);
+                names.Add(name);
+            }
+            Assert.Equal(names.Count, names.Distinct().Count());
+        });
+
+        [Fact]
+        public void ConnectionWord_UsesTheSecondaryTextBrush_InBothThemes() => RunSta(w =>
+        {
+            var vm = (MainViewModel)w.DataContext;
+            var word = (TextBlock)w.FindName("ConnectionText");
+            var theme = new AvasRoutingTool.Services.ThemeService();
+            try
+            {
+                foreach (var mode in new[] { AvasRoutingTool.Services.ThemeMode.Light, AvasRoutingTool.Services.ThemeMode.Dark })
+                {
+                    theme.SetTheme(mode);
+                    vm.ConnectionHealth = ConnectionHealth.Connected;
+                    w.UpdateLayout();
+                    var secondary = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
+                    Assert.Equal(secondary, ((SolidColorBrush)word.Foreground).Color);
+                }
+            }
+            finally { theme.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark); }
+        });
+
+        private static readonly (ConnectionHealth Health, string Status)[] ConnectionStates =
+        {
+            (ConnectionHealth.Connecting, "Connecting to 127.0.0.1:6970..."),
+            (ConnectionHealth.Connected, "Connected: 127.0.0.1:6970"),
+            (ConnectionHealth.Offline, "Offline: 127.0.0.1:6970"),
+        };
 
         private static void Check_AppBar_HidesTheLabelsAtTheFloor_AndStillFits(MainWindow w)
         {

@@ -1,8 +1,10 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using AvasRoutingTool.Sdvoe;
 using AvasRoutingTool.Services;
 using AvasRoutingTool.ViewModels;
 using AvasRoutingTool.Views;
@@ -87,7 +89,7 @@ namespace AvasRoutingTool.Tests
                     var name = (TextBlock)Named(view, "CompactName").Single();
                     Assert.True(name.IsVisible);
                     Assert.Equal("TX2", name.Text);
-                    Assert.Equal("TX2", name.ToolTip as string);
+                    Assert.Null(name.ToolTip);
                     Assert.True(name.FontSize >= 12, $"the name is {name.FontSize} px");
 
                     var dot = FindAll<System.Windows.Shapes.Ellipse>(view).Single(e => e.IsVisible);
@@ -275,6 +277,204 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(112, thumb.ActualWidth, 0.5);
                     Assert.Equal(63, thumb.ActualHeight, 0.5);
                 });
+            });
+
+        // ---- Task A12-7: the name wraps to two lines, the tile's tooltip is the full name, Placing sits on the thumbnail ----
+
+        private static SourceCardViewModel NamedSource(string name, bool online = true) =>
+            new(new AvasDevice { DeviceId = "74fe488b07bb", DeviceName = name, VendorId = 105, IsTransmitter = true, IsActive = online, LinkMode = "Single Link" });
+
+        /// <summary>The worst case the height budget is set for: a long name (two lines), armed, staged in 2 blocks, offline.</summary>
+        private static SourceCardViewModel WorstCase()
+        {
+            var vm = NamedSource("AVAS223_Operating_Room_Wall_TX2_B", online: false);
+            vm.UsedInBlocks = 2;
+            vm.IsArmed = true;
+            return vm;
+        }
+
+        /// <summary>How many lines the text takes at the TextBlock's own width, by WPF's wrap rules (FormattedText, same font and width).</summary>
+        private static int WrappedLines(TextBlock tb)
+        {
+            double lineHeight = Token("Size.Strip.Compact.Name.LineHeight");
+            var typeface = new Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch);
+            var text = new FormattedText(tb.Text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, typeface, tb.FontSize,
+                                         Brushes.Black, VisualTreeHelper.GetDpi(tb).PixelsPerDip)
+            {
+                MaxTextWidth = tb.ActualWidth,
+                LineHeight = lineHeight,
+            };
+            return (int)Math.Round(text.Height / lineHeight);
+        }
+
+        [Fact]
+        public void SourceCard_Compact_ALongName_WrapsToTwoLines_AndTheNameIsCappedAtTwo() =>
+            RunSta(() =>
+            {
+                foreach (var longName in new[] { "TX1_c07bb_SFPA-Transmitter-Rack-12", "AVAS223_Operating_Room_Wall_TX2_B" })
+                {
+                    TileAt(NamedSource(longName), true, view =>
+                    {
+                        var name = (TextBlock)Named(view, "CompactName").Single();
+                        Assert.Equal(longName, name.Text);
+                        Assert.Equal(TextWrapping.Wrap, name.TextWrapping);
+                        Assert.Equal(LineStackingStrategy.BlockLineHeight, name.LineStackingStrategy);
+                        double lineHeight = Token("Size.Strip.Compact.Name.LineHeight");
+                        double maxHeight = Token("Size.Strip.Compact.Name.MaxHeight");
+                        Assert.Equal(2 * lineHeight, maxHeight, 0.5);
+                        Assert.Equal(lineHeight, name.LineHeight, 0.5);
+                        Assert.Equal(maxHeight, name.MaxHeight, 0.5);
+                        Assert.True(name.ActualHeight > lineHeight + 0.5, $"'{longName}' is {name.ActualHeight:F1} high: it did not wrap");
+                        Assert.True(name.ActualHeight <= maxHeight + 0.5, $"'{longName}' is {name.ActualHeight:F1} high: over two lines");
+                    });
+                }
+            });
+
+        [Fact]
+        public void SourceCard_Compact_ATwoLineName_IsFullyVisible_SoItsSuffixIsNotCut() =>
+            RunSta(() => TileAt(NamedSource("TX1_c07bb_SFPA-Rack-12"), true, view =>
+            {
+                var name = (TextBlock)Named(view, "CompactName").Single();
+                double lineHeight = Token("Size.Strip.Compact.Name.LineHeight");
+                int lines = WrappedLines(name);
+                Assert.Equal(2, lines);
+                Assert.True(lines * lineHeight <= name.ActualHeight + 0.5,
+                    $"the name needs {lines * lineHeight} px and its box is {name.ActualHeight:F1} px: its end is cut");
+            }));
+
+        [Fact]
+        public void SourceCard_Compact_AShortName_StaysOneLine_AndTheTileIsStill81High() =>
+            RunSta(() => TileAt(NamedSource("TX2"), true, view =>
+            {
+                var name = (TextBlock)Named(view, "CompactName").Single();
+                Assert.Equal(1, WrappedLines(name));
+                Assert.Equal(Token("Size.Strip.Compact.Name.LineHeight"), name.ActualHeight, 0.5);
+                Assert.Equal(81, view.ActualHeight, 0.5);
+            }));
+
+        [Fact]
+        public void SourceCard_Compact_WorstCase_IsAtMost110High_AndTheThumbnailStays112By63() =>
+            RunSta(() => TileAt(WorstCase(), true, view =>
+            {
+                Assert.True(view.ActualHeight <= 110, $"the worst-case compact tile is {view.ActualHeight:F1} high");
+                var thumb = (System.Windows.Controls.Border)Named(view, "CompactThumb").Single();
+                Assert.Equal(112, thumb.ActualWidth, 0.5);
+                Assert.Equal(63, thumb.ActualHeight, 0.5);
+                var name = (TextBlock)Named(view, "CompactName").Single();
+                Assert.Equal(Token("Size.Strip.Compact.Name.MaxHeight"), name.ActualHeight, 0.5);
+            }));
+
+        [Fact]
+        public void SourceCard_Compact_WorstCase_StaysAtMost110High_InBothThemes() =>
+            RunSta(() =>
+            {
+                var theme = new ThemeService();
+                try
+                {
+                    foreach (var mode in new[] { ThemeMode.Dark, ThemeMode.Light })
+                    {
+                        theme.SetTheme(mode);
+                        TileAt(WorstCase(), true, view =>
+                        {
+                            Assert.True(view.ActualHeight <= 110, $"{mode}: the worst-case compact tile is {view.ActualHeight:F1} high");
+                            var thumb = (System.Windows.Controls.Border)Named(view, "CompactThumb").Single();
+                            Assert.Equal(112, thumb.ActualWidth, 0.5);
+                            Assert.Equal(63, thumb.ActualHeight, 0.5);
+                            Assert.True(Named(view, "ArmedRing").Single().IsVisible);
+                        });
+                    }
+                }
+                finally { theme.SetTheme(ThemeMode.Dark); }
+            });
+
+        [Fact]
+        public void SourceCard_Compact_TheWholeTileCarriesTheFullName_AsItsTooltip_AndIsHitTestedAsOne() =>
+            RunSta(() =>
+            {
+                const string full = "AVAS223_Operating_Room_Wall_TX2_B";
+                var vm = NamedSource(full);
+                vm.UsedInBlocks = 2;
+                vm.IsArmed = true;
+                TileAt(vm, true, view =>
+                {
+                    var layout = (Grid)Named(view, "CompactLayout").Single();
+                    Assert.Equal(full, layout.ToolTip as string);
+                    Assert.IsType<SolidColorBrush>(layout.Background);
+                    Assert.Equal(0, ((SolidColorBrush)layout.Background).Color.A);
+
+                    var name = (TextBlock)Named(view, "CompactName").Single();
+                    Assert.Null(name.ToolTip);
+
+                    var thumb = Named(view, "CompactThumb").Single();
+                    var points = new[]
+                    {
+                        thumb.TranslatePoint(new Point(thumb.ActualWidth / 2, thumb.ActualHeight / 2), view),
+                        name.TranslatePoint(new Point(name.ActualWidth / 2, name.ActualHeight / 2), view),
+                        layout.TranslatePoint(new Point(layout.ActualWidth - 2, layout.ActualHeight / 2), view),
+                    };
+                    foreach (var p in points)
+                    {
+                        var hit = VisualTreeHelper.HitTest(view, p)?.VisualHit as DependencyObject;
+                        Assert.True(hit != null && Within(hit, layout), $"the tile does not take the hover at {p}");
+                    }
+                });
+            });
+
+        [Fact]
+        public void SourceCard_Compact_Armed_PlacingSitsOnTheThumbnail_AndNotInTheChipRow() =>
+            RunSta(() =>
+            {
+                var vm = NamedSource("TX2");
+                vm.UsedInBlocks = 2;
+                vm.IsArmed = true;
+                TileAt(vm, true, view =>
+                {
+                    var thumb = (System.Windows.Controls.Border)Named(view, "CompactThumb").Single();
+                    var placing = (System.Windows.Controls.Border)Named(view, "CompactPlacingBadge").Single();
+                    Assert.True(placing.IsVisible);
+                    Assert.True(Within(placing, thumb), "Placing is not inside the thumbnail");
+                    Assert.DoesNotContain(FindAll<WrapPanel>(view), wrap => Within(placing, wrap));
+
+                    var box = BoundsIn(placing, view);
+                    var pic = BoundsIn(thumb, view);
+                    Assert.True(box.Left >= pic.Left && box.Right <= pic.Right && box.Top >= pic.Top && box.Bottom <= pic.Bottom,
+                        $"Placing {box} is not inside the thumbnail {pic}");
+
+                    var text = FindAll<TextBlock>(placing).Single();
+                    Assert.Equal("Placing", text.Text);
+                    Assert.True(text.FontSize >= 12, $"Placing is {text.FontSize} px");
+
+                    Assert.True(Named(view, "ArmedRing").Single().IsVisible);
+
+                    var staged = (System.Windows.Controls.Border)Named(view, "CompactUsedInBadge").Single();
+                    Assert.True(staged.IsVisible);
+                    Assert.False(Within(staged, thumb), "the staged chip moved onto the thumbnail");
+                    Assert.True(view.ActualHeight <= 110, $"the compact tile is {view.ActualHeight:F1} high");
+                });
+
+                var idle = NamedSource("TX2");
+                idle.UsedInBlocks = 2;
+                TileAt(idle, true, view => Assert.False(Named(view, "CompactPlacingBadge").Single().IsVisible));
+            });
+
+        [Fact]
+        public void SourceCard_Compact_Armed_PlacingDoesNotCoverThePlaceholderCaption() =>
+            RunSta(() =>
+            {
+                foreach (var (avas, caption) in new[] { (true, "Standby"), (false, "No preview") })
+                {
+                    var vm = UiV2Source(avas: avas);
+                    vm.UsedInBlocks = 2;
+                    vm.IsArmed = true;
+                    TileAt(vm, true, view =>
+                    {
+                        var placing = (System.Windows.Controls.Border)Named(view, "CompactPlacingBadge").Single();
+                        var text = VisibleTexts(view, caption).Single();
+                        var chip = BoundsIn(placing, view);
+                        var word = BoundsIn(text, view);
+                        Assert.False(chip.IntersectsWith(word), $"'{caption}' ({word}) is under Placing ({chip})");
+                    });
+                }
             });
     }
 }

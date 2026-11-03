@@ -109,8 +109,9 @@
     </Style>
 
     <!--
-        Ghost button (the quiet Turn Off look): no fill or border at rest, the danger tint only on hover, and the 2 px keyboard ring
-        through InputModality.ShowsFocus. Own template, not based on WPF-UI.
+        Ghost button (the quiet look of Turn Off and Stop): no fill or border at rest, a neutral hover (the row hover, as
+        Style.Button.CopyLayout), and the 2 px keyboard ring through InputModality.ShowsFocus. Red is for errors only, so nothing here
+        is red. Own template, not based on WPF-UI.
     -->
     <Style x:Key="Style.Button.Ghost" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
@@ -142,9 +143,8 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Danger}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Danger}" />
-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.DangerSoft}" />
+                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
                         </Trigger>
                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                             <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
