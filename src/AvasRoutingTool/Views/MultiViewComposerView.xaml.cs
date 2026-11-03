@@ -131,7 +131,12 @@ namespace AvasRoutingTool.Views
             if (sender is FrameworkElement { DataContext: ComposerLayoutOptionViewModel option }) PreviewLayoutId = option.Id;
         }
 
-        private void LayoutTile_PreviewEnd(object sender, RoutedEventArgs e) => PreviewLayoutId = DefaultPreviewLayoutId;
+        // Hover or focus ends: the ghost goes back to the keyboard-focused tile's layout, else to the default.
+        private void LayoutTile_PreviewEnd(object sender, RoutedEventArgs e)
+        {
+            var focused = e is KeyboardFocusChangedEventArgs focus ? focus.NewFocus : Keyboard.FocusedElement;
+            PreviewLayoutId = focused is FrameworkElement { Name: "LayoutTile", DataContext: ComposerLayoutOptionViewModel option } ? option.Id : DefaultPreviewLayoutId;
+        }
 
         private void Block_Click(object sender, RoutedEventArgs e)
         {
