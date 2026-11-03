@@ -74,3 +74,8 @@ What this means for the code:
 - A rejected name answers **HTTP 400 with `status: ERROR` and `error.reason` / `error.message`**: use `message` as `RenameResult.Reason`. The two server messages above are the exact strings for the too-long and colon cases.
 - The limit is **19 characters** (19 accepted, 20 rejected), confirming the documentation. ASCII-only was not probed live (documented only).
 - The read-back was done over REST (`get subset identity`); the Telnet `get all identity` used for discovery reads the same device list (checked earlier in the session before any write).
+
+## Which REST port the app really uses (checked 2026-11-03)
+
+`MainViewModel` connects with `_sdvoeClient.ConnectAsync(host, _config.TelnetPort, _config.RestPort)` (MainViewModel.cs ~line 335) and `SdvoeClient` then sends **every** REST device call (routing, multi-view, restore, rename) to `http://<host>:<_config.RestPort>`. The shipped `appsettings.json` and `AppConfig` default are `RestPort: 8080`; the `8090` inside `SdvoeClient` is only the value before `ConnectAsync` runs (and the unit tests' default). On this lab machine the Control Server (`controlserver.exe`) listens on **8090** while 8080 is a different Kestrel/Swagger service that answers 404, so with the shipped 8080 the REST calls (and therefore the rename) would fail here and only Telnet-based paths (discovery, the join/leave fallback) work. `RestPort` was not changed (the user fixed 8080 as the release default); set it to 8090 in Settings to rename on this machine. The user's decisions of 2026-11-03 (19-character limit; live rename of the two lab devices) are recorded above and in plan decision D-R2.
+
