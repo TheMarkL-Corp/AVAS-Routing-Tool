@@ -103,6 +103,40 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void Composer_Ghost_MouseLeave_ReturnsToTheKeyboardFocusedTile_NotTheDefault() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var view = rig.View(rig.Composer());
+
+                Showing(view, () =>
+                {
+                    var ghost = (LayoutSchematic)Assert.Single(Named(view, "GhostSchematic"));
+                    var tiles = Named(view, "LayoutTile").Cast<Button>().ToList();
+                    Button Tile(string id) => tiles.Single(t => ((ComposerLayoutOptionViewModel)t.DataContext).Id == id);
+                    void Mouse(Button tile, RoutedEvent e) => tile.RaiseEvent(new MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount) { RoutedEvent = e });
+
+                    KeyboardMode();
+                    Assert.True(Tile("side_by_side").Focus(), "the side-by-side tile did not take keyboard focus");
+                    Idle();
+                    Assert.Equal("side_by_side", ghost.LayoutId);
+
+                    // The mouse passes over another tile and leaves: the ghost goes back to the focused tile's layout
+                    Mouse(Tile("pip"), System.Windows.Input.Mouse.MouseEnterEvent);
+                    Assert.Equal("pip", ghost.LayoutId);
+                    Mouse(Tile("pip"), System.Windows.Input.Mouse.MouseLeaveEvent);
+                    Assert.Equal("side_by_side", ghost.LayoutId);
+
+                    // With no tile focused, leaving goes back to the default
+                    Assert.True(((Button)Assert.Single(Named(view, "CloseComposerButton"))).Focus());
+                    Idle();
+                    Mouse(Tile("pip"), System.Windows.Input.Mouse.MouseEnterEvent);
+                    Mouse(Tile("pip"), System.Windows.Input.Mouse.MouseLeaveEvent);
+                    Assert.Equal("matrix2x2", ghost.LayoutId);
+                });
+            });
+
+        [Fact]
         public void Composer_Ghost_DisappearsWhenALayoutIsStaged() =>
             RunSta(() =>
             {
