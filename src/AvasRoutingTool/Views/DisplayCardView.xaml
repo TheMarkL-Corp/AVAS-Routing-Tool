@@ -22,7 +22,7 @@
 
             <!--
                 Rows (nothing but the picture ever lies on the 16:9 video):
-                0: Header (status dot, device name, info badge, copy-source tag, mode badge)
+                0: Header (status dot, device name and copy-source tag, rename pencil, info badge, mode badge)
                 1: Action bar (layout presets when wide, Layout, Copy layout, draft chip, Turn Off) - always visible
                 2: Live video preview surface (16:9; only its own state overlays lie on it)
                 3: Status and toast dock (SOURCE / output format / notices, or the Undo toast)
@@ -36,8 +36,9 @@
                     <RowDefinition Height="{StaticResource Size.Card.RowLength.Dock}" />
                 </Grid.RowDefinitions>
 
-                <!-- Card header: name, network info badge, copy-source tag and mode badge -->
-                <Grid Grid.Row="0">
+                <!-- Card header: name and copy-source tag, rename pencil, network info badge and mode badge.
+                     Panel.ZIndex 1: the pencil's 48 px box reaches 12 px into the action bar below, and its whole box takes the press. -->
+                <Grid Grid.Row="0" Panel.ZIndex="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -52,20 +53,55 @@
                              Tag="{Binding IsActive, Mode=OneWay}"
                              Margin="0,0,8,0" />
 
-                    <!-- Strict BAVM Device Name -->
-                    <TextBlock x:Name="DeviceNameText"
-                               Grid.Column="1"
-                               Text="{Binding DeviceName, Mode=OneWay}"
-                               ToolTip="{Binding DeviceName, Mode=OneWay}"
-                               Style="{StaticResource Style.Text.Title}"
-                               FontWeight="Bold"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"
-                               Margin="0,0,6,0" />
+                    <!--
+                        The name's cell: the copy-source tag (when this display is the copy source) and the name, which takes what is left.
+                        On the narrowest card (Size.Card.Min) the pencil, the info badge and the mode badge leave little room: the tag, then the name,
+                        give way (both ellipsize; the name's tooltip has the full name) so that the mode badge is never pushed out of the card.
+                    -->
+                    <DockPanel Grid.Column="1">
+                        <!-- This display is the copy source (armed by a tap, or being dragged): the tag lies outside the picture -->
+                        <Border x:Name="CopySourceChip"
+                                DockPanel.Dock="Right"
+                                Margin="0,0,6,0"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource Brush.Border.DropTarget}"
+                                CornerRadius="4"
+                                Padding="8,2"
+                                IsHitTestVisible="False"
+                                Visibility="{Binding IsCopySource, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <TextBlock Text="COPYING FROM HERE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" TextTrimming="WordEllipsis" />
+                        </Border>
+
+                        <!-- Strict BAVM Device Name -->
+                        <TextBlock x:Name="DeviceNameText"
+                                   Text="{Binding DeviceName, Mode=OneWay}"
+                                   ToolTip="{Binding DeviceName, Mode=OneWay}"
+                                   Style="{StaticResource Style.Text.Title}"
+                                   FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0" />
+                    </DockPanel>
+
+                    <!-- Rename pencil: icon only, a real button (a press on it is not a tap on the card).
+                         The box is 48 x 48 (Size.Touch.Min) in a header row that is only 24 high (Size.Card.Row.Header): Margin -12 above and below keeps the
+                         row's footprint, and so the card's chrome height, exactly what it was (the same hit-area technique as the tile's info badge).
+                         It sits between the name and the info badge, clear of the badges. -->
+                    <Button x:Name="RenamePencil"
+                            Grid.Column="2"
+                            Style="{StaticResource Style.Button.IconPencil}"
+                            Command="{Binding RenameCommand, Mode=OneWay}"
+                            AutomationProperties.Name="{Binding RenameAutomationName, Mode=OneWay}"
+                            ToolTip="{Binding RenameToolTip, Mode=OneWay}"
+                            IsTabStop="True"
+                            Margin="0,-12,2,-12"
+                            VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Edit24" FontSize="{StaticResource Size.Icon.S}" />
+                    </Button>
 
                     <!-- Network telemetry (IP, MAC) lives in this badge's tooltip, reachable by keyboard -->
                     <Border x:Name="DeviceInfoBadge"
-                            Grid.Column="2"
+                            Grid.Column="3"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"
                             Focusable="True"
@@ -83,19 +119,6 @@
                         <ui:SymbolIcon Symbol="Info24"
                                        FontSize="{StaticResource Size.Icon.S}"
                                        Foreground="{DynamicResource Brush.Text.Secondary}" />
-                    </Border>
-
-                    <!-- This display is the copy source (armed by a tap, or being dragged): the tag lies outside the picture -->
-                    <Border x:Name="CopySourceChip"
-                            Grid.Column="3"
-                            Margin="0,0,6,0"
-                            VerticalAlignment="Center"
-                            Background="{DynamicResource Brush.Border.DropTarget}"
-                            CornerRadius="4"
-                            Padding="8,2"
-                            IsHitTestVisible="False"
-                            Visibility="{Binding IsCopySource, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                        <TextBlock Text="COPYING FROM HERE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" />
                     </Border>
 
                     <!-- Mode tag: the layout and its fill ("MATRIX 2X2 &#183; 3/4"); neutral, the picture and the card say routed -->

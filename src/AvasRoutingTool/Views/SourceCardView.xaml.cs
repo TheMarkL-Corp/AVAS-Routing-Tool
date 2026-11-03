@@ -26,6 +26,9 @@ namespace AvasRoutingTool.Views
             set => SetValue(IsCompactProperty, value);
         }
 
+        /// <summary>A press is being tracked for a possible drag (tests: a press on one of the tile's buttons is not).</summary>
+        internal bool IsPressTracked => _gesture.IsPressed;
+
         private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => SourceCardInput.Down(_gesture, this, e);
 
         private void Card_MouseMove(object sender, MouseEventArgs e) => SourceCardInput.Move(_gesture, this, e);

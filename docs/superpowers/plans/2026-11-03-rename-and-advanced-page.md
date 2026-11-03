@@ -13,7 +13,7 @@
 ## Decisions (fixed by the user; do not reopen)
 
 - **D-R1** No local alias. The Control Server holds the only name. The card shows the new name only after the server confirms and discovery returns it. A failed write keeps the old name and shows a banner "Couldn't rename <old name>: <reason>".
-- **D-R2** A visible pencil icon on every TX card header and RX card header opens a rename dialog. Rules: 1-32 characters, no leading or trailing spaces, no duplicate of another device name (case-insensitive). OK stays disabled with a one-line reason until valid.
+- **D-R2** A visible pencil icon on every TX card header and RX card header opens a rename dialog. Rules: 1-19 characters (the Control Server's real limit, proven live in R1; the user accepted 19 on 2026-11-03), printable ASCII only, no colon, no leading or trailing spaces, no duplicate of another device name (case-insensitive). OK stays disabled with a one-line reason until valid.
 - **D-A1** The tab is gated by `ShowAdvanced` in `appsettings.json` (default `false`), toggled by a Settings switch, wired like `ShowLogs`. Switching it off while the tab is open returns to Visual Routing. No PIN.
 - **D-A2** Two stages. Stage 1 is read-only plus the link switch (temperature, link mode, link switch). Stage 2 is the four destructive actions (chip reboot, MCU reboot, MCU factory reset, chip factory reset), each behind a confirmation naming the device; both factory resets also need a typed confirmation.
 - **D-A3** A link switch is allowed while the device is routed. The confirmation lists what is affected and offers "Unroute and switch" or "Cancel". After the switch is applied, unroute that TX from every multi-view (single-view routes stay), then wait for rediscovery. Nothing is re-routed automatically.

@@ -445,6 +445,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var dev in transmitters)
             {
                 var sourceVm = new SourceCardViewModel(dev);
+                sourceVm.RenameHandler = () => RenameDeviceAsync(dev);
                 Sources.Add(sourceVm);
 
                 if (dev.IsActive && dev.IsPreviewSupported)
@@ -468,6 +469,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var dev in receivers)
             {
                 var displayVm = new DisplayCardViewModel(dev, UnrouteVideoAsync);
+                displayVm.RenameHandler = () => RenameDeviceAsync(dev);
                 if (!string.IsNullOrEmpty(dev.ActiveSourceId))
                 {
                     var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == dev.ActiveSourceId);
@@ -1672,6 +1674,110 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(OnlineSourcesCount));
             OnPropertyChanged(nameof(OnlineDisplaysCount));
         }
+
+        #region Rename
+
+        /// <summary>
+        /// The seam that shows the rename dialog: gets the dialog's view model, returns the new name or null when the user
+        /// cancelled. Null by default (a test sets it); MainWindow wires the real dialog.
+        /// </summary>
+        public Func<RenameDialogViewModel, string?>? AskForName { get; set; }
+
+        private string? _renameBanner;
+        private bool _isRenaming;
+        private ICommand? _dismissRenameBannerCommand;
+
+        /// <summary>Why the last rename failed ("Couldn't rename TX2: ..."); null when there is nothing to say.</summary>
+        public string? RenameBanner
+        {
+            get => _renameBanner;
+            private set
+            {
+                if (_renameBanner == value) return;
+                _renameBanner = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasRenameBanner));
+                // Dismiss can execute only while there is a banner: say so now, not at the next key or click, so the first tap on it works.
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        public bool HasRenameBanner => !string.IsNullOrEmpty(_renameBanner);
+
+        /// <summary>A rename is being written to the Control Server (and the cards rebuilt): another one is ignored meanwhile.</summary>
+        public bool IsRenaming
+        {
+            get => _isRenaming;
+            private set
+            {
+                if (_isRenaming == value) return;
+                _isRenaming = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ICommand DismissRenameBannerCommand =>
+            _dismissRenameBannerCommand ??= new RelayCommand(_ => RenameBanner = null, _ => HasRenameBanner);
+
+        /// <summary>
+        /// Asks for a new name, writes it to the Control Server, and rebuilds the cards by rediscovery. The card shows the
+        /// new name only after the server confirmed AND discovery returned it (never set locally); on a failure nothing
+        /// changes except the banner. Routes survive: they are keyed by MAC, and rediscovery re-links the display to its source.
+        /// </summary>
+        public async Task RenameDeviceAsync(AvasDevice device)
+        {
+            if (device == null) throw new ArgumentNullException(nameof(device));
+            if (IsRenaming) return;
+
+            RenameBanner = null; // a new attempt clears the old failure
+            string oldName = device.DeviceName;
+
+            if (_sdvoeClient is not IDeviceRenamer renamer)
+            {
+                RenameBanner = $"Couldn't rename {oldName}: this connection can't rename devices";
+                AppLogger.Warn("RENAME", $"'{oldName}' not renamed: the client has no rename call");
+                return;
+            }
+
+            // The names the new one must not collide with: every OTHER device on a card.
+            string mac = SdvoeClient.NormalizeMac(device.DeviceId);
+            var otherNames = Sources.Select(s => s.Device)
+                .Concat(Displays.Select(d => d.Device))
+                .Where(d => !string.Equals(SdvoeClient.NormalizeMac(d.DeviceId), mac, StringComparison.OrdinalIgnoreCase))
+                .Select(d => d.DeviceName)
+                .ToList();
+
+            var dialog = new RenameDialogViewModel(oldName, otherNames);
+            string? newName = AskForName?.Invoke(dialog);
+            if (newName == null || string.Equals(newName, oldName, StringComparison.Ordinal))
+            {
+                AppLogger.Info("RENAME", $"Rename of '{oldName}' cancelled");
+                return;
+            }
+
+            IsRenaming = true;
+            try
+            {
+                var result = await renamer.RenameDeviceAsync(device.DeviceId, newName);
+                if (!result.Ok)
+                {
+                    string reason = string.IsNullOrWhiteSpace(result.Reason) ? "the Control Server refused it" : result.Reason;
+                    RenameBanner = $"Couldn't rename {oldName}: {reason}";
+                    AppLogger.Warn("RENAME", $"'{oldName}' not renamed to '{newName}': {reason}");
+                    return;
+                }
+
+                AppLogger.Info("RENAME", $"'{oldName}' renamed to '{newName}' on the Control Server; rediscovering");
+                RenameBanner = null;
+                await RefreshDevicesAsync();
+            }
+            finally
+            {
+                IsRenaming = false;
+            }
+        }
+
+        #endregion
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
