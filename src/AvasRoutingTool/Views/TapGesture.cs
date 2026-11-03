@@ -50,7 +50,28 @@ namespace AvasRoutingTool.Views
     /// <summary>Tap-to-arm and drag-to-route for both source card views (the overview card and the Composer's compact palette).</summary>
     internal static class SourceCardInput
     {
-        public static void Down(TapGesture gesture, UIElement card, MouseButtonEventArgs e) => gesture.Press(e.GetPosition(card));
+        /// <summary>
+        /// A press starts tracking a tap (or a drag). A press on one of the tile's own buttons (the rename pencil, Start, Stop, Refresh)
+        /// is that button's: it neither becomes a tap on the tile nor can a move after it start a drag of the source.
+        /// </summary>
+        public static void Down(TapGesture gesture, UIElement card, MouseButtonEventArgs e)
+        {
+            if (IsOnAButton(e.OriginalSource as DependencyObject, card))
+            {
+                gesture.Release(); // forget any earlier press that never saw its release
+                return;
+            }
+            gesture.Press(e.GetPosition(card));
+        }
+
+        private static bool IsOnAButton(DependencyObject? d, DependencyObject card)
+        {
+            for (; d != null && !ReferenceEquals(d, card); d = d is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D ? System.Windows.Media.VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+            {
+                if (d is System.Windows.Controls.Primitives.ButtonBase) return true;
+            }
+            return false;
+        }
 
         public static void Move(TapGesture gesture, FrameworkElement card, MouseEventArgs e)
         {

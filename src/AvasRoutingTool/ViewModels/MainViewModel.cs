@@ -1624,6 +1624,8 @@ namespace AvasRoutingTool.ViewModels
                 _renameBanner = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasRenameBanner));
+                // Dismiss can execute only while there is a banner: say so now, not at the next key or click, so the first tap on it works.
+                CommandManager.InvalidateRequerySuggested();
             }
         }
 

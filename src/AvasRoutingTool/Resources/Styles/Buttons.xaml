@@ -159,6 +159,60 @@
         </Setter>
     </Style>
 
+    <!--
+        Pencil (rename): an icon-only button for a card header. 48 x 48 hit box (Size.Touch.Min) whose whole box takes the press (transparent
+        root Grid); the icon is the secondary text colour at rest and the accent (blue) under the mouse and on keyboard focus; the fill is
+        the neutral row hover, under the mouse only; a 2 px ring through InputModality.ShowsFocus. Red is for errors only, so nothing here is red.
+        The view lays it out with negative vertical margins, so the 48 px box does not change its row's height.
+    -->
+    <Style x:Key="Style.Button.IconPencil" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="IsTabStop" Value="True" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="Transparent" SnapsToDevicePixels="True">
+                        <Border x:Name="HoverFill"
+                                Background="Transparent"
+                                CornerRadius="6"
+                                Margin="4" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="HoverFill" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
+                        </Trigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- MultiView Composer and the generic touch button: 48 px (D4), 16 px semibold, own focus ring so it shows over any local border colour -->
     <Style x:Key="Style.Button.Composer" TargetType="Button">
         <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
