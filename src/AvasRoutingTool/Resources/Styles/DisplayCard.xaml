@@ -216,8 +216,8 @@
     </Style>
 
     <!--
-        One segment of the display card's layout control: the one-tap presets and the Layout dropdown share one joined outline, drawn by the
-        view (LayoutSegments: fill, outline), so a segment has no border of its own. Touch size; own template, not based on WPF-UI.
+        The Layout dropdown's segment on the display card's layout control: the view draws its fill and outline (LayoutSegments), so the
+        segment has no border of its own. Touch size; own template, not based on WPF-UI.
         Hover lifts the fill; the 2 px keyboard ring shows through InputModality.ShowsFocus. Part bd is read by the tests.
     -->
     <Style x:Key="Style.Button.LayoutSegment" TargetType="Button">
@@ -260,39 +260,6 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-    </Style>
-
-    <!--
-        A one-tap layout preset (a segment with its glyph; cards from Size.Breakpoint.CardPresets wide). On screen: the selected fill and the
-        accent colour for the glyph and the check mark, so the state is not colour alone (the check is the view's). Content is set by the view.
-    -->
-    <Style x:Key="Style.Button.LayoutPreset" TargetType="Button" BasedOn="{StaticResource Style.Button.LayoutSegment}">
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
-                <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
-            </DataTrigger>
-        </Style.Triggers>
-    </Style>
-
-    <!-- The check badge of the layout on screen: a small accent disc in the segment's top-right corner (Size.Icon.S square) -->
-    <Style x:Key="Style.Badge.OnScreenCheck" TargetType="Border">
-        <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
-        <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Background" Value="{DynamicResource Brush.Accent.Primary}" />
-        <Setter Property="HorizontalAlignment" Value="Right" />
-        <Setter Property="VerticalAlignment" Value="Top" />
-        <Setter Property="Margin" Value="0,-3,-3,0" />
-        <Setter Property="IsHitTestVisible" Value="False" />
-    </Style>
-
-    <!-- The outline cell of a LayoutGlyph: an outline only (no fill), its colour set by the glyph's Foreground binding in the view -->
-    <Style x:Key="Style.Border.GlyphCell" TargetType="Border">
-        <Setter Property="Margin" Value="1" />
-        <Setter Property="BorderThickness" Value="1.5" />
-        <Setter Property="CornerRadius" Value="2" />
-        <Setter Property="Background" Value="Transparent" />
     </Style>
 
 </ResourceDictionary>

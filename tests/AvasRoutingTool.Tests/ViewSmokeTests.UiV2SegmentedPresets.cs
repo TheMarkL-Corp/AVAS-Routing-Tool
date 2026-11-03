@@ -5,8 +5,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using AvasRoutingTool.Services;
-using AvasRoutingTool.ViewModels;
-using AvasRoutingTool.Views;
 using Wpf.Ui.Controls;
 using Xunit;
 using Button = System.Windows.Controls.Button;
@@ -15,9 +13,8 @@ using TextBlock = System.Windows.Controls.TextBlock;
 namespace AvasRoutingTool.Tests
 {
     /// <summary>
-    /// UI v2 segmented layout control on the display card's action bar (plan task A10): the four one-tap presets and the Layout
-    /// dropdown are one joined segmented control; each preset draws its layout as a <see cref="LayoutGlyph"/> (outline cells in the
-    /// button's text colour); Copy layout stands apart at the right of the group.
+    /// UI v2 layout control on the display card's action bar (plan task A10, then A13): the Layout dropdown is one segment with its
+    /// fill and outline (LayoutSegments), and Copy layout stands apart at its right. The one-tap presets were removed (A13).
     /// </summary>
     public partial class ViewSmokeTests
     {
@@ -35,15 +32,8 @@ namespace AvasRoutingTool.Tests
             return false;
         }
 
-        private static List<Button> VisiblePresets(DependencyObject view) =>
-            Named(view, "InlinePreset").Cast<Button>().Where(b => b.IsVisible).ToList();
-
-        /// <summary>The outline cells of a preset's glyph: the bordered blocks (the glyph has no other borders).</summary>
-        private static List<System.Windows.Controls.Border> GlyphCells(DependencyObject preset) =>
-            FindAll<System.Windows.Controls.Border>(FindAll<LayoutGlyph>(preset).Single()).Where(b => b.BorderThickness.Left > 0).ToList();
-
         [Fact]
-        public void LayoutSegments_JoinsThePresetsAndLayout_IntoOneControl_EachSegmentAtLeast48() =>
+        public void LayoutSegments_HoldTheLayoutDropdown_AsOneSegment_AtLeast48_FilledByIt() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -51,24 +41,15 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var group = (Grid)Named(view, "LayoutSegments").Single();
-                    Assert.True(Within(Named(view, "InlinePresets").Single(), group), "the presets are not inside LayoutSegments");
                     var layout = (Button)Named(view, "LayoutButton").Single();
                     Assert.True(Within(layout, group), "Layout is not inside LayoutSegments");
+                    Assert.True(layout.ActualWidth >= Token("Size.Touch.Min") && layout.ActualHeight >= Token("Size.Touch.Min"),
+                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight}");
 
-                    var presets = VisiblePresets(view);
-                    Assert.Equal(4, presets.Count);
-                    var segments = presets.Cast<FrameworkElement>().Append(layout).ToList();
-                    foreach (var segment in segments)
-                    {
-                        Assert.True(segment.ActualWidth >= Token("Size.Touch.Min") && segment.ActualHeight >= Token("Size.Touch.Min"),
-                            $"{segment.Name} is {segment.ActualWidth}x{segment.ActualHeight}");
-                    }
-                    for (int i = 1; i < segments.Count; i++)
-                    {
-                        var before = BoundsIn(segments[i - 1], group);
-                        var after = BoundsIn(segments[i], group);
-                        Assert.True(Math.Abs(after.Left - before.Right) <= 0.5, $"segment {i} starts at {after.Left:F1}; the one before ends at {before.Right:F1}");
-                    }
+                    // The segment is the whole group: its fill and outline are its edge.
+                    var box = BoundsIn(layout, group);
+                    Assert.True(Math.Abs(box.Width - group.ActualWidth) <= 0.5 && Math.Abs(box.Height - group.ActualHeight) <= 0.5,
+                        $"Layout {box} does not fill LayoutSegments {group.ActualWidth:F1}x{group.ActualHeight:F1}");
                 });
             });
 
@@ -85,19 +66,14 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(1.0, outline.BorderThickness.Left);
                     Assert.Null(outline.Background);
                     Assert.False(outline.IsHitTestVisible);
-                    Assert.True(Within(outline, group), "the outline does not overlay the segments");
+                    Assert.True(Within(outline, group), "the outline does not overlay the segment");
 
-                    // The outline is the only border with a width in the group: the glyph cells are the presets' drawing, and every
-                    // segment's own border part is 0 (its focus ring is collapsed).
-                    var glyphs = FindAll<LayoutGlyph>(group);
-                    var drawn = FindAll<System.Windows.Controls.Border>(group)
-                        .Where(b => b.IsVisible && b.BorderThickness.Left > 0 && !glyphs.Any(g => Within(b, g))).ToList();
+                    // The outline is the only border with a width in the group: the segment's own border part is 0 (its focus ring is collapsed).
+                    var drawn = FindAll<System.Windows.Controls.Border>(group).Where(b => b.IsVisible && b.BorderThickness.Left > 0).ToList();
                     Assert.Same(outline, Assert.Single(drawn));
-                    foreach (var button in Named(view, "InlinePreset").Concat(Named(view, "LayoutButton")).Cast<Button>())
-                    {
-                        var bd = (System.Windows.Controls.Border)button.Template.FindName("bd", button);
-                        Assert.Equal(0.0, bd.BorderThickness.Left);
-                    }
+                    var layout = (Button)Named(view, "LayoutButton").Single();
+                    var bd = (System.Windows.Controls.Border)layout.Template.FindName("bd", layout);
+                    Assert.Equal(0.0, bd.BorderThickness.Left);
                 });
             });
 
@@ -118,100 +94,30 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void LayoutSegments_EveryPreset_AndLayout_TakeAPressOnTheirWholeArea_IncludingTheOuterRing() =>
+        public void LayoutSegments_TheLayoutButton_TakesAPressOnItsWholeArea_IncludingTheOuterRing() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
                 var view = rig.View(rig.Rx1, out var host, 613);
                 Showing(host, () =>
                 {
-                    // Four presets and Layout. A press anywhere in the 48x48 segment must land on the segment, not only in its inset block.
-                    var segments = VisiblePresets(view).Cast<Button>().Append((Button)Named(view, "LayoutButton").Single()).ToList();
-                    Assert.Equal(5, segments.Count);
-                    foreach (var segment in segments)
+                    // A press anywhere in the 48x48 segment must land on the segment, not only in its inset block.
+                    var segment = (Button)Named(view, "LayoutButton").Single();
+                    double w = segment.ActualWidth, h = segment.ActualHeight;
+                    var spots = new[]
                     {
-                        double w = segment.ActualWidth, h = segment.ActualHeight;
-                        var spots = new[]
-                        {
-                            new Point(1, 1), new Point(w - 1, 1), new Point(1, h - 1), new Point(w - 1, h - 1),
-                            new Point(w / 2, 1), new Point(1, h / 2), new Point(w / 2, h / 2),
-                        };
-                        foreach (var spot in spots)
-                        {
-                            var atView = segment.TranslatePoint(spot, view);
-                            var hit = PressTarget(view, atView);
-                            string landsOn = hit == null ? "nothing" : $"{hit.GetType().Name} '{(hit as FrameworkElement)?.Name}' at {(hit is FrameworkElement hf ? BoundsIn(hf, view).ToString() : "")} (segment at {BoundsIn(segment, view)})";
-                            Assert.True(hit != null && Within(hit, segment),
-                                $"{segment.Name} {w:F0}x{h:F0}: a press at ({spot.X:F1},{spot.Y:F1}) lands on {landsOn}, not on the segment");
-                        }
+                        new Point(1, 1), new Point(w - 1, 1), new Point(1, h - 1), new Point(w - 1, h - 1),
+                        new Point(w / 2, 1), new Point(1, h / 2), new Point(w / 2, h / 2),
+                    };
+                    foreach (var spot in spots)
+                    {
+                        var atView = segment.TranslatePoint(spot, view);
+                        var hit = PressTarget(view, atView);
+                        string landsOn = hit == null ? "nothing" : $"{hit.GetType().Name} '{(hit as FrameworkElement)?.Name}' at {(hit is FrameworkElement hf ? BoundsIn(hf, view).ToString() : "")} (segment at {BoundsIn(segment, view)})";
+                        Assert.True(hit != null && Within(hit, segment),
+                            $"Layout {w:F0}x{h:F0}: a press at ({spot.X:F1},{spot.Y:F1}) lands on {landsOn}, not on the segment");
                     }
                 });
-            });
-
-        [Fact]
-        public void InlinePresets_EachDrawsItsLayoutAsALayoutGlyph_At32x20_WithOutlineCellsAndNoText() =>
-            RunSta(() =>
-            {
-                Assert.Equal(32.0, Token("Size.Schematic.Inline.Width"));
-                Assert.Equal(20.0, Token("Size.Schematic.Inline.Height"));
-
-                var rig = new CopyRig();
-                var view = rig.View(rig.Rx1, out var host, 613);
-                Showing(host, () =>
-                {
-                    var presets = VisiblePresets(view);
-                    Assert.Equal(new[] { 1, 2, 2, 4 }, presets.Select(p => FindAll<LayoutGlyph>(p).Single().CellCount));
-                    foreach (var preset in presets)
-                    {
-                        var glyph = FindAll<LayoutGlyph>(preset).Single();
-                        Assert.Equal(32.0, glyph.ActualWidth);
-                        Assert.Equal(20.0, glyph.ActualHeight);
-                        Assert.Empty(FindAll<TextBlock>(glyph));
-                        Assert.All(FindAll<System.Windows.Controls.Border>(glyph), b => Assert.True(b.Background == null || ColorOf(b.Background).A == 0, "a glyph cell is filled"));
-                    }
-                });
-            });
-
-        [Fact]
-        public void InlinePreset_ShowsTheLayoutOnScreen_InBothThemes() =>
-            RunSta(() =>
-            {
-                var theme = new ThemeService();
-                try
-                {
-                    foreach (var mode in new[] { ThemeMode.Dark, ThemeMode.Light })
-                    {
-                        // The rig first: its MainViewModel re-applies the saved (Dark) theme when it is built, which made the Light pass a second Dark pass.
-                        var rig = new CopyRig();
-                        theme.SetTheme(mode);
-                        var view = rig.View(rig.Rx1, out var host, 613);
-                        Showing(host, () =>
-                        {
-                            // Rx1 shows its Matrix 2x2: the selected fill, the accent glyph and the check mark; the other three are plain.
-                            var presets = VisiblePresets(view);
-                            Assert.Equal(4, presets.Count);
-                            foreach (var preset in presets)
-                            {
-                                string id = ((LayoutItemViewModel)preset.DataContext).Id;
-                                var cells = GlyphCells(preset);
-                                Assert.NotEmpty(cells);
-                                if (id == "matrix2x2")
-                                {
-                                    Assert.Equal(PaletteColor("Brush.Surface.Selected"), ColorOf(preset.Background));
-                                    Assert.True(CheckIsShown(preset), $"{mode}: the on-screen preset has no visible checkmark");
-                                    Assert.All(cells, c => Assert.Equal(PaletteColor("Brush.Accent.Primary"), ColorOf(c.BorderBrush)));
-                                }
-                                else
-                                {
-                                    Assert.Equal(0, ColorOf(preset.Background).A);
-                                    Assert.False(CheckIsShown(preset), $"{mode}: {id} shows a checkmark but is not on screen");
-                                    Assert.All(cells, c => Assert.Equal(PaletteColor("Brush.Text.Secondary"), ColorOf(c.BorderBrush)));
-                                }
-                            }
-                        });
-                    }
-                }
-                finally { theme.SetTheme(ThemeMode.Dark); }
             });
 
         [Fact]
@@ -232,34 +138,14 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal("Layout for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
                 });
 
-                // At the minimum card width the presets are gone and Layout is the only segment left, still a touch target.
+                // At the minimum card width Layout is still a touch target.
                 var narrow = new CopyRig();
                 var narrowView = narrow.View(narrow.Rx1, out var narrowHost, Token("Size.Card.Min"));
                 Showing(narrowHost, () =>
                 {
-                    Assert.Empty(VisiblePresets(narrowView));
                     var layout = (Button)Named(narrowView, "LayoutButton").Single();
                     Assert.True(layout.IsVisible && layout.ActualWidth >= Token("Size.Touch.Min") && layout.ActualHeight >= Token("Size.Touch.Min"),
                         $"Layout is {layout.ActualWidth}x{layout.ActualHeight} at the minimum width");
-                });
-            });
-
-        [Fact]
-        public void InlinePresets_HaveTheirShortNames_TooltipsAndHelpText() =>
-            RunSta(() =>
-            {
-                var rig = new CopyRig();
-                var view = rig.View(rig.Rx1, out var host, 613);
-                Showing(host, () =>
-                {
-                    var presets = Named(view, "InlinePreset").Cast<Button>().ToList();
-                    Assert.Equal(new[] { "single", "pip", "side_by_side", "matrix2x2" }, presets.Select(p => ((LayoutItemViewModel)p.DataContext).Id));
-                    Assert.Equal(new[] { "Single view", "Picture-in-picture", "Side by side", "Quad" },
-                        presets.Select(p => System.Windows.Automation.AutomationProperties.GetName(p)));
-                    Assert.Equal(new[] { "Single view", "Picture-in-picture", "Side by side", "Quad" }, presets.Select(p => p.ToolTip as string));
-                    string composer = "Opens the Composer. Nothing changes on screen until Take.";
-                    Assert.Equal(new[] { string.Empty, composer, composer, composer },
-                        presets.Select(p => System.Windows.Automation.AutomationProperties.GetHelpText(p)));
                 });
             });
 

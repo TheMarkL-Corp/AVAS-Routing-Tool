@@ -120,79 +120,36 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <!--
-                            The layout control: one joined segmented control in column 0, spanning the two columns the presets and Layout
-                            used to occupy. Four one-tap presets from Size.Breakpoint.CardPresets wide (narrower cards show only Layout).
-                            A MultiView preset opens the Composer staged: nothing reaches the screen until Take.
+                            The layout control: the Layout dropdown, one segment in column 0 with its fill and outline (the look it has on a
+                            narrow card). Its menu holds every layout and marks the one on screen. Copy layout and the draft chip stand apart.
                         -->
-                        <Grid x:Name="LayoutSegments" Grid.Column="0" Grid.ColumnSpan="2">
-                            <!-- The group's fill, behind the segments -->
+                        <Grid x:Name="LayoutSegments" Grid.Column="0">
+                            <!-- The segment's fill, behind it -->
                             <Border Background="{DynamicResource Brush.Surface.Card}" CornerRadius="8" />
 
-                            <StackPanel Orientation="Horizontal">
-                                <ItemsControl x:Name="InlinePresets"
-                                              Focusable="False"
-                                              ItemsSource="{Binding InlineLayouts, Mode=OneWay}"
-                                              Visibility="{Binding ActualWidth, ElementName=FloatingActionDock, Converter={StaticResource Converter.WidthAtLeast}, ConverterParameter={StaticResource Size.Breakpoint.CardPresets}, Mode=OneWay}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button x:Name="InlinePreset"
-                                                    Style="{StaticResource Style.Button.LayoutPreset}"
-                                                    AutomationProperties.Name="{Binding InlineName, Mode=OneWay}"
-                                                    AutomationProperties.ItemStatus="{Binding ItemStatusText, Mode=OneWay}"
-                                                    AutomationProperties.HelpText="{Binding InlineHelpText, Mode=OneWay}"
-                                                    ToolTip="{Binding InlineToolTip, Mode=OneWay}"
-                                                    Click="LayoutChoice_Click">
-                                                <Grid>
-                                                    <views:LayoutGlyph LayoutId="{Binding Id, Mode=OneWay}"
-                                                                       Width="{StaticResource Size.Schematic.Inline.Width}"
-                                                                       Height="{StaticResource Size.Schematic.Inline.Height}"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center" />
-                                                    <!-- The layout on screen: a small accent badge with a check in the corner (a shape as well as the colour) -->
-                                                    <Border Style="{StaticResource Style.Badge.OnScreenCheck}"
-                                                            Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                                                        <ui:SymbolIcon Symbol="Checkmark24"
-                                                                       FontSize="{StaticResource Font.Size.Caption}"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource Brush.Text.OnAction}" />
-                                                    </Border>
-                                                </Grid>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                            <!-- Layout menu button (the full dropdown): an icon and a chevron; its name and tooltip say what it is -->
+                            <Button x:Name="LayoutButton"
+                                    Style="{StaticResource Style.Button.LayoutSegment}"
+                                    AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
+                                    ToolTip="More layouts"
+                                    PreviewKeyDown="LayoutButton_PreviewKeyDown"
+                                    PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
+                                    PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
+                                    Click="LayoutButton_Click">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Path x:Name="LayoutIcon"
+                                          Data="{StaticResource Icon.Grid}"
+                                          Style="{StaticResource Style.Icon.Button}" />
+                                    <ui:SymbolIcon Symbol="ChevronDown24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center" Margin="2,0,0,0" />
+                                </StackPanel>
+                            </Button>
 
-                                <!-- Layout menu button (the full dropdown in both modes): an icon and a chevron; its name and tooltip say what it is -->
-                                <Button x:Name="LayoutButton"
-                                        Style="{StaticResource Style.Button.LayoutSegment}"
-                                        AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
-                                        ToolTip="More layouts"
-                                        PreviewKeyDown="LayoutButton_PreviewKeyDown"
-                                        PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
-                                        PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
-                                        Click="LayoutButton_Click">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Path x:Name="LayoutIcon"
-                                              Data="{StaticResource Icon.Grid}"
-                                              Style="{StaticResource Style.Icon.Button}" />
-                                        <ui:SymbolIcon Symbol="ChevronDown24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center" Margin="2,0,0,0" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-
-                            <!-- The group's outline, over the segments; it takes no hits (the segments under it are the targets) -->
+                            <!-- The segment's outline, over it; it takes no hits (the segment under it is the target) -->
                             <Border x:Name="LayoutSegmentsOutline"
                                     BorderBrush="{DynamicResource Brush.Border.Control}"
                                     BorderThickness="1"
@@ -202,7 +159,7 @@
 
                         <!-- Copy layout: a ghost button of its own, outside the segments; its full label always shows (no trimming) -->
                         <Button x:Name="CopyLayoutHandle"
-                                Grid.Column="2"
+                                Grid.Column="1"
                                 Style="{StaticResource Style.Button.CopyLayout}"
                                 Margin="12,0,6,0"
                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
@@ -225,7 +182,7 @@
                             Placed in the action bar, keeps touch height >= 48.
                         -->
                         <Button x:Name="DraftChip"
-                                Grid.Column="3"
+                                Grid.Column="2"
                                 Style="{StaticResource Style.Button.Chip.Staged}"
                                 Margin="0,0,6,0"
                                 MinHeight="{StaticResource Size.Touch.Min}"
@@ -244,7 +201,7 @@
 
                         <!-- Quick Power / Turn Off Button: a vector power icon, a ghost button (no red at rest) -->
                         <Button x:Name="TurnOffButton"
-                                Grid.Column="5"
+                                Grid.Column="4"
                                 Style="{StaticResource Style.Button.Ghost}"
                                 MinWidth="{StaticResource Size.Touch.Min}"
                                 MinHeight="{StaticResource Size.Touch.Min}"
