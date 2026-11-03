@@ -117,13 +117,14 @@ namespace AvasRoutingTool.Tests
             RunSta(() =>
             {
                 var order = Application.Current.Resources.MergedDictionaries.Select(d => d.Source == null ? d.GetType().Name : Path.GetFileName(d.Source.OriginalString)).ToList();
-                foreach (var file in new[] { "Buttons.xaml", "Tabs.xaml", "Text.xaml", "Badges.xaml", "Lists.xaml", "Cards.xaml", "Inputs.xaml", "Overlays.xaml", "SourceCard.xaml", "DisplayCard.xaml", "Composer.xaml" })
+                foreach (var file in new[] { "Buttons.xaml", "Tabs.xaml", "Text.xaml", "Badges.xaml", "Lists.xaml", "Cards.xaml", "Inputs.xaml", "Overlays.xaml", "SourceCard.xaml", "DisplayCard.xaml", "Composer.xaml", "RoomCameras.xaml" })
                 {
                     Assert.True(order.IndexOf(file) > order.IndexOf("Theme.Dark.xaml"), file + " must come after the palette");
                     Assert.True(order.IndexOf(file) < order.IndexOf("Theme.xaml"), file + " must come before Theme.xaml");
                 }
                 Assert.True(order.IndexOf("Composer.xaml") > order.IndexOf("Buttons.xaml"), "Composer.xaml is merged after the shared files");
-                Assert.Equal("Composer.xaml", order[order.IndexOf("Theme.xaml") - 1]);
+                Assert.Equal("RoomCameras.xaml", order[order.IndexOf("Theme.xaml") - 1]);
+                Assert.Equal(order.IndexOf("Composer.xaml") + 1, order.IndexOf("RoomCameras.xaml"));
             });
 
         [Fact]

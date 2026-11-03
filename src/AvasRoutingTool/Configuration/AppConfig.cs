@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace AvasRoutingTool.Configuration
 {
@@ -14,6 +15,7 @@ namespace AvasRoutingTool.Configuration
         public string Theme { get; set; } = "Dark";
         /// <summary>Logs tab/section is hidden until this is switched on in Settings.</summary>
         public bool ShowLogs { get; set; } = false;
+        public List<RoomCameraConfig> RoomCameras { get; set; } = new();
 
         public string DerivedControlServerIp
         {

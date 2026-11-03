@@ -42,7 +42,7 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
   * Merges resource dictionaries (`Theme.xaml`, `Icons.xaml`).
 * **[`MainWindow.xaml`](../src/AvasRoutingTool/MainWindow.xaml) / [`MainWindow.xaml.cs`](../src/AvasRoutingTool/MainWindow.xaml.cs)**:
   * Top navigation bar with status pill (Connected / Offline), Refresh button, and Settings button.
-  * Tab control switching between `VisualRoutingView`, `BavmConsoleView`, and `DiagnosticsView`.
+  * Tab control switching between `VisualRoutingView`, `RoomCamerasView` (tab "Room Cameras", second), `BavmConsoleView`, and `DiagnosticsView`. Leaving the Room Cameras tab stops its motion; closing the window disposes `RoomCamerasViewModel`.
 
 ### 2.2 Configuration (`Configuration/`)
 * **[`AppConfig.cs`](../src/AvasRoutingTool/Configuration/AppConfig.cs)**:
@@ -99,6 +99,7 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
 * **[`VisualRoutingView.xaml`](../src/AvasRoutingTool/Views/VisualRoutingView.xaml)**: The primary visual routing canvas with top TX row and middle RX row (layouts are chosen in each display card's Layout menu).
 * **[`SourceCardView.xaml`](../src/AvasRoutingTool/Views/SourceCardView.xaml)**: Transmitter card rendering live video preview, telemetry badges, and initiating drag operations.
 * **[`DisplayCardView.xaml`](../src/AvasRoutingTool/Views/DisplayCardView.xaml)**: Receiver card handling drop events, showing mirrored video or non-AVAS fallback banners, and unroute button.
+* **[`RoomCamerasView.xaml`](../src/AvasRoutingTool/Views/RoomCamerasView.xaml)** (+ `.xaml.cs`): the Room Cameras tab. PTZ control of room cameras over VISCA IP, with the bound TX picture. Its view model is `RoomCamerasViewModel`, created by `MainWindow` on `_viewModel.Sources`.
 * **[`BavmConsoleView.xaml`](../src/AvasRoutingTool/Views/BavmConsoleView.xaml)**: WebView2 browser control hosting official BAVM web UI.
 * **[`DiagnosticsView.xaml`](../src/AvasRoutingTool/Views/DiagnosticsView.xaml)**: Real-time searchable log table.
 * **[`SettingsDialog.xaml`](../src/AvasRoutingTool/Views/SettingsDialog.xaml)**: Connection settings configuration modal.
