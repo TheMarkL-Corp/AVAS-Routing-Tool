@@ -102,6 +102,9 @@ namespace AvasRoutingTool.ViewModels
         public ObservableCollection<LayoutItemViewModel> Layouts { get; } = new();
         public ObservableCollection<LogEntry> Logs { get; } = new();
 
+        /// <summary>The Advanced (maintenance) page; its rows follow every discovery refresh.</summary>
+        public AdvancedViewModel Advanced { get; } = new();
+
         public bool IsConnected
         {
             get => _isConnected;
@@ -375,6 +378,8 @@ namespace AvasRoutingTool.ViewModels
             // Dynamic Cards: populate TX Sources and RX Displays in deterministic order
             Sources.Clear();
             Displays.Clear();
+
+            Advanced.SetDevices(devices);
 
             var transmitters = devices.Where(d => d.IsTransmitter).OrderBy(d => d.DeviceName).ToList();
             var receivers = devices.Where(d => d.IsReceiver).OrderBy(d => d.DeviceName).ToList();
