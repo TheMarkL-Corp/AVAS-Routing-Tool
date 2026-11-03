@@ -181,8 +181,9 @@ namespace AvasRoutingTool.Tests
                 {
                     foreach (var mode in new[] { ThemeMode.Dark, ThemeMode.Light })
                     {
-                        theme.SetTheme(mode);
+                        // The rig first: its MainViewModel re-applies the saved (Dark) theme when it is built, which made the Light pass a second Dark pass.
                         var rig = new CopyRig();
+                        theme.SetTheme(mode);
                         var view = rig.View(rig.Rx1, out var host, 613);
                         Showing(host, () =>
                         {
