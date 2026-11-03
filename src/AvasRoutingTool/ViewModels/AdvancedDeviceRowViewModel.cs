@@ -36,6 +36,14 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The word beside the status dot: Normal, Warm, Hot or Unknown.</summary>
         public string TemperatureState { get => _temperatureState; set => Set(ref _temperatureState, value); }
 
+        /// <summary>Shows a temperature read; null (nothing reported) shows "n/a", never 0.</summary>
+        public void ApplyTemperature(int? degrees)
+        {
+            var (text, state) = TemperatureFormat.Describe(degrees);
+            TemperatureText = text;
+            TemperatureState = state;
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
