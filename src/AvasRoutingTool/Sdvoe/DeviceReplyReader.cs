@@ -27,5 +27,18 @@ namespace AvasRoutingTool.Sdvoe
             doc = null;
             return null;
         }
+
+        /// <summary>status.active of the first device: true, false, or null when the reply does not say.</summary>
+        public static bool? IsActive(string? json)
+        {
+            var device = FirstDevice(json, out var doc);
+            using (doc)
+            {
+                if (device != null && device.Value.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.Object &&
+                    status.TryGetProperty("active", out var active) && active.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    return active.GetBoolean();
+                return null;
+            }
+        }
     }
 }

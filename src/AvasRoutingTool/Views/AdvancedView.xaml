@@ -49,16 +49,18 @@
         <!-- Column headings -->
         <Grid Grid.Row="2" Margin="14,0,14,4">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="1.2*" />
+                <ColumnDefinition Width="5*" />
                 <ColumnDefinition Width="3*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="6*" />
             </Grid.ColumnDefinitions>
             <TextBlock Text="Device" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
             <TextBlock Grid.Column="1" Text="Role" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
-            <TextBlock Grid.Column="2" Text="Link mode" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
-            <TextBlock Grid.Column="3" Text="Temperature" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="2" Text="Chips" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="3" Text="Link mode" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="4" Text="Temperature" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
         </Grid>
 
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
@@ -75,24 +77,35 @@
                                 AutomationProperties.Name="{Binding Name}">
                             <Grid VerticalAlignment="Center" Margin="0,6">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="5*" />
                                     <ColumnDefinition Width="3*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="6*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="{Binding Name}" Style="{StaticResource Style.Text.Body}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding Mac}" Style="{StaticResource Style.Text.Caption}" FontFamily="Consolas" />
+                                    <TextBlock Text="{Binding CompanionMac}" Style="{StaticResource Style.Text.Caption}" FontFamily="Consolas"
+                                               Visibility="{Binding CompanionMac, Converter={StaticResource Converter.Visible.NotEmpty}}" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding Role}" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Text="{Binding LinkMode}" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Style="{StaticResource Style.Dot.ChipStatus}" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding ChipStatusState}" Style="{StaticResource Style.Text.Body}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ChipStatusText}" Style="{StaticResource Style.Text.Caption}" TextWrapping="Wrap"
+                                               Visibility="{Binding HasChipDetail, Converter={StaticResource Converter.Visible.True}}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="3" Text="{Binding LinkMode}" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Ellipse Style="{StaticResource Style.Dot.Temperature}" Margin="0,0,8,0" />
                                     <TextBlock Text="{Binding TemperatureText}" Style="{StaticResource Style.Text.Body}" Margin="0,0,8,0" />
                                     <TextBlock Text="{Binding TemperatureState}" Style="{StaticResource Style.Text.Caption}" VerticalAlignment="Center" />
                                 </StackPanel>
-                                <Button Grid.Column="4"
+                                <Button Grid.Column="5"
                                         Content="{Binding SwitchLinkLabel}"
                                         Visibility="{Binding CanSwitchLink, Converter={StaticResource Converter.Visible.True}}"
                                         Command="{Binding DataContext.SwitchLinkCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -101,6 +114,12 @@
                                         MinHeight="{StaticResource Size.Touch.Min}"
                                         HorizontalAlignment="Right"
                                         AutomationProperties.Name="{Binding SwitchLinkLabel}" />
+                                <TextBlock Grid.Column="5"
+                                           Text="{Binding SwitchBlockedReason}"
+                                           Visibility="{Binding SwitchBlockedReason, Converter={StaticResource Converter.Visible.NotEmpty}}"
+                                           Style="{StaticResource Style.Text.Caption}"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center" />
                             </Grid>
                         </Border>
                     </DataTemplate>
