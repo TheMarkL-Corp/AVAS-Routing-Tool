@@ -38,10 +38,9 @@
     <!-- Source strip (critique M2): dense tiles with a 16:9 thumbnail (214 x 120 inside a 240 px tile). The strip holds two tile rows before it scrolls. -->
     <sys:Double x:Key="Size.Strip.Tile.Width">240</sys:Double>
     <sys:Double x:Key="Size.Strip.Thumb.Height">120</sys:Double>
-    <sys:Double x:Key="Size.Strip.Gap">10</sys:Double>
     <!-- The Sources strip never takes more than this share of the overview height (2/5.4 = 0.37, the old Sources share); beyond it the strip scrolls -->
     <sys:Double x:Key="Size.Strip.Max.Fraction">0.37</sys:Double>
-    <!-- The space around each tile: left and right 5 px (a 10 px gap between tiles, so a centred row is centred on the tiles), bottom 10 px (Size.Strip.Gap) -->
+    <!-- The space around each tile: left and right 5 px (a 10 px gap between tiles, so a centred row is centred on the tiles), bottom 10 px -->
     <Thickness x:Key="Size.Strip.TileMargin">5,0,5,10</Thickness>
 
     <!-- Compact tile (the Composer palette, SourceCardView.IsCompact): a 16:9 thumbnail (112 x 63) on the left, the name and status beside it; card padding 8 instead of 12 -->
