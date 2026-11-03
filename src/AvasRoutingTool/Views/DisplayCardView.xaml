@@ -112,7 +112,7 @@
                 <Border x:Name="FloatingActionDock"
                         Grid.Row="1"
                         MinHeight="{StaticResource Size.Touch.Min}"
-                        Margin="0,4,0,4"
+                        Margin="0"
                         Background="Transparent"
                         IsHitTestVisible="True">
                     <Grid>
@@ -127,6 +127,7 @@
                         <!--
                             The layout control: the Layout dropdown, one segment in column 0 with its fill and outline (the look it has on a
                             narrow card). Its menu holds every layout and marks the one on screen. Copy layout and the draft chip stand apart.
+                            The segment is Size.Layout.Button (64 x 56): the full height of the action bar row, so the fill and outline wrap it exactly.
                         -->
                         <Grid x:Name="LayoutSegments" Grid.Column="0">
                             <!-- The segment's fill, behind it -->
@@ -134,7 +135,7 @@
 
                             <!-- Layout menu button (the full dropdown): an icon and a chevron; its name and tooltip say what it is -->
                             <Button x:Name="LayoutButton"
-                                    Style="{StaticResource Style.Button.LayoutSegment}"
+                                    Style="{StaticResource Style.Button.LayoutDropdown}"
                                     AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
                                     ToolTip="More layouts"
                                     PreviewKeyDown="LayoutButton_PreviewKeyDown"
@@ -144,8 +145,10 @@
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Path x:Name="LayoutIcon"
                                           Data="{StaticResource Icon.Grid}"
-                                          Style="{StaticResource Style.Icon.Button}" />
-                                    <ui:SymbolIcon Symbol="ChevronDown24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center" Margin="2,0,0,0" />
+                                          Style="{StaticResource Style.Icon.Button}"
+                                          Width="{StaticResource Size.Icon.Layout}"
+                                          Height="{StaticResource Size.Icon.Layout}" />
+                                    <ui:SymbolIcon Symbol="ChevronDown24" FontSize="{StaticResource Size.Icon.Layout.Chevron}" VerticalAlignment="Center" Margin="2,0,0,0" />
                                 </StackPanel>
                             </Button>
 
@@ -162,6 +165,7 @@
                                 Grid.Column="1"
                                 Style="{StaticResource Style.Button.CopyLayout}"
                                 Margin="12,0,6,0"
+                                VerticalAlignment="Center"
                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
                                 AutomationProperties.HelpText="{Binding CopyFromBlockedText, Mode=OneWay}"
                                 ToolTip="{Binding CopyHandleToolTip, Mode=OneWay}"
@@ -185,6 +189,7 @@
                                 Grid.Column="2"
                                 Style="{StaticResource Style.Button.Chip.Staged}"
                                 Margin="0,0,6,0"
+                                VerticalAlignment="Center"
                                 MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="10,4"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
@@ -203,6 +208,7 @@
                         <Button x:Name="TurnOffButton"
                                 Grid.Column="4"
                                 Style="{StaticResource Style.Button.Ghost}"
+                                VerticalAlignment="Center"
                                 MinWidth="{StaticResource Size.Touch.Min}"
                                 MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="0"

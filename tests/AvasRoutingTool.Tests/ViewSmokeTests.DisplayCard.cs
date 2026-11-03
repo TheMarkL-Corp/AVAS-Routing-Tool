@@ -1241,7 +1241,8 @@ namespace AvasRoutingTool.Tests
                     var picture = (FrameworkElement)Named(view, "PreviewSurface").Single();
                     var turnOff = (Button)Named(view, "TurnOffButton").Single();
                     Assert.True(dock.IsVisible && dock.IsHitTestVisible && dock.Opacity == 1.0);
-                    Assert.False(BoundsIn(dock, view).IntersectsWith(BoundsIn(picture, view)), "the action bar overlaps the 16:9 picture");
+                    // The action bar fills its 56 px row (A14), so it may touch the picture edge; it must not lie over it.
+                    Assert.True(BoundsIn(dock, view).Bottom <= BoundsIn(picture, view).Top + 0.5, "the action bar overlaps the 16:9 picture");
                     Assert.True(turnOff.IsVisible && turnOff.ActualHeight >= 48 && turnOff.ActualWidth >= 48);
                     Assert.NotEmpty(FindAll<System.Windows.Shapes.Path>(turnOff));
                 });

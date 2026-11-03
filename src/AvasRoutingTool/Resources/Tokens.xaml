@@ -18,6 +18,12 @@
     <sys:Double x:Key="Size.Icon.M">22</sys:Double>
     <sys:Double x:Key="Size.Icon.L">28</sys:Double>
     <sys:Double x:Key="Size.Icon.Brand">28</sys:Double>
+    <!-- The Layout dropdown on the display card (A14): its button (both >= Size.Touch.Min; the card action bar row is 56 high) and its
+         grid icon and chevron (the grid icon is 1.25 x Size.Icon.S; Style.Icon.Button keeps Size.Icon.S for the other buttons) -->
+    <sys:Double x:Key="Size.Layout.Button.Width">64</sys:Double>
+    <sys:Double x:Key="Size.Layout.Button.Height">56</sys:Double>
+    <sys:Double x:Key="Size.Icon.Layout">20</sys:Double>
+    <sys:Double x:Key="Size.Icon.Layout.Chevron">20</sys:Double>
     <!-- The brand mark on an unrouted display's empty tile (the tile's one picture) -->
     <sys:Double x:Key="Size.Brand.Empty">64</sys:Double>
 

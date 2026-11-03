@@ -80,9 +80,12 @@ namespace AvasRoutingTool.Tests
                         foreach (var button in new[] { layout, copy, turnOff })
                         {
                             Assert.True(button.IsVisible, $"{button.Name} is not shown {at}");
-                            Assert.True(button.ActualWidth >= 48 && button.ActualHeight >= 48,
+                            Assert.True(button.ActualWidth >= Token("Size.Touch.Min") && button.ActualHeight >= Token("Size.Touch.Min"),
                                 $"{button.Name} is {button.ActualWidth:F1}x{button.ActualHeight:F1} {at}");
                         }
+                        // Layout is the dropdown's own size (Size.Layout.Button, A14), not just the touch floor.
+                        Assert.True(layout.ActualWidth == Token("Size.Layout.Button.Width") && layout.ActualHeight == Token("Size.Layout.Button.Height"),
+                            $"Layout is {layout.ActualWidth:F1}x{layout.ActualHeight:F1} {at}");
                         Assert.True(layout.Focusable && layout.IsTabStop, $"Layout is not a tab stop {at}");
                         Assert.True(copy.Focusable && copy.IsTabStop, $"Copy layout is not a tab stop {at}");
 

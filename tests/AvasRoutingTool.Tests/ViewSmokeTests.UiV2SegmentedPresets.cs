@@ -33,7 +33,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void LayoutSegments_HoldTheLayoutDropdown_AsOneSegment_AtLeast48_FilledByIt() =>
+        public void LayoutSegments_HoldTheLayoutDropdown_AsOneSegment_OfTheLayoutButtonSize_FilledByIt() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -43,8 +43,9 @@ namespace AvasRoutingTool.Tests
                     var group = (Grid)Named(view, "LayoutSegments").Single();
                     var layout = (Button)Named(view, "LayoutButton").Single();
                     Assert.True(Within(layout, group), "Layout is not inside LayoutSegments");
-                    Assert.True(layout.ActualWidth >= Token("Size.Touch.Min") && layout.ActualHeight >= Token("Size.Touch.Min"),
-                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight}");
+                    // Size.Layout.Button (64 x 56, A14): the segment is the dropdown's size, not the touch floor.
+                    Assert.True(Math.Abs(layout.ActualWidth - Token("Size.Layout.Button.Width")) <= 0.5 && Math.Abs(layout.ActualHeight - Token("Size.Layout.Button.Height")) <= 0.5,
+                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight}, not the Size.Layout.Button tokens");
 
                     // The segment is the whole group: its fill and outline are its edge.
                     var box = BoundsIn(layout, group);
@@ -101,7 +102,7 @@ namespace AvasRoutingTool.Tests
                 var view = rig.View(rig.Rx1, out var host, 613);
                 Showing(host, () =>
                 {
-                    // A press anywhere in the 48x48 segment must land on the segment, not only in its inset block.
+                    // A press anywhere in the Layout segment (Size.Layout.Button, 64x56) must land on the segment, not only in its inset block.
                     var segment = (Button)Named(view, "LayoutButton").Single();
                     double w = segment.ActualWidth, h = segment.ActualHeight;
                     var spots = new[]
