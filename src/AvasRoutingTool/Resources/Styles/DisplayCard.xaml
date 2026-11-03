@@ -262,4 +262,10 @@
         </Setter>
     </Style>
 
+    <!-- The Layout dropdown (A14): the segment at its own size, Size.Layout.Button. Style.Button.LayoutSegment stays generic. -->
+    <Style x:Key="Style.Button.LayoutDropdown" TargetType="Button" BasedOn="{StaticResource Style.Button.LayoutSegment}">
+        <Setter Property="Width" Value="{StaticResource Size.Layout.Button.Width}" />
+        <Setter Property="Height" Value="{StaticResource Size.Layout.Button.Height}" />
+    </Style>
+
 </ResourceDictionary>
