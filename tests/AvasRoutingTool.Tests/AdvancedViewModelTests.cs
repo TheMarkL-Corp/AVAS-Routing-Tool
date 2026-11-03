@@ -50,3 +50,46 @@ namespace AvasRoutingTool.Tests
         }
     }
 }
+
+namespace AvasRoutingTool.Tests
+{
+    public class AdvancedViewModelStatusTests
+    {
+        private sealed class FakeReader : AvasRoutingTool.Sdvoe.IDeviceReader
+        {
+            public List<string> Reads { get; } = new();
+            public System.Threading.Tasks.Task<string?> ReadDeviceSubsetAsync(string mac, string subset)
+            {
+                Reads.Add(mac);
+                string json = "{\"status\":\"SUCCESS\",\"request_id\":null,\"error\":null,\"result\":{\"devices\":[{\"status\":{\"temperature\":64},\"nodes\":[{\"type\":\"MULTI_LINK_TRANSMITTER\",\"configuration\":{\"link_mode\":\"DUAL\"},\"status\":{\"companions\":[{\"device_id\":\"c1\"}]}}]}]}}";
+                return System.Threading.Tasks.Task.FromResult<string?>(json);
+            }
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task RefreshStatus_FillsAvasRows_AndSkipsNonAvas()
+        {
+            var vm = new AdvancedViewModel();
+            vm.SetDevices(new List<AvasDevice>
+            {
+                new() { DeviceId = "t1", DeviceName = "TX1", IsTransmitter = true },
+                new() { DeviceId = "r1", DeviceName = "RX1", IsReceiver = true },
+                new() { DeviceId = "v1", DeviceName = "VEGA", IsTransmitter = true, VendorId = 7 }
+            });
+            var reader = new FakeReader();
+
+            await vm.RefreshStatusAsync(reader);
+
+            var tx = vm.Rows.Single(r => r.Name == "TX1");
+            Assert.Equal("64 °C", tx.TemperatureText);
+            Assert.Equal("Warm", tx.TemperatureState);
+            Assert.Equal("Dual link", tx.LinkMode);
+            var rx = vm.Rows.Single(r => r.Name == "RX1");
+            Assert.Equal("64 °C", rx.TemperatureText);
+            Assert.Equal("n/a", rx.LinkMode);
+            Assert.Equal("n/a", vm.Rows.Single(r => r.Name == "VEGA").TemperatureText);
+            Assert.DoesNotContain("v1", reader.Reads);
+            Assert.Equal(1, reader.Reads.Count(m => m == "r1"));
+        }
+    }
+}

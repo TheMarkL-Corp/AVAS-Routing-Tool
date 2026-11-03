@@ -179,7 +179,7 @@
             </Grid>
 
             <!-- Mode 4: Advanced (maintenance), hidden unless ShowAdvanced -->
-            <views:AdvancedView x:Name="ViewAdvanced" Visibility="Collapsed" />
+            <views:AdvancedView x:Name="ViewAdvanced" Visibility="Collapsed" DataContext="{Binding Advanced}" />
 
             <!-- Mode 3: Diagnostics & Live Logs -->
             <Grid x:Name="ViewLogs" Visibility="Collapsed" Background="{DynamicResource Brush.Background.Dark}">

@@ -258,6 +258,7 @@ namespace AvasRoutingTool.ViewModels
             _motion = new MotionPolicy(animationsEnabled);
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
+            Advanced.Reader = sdvoeClient as IDeviceReader;
             _rtpReceiver = rtpReceiver ?? throw new ArgumentNullException(nameof(rtpReceiver));
             _ipManager = ipManager ?? throw new ArgumentNullException(nameof(ipManager));
             _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
