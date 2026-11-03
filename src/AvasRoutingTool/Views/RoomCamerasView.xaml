@@ -318,8 +318,7 @@
                                        Text="{Binding MotionText, Mode=OneWay}"
                                        Style="{StaticResource Style.Text.CameraStatus}"
                                        Margin="0,2"
-                                       AutomationProperties.LiveSetting="Polite"
-                                       Visibility="{Binding MotionText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                                       AutomationProperties.LiveSetting="Polite" />
                         </StackPanel>
 
                         <!-- Power and Lock -->
