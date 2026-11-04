@@ -362,30 +362,39 @@ namespace AvasRoutingTool.Rtp
 
         private async Task ReceiveLoopAsync(UdpClient client, CancellationToken ct)
         {
+            var buffer = new byte[65536]; // the reassembler copies what it keeps (RtpHeader is a ref struct), so one buffer per loop is safe
             while (!ct.IsCancellationRequested && _isListening)
             {
                 try
                 {
-                    var result = await client.ReceiveAsync(ct);
-                    if (result.Buffer == null || result.Buffer.Length < RtpHeader.MinimumHeaderSize)
+                    EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+                    var received = await client.Client.ReceiveMessageFromAsync(buffer, SocketFlags.None, remote, ct);
+                    int length = received.ReceivedBytes;
+                    if (length < RtpHeader.MinimumHeaderSize)
                     {
                         continue;
                     }
 
                     // Deliver to legacy handlers if any registered
-                    foreach (var legacy in _legacyHandlers.Values)
+                    if (!_legacyHandlers.IsEmpty)
                     {
-                        try { legacy.Invoke(result.Buffer, 0, result.Buffer.Length); } catch { }
+                        byte[] copy = new byte[length];
+                        Buffer.BlockCopy(buffer, 0, copy, 0, length);
+                        foreach (var legacy in _legacyHandlers.Values)
+                        {
+                            try { legacy.Invoke(copy, 0, length); } catch { }
+                        }
                     }
 
-                    string senderIp = result.RemoteEndPoint.Address.ToString();
-                    if (!TryResolveChannel(senderIp, out var channel))
+                    string senderIp = ((IPEndPoint)received.RemoteEndPoint).Address.ToString();
+                    string destinationIp = received.PacketInformation.Address.ToString();
+                    if (!TryResolveChannel(senderIp, destinationIp, out var channel))
                     {
                         Interlocked.Increment(ref _unmatchedPacketsCount);
                         continue;
                     }
 
-                    channel.ProcessDatagram(result.Buffer);
+                    channel.ProcessDatagram(buffer.AsSpan(0, length));
                 }
                 catch (OperationCanceledException) { break; }
                 catch (ObjectDisposedException) { break; }
@@ -396,6 +405,29 @@ namespace AvasRoutingTool.Rtp
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Resolves by the multicast group the datagram was sent to first: each transmitter streams to its own group, and
+        /// unlike the sender address (a node of the device, not necessarily the IP a channel is keyed by) it never guesses.
+        /// Falls back to the sender-based lookup when the group is unknown.
+        /// </summary>
+        public bool TryResolveChannel(string senderIp, string? destinationIp, [NotNullWhen(true)] out DemuxChannel? channel)
+        {
+            if (!string.IsNullOrWhiteSpace(destinationIp))
+            {
+                string group = destinationIp.Trim();
+                foreach (var candidate in _channels.Values)
+                {
+                    if (string.Equals(candidate.MulticastIp, group, StringComparison.Ordinal))
+                    {
+                        channel = candidate;
+                        return true;
+                    }
+                }
+            }
+
+            return TryResolveChannel(senderIp, out channel);
         }
 
         public bool TryResolveChannel(string senderIp, [NotNullWhen(true)] out DemuxChannel? channel)
