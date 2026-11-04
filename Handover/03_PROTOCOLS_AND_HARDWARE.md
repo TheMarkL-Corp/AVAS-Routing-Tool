@@ -133,15 +133,14 @@ Preview video frames are transmitted as uncompressed RFC 4175 packets over RTP U
   * `Length`: 16 bits (byte count of pixels in this chunk).
 
 ### 5.3 Pixel Format (YUV 4:2:2):
-* Packed as 4 bytes per 2 pixels: `[ U0, Y0, V0, Y1 ]`.
-* Color conversion formula (Q10 fixed-point BT.601 in `Yuv422Rasterizer.cs`):
-  $$\text{C} = \text{Y} - 16$$
-  $$\text{D} = \text{U} - 128$$
-  $$\text{E} = \text{V} - 128$$
-  $$\text{R} = \text{Clamp}( (298 \times \text{C} + 409 \times \text{E} + 128) \gg 8 )$$
-  $$\text{G} = \text{Clamp}( (298 \times \text{C} - 100 \times \text{D} - 208 \times \text{E} + 128) \gg 8 )$$
-  $$\text{B} = \text{Clamp}( (298 \times \text{C} + 516 \times \text{D} + 128) \gg 8 )$$
-* Output pixel format: `BGRA32` (32 bits per pixel: Blue, Green, Red, 0xFF Alpha).
+* RFC 4175 `YCbCr-4:2:2` 8-bit: 4 bytes per 2 pixels, `[ Cb, Y0, Cr, Y1 ]` (UYVY), **limited range** (Y 16-235, C 16-240), **BT.709**.
+* Verified on a raw AVAS-223 preview frame (320x180, one 640-byte line per packet, marker on line 179): UYVY limited decodes to natural colours; treating Cr as the first byte swaps red and blue.
+* Q8 fixed-point conversion in `Yuv422Rasterizer.cs` (D = Cb-128, E = Cr-128, C = 298*(Y-16)+128):
+  * R = (C + 459*E) >> 8
+  * G = (C - 55*D - 136*E) >> 8
+  * B = (C + 541*D) >> 8
+  * each clamped to 0-255.
+* Output pixel format: `Bgr24` in the preview `WriteableBitmap`.
 
 ---
 
