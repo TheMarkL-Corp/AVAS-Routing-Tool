@@ -83,7 +83,7 @@ namespace AvasRoutingTool.Tests
         public void TabOrder_IsVisualRouting_RoomCameras_BavmConsole_Logs() => RunSta(w =>
         {
             var tabs = ((StackPanel)Tab(w, "TabVisualRouting").Parent).Children.OfType<RadioButton>().Select(r => r.Name).ToArray();
-            Assert.Equal(new[] { "TabVisualRouting", "TabRoomCameras", "TabBavmConsole", "TabLogs" }, tabs);
+            Assert.Equal(new[] { "TabVisualRouting", "TabRoomCameras", "TabBavmConsole", "TabLogs", "TabAdvanced" }, tabs);
         });
 
         [Fact]

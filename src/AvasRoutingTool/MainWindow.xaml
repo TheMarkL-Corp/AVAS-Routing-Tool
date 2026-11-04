@@ -68,7 +68,7 @@
                                  GroupName="MainTabs"
                                  IsChecked="True"
                                  Checked="Tab_Checked"
-                                 Margin="0,0,6,0"
+                                 Margin="0,0,4,0"
                                  AutomationProperties.Name="Visual Routing" />
 
                     <RadioButton x:Name="TabRoomCameras"
@@ -76,7 +76,7 @@
                                  Content="Room Cameras"
                                  GroupName="MainTabs"
                                  Checked="Tab_Checked"
-                                 Margin="0,0,6,0"
+                                 Margin="0,0,4,0"
                                  AutomationProperties.Name="Room Cameras" />
 
                     <RadioButton x:Name="TabBavmConsole"
@@ -84,7 +84,7 @@
                                  Content="BAVM Console"
                                  GroupName="MainTabs"
                                  Checked="Tab_Checked"
-                                 Margin="0,0,6,0"
+                                 Margin="0,0,4,0"
                                  AutomationProperties.Name="BAVM Console" />
 
                     <RadioButton x:Name="TabLogs"
@@ -95,6 +95,16 @@
                                  Visibility="Collapsed"
                                  AutomationProperties.Name="Diagnostics and Logs"
                                  ToolTip="Diagnostics and live logs" />
+
+                    <RadioButton x:Name="TabAdvanced"
+                                 Style="{StaticResource Style.Tab.Nav}"
+                                 Content="Advanced"
+                                 GroupName="MainTabs"
+                                 Checked="Tab_Checked"
+                                 Visibility="Collapsed"
+                                 Margin="4,0,0,0"
+                                 AutomationProperties.Name="Advanced"
+                                 ToolTip="Link mode, temperature and maintenance" />
                 </StackPanel>
 
                 <!-- Actions & Status Area -->
@@ -178,6 +188,9 @@
             <Grid x:Name="ViewBavmConsole" Visibility="Collapsed">
                 <wv2:WebView2 x:Name="BavmWebView" />
             </Grid>
+
+            <!-- Mode 4: Advanced (maintenance), hidden unless ShowAdvanced -->
+            <views:AdvancedView x:Name="ViewAdvanced" Visibility="Collapsed" DataContext="{Binding Advanced}" />
 
             <!-- Mode 3: Diagnostics & Live Logs -->
             <Grid x:Name="ViewLogs" Visibility="Collapsed" Background="{DynamicResource Brush.Background.Dark}">
