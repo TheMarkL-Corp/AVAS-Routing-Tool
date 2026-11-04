@@ -369,11 +369,35 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(PictureAutomationName));
         }
 
+        /// <summary>The pencil: opens the rename dialog for this device (runs <see cref="RenameHandler"/>).</summary>
+        public ICommand RenameCommand { get; }
+
+        /// <summary>Set by <see cref="MainViewModel"/> when discovery builds the card; without it the command is disabled.</summary>
+        public Func<System.Threading.Tasks.Task>? RenameHandler { get; set; }
+
+        /// <summary>What a screen reader says for the pencil button ("Rename RX1").</summary>
+        public string RenameAutomationName => $"Rename {DeviceName}";
+
+        public string RenameToolTip => "Rename";
+
         public DisplayCardViewModel(AvasDevice device, Func<AvasDevice, System.Threading.Tasks.Task>? unrouteAction = null)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
             _unrouteAction = unrouteAction;
 
+            RenameCommand = new RelayCommand(async _ =>
+            {
+                var handler = RenameHandler;
+                if (handler == null) return;
+                try
+                {
+                    await handler();
+                }
+                catch (Exception ex)
+                {
+                    AvasRoutingTool.Logging.AppLogger.Error("RENAME", $"Renaming {DeviceName} failed", ex);
+                }
+            }, _ => RenameHandler != null);
             CopyLayoutCommand = new RelayCommand(async _ =>
             {
                 if (_copyLayoutAction != null) await _copyLayoutAction(this);

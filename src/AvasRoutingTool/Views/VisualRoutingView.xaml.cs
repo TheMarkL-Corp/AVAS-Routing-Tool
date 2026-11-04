@@ -29,7 +29,7 @@ namespace AvasRoutingTool.Views
         }
 
         /// <summary>
-        /// The arm banners are polite live regions, but WPF does not raise a live-region change when a bound text
+        /// The arm banners (polite) and the rename error (assertive) are live regions, but WPF does not raise a live-region change when a bound text
         /// changes: a screen reader hears them only when they are announced here.
         /// </summary>
         private void Watch(MainViewModel? old, MainViewModel? main)
@@ -56,6 +56,11 @@ namespace AvasRoutingTool.Views
                 string? text = main.CopyArmBanner;
                 if (text != null && text != _announcedCopy) Motion.Announce(CopyArmBannerLabel);
                 _announcedCopy = text;
+            }
+            else if (e.PropertyName == nameof(MainViewModel.RenameBanner))
+            {
+                // An error: assertive. A failure with the same words as the last one is a new failure, so it is read again.
+                if (main.HasRenameBanner) Motion.Announce(RenameBannerText);
             }
         }
 

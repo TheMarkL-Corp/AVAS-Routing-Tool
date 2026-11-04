@@ -29,11 +29,13 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Tile header: status dot, device name (ellipsis; the full name is its tooltip), info badge (IP / MAC / MCAST tooltip). Nothing else. -->
-                <Grid Grid.Row="0" Margin="0,0,0,8">
+                <!-- Tile header: status dot, device name (ellipsis; the full name is its tooltip), rename pencil, info badge (IP / MAC / MCAST tooltip). Nothing else.
+                     Panel.ZIndex 1: the pencil's 48 px box reaches 4 px into the picture below, and its whole box takes the press. -->
+                <Grid Grid.Row="0" Margin="0,0,0,8" Panel.ZIndex="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
@@ -50,6 +52,22 @@
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" />
 
+                    <!-- Rename pencil: icon only, a real button (its press is the pencil's: it neither arms the source nor starts a drag).
+                         The box is 48 x 48 (Size.Touch.Min) in a header row that is only 24 high: Margin -12 above and below keeps the row's footprint, and
+                         the tile's height, exactly what they were (the same hit-area technique as the info badge); the box reaches the card's edge but not out of it.
+                         Margin right 6 + the info badge's -4 left: the two hit boxes do not overlap. The name gives it the room (it already ellipsizes). -->
+                    <Button x:Name="RenamePencil"
+                            Grid.Column="2"
+                            Style="{StaticResource Style.Button.IconPencil}"
+                            Command="{Binding RenameCommand, Mode=OneWay}"
+                            AutomationProperties.Name="{Binding RenameAutomationName, Mode=OneWay}"
+                            ToolTip="{Binding RenameToolTip, Mode=OneWay}"
+                            IsTabStop="True"
+                            Margin="0,-12,6,-12"
+                            VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Edit24" FontSize="{StaticResource Size.Icon.S}" />
+                    </Button>
+
                     <!-- Info badge: network telemetry lives in its tooltip, reachable by keyboard.
                          Hit area is 36 x 36 (Padding 10 around the 16 px icon); the negative margins keep the footprint, and the
                          icon's centre, exactly what the 24 px badge had, so the tile's height and the icon do not move. -->
@@ -57,7 +75,7 @@
                             Focusable="True"
                             KeyboardNavigation.IsTabStop="True"
                             AutomationProperties.Name="Device network telemetry: IP, MAC, multicast"
-                            Grid.Column="2"
+                            Grid.Column="3"
                             Padding="10"
                             Margin="-4,-6,-6,-6"
                             Background="Transparent"

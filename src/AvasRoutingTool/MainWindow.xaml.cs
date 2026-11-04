@@ -40,7 +40,8 @@ namespace AvasRoutingTool
 
             _viewModel = new MainViewModel(_configService, _sdvoeClient, _rtpReceiver, _ipManager, _orchestrator)
             {
-                RequestOpenSettings = ShowSettings
+                RequestOpenSettings = ShowSettings,
+                AskForName = AskForNewName
             };
 
             _roomCameras = new RoomCamerasViewModel(_configService, new PtzCameraFactory(), _viewModel.Sources, () => DateTime.UtcNow);
@@ -152,6 +153,13 @@ namespace AvasRoutingTool
             {
                 MessageBox.Show($"Unable to initialize BAVM embedded web view: {ex.Message}", "WebView2 Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        /// <summary>Shows the rename dialog over this window; returns the new name, or null when it was cancelled.</summary>
+        private string? AskForNewName(RenameDialogViewModel viewModel)
+        {
+            var dialog = new RenameDialog(viewModel) { Owner = this };
+            return dialog.ShowDialog() == true ? dialog.NewName : null;
         }
 
         private void ShowSettings()
