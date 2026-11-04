@@ -113,3 +113,34 @@ The one piece of hardware evidence is the Task 1 lab spike (user-confirmed pictu
 - Dead code kept because tests still use it: `FirstEmptySlotIndex`, `ClearSlot`, `WindowSlot.TargetSurface`, `MultiViewPresets.AllocateSurfaces`.
 - Duplicated layout titles (`ScreenState` vs `LayoutItemViewModel.CreateCatalog`; `Sdvoe` must not reference ViewModels).
 - Every Take re-sends `set:scaler`/`start` to each distinct encoder (check for flicker on the lab).
+
+## 5. Room Cameras tab (branch `ui-v2/room-cameras`): implemented and test-verified with a fake camera, NOT hardware-validated
+
+Plan: [`docs/superpowers/plans/2026-11-02-room-cameras.md`](../docs/superpowers/plans/2026-11-02-room-cameras.md). Live checklist for the person with the real camera: [`docs/superpowers/specs/2026-11-02-room-cameras-live-test.md`](../docs/superpowers/specs/2026-11-02-room-cameras-live-test.md).
+
+### 5.1 What is verified, and how
+
+The tab is code-complete: a main-window tab between Visual Routing and BAVM Console, a camera chip row, a picture hero with the bound TX preview, a control rail (8-way pad, zoom, focus, speed, power, lock), keyboard control, and a camera editor with Detect. VISCA over IP is our own client (UDP with the 8-byte header, or raw TCP), with no third-party code. Behaviour is covered by unit, integration and STA view tests under the non-live filter, using a loopback fake camera (`tests/AvasRoutingTool.Tests/Fakes/FakeViscaServer.cs`). The fake covers the command bytes (golden hex), the frame codec, reconnect backoff, the Stop-on-everything rules and the 10 s watchdog, the Stop retries and "Stop not confirmed", and the leak rule (a port can be rebound after dispose). The screenshot harness (`ViewSmokeTests.RoomCamerasShots.cs`, gated by `UIV2_SHOTS`) writes the tab in the real main window at 1920x1080 and 1024x720, Dark and Light.
+
+Tests use the fake camera only. The VISCA bytes match the Sony-standard patterns in the plan, but they are not checked against the on-site camera's manual yet.
+
+### 5.2 Not verified (needs the real camera)
+
+- Which transport and port the on-site camera answers on (Detect probes TCP 5678, 1259, 3001 and UDP 52381, 1259, 3001).
+- Every row of the VISCA command table against the camera's manual, including the UDP header and the sequence reset.
+- The zoom and focus ranges (`ZoomMax` 0x4000, `FocusMax` 0xFFFF defaults) and the Slow, Medium and Fast speed table (in `RoomCameraViewModel.SpeedFor`).
+- Physical stop behaviour: cable pulled mid-move, app killed mid-move.
+- A TX preview that is already live when the tab opens, and a Refresh in Visual Routing while the tab is open.
+- Light-mode disabled look in the room.
+
+### 5.3 Known limitations
+
+1. The UDP sequence reset (control payload `01`, sequence 0) is sent on connect; the camera's acceptance of sequence 0 is unverified.
+2. Move and Zoom drives wait up to 3 s for completion while holding the command queue; a Stop must still go first (checked only with the fake).
+3. A UDP ICMP unreachable (error 10054) drops the transport; reconnect backoff is 1, 2, 4, 8, 16, then 30 s at most, and the link turns red after 3 failed attempts.
+4. The 10 s watchdog only works while the network works; a camera that loses its network cannot be stopped by the app.
+5. Keyboard control is ignored while a slider has focus (by design).
+6. The disabled look in Light mode is subtle; check it in the room.
+7. No RTSP path in v1 (R1): the picture is the bound TX's SDVoE preview only.
+8. No presets in v1 (R7).
+9. `ZoomMax`, `FocusMax` and the speed table are uncalibrated defaults until the live checklist is done.

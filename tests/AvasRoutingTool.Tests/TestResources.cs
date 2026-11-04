@@ -37,6 +37,7 @@ namespace AvasRoutingTool.Tests
             "Resources/Styles/SourceCard.xaml",
             "Resources/Styles/DisplayCard.xaml",
             "Resources/Styles/Composer.xaml",
+            "Resources/Styles/RoomCameras.xaml",
             "Resources/Theme.xaml",
             "Resources/Icons.xaml",
         };

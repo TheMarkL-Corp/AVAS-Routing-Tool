@@ -854,7 +854,8 @@ namespace AvasRoutingTool.Tests
                         Assert.True(el.IsVisible, $"{name} is not visible");
                         AssertInside(el, frame);
                     }
-                    AssertTextFits((TextBlock)parts[0].El);
+                    // The name shows whole except on the narrowest card, where the rename pencil (a 48 px hit box) takes its room: it ellipsizes there (its tooltip is the full name).
+                    if (rx1.ActualWidth > Token("Size.Card.Min") + 10) AssertTextFits((TextBlock)parts[0].El);
                     AssertTextFits((TextBlock)parts[1].El);
                     AssertTextFits(FindAll<TextBlock>(parts[3].El).Single(t => t.Text.StartsWith("Copy", StringComparison.Ordinal)));
                     for (int i = 2; i < parts.Count; i++)
@@ -940,7 +941,11 @@ namespace AvasRoutingTool.Tests
                     var tag = (FrameworkElement)Named(rx1, "CopySourceChip").Single();
                     Assert.True(tag.IsVisible, "the copy tag does not show");
                     AssertVisibleText(rx1, "COPYING FROM HERE");
-                    AssertTextFits(FindAll<TextBlock>(tag).Single());
+                    // Whole, except on the narrowest card: there the rename pencil (a 48 px hit box) takes the room and the tag ellipsizes ("COPYING..."),
+                    // so that the mode badge is never pushed out of the card; the arm banner above the displays says the rest.
+                    var tagText = FindAll<TextBlock>(tag).Single();
+                    if (rx1.ActualWidth > Token("Size.Card.Min") + 10) AssertTextFits(tagText);
+                    else Assert.True(tagText.ActualWidth >= 40, $"the copy tag is only {tagText.ActualWidth:F1} px wide at the minimum width");
                     AssertInside(tag, (FrameworkElement)Named(rx1, "CardFrame").Single());
                     Assert.False(BoundsIn(tag, rx1).IntersectsWith(BoundsIn(picture, rx1)), "the copy tag lies on the picture");
                     AssertSixteenByNine(picture, "copy source");

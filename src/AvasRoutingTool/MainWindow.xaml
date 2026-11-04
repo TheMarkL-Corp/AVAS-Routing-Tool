@@ -68,15 +68,23 @@
                                  GroupName="MainTabs"
                                  IsChecked="True"
                                  Checked="Tab_Checked"
-                                 Margin="0,0,6,0"
+                                 Margin="0,0,4,0"
                                  AutomationProperties.Name="Visual Routing" />
+
+                    <RadioButton x:Name="TabRoomCameras"
+                                 Style="{StaticResource Style.Tab.Nav}"
+                                 Content="Room Cameras"
+                                 GroupName="MainTabs"
+                                 Checked="Tab_Checked"
+                                 Margin="0,0,4,0"
+                                 AutomationProperties.Name="Room Cameras" />
 
                     <RadioButton x:Name="TabBavmConsole"
                                  Style="{StaticResource Style.Tab.Nav}"
                                  Content="BAVM Console"
                                  GroupName="MainTabs"
                                  Checked="Tab_Checked"
-                                 Margin="0,0,6,0"
+                                 Margin="0,0,4,0"
                                  AutomationProperties.Name="BAVM Console" />
 
                     <RadioButton x:Name="TabLogs"
@@ -87,6 +95,16 @@
                                  Visibility="Collapsed"
                                  AutomationProperties.Name="Diagnostics and Logs"
                                  ToolTip="Diagnostics and live logs" />
+
+                    <RadioButton x:Name="TabAdvanced"
+                                 Style="{StaticResource Style.Tab.Nav}"
+                                 Content="Advanced"
+                                 GroupName="MainTabs"
+                                 Checked="Tab_Checked"
+                                 Visibility="Collapsed"
+                                 Margin="4,0,0,0"
+                                 AutomationProperties.Name="Advanced"
+                                 ToolTip="Link mode, temperature and maintenance" />
                 </StackPanel>
 
                 <!-- Actions & Status Area -->
@@ -98,12 +116,12 @@
                             CornerRadius="6"
                             Padding="8,0"
                             MinHeight="{StaticResource Size.Touch.Min}"
-                            Margin="0,0,6,0"
+                            Margin="0,0,4,0"
                             ToolTip="{Binding ConnectionStatus}"
                             AutomationProperties.Name="{Binding ConnectionStatus, StringFormat='Connection status: {0}'}"
                             AutomationProperties.LiveSetting="Polite">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Ellipse Style="{StaticResource Style.StatusDot.Connection}" Tag="{Binding ConnectionHealth}" Margin="0,0,6,0" />
+                            <Ellipse Style="{StaticResource Style.StatusDot.Connection}" Tag="{Binding ConnectionHealth}" Margin="0,0,4,0" />
                             <TextBlock x:Name="ConnectionText" Text="{Binding ConnectionStatus}"
                                        Style="{StaticResource Style.Text.Body}"
                                        FontWeight="Medium"
@@ -163,10 +181,16 @@
             <!-- Mode 1: Visual Routing Canvas -->
             <views:VisualRoutingView x:Name="ViewVisualRouting" Visibility="Visible" />
 
+            <!-- Mode 1b: Room Cameras (PTZ control and the bound TX picture) -->
+            <views:RoomCamerasView x:Name="ViewRoomCameras" Visibility="Collapsed" />
+
             <!-- Mode 2: Embedded BAVM Console in WebView2 -->
             <Grid x:Name="ViewBavmConsole" Visibility="Collapsed">
                 <wv2:WebView2 x:Name="BavmWebView" />
             </Grid>
+
+            <!-- Mode 4: Advanced (maintenance), hidden unless ShowAdvanced -->
+            <views:AdvancedView x:Name="ViewAdvanced" Visibility="Collapsed" DataContext="{Binding Advanced}" />
 
             <!-- Mode 3: Diagnostics & Live Logs -->
             <Grid x:Name="ViewLogs" Visibility="Collapsed" Background="{DynamicResource Brush.Background.Dark}">
@@ -192,7 +216,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Log File:" Style="{StaticResource Style.Text.Body}" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                       Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,4,0" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="{Binding LogFilePath}" Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                        ToolTip="{Binding LogFilePath}" />

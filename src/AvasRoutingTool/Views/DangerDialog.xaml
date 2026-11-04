@@ -1,0 +1,57 @@
+<Window x:Class="AvasRoutingTool.Views.DangerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        SizeToContent="Height"
+        Width="{StaticResource Size.Dialog.Settings.Width}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource Brush.Background.Dark}"
+        Foreground="{DynamicResource Brush.Text.Primary}"
+        FontFamily="Segoe UI">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="HeadingText" Style="{StaticResource Style.Text.Lead}" TextWrapping="Wrap" />
+
+        <TextBlock x:Name="BodyText"
+                   Grid.Row="1"
+                   Style="{StaticResource Style.Text.Body}"
+                   TextWrapping="Wrap"
+                   Margin="0,12,0,0" />
+
+        <!-- Factory resets: the operator types the device name before the button is enabled -->
+        <StackPanel Grid.Row="2" Margin="0,16,0,0">
+            <TextBlock x:Name="TypedPrompt" Style="{StaticResource Style.Text.Body}" TextWrapping="Wrap" Visibility="Collapsed" />
+            <TextBox x:Name="TypedNameBox"
+                     Visibility="Collapsed"
+                     Margin="0,6,0,0"
+                     MinHeight="{StaticResource Size.Touch.Min}"
+                     VerticalContentAlignment="Center"
+                     AutomationProperties.Name="Type the device name to confirm"
+                     TextChanged="TypedNameBox_TextChanged" />
+        </StackPanel>
+
+        <!-- The destructive action is never the primary button; Cancel is the escape -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="CancelButton"
+                    Content="Cancel"
+                    IsCancel="True"
+                    Style="{StaticResource Style.Button.Secondary}"
+                    MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                    MinHeight="{StaticResource Size.Touch.Min}"
+                    Margin="0,0,10,0"
+                    Click="Cancel_Click" />
+            <Button x:Name="ConfirmButton"
+                    Style="{StaticResource Style.Button.Secondary}"
+                    MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                    MinHeight="{StaticResource Size.Touch.Min}"
+                    Click="Confirm_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

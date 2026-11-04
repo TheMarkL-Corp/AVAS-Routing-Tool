@@ -102,6 +102,9 @@ namespace AvasRoutingTool.ViewModels
         public ObservableCollection<LayoutItemViewModel> Layouts { get; } = new();
         public ObservableCollection<LogEntry> Logs { get; } = new();
 
+        /// <summary>The Advanced (maintenance) page; its rows follow every discovery refresh.</summary>
+        public AdvancedViewModel Advanced { get; } = new();
+
         public bool IsConnected
         {
             get => _isConnected;
@@ -141,6 +144,14 @@ namespace AvasRoutingTool.ViewModels
         {
             get => _showLogs;
             set { if (_showLogs == value) return; _showLogs = value; OnPropertyChanged(); }
+        }
+
+        private bool _showAdvanced;
+        /// <summary>Whether the Advanced tab is offered. Off by default; switched on in Settings.</summary>
+        public bool ShowAdvanced
+        {
+            get => _showAdvanced;
+            set { if (_showAdvanced == value) return; _showAdvanced = value; OnPropertyChanged(); }
         }
 
         public int OnlineSourcesCount => Sources.Count(s => s.IsActive);
@@ -247,6 +258,11 @@ namespace AvasRoutingTool.ViewModels
             _motion = new MotionPolicy(animationsEnabled);
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _sdvoeClient = sdvoeClient ?? throw new ArgumentNullException(nameof(sdvoeClient));
+            Advanced.Reader = sdvoeClient as IDeviceReader;
+            Advanced.Switcher = sdvoeClient as ILinkSwitcher;
+            Advanced.Maintenance = sdvoeClient as IMaintenanceActions;
+            Advanced.ImpactProvider = GetLinkSwitchImpact;
+            Advanced.UnrouteFromMultiViews = UnrouteSourceFromMultiViewsAsync;
             _rtpReceiver = rtpReceiver ?? throw new ArgumentNullException(nameof(rtpReceiver));
             _ipManager = ipManager ?? throw new ArgumentNullException(nameof(ipManager));
             _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
@@ -265,6 +281,7 @@ namespace AvasRoutingTool.ViewModels
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
             ShowLogs = _config.ShowLogs;
+            ShowAdvanced = _config.ShowAdvanced;
 
             ThemeService = themeService ?? new ThemeService(_configService);
             ThemeService.ThemeChanged += (_, _) =>
@@ -324,6 +341,7 @@ namespace AvasRoutingTool.ViewModels
             _config = _configService.Load();
             BavmUrl = _config.BavmUrl;
             ShowLogs = _config.ShowLogs;
+            ShowAdvanced = _config.ShowAdvanced;
             string host = _config.DerivedControlServerIp;
 
             AppLogger.Info("APP", $"Initializing AVAS Routing Tool with BAVM URL: {BavmUrl}, Control Server: {host}:{_config.TelnetPort} (REST: {_config.RestPort})");
@@ -351,6 +369,59 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
+        /// <summary>
+        /// What switching the link mode of these transmitter chips touches: displays routed to one of them in Single View, and
+        /// displays whose multi-view shows one of them.
+        /// </summary>
+        public LinkSwitchImpact GetLinkSwitchImpact(IReadOnlyList<string> txMacs)
+        {
+            var macs = txMacs.Select(SdvoeClient.NormalizeMac).ToHashSet();
+            var single = new List<string>();
+            var multi = new List<string>();
+            foreach (var display in Displays)
+            {
+                var live = _multiView.GetLive(display.Device);
+                if (live != null)
+                {
+                    if (macs.Any(m => live.SlotsShowing(m).Any())) multi.Add(display.Device.DeviceName);
+                }
+                else if (!display.IsMultiView && macs.Contains(SdvoeClient.NormalizeMac(display.ActiveSourceId)))
+                {
+                    single.Add(display.Device.DeviceName);
+                }
+            }
+            return new LinkSwitchImpact(single, multi);
+        }
+
+        /// <summary>
+        /// Takes these transmitter chips out of every multi-view layout (their blocks go black); a display left with no
+        /// block at all is turned off. Single View routes are left alone.
+        /// </summary>
+        public async Task UnrouteSourceFromMultiViewsAsync(IReadOnlyList<string> txMacs)
+        {
+            var macs = txMacs.Select(SdvoeClient.NormalizeMac).ToList();
+            foreach (var display in Displays.ToList())
+            {
+                var live = _multiView.GetLive(display.Device);
+                if (live == null) continue;
+                var slots = macs.SelectMany(m => live.SlotsShowing(m)).Distinct().ToList();
+                if (slots.Count == 0) continue;
+
+                foreach (var slot in slots) live.Clear(slot);
+                if (live.Placements.Count == 0)
+                {
+                    await UnrouteVideoAsync(display.Device);
+                    continue;
+                }
+
+                var result = await _multiView.TakeAsync(display.Device, live);
+                if (result.Outcome == TakeOutcome.Applied)
+                    await RestoreDisplayAsync(display); // the card shows what the display really does now
+                else
+                    AppLogger.Warn("ADVANCED", $"Could not take the switched transmitter out of the layout on '{display.Device.DeviceName}': {result.Error ?? result.Outcome.ToString()}");
+            }
+        }
+
         public async Task RefreshDevicesAsync()
         {
             AppLogger.Info("DISCOVERY", "Starting transceiver refresh cycle...");
@@ -366,12 +437,15 @@ namespace AvasRoutingTool.ViewModels
             Sources.Clear();
             Displays.Clear();
 
+            Advanced.SetDevices(devices);
+
             var transmitters = devices.Where(d => d.IsTransmitter).OrderBy(d => d.DeviceName).ToList();
             var receivers = devices.Where(d => d.IsReceiver).OrderBy(d => d.DeviceName).ToList();
 
             foreach (var dev in transmitters)
             {
                 var sourceVm = new SourceCardViewModel(dev);
+                sourceVm.RenameHandler = () => RenameDeviceAsync(dev);
                 Sources.Add(sourceVm);
 
                 if (dev.IsActive && dev.IsPreviewSupported)
@@ -395,6 +469,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var dev in receivers)
             {
                 var displayVm = new DisplayCardViewModel(dev, UnrouteVideoAsync);
+                displayVm.RenameHandler = () => RenameDeviceAsync(dev);
                 if (!string.IsNullOrEmpty(dev.ActiveSourceId))
                 {
                     var sourceVm = Sources.FirstOrDefault(s => s.MacAddress == dev.ActiveSourceId);
@@ -1599,6 +1674,110 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(OnlineSourcesCount));
             OnPropertyChanged(nameof(OnlineDisplaysCount));
         }
+
+        #region Rename
+
+        /// <summary>
+        /// The seam that shows the rename dialog: gets the dialog's view model, returns the new name or null when the user
+        /// cancelled. Null by default (a test sets it); MainWindow wires the real dialog.
+        /// </summary>
+        public Func<RenameDialogViewModel, string?>? AskForName { get; set; }
+
+        private string? _renameBanner;
+        private bool _isRenaming;
+        private ICommand? _dismissRenameBannerCommand;
+
+        /// <summary>Why the last rename failed ("Couldn't rename TX2: ..."); null when there is nothing to say.</summary>
+        public string? RenameBanner
+        {
+            get => _renameBanner;
+            private set
+            {
+                if (_renameBanner == value) return;
+                _renameBanner = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasRenameBanner));
+                // Dismiss can execute only while there is a banner: say so now, not at the next key or click, so the first tap on it works.
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        public bool HasRenameBanner => !string.IsNullOrEmpty(_renameBanner);
+
+        /// <summary>A rename is being written to the Control Server (and the cards rebuilt): another one is ignored meanwhile.</summary>
+        public bool IsRenaming
+        {
+            get => _isRenaming;
+            private set
+            {
+                if (_isRenaming == value) return;
+                _isRenaming = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ICommand DismissRenameBannerCommand =>
+            _dismissRenameBannerCommand ??= new RelayCommand(_ => RenameBanner = null, _ => HasRenameBanner);
+
+        /// <summary>
+        /// Asks for a new name, writes it to the Control Server, and rebuilds the cards by rediscovery. The card shows the
+        /// new name only after the server confirmed AND discovery returned it (never set locally); on a failure nothing
+        /// changes except the banner. Routes survive: they are keyed by MAC, and rediscovery re-links the display to its source.
+        /// </summary>
+        public async Task RenameDeviceAsync(AvasDevice device)
+        {
+            if (device == null) throw new ArgumentNullException(nameof(device));
+            if (IsRenaming) return;
+
+            RenameBanner = null; // a new attempt clears the old failure
+            string oldName = device.DeviceName;
+
+            if (_sdvoeClient is not IDeviceRenamer renamer)
+            {
+                RenameBanner = $"Couldn't rename {oldName}: this connection can't rename devices";
+                AppLogger.Warn("RENAME", $"'{oldName}' not renamed: the client has no rename call");
+                return;
+            }
+
+            // The names the new one must not collide with: every OTHER device on a card.
+            string mac = SdvoeClient.NormalizeMac(device.DeviceId);
+            var otherNames = Sources.Select(s => s.Device)
+                .Concat(Displays.Select(d => d.Device))
+                .Where(d => !string.Equals(SdvoeClient.NormalizeMac(d.DeviceId), mac, StringComparison.OrdinalIgnoreCase))
+                .Select(d => d.DeviceName)
+                .ToList();
+
+            var dialog = new RenameDialogViewModel(oldName, otherNames);
+            string? newName = AskForName?.Invoke(dialog);
+            if (newName == null || string.Equals(newName, oldName, StringComparison.Ordinal))
+            {
+                AppLogger.Info("RENAME", $"Rename of '{oldName}' cancelled");
+                return;
+            }
+
+            IsRenaming = true;
+            try
+            {
+                var result = await renamer.RenameDeviceAsync(device.DeviceId, newName);
+                if (!result.Ok)
+                {
+                    string reason = string.IsNullOrWhiteSpace(result.Reason) ? "the Control Server refused it" : result.Reason;
+                    RenameBanner = $"Couldn't rename {oldName}: {reason}";
+                    AppLogger.Warn("RENAME", $"'{oldName}' not renamed to '{newName}': {reason}");
+                    return;
+                }
+
+                AppLogger.Info("RENAME", $"'{oldName}' renamed to '{newName}' on the Control Server; rediscovering");
+                RenameBanner = null;
+                await RefreshDevicesAsync();
+            }
+            finally
+            {
+                IsRenaming = false;
+            }
+        }
+
+        #endregion
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
