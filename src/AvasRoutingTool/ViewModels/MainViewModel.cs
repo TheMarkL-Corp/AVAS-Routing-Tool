@@ -434,6 +434,7 @@ namespace AvasRoutingTool.ViewModels
             foreach (var d in _dropChoiceOpenedAt.Keys.ToList()) CloseDropChoice(d);
 
             // Dynamic Cards: populate TX Sources and RX Displays in deterministic order
+            foreach (var old in Sources) old.Detach(); // the RTP channel outlives the cards: stop the replaced ones listening
             Sources.Clear();
             Displays.Clear();
 
