@@ -46,3 +46,6 @@ PRODUCT.md
 DESIGN.md
 .impeccable/
 ui_screenshots/
+
+# Beta release builds
+publish-beta/
