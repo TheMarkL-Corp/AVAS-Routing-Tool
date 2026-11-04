@@ -168,9 +168,14 @@ namespace AvasRoutingTool.ViewModels
             try
             {
                 // Connect or retrieve demux channel
+                DetachChannel();
                 _channel = UnifiedRtpDemuxReceiver.Instance.GetOrCreateChannel(_device.IpAddress, multicastIp, _device.NodeIps);
                 _channel.BitmapUpdated += OnBitmapUpdated;
                 _channel.FpsUpdated += OnFpsUpdated;
+
+                // The channel outlives this card (a refresh rebuilds the cards) and only announces a bitmap when it creates one:
+                // pick up the one it already has, or this card stays black.
+                if (_channel.Bitmap != null) PreviewBitmap = _channel.Bitmap;
 
                 _channel.StartListening(multicastIp, port);
 
@@ -183,6 +188,16 @@ namespace AvasRoutingTool.ViewModels
                 AppLogger.Error("PREVIEW", $"Failed to start preview for {DeviceName}", ex);
                 IsStreaming = false;
             }
+        }
+
+        /// <summary>Stops listening to the RTP channel without touching the device; called when this card is replaced by a rebuilt one.</summary>
+        public void Detach() => DetachChannel();
+
+        private void DetachChannel()
+        {
+            if (_channel == null) return;
+            _channel.BitmapUpdated -= OnBitmapUpdated;
+            _channel.FpsUpdated -= OnFpsUpdated;
         }
 
         public async Task StopPreviewAsync()
