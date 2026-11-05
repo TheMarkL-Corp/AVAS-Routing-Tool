@@ -17,10 +17,10 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void ADisplayCard_OnATallWindow_GrowsPastTheOldCap()
+        public void ADisplayCard_OnATallWindow_IgnoresHeight_AndUsesTheCarouselWidth()
         {
             var plan = AdaptiveGridLayout.Compute(1, 1888, 1200, GridSpec.DisplayCard);
-            Assert.Equal(960, plan.CardWidth, 3);
+            Assert.InRange(plan.CardWidth, 525.71 - 0.5, 525.71 + 0.5);
         }
 
         [Fact]
@@ -129,6 +129,66 @@ namespace AvasRoutingTool.Tests
             double videoHeight = plan.CardHeight - GridSpec.DisplayCard.ChromeHeight;
             double videoWidth = plan.CardWidth - GridSpec.DisplayCard.HorizontalPadding;
             Assert.InRange(videoWidth / videoHeight, 16.0 / 9 * 0.96, 16.0 / 9 * 1.04);
+        }
+
+        [Fact]
+        public void Carousel_OneCard_Is526Wide()
+        {
+            var plan = AdaptiveGridLayout.Compute(1, 1888, 435, GridSpec.DisplayCard);
+
+            Assert.InRange(plan.CardWidth, 525.71 - 0.5, 525.71 + 0.5);
+            Assert.Equal(1, plan.Rows);
+            Assert.Equal(1, plan.Columns);
+            Assert.False(plan.NeedsScroll);
+        }
+
+        [Fact]
+        public void Carousel_FourCards_FitWithoutScroll()
+        {
+            var plan = AdaptiveGridLayout.Compute(4, 1888, 435, GridSpec.DisplayCard);
+
+            Assert.InRange(plan.CardWidth, 459.5, 460.5);
+            Assert.Equal(1, plan.Rows);
+            Assert.Equal(4, plan.Columns);
+            Assert.False(plan.NeedsScroll);
+        }
+
+        [Fact]
+        public void Carousel_FiveCards_Scrolls()
+        {
+            var plan = AdaptiveGridLayout.Compute(5, 1888, 435, GridSpec.DisplayCard);
+
+            Assert.InRange(plan.CardWidth, 525.71 - 0.5, 525.71 + 0.5);
+            Assert.Equal(1, plan.Rows);
+            Assert.Equal(5, plan.Columns);
+            Assert.True(plan.NeedsScroll);
+        }
+
+        [Fact]
+        public void Carousel_At992_UsesMinWidth()
+        {
+            var plan = AdaptiveGridLayout.Compute(5, 992, 435, GridSpec.DisplayCard);
+
+            Assert.Equal(320, plan.CardWidth, 3);
+            Assert.True(plan.NeedsScroll);
+        }
+
+        [Fact]
+        public void Carousel_Twelve_OneRow()
+        {
+            var plan = AdaptiveGridLayout.Compute(12, 1888, double.PositiveInfinity, GridSpec.DisplayCard);
+
+            Assert.Equal(1, plan.Rows);
+            Assert.Equal(12, plan.Columns);
+            Assert.True(plan.NeedsScroll);
+            Assert.Equal(AdaptiveGridLayout.CardHeightFor(plan.CardWidth, GridSpec.DisplayCard), plan.CardHeight, 3);
+        }
+
+        [Fact]
+        public void FitAll_Default_HasNoCarousel()
+        {
+            Assert.Equal(0, GridSpec.Default.CarouselVisibleCards);
+            Assert.Equal(3.5, GridSpec.DisplayCard.CarouselVisibleCards);
         }
     }
 }
