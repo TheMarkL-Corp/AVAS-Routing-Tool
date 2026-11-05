@@ -227,8 +227,8 @@ namespace AvasRoutingTool.Tests
                 });
 
                 var m = MeasureFullHd(0, 2, displayCards: true);
-                Assert.True(m.PictureWidth >= 673 - 0.5 && m.PictureHeight >= 378 - 0.5,
-                    $"2 displays with no sources: {m.PictureWidth:F0}x{m.PictureHeight:F0} (the gate is 673x378)");
+                Assert.True(m.PictureWidth >= 499 - 0.5 && m.PictureHeight >= 281 - 0.5,
+                    $"2 displays with no sources: {m.PictureWidth:F0}x{m.PictureHeight:F0} (the gate is 499x281, the 3.5 card carousel picture)");
             });
 
         [Fact]
@@ -256,15 +256,15 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void FullHd_DisplayPictures_GainTheStripHeight() =>
+        public void FullHd_DisplayPictures_KeepTheCarouselSize() =>
             RunSta(() =>
             {
                 var one = MeasureFullHd(3, 1, displayCards: true);
                 var two = MeasureFullHd(3, 2, displayCards: true);
-                Assert.True(one.PictureWidth >= 673 - 0.5 && one.PictureHeight >= 378 - 0.5,
-                    $"1 display: {one.PictureWidth:F0}x{one.PictureHeight:F0} (the gate is 673x378)");
-                Assert.True(two.PictureWidth >= 673 - 0.5 && two.PictureHeight >= 378 - 0.5,
-                    $"2 displays: {two.PictureWidth:F0}x{two.PictureHeight:F0} (the gate is 673x378)");
+                Assert.True(one.PictureWidth >= 499 - 0.5 && one.PictureHeight >= 281 - 0.5,
+                    $"1 display: {one.PictureWidth:F0}x{one.PictureHeight:F0} (the gate is 499x281, the 3.5 card carousel picture)");
+                Assert.True(two.PictureWidth >= 499 - 0.5 && two.PictureHeight >= 281 - 0.5,
+                    $"2 displays: {two.PictureWidth:F0}x{two.PictureHeight:F0} (the gate is 499x281, the 3.5 card carousel picture)");
             });
 
         [Fact]
