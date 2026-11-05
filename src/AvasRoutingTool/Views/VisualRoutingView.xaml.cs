@@ -118,6 +118,8 @@ namespace AvasRoutingTool.Views
         /// <summary>The mouse wheel over the row pans it sideways (the row has no vertical direction to scroll).</summary>
         private void DisplaysScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
+            // Nothing to pan sideways (a short window scrolls the row vertically): leave the wheel to the ScrollViewer.
+            if (DisplaysScroll.ScrollableWidth <= 0.5) return;
             double target = Math.Max(0, Math.Min(DisplaysScroll.ScrollableWidth, DisplaysScroll.HorizontalOffset - e.Delta));
             DisplaysScroll.ScrollToHorizontalOffset(target);
             UpdateDisplayArrows(target);
@@ -132,17 +134,32 @@ namespace AvasRoutingTool.Views
         private void UpdateDisplayArrows(double offset)
         {
             double scrollable = DisplaysScroll.ScrollableWidth;
-            var visibility = scrollable > 0.5 ? Visibility.Visible : Visibility.Collapsed;
-            DisplaysScrollLeft.Visibility = visibility;
-            DisplaysScrollRight.Visibility = visibility;
+            bool leftHadFocus = DisplaysScrollLeft.IsKeyboardFocused;
+            bool rightHadFocus = DisplaysScrollRight.IsKeyboardFocused;
             DisplaysScrollLeft.IsEnabled = offset > 0.5;
             DisplaysScrollRight.IsEnabled = offset < scrollable - 0.5;
-            if (visibility != Visibility.Visible) return;
+            if (scrollable <= 0.5)
+            {
+                DisplaysScrollLeft.Visibility = Visibility.Collapsed;
+                DisplaysScrollRight.Visibility = Visibility.Collapsed;
+                return;
+            }
 
-            // Vertically centred on the first card's picture (every card is the same height).
+            // Vertically centred on the first card's picture (every card is the same height). Until that is known the arrows stay hidden.
             var card = FindFirst<DisplayCardView>(DisplaysScroll);
             var picture = card == null ? null : FindFirst<FrameworkElement>(card, f => f.Name == "PreviewSurface");
-            if (picture == null || picture.ActualHeight <= 0 || !picture.IsDescendantOf(DisplaysScroll)) return;
+            if (picture == null || picture.ActualHeight <= 0 || !picture.IsDescendantOf(DisplaysScroll))
+            {
+                DisplaysScrollLeft.Visibility = Visibility.Collapsed;
+                DisplaysScrollRight.Visibility = Visibility.Collapsed;
+                return;
+            }
+            DisplaysScrollLeft.Visibility = Visibility.Visible;
+            DisplaysScrollRight.Visibility = Visibility.Visible;
+
+            // A focused arrow that just disabled itself hands the keyboard to the other arrow, else to the nearest card.
+            if (leftHadFocus && !DisplaysScrollLeft.IsEnabled) MoveFocusFromArrow(DisplaysScrollRight, first: true);
+            else if (rightHadFocus && !DisplaysScrollRight.IsEnabled) MoveFocusFromArrow(DisplaysScrollLeft, first: false);
             var bounds = picture.TransformToAncestor(DisplaysScroll).TransformBounds(new Rect(0, 0, picture.ActualWidth, picture.ActualHeight));
             double centre = bounds.Top + bounds.Height / 2;
             double top = Math.Max(0, centre + DisplaysScroll.Margin.Top - DisplaysScrollLeft.Height / 2);
@@ -150,6 +167,27 @@ namespace AvasRoutingTool.Views
             {
                 DisplaysScrollLeft.Margin = new Thickness(DisplaysScrollLeft.Margin.Left, top, 0, 0);
                 DisplaysScrollRight.Margin = new Thickness(0, top, DisplaysScrollRight.Margin.Right, 0);
+            }
+        }
+
+        private void MoveFocusFromArrow(Button other, bool first)
+        {
+            if (other.IsEnabled && other.IsVisible && other.Focus()) return;
+            var cards = new System.Collections.Generic.List<DisplayCardView>();
+            CollectAll(DisplaysScroll, cards);
+            var card = cards.Count == 0 ? null : first ? cards[0] : cards[cards.Count - 1];
+            if (card == null || !card.MoveFocus(new TraversalRequest(first ? FocusNavigationDirection.First : FocusNavigationDirection.Last)))
+                DisplaysScroll.Focus();
+        }
+
+        private static void CollectAll<T>(DependencyObject root, System.Collections.Generic.List<T> into) where T : DependencyObject
+        {
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                if (child is T t) into.Add(t);
+                else CollectAll(child, into);
             }
         }
 

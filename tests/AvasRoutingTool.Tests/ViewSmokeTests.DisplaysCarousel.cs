@@ -164,7 +164,10 @@ namespace AvasRoutingTool.Tests
                     Assert.True(scroll.ScrollableWidth > 0);
                     Assert.Equal(0, scroll.HorizontalOffset, 1);
 
+                    bool wasKeyboard = InputModality.IsKeyboard;
                     InputModality.IsKeyboard = true;
+                    try
+                    {
                     var near = FindAll<ButtonBase>(partial).First(e => e.Focusable && e.IsVisible && e.IsEnabled && KeyboardNavigation.GetIsTabStop(e));
                     Assert.True(near.Focus(), "could not focus an element of the fourth card");
                     Relayout(view);
@@ -191,6 +194,53 @@ namespace AvasRoutingTool.Tests
                     Relayout(view);
                     var f = first.TransformToAncestor(scroll).TransformBounds(new Rect(0, 0, first.ActualWidth, first.ActualHeight));
                     Assert.True(f.Left >= -0.5 && f.Right <= scroll.ViewportWidth + 0.5, $"the first card spans {f.Left}..{f.Right}");
+                    }
+                    finally { InputModality.IsKeyboard = wasKeyboard; }
+                    return 0;
+                });
+            });
+
+        [Fact]
+        public void Displays_MouseWheel_OnAShortWindow_ScrollsVerticallyAsUsual() =>
+            RunSta(() =>
+            {
+                var (view, _) = FullHdOverview(3, 2);
+                ShowingAt(view, 1008, 615, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
+                    Assert.True(scroll.ScrollableWidth <= 0.5, $"scrollable width {scroll.ScrollableWidth}");
+                    Assert.True(scroll.ScrollableHeight > 0.5, $"scrollable height {scroll.ScrollableHeight}");
+                    var down = new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = UIElement.PreviewMouseWheelEvent, Source = scroll };
+                    scroll.RaiseEvent(down);
+                    Relayout(view);
+                    Assert.False(down.Handled, "the sideways wheel swallowed a wheel the row cannot use sideways");
+                    Assert.Equal(0, scroll.HorizontalOffset, 1);
+                });
+            });
+
+        [Fact]
+        public void Displays_Arrow_DisablingAtTheEnd_KeepsKeyboardFocusInTheView() =>
+            RunSta(() =>
+            {
+                var (view, _) = FullHdOverview(3, 8);
+                WithFullHdWindow(view, () =>
+                {
+                    var left = (Button)Named(view, "DisplaysScrollLeft").Single();
+                    var right = (Button)Named(view, "DisplaysScrollRight").Single();
+                    Assert.True(right.Focus() && right.IsKeyboardFocused);
+                    view.ScrollDisplaysBy(100);
+                    Relayout(view);
+                    Assert.False(right.IsEnabled);
+                    var focused = Keyboard.FocusedElement as DependencyObject;
+                    Assert.NotNull(focused);
+                    Assert.True(focused is System.Windows.Media.Visual v && v.IsDescendantOf(view), "focus left the view");
+                    Assert.Same(left, focused);
+
+                    // And back at the start: the left arrow disables, focus moves to the right one.
+                    view.ScrollDisplaysBy(-100);
+                    Relayout(view);
+                    Assert.False(left.IsEnabled);
+                    Assert.Same(right, Keyboard.FocusedElement);
                     return 0;
                 });
             });
