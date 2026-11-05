@@ -222,6 +222,15 @@ namespace AvasRoutingTool.Views
             if (e.IsRepeat && e.Key is Key.Enter or Key.Space) e.Handled = true;
         }
 
+        /// <summary>
+        /// Keyboard focus inside the card brings the whole card into the sideways row (not only the focused control,
+        /// which the scroller would reveal alone). A press or touch that focuses a control never scrolls: it would fight a pan.
+        /// </summary>
+        private void Card_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            if (InputModality.IsKeyboard && IsLoaded) BringIntoView();
+        }
+
         /// <summary>Esc anywhere on the card stops what is armed (a copy first), as the arm banner's Stop does.</summary>
         private void Card_KeyDown(object sender, KeyEventArgs e)
         {

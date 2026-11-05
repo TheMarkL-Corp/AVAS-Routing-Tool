@@ -15,7 +15,8 @@
              PreviewMouseLeftButtonUp="Card_PreviewMouseLeftButtonUp"
              MouseLeftButtonUp="Card_MouseLeftButtonUp"
              PreviewKeyDown="Card_PreviewKeyDown"
-             KeyDown="Card_KeyDown">
+             KeyDown="Card_KeyDown"
+             GotKeyboardFocus="Card_GotKeyboardFocus">
 
     <Grid>
         <ui:Card x:Name="CardFrame" Style="{StaticResource Style.Card.Display}">
