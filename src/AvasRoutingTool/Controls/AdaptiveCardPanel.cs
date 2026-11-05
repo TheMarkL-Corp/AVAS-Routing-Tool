@@ -71,7 +71,7 @@ namespace AvasRoutingTool.Controls
             _parentScrollViewer = FindAncestor<ScrollViewer>(this);
             if (_parentScrollViewer != null)
             {
-                _parentScrollViewer.SizeChanged += OnScrollViewerSizeChanged;
+                HookScrollViewer(_parentScrollViewer);
             }
         }
 
@@ -80,8 +80,21 @@ namespace AvasRoutingTool.Controls
             if (_parentScrollViewer != null)
             {
                 _parentScrollViewer.SizeChanged -= OnScrollViewerSizeChanged;
+                _parentScrollViewer.ScrollChanged -= OnScrollViewerScrollChanged;
                 _parentScrollViewer = null;
             }
+        }
+
+        private void HookScrollViewer(ScrollViewer sv)
+        {
+            sv.SizeChanged += OnScrollViewerSizeChanged;
+            sv.ScrollChanged += OnScrollViewerScrollChanged;
+        }
+
+        // The viewport width settles after the scroller's SizeChanged: a carousel row must be re-planned when it changes.
+        private void OnScrollViewerScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (IsCarousel && e.ViewportWidthChange != 0) InvalidateMeasure();
         }
 
         private void OnScrollViewerSizeChanged(object sender, SizeChangedEventArgs e)
@@ -136,7 +149,7 @@ namespace AvasRoutingTool.Controls
                 _parentScrollViewer = FindAncestor<ScrollViewer>(this);
                 if (_parentScrollViewer != null)
                 {
-                    _parentScrollViewer.SizeChanged += OnScrollViewerSizeChanged;
+                    HookScrollViewer(_parentScrollViewer);
                 }
             }
         }

@@ -52,7 +52,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal("Scroll displays left", System.Windows.Automation.AutomationProperties.GetName(left));
                     Assert.Equal("Scroll displays right", System.Windows.Automation.AutomationProperties.GetName(right));
                     Assert.False(left.IsEnabled, "left is enabled at the start");
-                    Assert.False(left.IsTabStop && left.IsEnabled);
+                    Assert.False(left.IsEnabled);
                     Assert.True(right.IsEnabled);
                     Assert.Equal(0, scroll.HorizontalOffset, 1);
 
@@ -278,6 +278,54 @@ namespace AvasRoutingTool.Tests
                     double available = row.ActualHeight - row.RowDefinitions[0].ActualHeight - scroll.Margin.Top;
                     Assert.Equal(available, scroll.ActualHeight, 1);
                     Assert.True(scroll.ScrollableHeight > 0.5);
+                });
+            });
+
+        [Fact]
+        public void Displays_Resize_WhileScrolled_KeepsTheSameCardAtTheLeftEdge() =>
+            RunSta(() =>
+            {
+                var (view, _) = FullHdOverview(3, 12);
+                WithFullHdWindow(view, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
+                    view.ScrollDisplaysBy(3);
+                    Relayout(view);
+                    double oldStep = FindAll<DisplayCardView>(view).First().ActualWidth + CarouselGap;
+                    Assert.Equal(3, scroll.HorizontalOffset / oldStep, 2);
+
+                    var window = Window.GetWindow(view)!;
+                    window.Width = 1400;
+                    window.UpdateLayout();
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Relayout(view);
+                        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                    }
+                    double newStep = FindAll<DisplayCardView>(view).First().ActualWidth + CarouselGap;
+                    Assert.True(Math.Abs(newStep - oldStep) > 1, $"the card width did not change ({oldStep} -> {newStep}); window {window.ActualWidth}, viewport {scroll.ViewportWidth}, view {view.ActualWidth}, desired {FindAll<DisplayCardView>(view).First().DesiredSize.Width}, extent {scroll.ExtentWidth}");
+                    Assert.True(Math.Abs(scroll.HorizontalOffset / newStep - 3) <= 0.02, $"left card index {scroll.HorizontalOffset / newStep:F3}, expected 3");
+                    return 0;
+                });
+            });
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(3)]
+        public void Displays_FewAt1920_NoArrows_RowCentred(int displays) =>
+            RunSta(() =>
+            {
+                var (view, _) = FullHdOverview(3, displays);
+                WithFullHdWindow(view, () =>
+                {
+                    Assert.Equal(Visibility.Collapsed, ((Button)Named(view, "DisplaysScrollLeft").Single()).Visibility);
+                    Assert.Equal(Visibility.Collapsed, ((Button)Named(view, "DisplaysScrollRight").Single()).Visibility);
+                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
+                    var cards = FindAll<DisplayCardView>(view);
+                    var first = cards.First().TransformToAncestor(scroll).TransformBounds(new Rect(0, 0, cards.First().ActualWidth, 1));
+                    var last = cards.Last().TransformToAncestor(scroll).TransformBounds(new Rect(0, 0, cards.Last().ActualWidth, 1));
+                    Assert.True(Math.Abs(first.Left - (scroll.ViewportWidth - last.Right)) <= 2, $"left margin {first.Left}, right margin {scroll.ViewportWidth - last.Right}");
+                    return 0;
                 });
             });
 

@@ -126,7 +126,39 @@ namespace AvasRoutingTool.Views
             e.Handled = true;
         }
 
-        private void DisplaysScroll_ScrollChanged(object sender, ScrollChangedEventArgs e) => UpdateDisplayArrows(DisplaysScroll.HorizontalOffset);
+        /// <summary>The card at the left edge (offset / step) and the step it was measured with: a resize keeps this card at the left.</summary>
+        private int _leftCardIndex;
+
+        /// <summary>A viewport resize happened and the cards have not yet been re-planned to the new width.</summary>
+        private bool _restoreLeftCard;
+
+        private void DisplaysScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            double offset = DisplaysScroll.HorizontalOffset;
+            double step = DisplaysCardStep();
+            if (e.ViewportWidthChange != 0)
+            {
+                // The window was resized: the cards will change width, so remember which card was at the left and put it back
+                // once the row is re-planned. Only a viewport change starts this, so a user's own scrolling is never fought.
+                _restoreLeftCard = true;
+            }
+            else if (_restoreLeftCard && e.ExtentWidthChange != 0 && step > 0)
+            {
+                _restoreLeftCard = false;
+                double target = Math.Max(0, Math.Min(DisplaysScroll.ScrollableWidth, _leftCardIndex * step));
+                if (Math.Abs(target - offset) > 0.5)
+                {
+                    DisplaysScroll.ScrollToHorizontalOffset(target);
+                    offset = target;
+                }
+            }
+            else if (e.HorizontalChange != 0 && step > 0)
+            {
+                _restoreLeftCard = false;
+                _leftCardIndex = (int)Math.Round(offset / step);
+            }
+            UpdateDisplayArrows(offset);
+        }
 
         private void DisplaysScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateDisplayArrows(DisplaysScroll.HorizontalOffset);
 
