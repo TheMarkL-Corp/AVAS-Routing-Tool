@@ -156,6 +156,79 @@ namespace AvasRoutingTool.Tests
             });
         }
 
+        private static (Window window, ScrollViewer scroll, AdaptiveCardPanel panel, Border[] cards) BuildDisplayHost(int count)
+        {
+            var panel = new AdaptiveCardPanel { Spec = GridSpec.DisplayCard, CenterVertically = false };
+            var cards = new Border[count];
+            for (int i = 0; i < count; i++)
+            {
+                cards[i] = new Border();
+                panel.Children.Add(cards[i]);
+            }
+            var scroll = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Width = 1888,
+                Height = 590,
+                Content = panel
+            };
+            var window = new Window
+            {
+                Content = scroll,
+                Width = 1920,
+                Height = 1080,
+                ShowInTaskbar = false,
+                WindowStyle = WindowStyle.None,
+                Left = -10000
+            };
+            window.Show();
+            scroll.UpdateLayout();
+            return (window, scroll, panel, cards);
+        }
+
+        [Fact]
+        public void DisplayPanel_FiveCards_RowIsWiderThanViewport_ArrangeMatchesMeasure()
+        {
+            RunSta(() =>
+            {
+                var (window, scroll, panel, cards) = BuildDisplayHost(5);
+
+                Assert.True(panel.DesiredSize.Width > 1888, "desired " + panel.DesiredSize.Width);
+                double gap = GridSpec.DisplayCard.Gap;
+                double y0 = cards[0].TransformToAncestor(panel).Transform(new Point(0, 0)).Y;
+                for (int i = 0; i < 5; i++)
+                {
+                    Assert.Equal(525.71, cards[i].ActualWidth, 0.5);
+                    var p = cards[i].TransformToAncestor(panel).Transform(new Point(0, 0));
+                    Assert.Equal(y0, p.Y, 3);
+                    Assert.Equal(i * (cards[0].ActualWidth + gap), p.X, 0.5);
+                }
+                Assert.True(scroll.ScrollableWidth > 0);
+
+                window.Close();
+            });
+        }
+
+        [Fact]
+        public void DisplayPanel_ThreeCards_AreCentredAndDoNotScroll()
+        {
+            RunSta(() =>
+            {
+                var (window, scroll, panel, cards) = BuildDisplayHost(3);
+
+                Assert.Equal(0, scroll.ScrollableWidth, 3);
+                var first = cards[0].TransformToAncestor(scroll).Transform(new Point(0, 0));
+                var last = cards[2].TransformToAncestor(scroll).Transform(new Point(0, 0));
+                Assert.True(first.X > 0);
+                double left = first.X;
+                double right = scroll.ViewportWidth - (last.X + cards[2].ActualWidth);
+                Assert.Equal(left, right, 1);
+
+                window.Close();
+            });
+        }
+
         private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
         {
             for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
