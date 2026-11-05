@@ -246,6 +246,42 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void Displays_Scroller_IsAsTallAsItsCards_AtFullHd_AndFillsTheRowOnAShortWindow() =>
+            RunSta(() =>
+            {
+                var (view, _) = FullHdOverview(3, 5);
+                WithFullHdWindow(view, () =>
+                {
+                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
+                    var content = (FrameworkElement)scroll.Content;
+                    Assert.True(Math.Abs(scroll.ActualHeight - content.DesiredSize.Height - 16) <= 2, $"scroller {scroll.ActualHeight}, cards {content.DesiredSize.Height}");
+                    var bar = (FrameworkElement)Named(scroll, "PART_HorizontalScrollBar").Single();
+                    var card = FindAll<DisplayCardView>(view).First();
+                    double cardBottom = card.TransformToAncestor(view).TransformBounds(new Rect(0, 0, card.ActualWidth, card.ActualHeight)).Bottom;
+                    double barTop = bar.TransformToAncestor(view).TransformBounds(new Rect(0, 0, bar.ActualWidth, bar.ActualHeight)).Top;
+                    Assert.True(barTop - cardBottom <= 24, $"the scroll bar is {barTop - cardBottom} px below the cards");
+
+                    // Arrows still centred on the picture.
+                    var left = (Button)Named(view, "DisplaysScrollLeft").Single();
+                    var picture = (FrameworkElement)Named(card, "PreviewSurface").Single();
+                    var pic = picture.TransformToAncestor(view).TransformBounds(new Rect(0, 0, picture.ActualWidth, picture.ActualHeight));
+                    var lb = left.TransformToAncestor(view).TransformBounds(new Rect(0, 0, left.ActualWidth, left.ActualHeight));
+                    Assert.Equal(pic.Top + pic.Height / 2, lb.Top + lb.Height / 2, 2);
+                    return 0;
+                });
+
+                var (shortView, _) = FullHdOverview(3, 2);
+                ShowingAt(shortView, 1008, 615, () =>
+                {
+                    var scroll = (ScrollViewer)Named(shortView, "DisplaysScroll").Single();
+                    var row = (Grid)scroll.Parent;
+                    double available = row.ActualHeight - row.RowDefinitions[0].ActualHeight - scroll.Margin.Top;
+                    Assert.Equal(available, scroll.ActualHeight, 1);
+                    Assert.True(scroll.ScrollableHeight > 0.5);
+                });
+            });
+
+        [Fact]
         public void Displays_MouseWheel_PansSideways() =>
             RunSta(() =>
             {
