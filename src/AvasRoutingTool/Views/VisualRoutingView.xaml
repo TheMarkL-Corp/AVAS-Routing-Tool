@@ -216,8 +216,13 @@
                 <ScrollViewer Grid.Row="1"
                               x:Name="DisplaysScroll"
                               Margin="0,8,0,0"
-                              HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Auto">
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              PanningMode="HorizontalOnly"
+                              Focusable="False"
+                              PreviewMouseWheel="DisplaysScroll_PreviewMouseWheel"
+                              ScrollChanged="DisplaysScroll_ScrollChanged"
+                              SizeChanged="DisplaysScroll_SizeChanged">
                     <ItemsControl ItemsSource="{Binding Displays}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -232,6 +237,33 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+
+                <!-- Sideways arrows over the row's edges, centred on the card pictures (the margin is set in code); shown only when the row scrolls -->
+                <Button Grid.Row="1"
+                        x:Name="DisplaysScrollLeft"
+                        Style="{StaticResource Style.Button.CarouselArrow}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Margin="8,0,0,0"
+                        Visibility="Collapsed"
+                        IsEnabled="False"
+                        ToolTip="Scroll displays left"
+                        AutomationProperties.Name="Scroll displays left"
+                        Click="DisplaysScrollLeft_Click">
+                    <ui:SymbolIcon Symbol="ChevronLeft24" FontSize="{StaticResource Size.Icon.M}" />
+                </Button>
+                <Button Grid.Row="1"
+                        x:Name="DisplaysScrollRight"
+                        Style="{StaticResource Style.Button.CarouselArrow}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,0,8,0"
+                        Visibility="Collapsed"
+                        ToolTip="Scroll displays right"
+                        AutomationProperties.Name="Scroll displays right"
+                        Click="DisplaysScrollRight_Click">
+                    <ui:SymbolIcon Symbol="ChevronRight24" FontSize="{StaticResource Size.Icon.M}" />
+                </Button>
             </Grid>
         </Border>
 

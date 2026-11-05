@@ -89,6 +89,83 @@ namespace AvasRoutingTool.Views
             if (vm.Escape()) e.Handled = true;
         }
 
+        /// <summary>Gap between two display cards (the display card spec's gap): one arrow press moves one card width plus this.</summary>
+        private static double CardGap => Controls.GridSpec.DisplayCard.Gap;
+
+        /// <summary>
+        /// Scrolls the displays row sideways by whole cards (one card width plus the gap each); positive = right. Clamped to both ends.
+        /// </summary>
+        public void ScrollDisplaysBy(int cards)
+        {
+            double step = DisplaysCardStep();
+            if (step <= 0) return;
+            double target = Math.Max(0, Math.Min(DisplaysScroll.ScrollableWidth, DisplaysScroll.HorizontalOffset + cards * step));
+            DisplaysScroll.ScrollToHorizontalOffset(target);
+            // The scroll bar and the arrows read the new offset after layout; bring the arrows up to date now.
+            UpdateDisplayArrows(target);
+        }
+
+        private double DisplaysCardStep()
+        {
+            var card = FindFirst<DisplayCardView>(DisplaysScroll);
+            return card == null || card.ActualWidth <= 0 ? 0 : card.ActualWidth + CardGap;
+        }
+
+        private void DisplaysScrollLeft_Click(object sender, RoutedEventArgs e) => ScrollDisplaysBy(-1);
+
+        private void DisplaysScrollRight_Click(object sender, RoutedEventArgs e) => ScrollDisplaysBy(1);
+
+        /// <summary>The mouse wheel over the row pans it sideways (the row has no vertical direction to scroll).</summary>
+        private void DisplaysScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            double target = Math.Max(0, Math.Min(DisplaysScroll.ScrollableWidth, DisplaysScroll.HorizontalOffset - e.Delta));
+            DisplaysScroll.ScrollToHorizontalOffset(target);
+            UpdateDisplayArrows(target);
+            e.Handled = true;
+        }
+
+        private void DisplaysScroll_ScrollChanged(object sender, ScrollChangedEventArgs e) => UpdateDisplayArrows(DisplaysScroll.HorizontalOffset);
+
+        private void DisplaysScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateDisplayArrows(DisplaysScroll.HorizontalOffset);
+
+        /// <summary>Shows the arrows only while the row scrolls, disables each at its end, and centres them on the card pictures.</summary>
+        private void UpdateDisplayArrows(double offset)
+        {
+            double scrollable = DisplaysScroll.ScrollableWidth;
+            var visibility = scrollable > 0.5 ? Visibility.Visible : Visibility.Collapsed;
+            DisplaysScrollLeft.Visibility = visibility;
+            DisplaysScrollRight.Visibility = visibility;
+            DisplaysScrollLeft.IsEnabled = offset > 0.5;
+            DisplaysScrollRight.IsEnabled = offset < scrollable - 0.5;
+            if (visibility != Visibility.Visible) return;
+
+            // Vertically centred on the first card's picture (every card is the same height).
+            var card = FindFirst<DisplayCardView>(DisplaysScroll);
+            var picture = card == null ? null : FindFirst<FrameworkElement>(card, f => f.Name == "PreviewSurface");
+            if (picture == null || picture.ActualHeight <= 0 || !picture.IsDescendantOf(DisplaysScroll)) return;
+            var bounds = picture.TransformToAncestor(DisplaysScroll).TransformBounds(new Rect(0, 0, picture.ActualWidth, picture.ActualHeight));
+            double centre = bounds.Top + bounds.Height / 2;
+            double top = Math.Max(0, centre + DisplaysScroll.Margin.Top - DisplaysScrollLeft.Height / 2);
+            if (Math.Abs(DisplaysScrollLeft.Margin.Top - top) > 0.5)
+            {
+                DisplaysScrollLeft.Margin = new Thickness(DisplaysScrollLeft.Margin.Left, top, 0, 0);
+                DisplaysScrollRight.Margin = new Thickness(0, top, DisplaysScrollRight.Margin.Right, 0);
+            }
+        }
+
+        private static T? FindFirst<T>(DependencyObject root, Func<T, bool>? match = null) where T : DependencyObject
+        {
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                if (child is T t && (match == null || match(t))) return t;
+                var nested = FindFirst(child, match);
+                if (nested != null) return nested;
+            }
+            return null;
+        }
+
         /// <summary>The arm banner's Stop: stops placing the armed source (tapping it again), or stops copying.</summary>
         private void StopPlacing_Click(object sender, RoutedEventArgs e)
         {

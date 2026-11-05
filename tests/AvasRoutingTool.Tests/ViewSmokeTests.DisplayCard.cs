@@ -555,8 +555,8 @@ namespace AvasRoutingTool.Tests
                     // Copying / choosing: the overview has no layout bar any more; the first row's Layout and Copy layout
                     // buttons are in view without scrolling (they sit at the top of the card).
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
-                    // The displays hold drag sources (Copy layout, drops): touch never pans them (the 16 px bar does).
-                    Assert.Equal(PanningMode.None, scroll.PanningMode);
+                    // Round 3: the row is one row that pans sideways only (touch drag, drag threshold keeps a tap a tap).
+                    Assert.Equal(PanningMode.HorizontalOnly, scroll.PanningMode);
                     foreach (var card in cards.Where(c => BoundsIn(c, scroll).Top < 1))
                     {
                         foreach (var name in new[] { "LayoutButton", "CopyLayoutHandle" })
