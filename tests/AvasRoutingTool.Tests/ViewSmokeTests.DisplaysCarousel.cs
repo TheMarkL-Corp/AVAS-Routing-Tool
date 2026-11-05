@@ -14,7 +14,7 @@ namespace AvasRoutingTool.Tests
         private const double CarouselGap = 16;
 
         [Fact]
-        public void Displays_FiveAt1920_HorizontalScrollOnly() =>
+        public void Displays_FiveAt1920_ScrollsSideways_NotVertically() =>
             RunSta(() =>
             {
                 var (view, _) = FullHdOverview(3, 5);
@@ -22,11 +22,13 @@ namespace AvasRoutingTool.Tests
                 {
                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
                     Assert.Equal(ScrollBarVisibility.Auto, scroll.HorizontalScrollBarVisibility);
-                    Assert.Equal(ScrollBarVisibility.Disabled, scroll.VerticalScrollBarVisibility);
-                    Assert.Equal(PanningMode.HorizontalOnly, scroll.PanningMode);
+                    // Vertical Auto is only a safety net for short windows: at 1920x1080 it does not scroll.
+                    Assert.Equal(ScrollBarVisibility.Auto, scroll.VerticalScrollBarVisibility);
+                    Assert.Equal(PanningMode.Both, scroll.PanningMode);
                     Assert.False(scroll.Focusable);
                     Assert.True(scroll.ScrollableWidth > 0, $"scrollable width {scroll.ScrollableWidth}");
                     Assert.Equal(0, scroll.ScrollableHeight, 1);
+                    Assert.NotEqual(Visibility.Visible, scroll.ComputedVerticalScrollBarVisibility);
                     return 0;
                 });
             });

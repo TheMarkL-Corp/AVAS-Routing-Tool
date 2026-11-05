@@ -162,4 +162,52 @@
         </Setter>
     </Style>
 
+    <!--
+        The displays row: same thin bars as the implicit style, but the vertical bar (a safety net that only shows when the window is too
+        short) overlays the right edge instead of reserving a 16 px gutter, so the cards keep their 3.5-across width when it is not needed.
+    -->
+    <Style x:Key="Style.ScrollViewer.VerticalOverlay" TargetType="{x:Type ScrollViewer}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ScrollContentPresenter Grid.Row="0" CanContentScroll="{TemplateBinding CanContentScroll}" />
+                        <Border x:Name="VerticalGutter" Grid.Row="0" Width="16" HorizontalAlignment="Right">
+                            <ScrollBar x:Name="PART_VerticalScrollBar"
+                                       Style="{StaticResource Style.ScrollBar.Thin}"
+                                       Orientation="Vertical"
+                                       Minimum="0"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                        </Border>
+                        <Border x:Name="HorizontalGutter" Grid.Row="1" Height="16">
+                            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                       Style="{StaticResource Style.ScrollBar.Thin}"
+                                       Orientation="Horizontal"
+                                       Minimum="0"
+                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                       Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="VerticalScrollBarVisibility" Value="Disabled">
+                            <Setter TargetName="VerticalGutter" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="HorizontalScrollBarVisibility" Value="Disabled">
+                            <Setter TargetName="HorizontalGutter" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
