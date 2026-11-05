@@ -165,12 +165,31 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void Carousel_At992_UsesMinWidth()
+        public void Carousel_At992_Is400()
         {
             var plan = AdaptiveGridLayout.Compute(5, 992, 435, GridSpec.DisplayCard);
 
-            Assert.Equal(320, plan.CardWidth, 3);
+            Assert.Equal(400, plan.CardWidth, 3);
             Assert.True(plan.NeedsScroll);
+        }
+
+        [Fact]
+        public void Carousel_At1232_UsesCarouselMin400()
+        {
+            // (1232 - 48) / 3.5 = 338, below the carousel minimum
+            var plan = AdaptiveGridLayout.Compute(5, 1232, 435, GridSpec.DisplayCard);
+
+            Assert.Equal(400, plan.CardWidth, 3);
+            Assert.Equal(400, GridSpec.DisplayCard.CarouselMinCardWidth);
+            Assert.Equal(0, GridSpec.Default.CarouselMinCardWidth);
+            Assert.True(plan.NeedsScroll);
+        }
+
+        [Fact]
+        public void Carousel_At1888_StaysW35_WithTheCarouselMin()
+        {
+            Assert.InRange(AdaptiveGridLayout.Compute(5, 1888, 435, GridSpec.DisplayCard).CardWidth, 525.21, 526.21);
+            Assert.InRange(AdaptiveGridLayout.Compute(2, 1888, 435, GridSpec.DisplayCard).CardWidth, 525.21, 526.21);
         }
 
         [Fact]

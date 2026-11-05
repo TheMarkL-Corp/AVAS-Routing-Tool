@@ -17,6 +17,9 @@ namespace AvasRoutingTool.Controls
         /// </summary>
         public double CarouselVisibleCards { get; init; }
 
+        /// <summary>The carousel never makes a card narrower than this (0 = not used, <see cref="MinCardWidth"/> applies).</summary>
+        public double CarouselMinCardWidth { get; init; }
+
         /// <summary>
         /// Tuned for the surgical-touch card: 20px of horizontal padding, ~96px of non-video chrome
         /// (header, 36px stream-control footer, paddings) and a 16:9 video surface.
@@ -34,7 +37,7 @@ namespace AvasRoutingTool.Controls
         /// Chrome = frame 2 + padding 24 + 24 + 56 + 64 = 170, so the picture keeps 16:9 in every state (a smoke test
         /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
         /// </summary>
-        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5 };
+        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5, CarouselMinCardWidth = 400 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>
@@ -116,7 +119,8 @@ namespace AvasRoutingTool.Controls
         {
             double visible = count == 4 ? 4 : spec.CarouselVisibleCards;
             double width = (availableWidth - 3 * spec.Gap) / visible;
-            width = Math.Min(Math.Max(width, spec.MinCardWidth), spec.MaxCardWidth);
+            double min = spec.CarouselMinCardWidth > 0 ? Math.Max(spec.MinCardWidth, spec.CarouselMinCardWidth) : spec.MinCardWidth;
+            width = Math.Min(Math.Max(width, min), spec.MaxCardWidth);
 
             double rowWidth = count * width + spec.Gap * (count - 1);
             bool needsScroll = rowWidth > availableWidth + Epsilon;
