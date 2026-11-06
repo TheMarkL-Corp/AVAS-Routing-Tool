@@ -42,6 +42,12 @@ namespace AvasRoutingTool.Sdvoe
         /// </summary>
         Task<bool?> ReadStream1FrameDividerAsync(string txMac);
 
+        /// <summary>
+        /// The video a transmitter's HDMI input currently sees (for the bandwidth check), or null when unknown or no signal.
+        /// Read-only. Default: unknown.
+        /// </summary>
+        Task<MultiView.SourceVideo?> ReadSourceVideoAsync(string txMac) => Task.FromResult<MultiView.SourceVideo?>(null);
+
         /// <summary>Puts a receiver into multiview, loads the layout and applies the subscriptions, in one call.</summary>
         Task<bool> SetMultiViewAsync(string rxMac, string layoutName, int width, int height, int fps,
             IReadOnlyList<MultiView.MultiViewSubscription> subscriptions);
