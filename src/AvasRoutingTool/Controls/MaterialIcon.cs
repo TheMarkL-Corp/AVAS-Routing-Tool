@@ -11,7 +11,7 @@ namespace AvasRoutingTool.Controls
     /// <summary>
     /// A Google Material Symbols Rounded icon (weight 400, outline). <see cref="Kind"/> is the Material name (e.g. <c>play_arrow</c>);
     /// the shape is the <c>MIcon.&lt;Kind&gt;</c> Geometry in <c>Resources/MaterialIcons.xaml</c>, drawn in a 24 x 24 box and scaled to
-    /// Width x Height (default <c>Size.Icon.M</c>). It is tinted by <see cref="Control.Foreground"/> (inherited, so a button's text colour
+    /// Width x Height (default <c>Size.Icon.M</c>, from the implicit Style in MaterialIcons.xaml, so XAML values and style setters override it). It is tinted by <see cref="Control.Foreground"/> (inherited, so a button's text colour
     /// and its disabled dimming apply). An unknown Kind throws <see cref="InvalidOperationException"/> naming the Kind (never a blank icon).
     /// It is decorative: not hit-testable, not focusable, and not exposed to UI Automation unless <c>AutomationProperties.Name</c> is set.
     /// </summary>
@@ -34,8 +34,6 @@ namespace AvasRoutingTool.Controls
         public MaterialIcon()
         {
             Template = IconTemplate;
-            SetResourceReference(WidthProperty, "Size.Icon.M");
-            SetResourceReference(HeightProperty, "Size.Icon.M");
         }
 
         /// <summary>The Material Symbols name, e.g. <c>settings</c>, <c>play_arrow</c>, <c>expand_more</c>.</summary>

@@ -184,6 +184,74 @@ namespace AvasRoutingTool.Tests
             }
         });
 
+        [Fact]
+        public void MaterialIcon_StyleSetterSizeOverridesTheDefault() => RunSta(() =>
+        {
+            var style = new Style(typeof(MaterialIcon));
+            style.Setters.Add(new Setter(FrameworkElement.WidthProperty, 16.0));
+            style.Setters.Add(new Setter(FrameworkElement.HeightProperty, 16.0));
+            var styled = new MaterialIcon { Kind = "edit", Style = style };
+            var plain = new MaterialIcon { Kind = "edit" };
+            var panel = new StackPanel(); panel.Children.Add(styled); panel.Children.Add(plain);
+            var w = Host(panel);
+            try
+            {
+                Assert.Equal(16, styled.ActualWidth);
+                Assert.Equal(16, styled.ActualHeight);
+                Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), plain.ActualWidth);
+            }
+            finally { w.Close(); }
+        });
+
+        [Fact]
+        public void MaterialIcon_ChangingKindChangesTheRenderedGeometry() => RunSta(() =>
+        {
+            var icon = new MaterialIcon { Kind = "play_arrow" };
+            var w = Host(icon);
+            try
+            {
+                var before = PathOf(icon).Data.Bounds;
+                icon.Kind = "close";
+                icon.UpdateLayout();
+                var after = PathOf(icon).Data.Bounds;
+                Assert.NotEqual(before, after);
+                Assert.Same(Application.Current.FindResource("MIcon.close"), PathOf(icon).Data);
+            }
+            finally { w.Close(); }
+        });
+
+        [Fact]
+        public void MaterialIcon_LiveForegroundChangesRetint() => RunSta(() =>
+        {
+            var app = Application.Current;
+            var icon = new MaterialIcon { Kind = "check", Foreground = Brushes.Red };
+            var w = Host(icon);
+            try
+            {
+                Assert.Equal(Colors.Red, ((SolidColorBrush)PathOf(icon).Fill).Color);
+                icon.Foreground = Brushes.Blue;
+                Assert.Equal(Colors.Blue, ((SolidColorBrush)PathOf(icon).Fill).Color);
+
+                app.Resources["Test.Tint"] = new SolidColorBrush(Colors.Green);
+                icon.SetResourceReference(Control.ForegroundProperty, "Test.Tint");
+                Assert.Equal(Colors.Green, ((SolidColorBrush)PathOf(icon).Fill).Color);
+                app.Resources["Test.Tint"] = new SolidColorBrush(Colors.Orange);
+                Assert.Equal(Colors.Orange, ((SolidColorBrush)PathOf(icon).Fill).Color);
+            }
+            finally { app.Resources.Remove("Test.Tint"); w.Close(); }
+        });
+
+        [Fact]
+        public void MaterialIcon_GeometryIsFrozenAndShared() => RunSta(() =>
+        {
+            var a = new MaterialIcon { Kind = "settings" };
+            var b = new MaterialIcon { Kind = "settings" };
+            var data = PathOf(a).Data;
+            Assert.True(data.IsFrozen);
+            Assert.Same(data, PathOf(b).Data);
+            foreach (var name in MapNames) Assert.True(((Geometry)Application.Current.FindResource("MIcon." + name)).IsFrozen, name);
+        });
+
         /// <summary>On demand: set AVAS_UIV2_SHOTS to a folder; renders all icons (48 px, dark and light, named) to material-icons-sheet.png. No-op without it.</summary>
         [Fact]
         public void ContactSheet_AllIcons()
