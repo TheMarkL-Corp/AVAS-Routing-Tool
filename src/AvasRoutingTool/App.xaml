@@ -26,6 +26,7 @@
                 <ResourceDictionary Source="Resources/Styles/Composer.xaml" />
                 <ResourceDictionary Source="Resources/Styles/RoomCameras.xaml" />
                 <ResourceDictionary Source="Resources/Theme.xaml" />
+                <ResourceDictionary Source="Resources/MaterialIcons.xaml" />
                 <ResourceDictionary Source="Resources/Icons.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

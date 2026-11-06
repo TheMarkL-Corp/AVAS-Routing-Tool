@@ -39,6 +39,7 @@ namespace AvasRoutingTool.Tests
             "Resources/Styles/Composer.xaml",
             "Resources/Styles/RoomCameras.xaml",
             "Resources/Theme.xaml",
+            "Resources/MaterialIcons.xaml",
             "Resources/Icons.xaml",
         };
 
