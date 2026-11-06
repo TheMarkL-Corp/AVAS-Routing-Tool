@@ -184,6 +184,55 @@ namespace AvasRoutingTool.Tests
             }
         });
 
+        /// <summary>On demand: set AVAS_UIV2_SHOTS to a folder; renders all icons (48 px, dark and light, named) to material-icons-sheet.png. No-op without it.</summary>
+        [Fact]
+        public void ContactSheet_AllIcons()
+        {
+            var folder = Environment.GetEnvironmentVariable("AVAS_UIV2_SHOTS");
+            if (string.IsNullOrWhiteSpace(folder)) return;
+            System.IO.Directory.CreateDirectory(folder);
+            RunSta(() =>
+            {
+                const int cols = 6;
+                var grid = new Grid { Background = Brushes.Gray };
+                var rows = (MapNames.Length + cols - 1) / cols;
+                for (var c = 0; c < cols; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+                for (var r = 0; r < rows; r++) grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(110) });
+                for (var i = 0; i < MapNames.Length; i++)
+                {
+                    var name = MapNames[i];
+                    Border Half(Brush bg, Brush fg, bool label)
+                    {
+                        var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+                        stack.Children.Add(new MaterialIcon { Kind = name, Width = 48, Height = 48, Foreground = fg });
+                        if (label) stack.Children.Add(new TextBlock { Text = name, FontSize = 12, Foreground = fg, HorizontalAlignment = HorizontalAlignment.Center });
+                        else stack.Children.Add(new TextBlock { Text = " ", FontSize = 12 });
+                        return new Border { Background = bg, Child = stack };
+                    }
+                    var tile = new Grid { Margin = new Thickness(2) };
+                    tile.ColumnDefinitions.Add(new ColumnDefinition()); tile.ColumnDefinitions.Add(new ColumnDefinition());
+                    var dark = Half(new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x24)), Brushes.White, true);
+                    var light = Half(Brushes.White, Brushes.Black, false);
+                    Grid.SetColumn(light, 1);
+                    tile.Children.Add(dark); tile.Children.Add(light);
+                    Grid.SetRow(tile, i / cols); Grid.SetColumn(tile, i % cols);
+                    grid.Children.Add(tile);
+                }
+                var window = new Window { Content = grid, Width = 150 * cols + 40, Height = 110 * rows + 60, ShowInTaskbar = false, Left = -10000 };
+                window.Show();
+                try
+                {
+                    grid.Measure(new Size(150 * cols, 110 * rows)); grid.Arrange(new Rect(0, 0, 150 * cols, 110 * rows)); grid.UpdateLayout();
+                    var bmp = new RenderTargetBitmap(150 * cols, 110 * rows, 96, 96, PixelFormats.Pbgra32);
+                    bmp.Render(grid);
+                    var enc = new PngBitmapEncoder(); enc.Frames.Add(BitmapFrame.Create(bmp));
+                    using var fs = System.IO.File.Create(IoPath.Combine(folder, "material-icons-sheet.png"));
+                    enc.Save(fs);
+                }
+                finally { window.Close(); }
+            });
+        }
+
         // ---- the PowerShell SVG path converter used by tools/icons/import-material-icons.ps1 ----
 
         private static string Convert(string d)
