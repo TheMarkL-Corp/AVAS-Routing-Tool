@@ -32,7 +32,8 @@ namespace AvasRoutingTool.Tests
             if (failure != null) throw new Xunit.Sdk.XunitException("Icon font failure: " + failure);
         }
 
-        /// <summary>The icons the UI v2 plans name (app bar, Logs toolbar, cards, Composer).</summary>
+        /// <summary>The Fluent icons the UI v2 plans name. The Main Window scope (app bar, Logs toolbar, cards, arrows, banners) moved to MaterialIcon in round 3;
+        /// the Composer, Room Cameras, PTZ pad, Advanced and the dialogs still draw Fluent glyphs, so this stays the font-coverage check for them.</summary>
         public static IEnumerable<object[]> PlannedSymbols() => new[]
         {
             SymbolRegular.Settings24, SymbolRegular.ArrowSync24, SymbolRegular.WeatherSunny24, SymbolRegular.WeatherMoon24,

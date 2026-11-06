@@ -103,7 +103,7 @@ namespace AvasRoutingTool.Tests
                 var app = TestResources.Ensure();
 
                 Assert.NotNull(app.FindResource("Brush.Background.Dark"));
-                Assert.NotNull(app.FindResource("Icon.Power"));
+                Assert.NotNull(app.FindResource("Icon.Logo.AChevron"));
                 Assert.NotNull(app.FindResource("TextFillColorPrimaryBrush"));
                 Assert.NotNull(app.FindResource("Style.Button.Primary"));
             });

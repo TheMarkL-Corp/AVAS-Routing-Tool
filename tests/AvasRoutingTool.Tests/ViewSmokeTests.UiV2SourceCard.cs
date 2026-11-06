@@ -13,7 +13,7 @@ using TextBlock = System.Windows.Controls.TextBlock;
 
 namespace AvasRoutingTool.Tests
 {
-    /// <summary>UI v2 source card (plan task A8): ui:Card frame, tokens, badges, SymbolIcons, the 12 px floor.</summary>
+    /// <summary>UI v2 source card (plan task A8): ui:Card frame, tokens, badges, Material icons, the 12 px floor.</summary>
     public partial class ViewSmokeTests
     {
         private static SourceCardViewModel UiV2Source(bool online = true, string link = "Single Link", bool avas = true) =>
@@ -48,16 +48,16 @@ namespace AvasRoutingTool.Tests
             {
                 // One preview control per state: idle shows Start only; streaming shows Refresh (icon only) and Stop.
                 SourceCardAt(UiV2Source(), view =>
-                    AssertFooter(view, new[] { "StartStreamButton" }, ("StartStreamButton", SymbolRegular.Play24)));
+                    AssertFooter(view, new[] { "StartStreamButton" }, ("StartStreamButton", "play_arrow")));
 
                 var streaming = UiV2Source();
                 streaming.IsStreaming = true;
                 SourceCardAt(streaming, view =>
                     AssertFooter(view, new[] { "RefreshStreamButton", "StopStreamButton" },
-                        ("RefreshStreamButton", SymbolRegular.ArrowSync24), ("StopStreamButton", SymbolRegular.Stop24)));
+                        ("RefreshStreamButton", "sync"), ("StopStreamButton", "stop")));
             });
 
-        private static void AssertFooter(SourceCardView view, string[] names, params (string Name, SymbolRegular Symbol)[] symbols)
+        private static void AssertFooter(SourceCardView view, string[] names, params (string Name, string Kind)[] kinds)
         {
             var visible = new[] { "RefreshStreamButton", "StartStreamButton", "StopStreamButton" }
                 .Select(n => (Button)Named(view, n).Single()).Where(b => b.IsVisible).OrderBy(b => b.TranslatePoint(new Point(0, 0), view).X).ToList();
@@ -68,8 +68,8 @@ namespace AvasRoutingTool.Tests
                 var gap = visible[i].TranslatePoint(new Point(0, 0), view).X - visible[i - 1].TranslatePoint(new Point(visible[i - 1].ActualWidth, 0), view).X;
                 Assert.True(gap >= 8, $"gap {gap}");
             }
-            var icons = visible.ToDictionary(b => b.Name, b => FindAll<SymbolIcon>(b).Single().Symbol);
-            foreach (var (name, symbol) in symbols) Assert.Equal(symbol, icons[name]);
+            var icons = visible.ToDictionary(b => b.Name, b => FindAll<AvasRoutingTool.Controls.MaterialIcon>(b).Single().Kind);
+            foreach (var (name, kind) in kinds) Assert.Equal(kind, icons[name]);
             Assert.All(visible.SelectMany(b => FindAll<TextBlock>(b)).Where(t => !string.IsNullOrWhiteSpace(t.Text) && t.Text.Length > 1),
                 t => { Assert.True(t.FontSize >= 12); Assert.DoesNotContain(t.Text, ch => ch >= '←' && ch <= '➿'); });
         }
@@ -85,7 +85,7 @@ namespace AvasRoutingTool.Tests
                 {
                     Assert.True(Named(view, "StopStreamButton").Single().IsVisible);
                     Assert.False(Named(view, "StartStreamButton").Single().IsVisible);
-                    Assert.Equal(SymbolRegular.Stop24, FindAll<SymbolIcon>(Named(view, "StopStreamButton").Single()).Single().Symbol);
+                    Assert.Equal("stop", FindAll<AvasRoutingTool.Controls.MaterialIcon>(Named(view, "StopStreamButton").Single()).Single().Kind);
                     AssertVisibleText(view, "30.0 FPS");
                     Assert.Empty(VisibleTexts(view, "Preview Standby"));
                 });
@@ -105,7 +105,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Same(Application.Current.FindResource("Style.Button.Ghost"), stop.Style);
                     Assert.NotSame(Application.Current.FindResource("Style.Button.Unroute"), stop.Style);
                     Assert.True(stop.ActualHeight >= 36 && stop.IsTabStop, $"stop {stop.ActualWidth}x{stop.ActualHeight}");
-                    Assert.Equal(SymbolRegular.Stop24, FindAll<SymbolIcon>(stop).Single().Symbol);
+                    Assert.Equal("stop", FindAll<AvasRoutingTool.Controls.MaterialIcon>(stop).Single().Kind);
                     var word = FindAll<TextBlock>(stop).Single(t => t.Text == "Stop");
                     Assert.True(word.FontSize >= 12, $"Stop word {word.FontSize}px");
                 });
@@ -146,10 +146,9 @@ namespace AvasRoutingTool.Tests
                     Assert.True(badge.Focusable && System.Windows.Input.KeyboardNavigation.GetIsTabStop(badge));
                     Assert.Equal("Device network telemetry: IP, MAC, multicast", System.Windows.Automation.AutomationProperties.GetName(badge));
                     Assert.IsType<TextBlock>(badge.ToolTip);
-                    var icon = FindAll<SymbolIcon>(badge).Single();
-                    Assert.Equal(SymbolRegular.Info24, icon.Symbol);
-                    Assert.False(string.IsNullOrEmpty(icon.Glyph));
-                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.S"), icon.FontSize);
+                    var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(badge).Single();
+                    Assert.Equal("info", icon.Kind);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.S"), icon.Width);
                 }));
 
         [Fact]
@@ -208,8 +207,10 @@ namespace AvasRoutingTool.Tests
         // Baseline on the unchanged tile (A12-6), measured at 240 px wide (the icon X and the full tile height were re-measured for the 300 x 155 tile of round 3: the icon is still 25 px from the right edge): the info icon's centre in the tile's coordinates,
         // the full tile's natural height (idle and streaming) and the compact tile's natural height.
         private const double InfoBadgeIconCentreX = 275.0;
-        private const double InfoBadgeIconCentreY = 25.72;
-        private const double FullTileHeight = 278.4;
+        // 25.0 since the info icon is Material: a 16 px box, centred in the 50 px header row, instead of the Fluent glyph box (was 25.72).
+        private const double InfoBadgeIconCentreY = 25.0;
+        // 276.96 since the footer icons are Material (22 px exactly): the Start/Stop row now sits on its 36 px minimum, 1.44 px under the old Fluent glyph height (was 278.4).
+        private const double FullTileHeight = 276.96;
         private const double CompactTileHeightAt240 = 81.0;
 
         [Fact]
@@ -228,7 +229,7 @@ namespace AvasRoutingTool.Tests
                 {
                     // The 36 x 36 target is centred on the icon; its corners are taken 1 px inside, plus the centre.
                     var badge = Named(view, "SourceInfoBadge").Single();
-                    var icon = FindAll<SymbolIcon>(badge).Single();
+                    var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(badge).Single();
                     var box = BoundsIn(icon, view);
                     double cx = box.X + box.Width / 2, cy = box.Y + box.Height / 2;
                     var spots = new[] { new Point(cx - 17, cy - 17), new Point(cx + 17, cy - 17), new Point(cx - 17, cy + 17), new Point(cx + 17, cy + 17), new Point(cx, cy) };
@@ -245,7 +246,7 @@ namespace AvasRoutingTool.Tests
             RunSta(() =>
                 SourceCardAt(UiV2Source(), view =>
                 {
-                    var icon = FindAll<SymbolIcon>(Named(view, "SourceInfoBadge").Single()).Single();
+                    var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(Named(view, "SourceInfoBadge").Single()).Single();
                     var box = BoundsIn(icon, view);
                     Assert.Equal(InfoBadgeIconCentreX, box.X + box.Width / 2, 0.5);
                     Assert.Equal(InfoBadgeIconCentreY, box.Y + box.Height / 2, 0.5);

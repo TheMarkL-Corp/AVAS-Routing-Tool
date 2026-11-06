@@ -266,13 +266,11 @@ namespace AvasRoutingTool.Tests
 
         private static Color IconColour(Button pencil) => ColorOf(PencilIconOf(pencil).Foreground);
 
-        /// <summary>The pencil's icon: the Material "edit" (display card) or, until the source card moves over, the Fluent Edit24.</summary>
+        /// <summary>The pencil's icon: the Material "edit".</summary>
         private static (string Kind, double Size, System.Windows.Media.Brush Foreground, FrameworkElement Element) PencilIconOf(Button pencil)
         {
-            var material = FindAll<AvasRoutingTool.Controls.MaterialIcon>(pencil);
-            if (material.Count == 1) return (material[0].Kind, material[0].Width, material[0].Foreground, material[0]);
-            var fluent = FindAll<SymbolIcon>(pencil).Single();
-            return (fluent.Symbol == SymbolRegular.Edit24 ? "edit" : fluent.Symbol.ToString(), fluent.FontSize, fluent.Foreground, fluent);
+            var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(pencil).Single();
+            return (icon.Kind, icon.Width, icon.Foreground, icon);
         }
 
         private static void AssertPencilPaint(DependencyObject view, string what, List<Color> seen)
@@ -520,7 +518,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(TextWrapping.Wrap, text.TextWrapping);
                     Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(text));
                     Assert.All(FindAll<TextBlock>(banner).Where(t => t.IsVisible && !string.IsNullOrEmpty(t.Text)), t => Assert.True(t.FontSize >= 12, $"'{t.Text}' is {t.FontSize}px"));
-                    Assert.Contains(FindAll<SymbolIcon>(banner), i => i.Symbol == SymbolRegular.Warning24);
+                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(banner), i => i.Kind == "warning");
                     var b = BoundsIn(banner, overview);
                     Assert.True(b.Left >= 0 && b.Right <= overview.ActualWidth + 0.5 && b.Bottom <= overview.ActualHeight + 0.5, $"the banner {b} leaves the overview");
 
@@ -530,7 +528,7 @@ namespace AvasRoutingTool.Tests
                     Assert.True(dismiss.IsTabStop);
                     Assert.Equal("Dismiss rename error", AutomationProperties.GetName(dismiss));
                     Assert.Same(main.DismissRenameBannerCommand, dismiss.Command);
-                    Assert.Equal(SymbolRegular.Dismiss24, FindAll<SymbolIcon>(dismiss).Single().Symbol);
+                    Assert.Equal("close", FindAll<AvasRoutingTool.Controls.MaterialIcon>(dismiss).Single().Kind);
                     AssertPressesLandOnThePencil(overview, dismiss, corners: false, "the banner's Dismiss"); // the ghost button's corners are rounded
 
                     Activate(dismiss);

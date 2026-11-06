@@ -190,10 +190,10 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(new[] { "RefreshStreamButton", "StopStreamButton" }, Shown().Select(b => b.Name));
 
                     // Refresh is icon only: no text, but its name is announced.
-                    // The SymbolIcon draws its glyph as a TextBlock: the only text in the button is that glyph, no word.
-                    var glyph = FindAll<SymbolIcon>(refresh).Single();
-                    Assert.Empty(FindAll<TextBlock>(refresh).Where(t => !string.IsNullOrWhiteSpace(t.Text) && t.Text != glyph.Glyph));
-                    Assert.Equal(SymbolRegular.ArrowSync24, glyph.Symbol);
+                    // The Material icon draws a shape, not text: the button holds no word at all.
+                    var glyph = FindAll<AvasRoutingTool.Controls.MaterialIcon>(refresh).Single();
+                    Assert.Empty(FindAll<TextBlock>(refresh).Where(t => !string.IsNullOrWhiteSpace(t.Text)));
+                    Assert.Equal("sync", glyph.Kind);
                     Assert.Equal("Refresh preview", AutomationProperties.GetName(refresh));
                     Assert.Same(vm.RefreshPreviewCommand, refresh.Command);
                     Assert.Same(vm.StopPreviewCommand, stop.Command);

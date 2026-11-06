@@ -37,7 +37,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Video}" Style="{StaticResource Style.Icon.Section}" />
+                        <controls:MaterialIcon Kind="videocam" Style="{StaticResource Style.Icon.Section}" />
                         <TextBlock Text="Video sources (TX)"
                                    Style="{StaticResource Style.Text.Title}"
                                    AutomationProperties.HeadingLevel="Level2"
@@ -190,7 +190,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Monitor}" Style="{StaticResource Style.Icon.Section}" />
+                        <controls:MaterialIcon Kind="desktop_windows" Style="{StaticResource Style.Icon.Section}" />
                         <TextBlock Text="Target displays (RX)"
                                    Style="{StaticResource Style.Text.Title}"
                                    AutomationProperties.HeadingLevel="Level2"
@@ -252,7 +252,7 @@
                         ToolTip="Scroll displays left"
                         AutomationProperties.Name="Scroll displays left"
                         Click="DisplaysScrollLeft_Click">
-                    <ui:SymbolIcon Symbol="ChevronLeft24" FontSize="{StaticResource Size.Icon.M}" />
+                    <controls:MaterialIcon Kind="chevron_left" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" />
                 </Button>
                 <Button Grid.Row="1"
                         x:Name="DisplaysScrollRight"
@@ -264,7 +264,7 @@
                         ToolTip="Scroll displays right"
                         AutomationProperties.Name="Scroll displays right"
                         Click="DisplaysScrollRight_Click">
-                    <ui:SymbolIcon Symbol="ChevronRight24" FontSize="{StaticResource Size.Icon.M}" />
+                    <controls:MaterialIcon Kind="chevron_right" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" />
                 </Button>
             </Grid>
         </Border>
@@ -299,12 +299,13 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <ui:SymbolIcon Grid.Column="0"
-                               Symbol="Warning24"
-                               FontSize="{StaticResource Size.Icon.M}"
-                               Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0" />
+                <controls:MaterialIcon Grid.Column="0"
+                                       Kind="warning"
+                                       Width="{StaticResource Size.Icon.M}"
+                                       Height="{StaticResource Size.Icon.M}"
+                                       Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,10,0" />
 
                 <TextBlock x:Name="RenameBannerText"
                            Grid.Column="1"
@@ -329,7 +330,7 @@
                         Margin="6,0,0,0"
                         IsTabStop="True"
                         VerticalAlignment="Center">
-                    <ui:SymbolIcon Symbol="Dismiss24" FontSize="{StaticResource Size.Icon.S}" />
+                    <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}" />
                 </Button>
             </Grid>
         </Border>

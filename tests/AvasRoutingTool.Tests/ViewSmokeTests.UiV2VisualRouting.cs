@@ -93,7 +93,7 @@ namespace AvasRoutingTool.Tests
                         Assert.Equal(AutomationHeadingLevel.Level2, AutomationProperties.GetHeadingLevel(header));
                     }
                     var iconSize = (double)Application.Current.FindResource("Size.Icon.S");
-                    var icons = FindAll<System.Windows.Shapes.Path>(view).Where(p => p.Style == Application.Current.FindResource("Style.Icon.Section")).ToList();
+                    var icons = FindAll<AvasRoutingTool.Controls.MaterialIcon>(view).Where(p => p.Style == Application.Current.FindResource("Style.Icon.Section")).ToList();
                     Assert.True(icons.Count >= 2, "section icons use Style.Icon.Section");
                     Assert.All(icons, p => Assert.Equal(iconSize, p.ActualWidth));
                 });

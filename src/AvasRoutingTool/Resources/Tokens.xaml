@@ -13,15 +13,12 @@
     <sys:Double x:Key="Size.Touch.Min">48</sys:Double>
     <sys:Double x:Key="Size.Touch.Compact">36</sys:Double>
 
-    <!-- Icons: static StreamGeometry hosts and ui:SymbolIcon font size -->
+    <!-- Icons: the Width/Height of a MaterialIcon (or of a Path / ui:SymbolIcon font size where a view still uses one) -->
     <sys:Double x:Key="Size.Icon.S">16</sys:Double>
     <sys:Double x:Key="Size.Icon.M">22</sys:Double>
     <sys:Double x:Key="Size.Icon.L">28</sys:Double>
     <sys:Double x:Key="Size.Icon.Brand">28</sys:Double>
-    <!-- The Layout dropdown on the display card (A14): its button (both >= Size.Touch.Min; the card action bar row is 56 high) and its
-         grid icon and chevron (the grid icon is 1.25 x Size.Icon.S; Style.Icon.Button keeps Size.Icon.S for the other buttons) -->
-    <sys:Double x:Key="Size.Layout.Button.Width">64</sys:Double>
-    <sys:Double x:Key="Size.Layout.Button.Height">56</sys:Double>
+    <!-- The action bar icons on the display card (More layouts grid, its chevron, Copy layout, power) -->
     <sys:Double x:Key="Size.Icon.Layout">20</sys:Double>
     <sys:Double x:Key="Size.Icon.Layout.Chevron">20</sys:Double>
     <!-- Action bar (More layouts, Copy layout, power): the gap between an icon and its label, and between two buttons (8); the horizontal padding

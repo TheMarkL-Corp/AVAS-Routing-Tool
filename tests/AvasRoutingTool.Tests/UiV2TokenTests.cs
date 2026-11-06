@@ -34,7 +34,7 @@ namespace AvasRoutingTool.Tests
             ("Size.Touch.Min", 48.0), ("Size.Touch.Compact", 36.0),
             ("Size.Icon.S", 16.0), ("Size.Icon.M", 22.0), ("Size.Icon.L", 28.0), ("Size.Icon.Brand", 28.0),
             ("Size.Dot.S", 8.0), ("Size.Dot.M", 10.0),
-            ("Size.Layout.Button.Width", 64.0), ("Size.Layout.Button.Height", 56.0), ("Size.Icon.Layout", 20.0), ("Size.Icon.Layout.Chevron", 20.0),
+            ("Size.Icon.Layout", 20.0), ("Size.Icon.Layout.Chevron", 20.0),
             ("Size.Card.Min", 320.0), ("Size.Card.Display.Min", 400.0), ("Size.Card.Row.Header", 24.0), ("Size.Card.Row.ActionBar", 56.0), ("Size.Card.Row.Dock", 64.0),
             ("Size.AppBar.Height", 56.0), ("Size.Tab.MinWidth", 120.0), ("Size.Breakpoint.AppBarLabels", 1400.0),
             ("Size.Window.Default.Width", 1280.0), ("Size.Window.Default.Height", 860.0),

@@ -43,10 +43,10 @@ namespace AvasRoutingTool.Tests
         public sealed record ThemeContext(bool IsLightMode);
 
         [Fact]
-        public void AppBar_AtFullHd_ShowsLabels_SymbolIcons_BrandMark_AndTokenSizes() => RunSta(w =>
+        public void AppBar_AtFullHd_ShowsLabels_MaterialIcons_BrandMark_AndTokenSizes() => RunSta(w =>
         {
             Check_AppBar_ShowsLabelsAtFullHd(w);
-            Check_ActionIcons_AreSymbolIcons_WithAGlyph_AndTheButtonColour(w);
+            Check_ActionIcons_AreMaterialIcons_WithAKind_AndTheButtonColour(w);
             Check_TheBrandMark_IsItsOwnView_InsideTheBrandLogoHost(w);
             Check_TheWindow_TakesItsSizesFromTokens(w);
             Check_TheBrandNameIsALeadRole_AndTheVersionACaption(w);
@@ -212,14 +212,15 @@ namespace AvasRoutingTool.Tests
             Assert.All(buttons, b => Assert.True(b.ActualWidth >= 48 && b.ActualHeight >= 48));
         }
 
-        private static void Check_ActionIcons_AreSymbolIcons_WithAGlyph_AndTheButtonColour(MainWindow w)
+        private static void Check_ActionIcons_AreMaterialIcons_WithAKind_AndTheButtonColour(MainWindow w)
         {
             foreach (var name in new[] { "ThemeToggleButton", "RefreshButton", "SettingsButton" })
             {
                 var button = (Button)w.FindName(name);
-                var icon = Descendants<SymbolIcon>(button).Single();
-                Assert.False(string.IsNullOrEmpty(icon.Glyph), $"{name}: no glyph");
-                Assert.Contains("FluentSystemIcons", icon.FontFamily.Source ?? "");
+                var icon = Descendants<AvasRoutingTool.Controls.MaterialIcon>(button).Single();
+                Assert.False(string.IsNullOrEmpty(icon.Kind), $"{name}: no Kind");
+                Assert.True(Application.Current.TryFindResource("MIcon." + icon.Kind) is Geometry, $"{name}: MIcon.{icon.Kind} is missing");
+                Assert.Empty(Descendants<SymbolIcon>(button));
                 Assert.True(icon.ActualWidth >= 16 && icon.ActualHeight >= 16);
                 Assert.Same(button.Foreground, icon.Foreground);
             }
@@ -229,16 +230,16 @@ namespace AvasRoutingTool.Tests
         public void TheThemeIcon_NamesTheActiveTheme_SunInLightMoonInDark() => RunSta(_ =>
         {
             var style = (Style)Application.Current.FindResource("Style.Icon.ThemeToggle");
-            var icon = new SymbolIcon { Style = style };
+            var icon = new AvasRoutingTool.Controls.MaterialIcon { Style = style };
             var host = new Window { Content = icon, DataContext = new ThemeContext(false), Width = 200, Height = 200, ShowInTaskbar = false, Left = -10000 };
             try
             {
                 host.Show();
                 host.UpdateLayout();
-                Assert.Equal(SymbolRegular.WeatherMoon24, icon.Symbol);
+                Assert.Equal("dark_mode", icon.Kind);
                 host.DataContext = new ThemeContext(true);
                 host.UpdateLayout();
-                Assert.Equal(SymbolRegular.WeatherSunny24, icon.Symbol);
+                Assert.Equal("light_mode", icon.Kind);
             }
             finally { host.Close(); }
         });
