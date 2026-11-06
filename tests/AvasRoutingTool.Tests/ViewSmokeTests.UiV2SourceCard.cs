@@ -205,11 +205,11 @@ namespace AvasRoutingTool.Tests
                 SourceCardAt(armed, view => Assert.Empty(VisibleTexts(view, "TAP OR DRAG")));
             });
 
-        // Baseline on the unchanged tile (A12-6), measured at 240 px wide: the info icon's centre in the tile's coordinates,
+        // Baseline on the unchanged tile (A12-6), measured at 240 px wide (the icon X and the full tile height were re-measured for the 300 x 155 tile of round 3: the icon is still 25 px from the right edge): the info icon's centre in the tile's coordinates,
         // the full tile's natural height (idle and streaming) and the compact tile's natural height.
-        private const double InfoBadgeIconCentreX = 215.0;
+        private const double InfoBadgeIconCentreX = 275.0;
         private const double InfoBadgeIconCentreY = 25.72;
-        private const double FullTileHeightAt240 = 243.4;
+        private const double FullTileHeight = 278.4;
         private const double CompactTileHeightAt240 = 81.0;
 
         [Fact]
@@ -252,7 +252,7 @@ namespace AvasRoutingTool.Tests
                 }));
 
         [Fact]
-        public void SourceCard_TileHeight_IsUnchangedAt240_IdleAndStreaming() =>
+        public void SourceCard_TileHeight_IsTheLargerTileHeight_IdleAndStreaming() =>
             RunSta(() =>
             {
                 foreach (var streaming in new[] { false, true })
@@ -261,8 +261,8 @@ namespace AvasRoutingTool.Tests
                     vm.IsStreaming = streaming;
                     SourceCardAt(vm, view =>
                     {
-                        view.Measure(new Size(240, double.PositiveInfinity));
-                        Assert.Equal(FullTileHeightAt240, view.DesiredSize.Height, 0.5);
+                        view.Measure(new Size(300, double.PositiveInfinity));
+                        Assert.Equal(FullTileHeight, view.DesiredSize.Height, 0.5);
                     });
                 }
             });
@@ -284,10 +284,10 @@ namespace AvasRoutingTool.Tests
         public void SourceCard_Width_IsTheStripTileToken() =>
             RunSta(() =>
             {
-                // A9: the tile is a fixed strip tile (240 px), not a minimum-width card.
+                // A9: the tile is a fixed strip tile (300 px), not a minimum-width card.
                 var view = new SourceCardView();
                 Assert.Equal((double)Application.Current.FindResource("Size.Strip.Tile.Width"), view.Width);
-                Assert.Equal(240.0, view.Width);
+                Assert.Equal(300.0, view.Width);
             });
     }
 }

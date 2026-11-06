@@ -41,9 +41,11 @@
     <GridLength x:Key="Size.Card.RowLength.ActionBar">56</GridLength>
     <GridLength x:Key="Size.Card.RowLength.Dock">64</GridLength>
 
-    <!-- Source strip (critique M2): dense tiles with a 16:9 thumbnail (214 x 120 inside a 240 px tile). The strip holds two tile rows before it scrolls. -->
-    <sys:Double x:Key="Size.Strip.Tile.Width">240</sys:Double>
-    <sys:Double x:Key="Size.Strip.Thumb.Height">120</sys:Double>
+    <!-- Source strip (critique M2): dense tiles with a 16:9 thumbnail (276 x 155 inside a 300 px tile). The strip holds two tile rows before it scrolls. -->
+    <sys:Double x:Key="Size.Strip.Tile.Width">300</sys:Double>
+    <!-- The compact tile (Composer palette) keeps its own width, independent of the strip tile -->
+    <sys:Double x:Key="Size.Strip.Compact.Tile.Width">240</sys:Double>
+    <sys:Double x:Key="Size.Strip.Thumb.Height">155</sys:Double>
     <!-- The Sources strip never takes more than this share of the overview height (2/5.4 = 0.37, the old Sources share); beyond it the strip scrolls -->
     <sys:Double x:Key="Size.Strip.Max.Fraction">0.37</sys:Double>
     <!-- The space around each tile: left and right 5 px (a 10 px gap between tiles, so a centred row is centred on the tiles), bottom 10 px -->

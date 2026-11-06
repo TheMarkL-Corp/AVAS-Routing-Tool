@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -59,6 +59,31 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        /// <summary>Round 3: the source tiles are 300 x 155 (thumbnail 274 x 155, 16:9) at 1920x1080 with 3 sources: one row, no strip scroll; the Composer palette tile stays 240 wide.</summary>
+        [Fact]
+        public void SourceTiles_Are300By155At1920_OnOneRow_AndTheCompactPaletteTileIsUnchanged() =>
+            RunSta(() =>
+            {
+                var (view, vm) = FullHdOverview(sources: 3, displays: 2);
+                WithFullHdWindow(view, () =>
+                {
+                    var tiles = FindAll<SourceCardView>(view).Where(t => t.IsVisible && !t.IsCompact).ToList();
+                    Assert.Equal(3, tiles.Count);
+                    Assert.All(tiles, t =>
+                    {
+                        Assert.True(Math.Abs(t.ActualWidth - 300) < 0.5, $"tile is {t.ActualWidth:F1} px wide, expected 300");
+                        var thumb = ThumbnailOf(t);
+                        Assert.True(Math.Abs(thumb.ActualWidth - 274) <= 1 && Math.Abs(thumb.ActualHeight - 155) <= 1, $"thumbnail is {thumb.ActualWidth:F1}x{thumb.ActualHeight:F1}, expected 274x155");
+                    });
+                    Assert.Single(tiles.Select(t => Math.Round(BoundsIn(t, view).Top)).Distinct());
+                    Assert.True(SourcesScrollOf(view, vm).ScrollableHeight <= 0.5, "the strip scrolls with 3 sources");
+                    return 0;
+                });
+
+                var compact = new SourceCardView { DataContext = UiV2Source(), IsCompact = true, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
+                Showing(compact, () => Assert.Equal(240.0, compact.ActualWidth, 0.5));
+            });
+
         /// <summary>The strip is at most Size.Strip.Max.Fraction of the overview height, and scrolls beyond that (the rest of the tiles stay realized).</summary>
         private static void AssertCappedAndScrolling(VisualRoutingView view, ScrollViewer scroll, string what)
         {
@@ -114,8 +139,8 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var thumb = ThumbnailOf(view);
-                    Assert.True(Math.Abs(thumb.ActualWidth - 214) <= 1 && Math.Abs(thumb.ActualHeight - 120) <= 1,
-                        $"thumbnail is {thumb.ActualWidth:F1}x{thumb.ActualHeight:F1}, expected 214x120");
+                    Assert.True(Math.Abs(thumb.ActualWidth - 274) <= 1 && Math.Abs(thumb.ActualHeight - 155) <= 1,
+                        $"thumbnail is {thumb.ActualWidth:F1}x{thumb.ActualHeight:F1}, expected 274x155");
                     Assert.True(Math.Abs(thumb.ActualWidth / thumb.ActualHeight - 16.0 / 9.0) < 0.02, $"thumbnail ratio {thumb.ActualWidth / thumb.ActualHeight:F3}");
 
                     var image = FindAll<System.Windows.Controls.Image>(view).Single(i => i.IsVisible);

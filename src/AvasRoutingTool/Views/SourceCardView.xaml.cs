@@ -11,14 +11,22 @@ namespace AvasRoutingTool.Views
         /// False (the default) is the full tile. Visibility is bound, so no measure invalidation is needed.
         /// </summary>
         public static readonly DependencyProperty IsCompactProperty =
-            DependencyProperty.Register(nameof(IsCompact), typeof(bool), typeof(SourceCardView), new PropertyMetadata(false));
+            DependencyProperty.Register(nameof(IsCompact), typeof(bool), typeof(SourceCardView), new PropertyMetadata(false, OnIsCompactChanged));
 
         private readonly TapGesture _gesture = new();
 
         public SourceCardView()
         {
             InitializeComponent();
+            SetTileWidth(IsCompact);
         }
+
+        /// <summary>The full tile is the strip tile (Size.Strip.Tile.Width); the compact tile keeps its own width (Size.Strip.Compact.Tile.Width).</summary>
+        private void SetTileWidth(bool compact) =>
+            SetResourceReference(WidthProperty, compact ? "Size.Strip.Compact.Tile.Width" : "Size.Strip.Tile.Width");
+
+        private static void OnIsCompactChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+            ((SourceCardView)d).SetTileWidth((bool)e.NewValue);
 
         public bool IsCompact
         {

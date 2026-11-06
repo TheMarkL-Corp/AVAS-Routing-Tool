@@ -131,12 +131,12 @@ namespace AvasRoutingTool.Tests
                 Assert.Equal(16.0 / 9.0, m.PictureWidth / m.PictureHeight, 1);
             });
 
-        // Round 2 / A9: a source is a 240 px tile with a 214 x 120 thumbnail (16:9). It replaces the 398 x 309 card (picture 370 x 203):
+        // Round 2 / A9: a source is a 240 px tile with a 214 x 120 thumbnail (round 3: now a 300 px tile with a 274 x 155 thumbnail) (16:9). It replaces the 398 x 309 card (picture 370 x 203):
         // the sources are now a dense strip, and the displays get the height (FullHd_DisplayPictures_AreAtLeastTheRecordedBaseline).
         [Theory]
-        [InlineData(3, 214, 120)]
-        [InlineData(4, 214, 120)]
-        [InlineData(5, 214, 120)]
+        [InlineData(3, 274, 155)]
+        [InlineData(4, 274, 155)]
+        [InlineData(5, 274, 155)]
         public void FullHd_SourceThumbnails_AreAtLeastTheTileBaseline(int sources, double width, double height) =>
             RunSta(() =>
             {

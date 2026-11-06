@@ -206,7 +206,7 @@ namespace AvasRoutingTool.Tests
         // ---- nothing around it moves ----
 
         [Fact]
-        public void RenamePencil_TileHeight_IsStill243At240_IdleAndStreaming_AndTheCompactTileHasNoPencil() =>
+        public void RenamePencil_TileHeight_IsStill278_IdleAndStreaming_AndTheCompactTileHasNoPencil() =>
             RunSta(() =>
             {
                 foreach (var streaming in new[] { false, true })
@@ -216,8 +216,8 @@ namespace AvasRoutingTool.Tests
                     vm.RenameHandler = () => Task.CompletedTask;
                     SourceCardAt(vm, view =>
                     {
-                        view.Measure(new Size(240, double.PositiveInfinity));
-                        Assert.Equal(FullTileHeightAt240, view.DesiredSize.Height, 0.5);
+                        view.Measure(new Size(300, double.PositiveInfinity));
+                        Assert.Equal(FullTileHeight, view.DesiredSize.Height, 0.5);
                     });
                 }
 
