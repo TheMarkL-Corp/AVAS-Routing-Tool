@@ -97,7 +97,7 @@
                             IsTabStop="True"
                             Margin="0,-12,2,-12"
                             VerticalAlignment="Center">
-                        <ui:SymbolIcon Symbol="Edit24" FontSize="{StaticResource Size.Icon.S}" />
+                        <controls:MaterialIcon Kind="edit" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}" />
                     </Button>
 
                     <!-- Network telemetry (IP, MAC) lives in this badge's tooltip, reachable by keyboard -->
@@ -117,9 +117,10 @@
                                 <Run Text="IP: " /><Run Text="{Binding IpAddress, Mode=OneWay}" /><Run Text=" &#183; MAC: " /><Run Text="{Binding MacAddress, Mode=OneWay}" />
                             </TextBlock>
                         </Border.ToolTip>
-                        <ui:SymbolIcon Symbol="Info24"
-                                       FontSize="{StaticResource Size.Icon.S}"
-                                       Foreground="{DynamicResource Brush.Text.Secondary}" />
+                        <controls:MaterialIcon Kind="info"
+                                               Width="{StaticResource Size.Icon.S}"
+                                               Height="{StaticResource Size.Icon.S}"
+                                               Foreground="{DynamicResource Brush.Text.Secondary}" />
                     </Border>
 
                     <!-- Mode tag: the layout and its fill ("MATRIX 2X2 &#183; 3/4"); neutral, the picture and the card say routed -->
@@ -356,7 +357,7 @@
                         <!-- Routed to Non-AVAS Device Overlay (No preview stream available) -->
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                                     Visibility="{Binding ShowRoutedNonAvasNotice, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <Path Data="{StaticResource Icon.Monitor}" Style="{StaticResource Style.Icon.State}" />
+                            <controls:MaterialIcon Kind="desktop_windows" Style="{StaticResource Style.Icon.State}" />
                             <TextBlock Text="Routed to Source"
                                        Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
@@ -380,7 +381,7 @@
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="{StaticResource Size.Notice.Max}" Margin="12"
                                     ToolTip="{Binding ExternalLayoutName, Mode=OneWay}"
                                     Visibility="{Binding IsExternalLayout, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <Path Data="{StaticResource Icon.Monitor}" Style="{StaticResource Style.Icon.State}" />
+                            <controls:MaterialIcon Kind="desktop_windows" Style="{StaticResource Style.Icon.State}" />
                             <TextBlock Text="{Binding ExternalLayoutText, Mode=OneWay}"
                                        Style="{StaticResource Style.Text.Caption}"
                                        TextWrapping="Wrap"
@@ -571,11 +572,12 @@
                         Background="{DynamicResource Brush.Surface.Overlay}"
                         Visibility="{Binding IsCopyTargetBlocked, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <StackPanel x:Name="CopyTargetBlockedContent" VerticalAlignment="Top" Margin="12,14,12,8">
-                        <ui:SymbolIcon x:Name="CopyTargetLock"
-                                       Symbol="LockClosed24"
-                                       FontSize="{StaticResource Size.Icon.L}"
-                                       Foreground="{DynamicResource Brush.Text.OnOverlay}"
-                                       HorizontalAlignment="Center" />
+                        <controls:MaterialIcon x:Name="CopyTargetLock"
+                                               Kind="lock"
+                                               Width="{StaticResource Size.Icon.L}"
+                                               Height="{StaticResource Size.Icon.L}"
+                                               Foreground="{DynamicResource Brush.Text.OnOverlay}"
+                                               HorizontalAlignment="Center" />
                         <TextBlock x:Name="CopyTargetBlockedText"
                                    Text="{Binding CopyTargetText, Mode=OneWay}"
                                    Style="{StaticResource Style.Text.Title}"
@@ -695,8 +697,8 @@
                                         <!-- The layout on screen, in words and an icon (an unrouted display shows nothing, so nothing is marked) -->
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                                                     Visibility="{Binding IsOnScreen, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                                            <ui:SymbolIcon Symbol="Checkmark24" FontSize="{StaticResource Size.Icon.S}" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource Brush.Text.Accent}" />
+                                            <controls:MaterialIcon Kind="check" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource Brush.Text.Accent}" />
                                             <TextBlock Text="On screen"
                                                        Style="{StaticResource Style.Text.Caption}"
                                                        FontWeight="Bold"

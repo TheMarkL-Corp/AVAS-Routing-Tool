@@ -61,11 +61,11 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(spokenName, AutomationProperties.GetName(pencil));
             Assert.Equal("Rename", pencil.ToolTip as string);
 
-            var icon = FindAll<SymbolIcon>(pencil).Single();
-            Assert.Equal(SymbolRegular.Edit24, icon.Symbol);
-            Assert.Equal(Token("Size.Icon.S"), icon.FontSize);
-            // Icon only: no words (the SymbolIcon's own glyph is its only text)
-            Assert.Empty(FindAll<TextBlock>(pencil).Where(t => !string.IsNullOrEmpty(t.Text) && !icon.IsAncestorOf(t)));
+            var icon = PencilIconOf(pencil);
+            Assert.Equal("edit", icon.Kind);
+            Assert.Equal(Token("Size.Icon.S"), icon.Size);
+            // Icon only: no words (a SymbolIcon's own glyph is its only text)
+            Assert.Empty(FindAll<TextBlock>(pencil).Where(t => !string.IsNullOrEmpty(t.Text) && !icon.Element.IsAncestorOf(t)));
         }
 
         [Fact]
@@ -264,7 +264,16 @@ namespace AvasRoutingTool.Tests
 
         // ---- paint: secondary at rest, blue under the mouse and on keyboard focus, never red ----
 
-        private static Color IconColour(Button pencil) => ColorOf(FindAll<SymbolIcon>(pencil).Single().Foreground);
+        private static Color IconColour(Button pencil) => ColorOf(PencilIconOf(pencil).Foreground);
+
+        /// <summary>The pencil's icon: the Material "edit" (display card) or, until the source card moves over, the Fluent Edit24.</summary>
+        private static (string Kind, double Size, System.Windows.Media.Brush Foreground, FrameworkElement Element) PencilIconOf(Button pencil)
+        {
+            var material = FindAll<AvasRoutingTool.Controls.MaterialIcon>(pencil);
+            if (material.Count == 1) return (material[0].Kind, material[0].Width, material[0].Foreground, material[0]);
+            var fluent = FindAll<SymbolIcon>(pencil).Single();
+            return (fluent.Symbol == SymbolRegular.Edit24 ? "edit" : fluent.Symbol.ToString(), fluent.FontSize, fluent.Foreground, fluent);
+        }
 
         private static void AssertPencilPaint(DependencyObject view, string what, List<Color> seen)
         {

@@ -55,7 +55,7 @@ namespace AvasRoutingTool.Tests
 
                     var info = Named(view, "DeviceInfoBadge").Single();
                     Assert.True(info.Focusable && System.Windows.Input.KeyboardNavigation.GetIsTabStop(info));
-                    Assert.Equal(SymbolRegular.Info24, FindAll<SymbolIcon>(info).Single().Symbol);
+                    Assert.Equal("info", FindAll<AvasRoutingTool.Controls.MaterialIcon>(info).Single().Kind);
                     Assert.Equal("Device network telemetry: IP, MAC", System.Windows.Automation.AutomationProperties.GetName(info));
                     Assert.NotNull(info.ToolTip);
                 });
@@ -98,7 +98,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void DisplayCard_BodyOverlays_ShareTheOverlayStyle_AndTheLockIsASymbolIcon() =>
+        public void DisplayCard_BodyOverlays_ShareTheOverlayStyle_AndTheLockIsAMaterialIcon() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -110,11 +110,10 @@ namespace AvasRoutingTool.Tests
                     foreach (var name in new[] { "DropChoicePanel", "CopyTargetAllowedPanel", "CopyTargetBlockedPanel" })
                         Assert.Same(overlay, Named(view, name).Single().Style);
 
-                    var lock1 = Assert.IsType<SymbolIcon>(Named(view, "CopyTargetLock").Single());
-                    Assert.Equal(SymbolRegular.LockClosed24, lock1.Symbol);
-                    Assert.Equal(Token("Size.Icon.L"), lock1.FontSize);
+                    var lock1 = Assert.IsType<AvasRoutingTool.Controls.MaterialIcon>(Named(view, "CopyTargetLock").Single());
+                    Assert.Equal("lock", lock1.Kind);
+                    Assert.Equal(Token("Size.Icon.L"), lock1.Width);
                     Assert.True(lock1.IsVisible);
-                    Assert.False(string.IsNullOrEmpty(lock1.Glyph));
                     Assert.DoesNotContain("Icon.Lock", File.ReadAllText(Path.Combine(UiV2Allowlist.SourceRoot(), "Views", "DisplayCardView.xaml")));
                 });
             });
@@ -131,7 +130,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Empty(VisibleTexts(view, "Routed to Source"));
                     // The empty tile shows the brand mark, not the monitor state icon; the state icon (routed non-AVAS / external notices) keeps the token size.
                     var stateStyle = (Style)Application.Current.FindResource("Style.Icon.State");
-                    Assert.DoesNotContain(FindAll<System.Windows.Shapes.Path>(view), p => p.IsVisible && p.Style == stateStyle);
+                    Assert.DoesNotContain(FindAll<AvasRoutingTool.Controls.MaterialIcon>(view), p => p.IsVisible && p.Style == stateStyle);
                     Assert.Contains(FindAll<BrandMark>(view), b => b.IsVisible);
                     Assert.Equal(Token("Size.Icon.L"), (double)stateStyle.Setters.OfType<Setter>().Single(s => s.Property == FrameworkElement.WidthProperty).Value);
                     foreach (var tb in FindAll<TextBlock>(view).Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text)))
@@ -174,7 +173,7 @@ namespace AvasRoutingTool.Tests
                     var marked = tiles.Where(t => VisibleTexts(t, "On screen").Count > 0).ToList();
                     var tile = Assert.Single(marked);
                     Assert.Equal("matrix2x2", ((LayoutItemViewModel)tile.DataContext).Id);
-                    Assert.Contains(FindAll<SymbolIcon>(tile), i => i.Symbol == SymbolRegular.Checkmark24 && i.IsVisible);
+                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(tile), i => i.Kind == "check" && i.IsVisible);
                     var accent = ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Accent.Primary")).Color;
                     Assert.Equal(accent, ((System.Windows.Media.SolidColorBrush)((Border)tile.Template.FindName("bd", tile)).BorderBrush).Color);
 
@@ -196,6 +195,75 @@ namespace AvasRoutingTool.Tests
                     var menu = (FrameworkElement)((Popup)Named(view, "LayoutMenuPopup").Single()).Child;
                     Relayout(menu);
                     Assert.Empty(Named(menu, "LayoutMenuTile").Where(t => VisibleTexts(t, "On screen").Count > 0));
+                });
+            });
+
+        [Fact]
+        public void DisplayCard_UsesNoFluentOrHandDrawnIcons() =>
+            RunSta(() =>
+            {
+                // The XAML (covers the layout-menu popup, which is not in the visual tree until opened)
+                var xaml = File.ReadAllText(Path.Combine(UiV2Allowlist.SourceRoot(), "Views", "DisplayCardView.xaml"));
+                Assert.DoesNotContain("SymbolIcon", xaml);
+                Assert.Empty(System.Text.RegularExpressions.Regex.Matches(xaml, @"StaticResource Icon\.(?!Logo\.)\w+"));
+                var kinds = System.Text.RegularExpressions.Regex.Matches(xaml, "Kind=\"([a-z_0-9]+)\"").Select(m => m.Groups[1].Value).Distinct().ToList();
+                Assert.NotEmpty(kinds);
+                foreach (var kind in kinds) Assert.True(Application.Current.TryFindResource("MIcon." + kind) is System.Windows.Media.Geometry, $"MIcon.{kind} is missing");
+
+                // The visual tree with the menu open and the blocked overlay showing
+                var rig = new CopyRig();
+                Pump(() => rig.Vm.ArmDisplayAsync(rig.Rx1));
+                var blocked = rig.View(rig.Rx3, out var blockedHost);
+                Showing(blockedHost, () =>
+                {
+                    Assert.Empty(FindAll<SymbolIcon>(blocked));
+                    Assert.Empty(FindAll<System.Windows.Shapes.Path>(blocked).Where(p => p.TemplatedParent == null && p.Data != null && !IsBrandMark(p)));
+                    Assert.Equal("lock", ((AvasRoutingTool.Controls.MaterialIcon)Named(blocked, "CopyTargetLock").Single()).Kind);
+                });
+                var view = rig.View(rig.Rx1, out var host);
+                Showing(host, () =>
+                {
+                    Click(Named(view, "LayoutButton").Single());
+                    var menu = (FrameworkElement)((Popup)Named(view, "LayoutMenuPopup").Single()).Child;
+                    Relayout(menu);
+                    Assert.Empty(FindAll<SymbolIcon>(view));
+                    Assert.Empty(FindAll<SymbolIcon>(menu));
+                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(menu), i => i.Kind == "check");
+                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(view), i => i.Kind == "edit");
+                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(view), i => i.Kind == "info");
+                });
+            });
+
+        private static bool IsBrandMark(DependencyObject d)
+        {
+            for (var p = System.Windows.Media.VisualTreeHelper.GetParent(d); p != null; p = System.Windows.Media.VisualTreeHelper.GetParent(p))
+                if (p is BrandMark or LayoutSchematic) return true;
+            return false;
+        }
+
+        [Fact]
+        public void DisplayCard_IconSizes_FollowTokens() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host);
+                Showing(host, () =>
+                {
+                    var pencil = FindAll<AvasRoutingTool.Controls.MaterialIcon>(Named(view, "DeviceInfoBadge").Single());
+                    var small = Token("Size.Icon.S");
+                    var header = FindAll<AvasRoutingTool.Controls.MaterialIcon>(view).Where(i => i.Kind is "edit" or "info").ToList();
+                    Assert.Equal(2, header.Count);
+                    Assert.All(header, i => { Assert.Equal(small, i.Width); Assert.Equal(small, i.Height); });
+                    Assert.Single(pencil);
+                    Assert.Equal(Token("Size.Icon.Layout"), ((AvasRoutingTool.Controls.MaterialIcon)Named(view, "LayoutIcon").Single()).Width);
+                    Assert.Equal(Token("Size.Icon.Layout"), ((AvasRoutingTool.Controls.MaterialIcon)Named(view, "CopyIcon").Single()).Width);
+                });
+                var blocked = rig.View(rig.Rx3, out var blockedHost);
+                Showing(blockedHost, () =>
+                {
+                    var lockIcon = (AvasRoutingTool.Controls.MaterialIcon)Named(blocked, "CopyTargetLock").Single();
+                    Assert.Equal(Token("Size.Icon.L"), lockIcon.Width);
+                    Assert.Equal(Token("Size.Icon.L"), lockIcon.Height);
                 });
             });
     }

@@ -40,38 +40,12 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Vector icon in a card-action button: follows the button's text colour (filled or stroked), Size.Icon.S -->
-    <Style x:Key="Style.Icon.Button" TargetType="Path">
-        <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
-        <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
-        <Setter Property="Stretch" Value="Uniform" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Margin" Value="0,0,0,1" />
-        <Setter Property="Fill" Value="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}" />
-    </Style>
-
-    <Style x:Key="Style.Icon.Button.Stroke" TargetType="Path" BasedOn="{StaticResource Style.Icon.Button}">
-        <Setter Property="Fill" Value="{x:Null}" />
-        <Setter Property="Stroke" Value="{Binding Foreground, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Button}}" />
-        <Setter Property="StrokeThickness" Value="2" />
-        <Setter Property="StrokeLineJoin" Value="Round" />
-    </Style>
-
-    <!-- The power icon of the Turn Off button -->
-    <Style x:Key="Style.Icon.Power" TargetType="Path" BasedOn="{StaticResource Style.Icon.Button.Stroke}">
-        <Setter Property="Margin" Value="0" />
-        <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="StrokeStartLineCap" Value="Round" />
-        <Setter Property="StrokeEndLineCap" Value="Round" />
-    </Style>
-
-    <!-- Large state icon on the picture (monitor): Size.Icon.L; the view sets its Fill (accent when routed, muted when not) -->
-    <Style x:Key="Style.Icon.State" TargetType="Path">
+    <!-- Large state icon on the picture (Material desktop_windows): Size.Icon.L, accent -->
+    <Style x:Key="Style.Icon.State" TargetType="controls:MaterialIcon">
         <Setter Property="Width" Value="{StaticResource Size.Icon.L}" />
         <Setter Property="Height" Value="{StaticResource Size.Icon.L}" />
-        <Setter Property="Stretch" Value="Uniform" />
         <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="Fill" Value="{DynamicResource Brush.Accent.Primary}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
     </Style>
 
     <!-- Dashed neutral frame around the empty display tile (critique M7). Neutral, never cyan: cyan is the drop ring and "armed" -->
