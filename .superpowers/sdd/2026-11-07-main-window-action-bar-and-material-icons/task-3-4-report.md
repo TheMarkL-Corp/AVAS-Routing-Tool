@@ -53,3 +53,7 @@ Nothing in the Main Window scope. grep of the scope XAML finds no ui:SymbolIcon.
 - Style.Icon.AppBar (Path style) and Icon.Settings/ArrowRight/Close/Lock/Refresh/Sun/Moon geometries remain; Style.Icon.AppBar is asserted by UiV2StylesTests and the others look unused but were outside the listed deletions, so I left them. A cleanup candidate.
 - The "no Path icon" check ignores Paths inside templates (TemplatedParent != null), so the check relies on the XAML scan for template content.
 - A bash heredoc quirk in this environment forced me to run edits through Python scripts in the scratchpad; no repo effects.
+
+## Fix round 1
+
+UiV2LogsViewTests.LogsTab_IsVirtualized_Tokenised_TouchSafe_AndColoursTheLevels (Check_TheToolbar_HasTouchSizedButtons_WithVectorIcons_AndReadableText) looked for the old SymbolIcon in the Logs toolbar. Updated deliberately: it now finds the one MaterialIcon per button and asserts Kind cleaning_services (ClearLogsButton) and folder_open (OpenLogFolderButton), no SymbolIcon, touch height and readable text unchanged. Grep of tests for other SymbolIcon leftovers: only vacuous glyph filters (`FindAll<SymbolIcon>(view).All(...)` in SourceCard, SourceCardCompact, DisplayCard) and out-of-scope Composer/PtzPad/StepHeader/IconFont uses; no change needed. Run UiV2LogsViewTests|ViewSmokeTests|UiV2AppBarTests: 386 passed, 0 failed.

@@ -103,14 +103,15 @@ namespace AvasRoutingTool.Tests
 
         private static void Check_TheToolbar_HasTouchSizedButtons_WithVectorIcons_AndReadableText(MainWindow w, MainViewModel _)
         {
-                foreach (var name in new[] { "ClearLogsButton", "OpenLogFolderButton" })
+                foreach (var (name, kind) in new[] { ("ClearLogsButton", "cleaning_services"), ("OpenLogFolderButton", "folder_open") })
                 {
                     var button = (Button)w.FindName(name);
                     Assert.NotNull(button);
                     Assert.True(button.ActualHeight >= 48, $"{name} is {button.ActualHeight}px high");
-                    var icon = Descendants<SymbolIcon>(button).Single();
-                    Assert.False(string.IsNullOrEmpty(icon.Glyph));
-                    foreach (var tb in Descendants<TextBlock>(button).Where(t => !string.IsNullOrWhiteSpace(t.Text) && t.Text != icon.Glyph))
+                    var icon = Descendants<AvasRoutingTool.Controls.MaterialIcon>(button).Single();
+                    Assert.Equal(kind, icon.Kind);
+                    Assert.Empty(Descendants<SymbolIcon>(button));
+                    foreach (var tb in Descendants<TextBlock>(button).Where(t => !string.IsNullOrWhiteSpace(t.Text)))
                     {
                         Assert.True(tb.FontSize >= 12, $"{name}: '{tb.Text}' is {tb.FontSize}px");
                         Assert.DoesNotContain(tb.Text, ch => char.IsSurrogate(ch) || ch >= '←');
