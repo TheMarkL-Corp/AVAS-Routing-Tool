@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using AvasRoutingTool.Controls;
+using AvasRoutingTool.Views;
 using Xunit;
 using Button = System.Windows.Controls.Button;
 using TextBlock = System.Windows.Controls.TextBlock;
@@ -83,10 +84,10 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
-        [Theory]
-        [InlineData(1.0)]
-        [InlineData(1.5)]
-        public void ActionBar_FitsA400pxCard_AtEveryDpi(double dpiScale) =>
+        // No 150 % DPI case on purpose: WPF lays out in device-independent units, so a 400 DIP card has the same layout at every DPI and
+        // a LayoutTransform in DIPs would prove nothing. Real per-monitor DPI rendering needs a manual or screenshot check.
+        [Fact]
+        public void ActionBar_FitsA400pxCard() =>
             RunSta(() =>
             {
                 foreach (bool draft in new[] { false, true })
@@ -94,11 +95,9 @@ namespace AvasRoutingTool.Tests
                     var rig = new CopyRig();
                     rig.Rx1.HasDraft = draft;
                     var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
-                    // 150 % DPI: the same 400 DIP card drawn 1.5 x larger, so text is laid out and rounded at the larger device scale.
-                    host.LayoutTransform = new ScaleTransform(dpiScale, dpiScale);
                     Showing(host, () =>
                     {
-                        string at = $"at {dpiScale * 100:F0} % DPI{(draft ? " with a draft" : "")}";
+                        string at = $"at a 400 px card{(draft ? " with a draft" : "")}";
                         var frame = (FrameworkElement)Named(view, "CardFrame").Single();
                         var layout = LayoutOf(view);
                         var copy = (Button)Named(view, "CopyLayoutHandle").Single();
@@ -131,6 +130,102 @@ namespace AvasRoutingTool.Tests
                         }
                     });
                 }
+            });
+
+        private static TextBlock LabelOf(DisplayCardView card) => (TextBlock)Named(card, "LayoutLabel").Single();
+
+        [Fact]
+        public void ActionBar_WideCardWithADraft_KeepsTheMoreLayoutsLabel_AndNothingJumpsWhenTheDraftToggles() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host, 613);
+                Showing(host, () =>
+                {
+                    var copy = (Button)Named(view, "CopyLayoutHandle").Single();
+                    var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
+                    double before = BoundsIn(copy, dock).Left;
+                    Assert.True(LabelOf(view).IsVisible);
+
+                    rig.Rx1.HasDraft = true;
+                    Relayout(view);
+                    Assert.True(LabelOf(view).IsVisible, "a 613 px card with a draft lost the More layouts label");
+                    Assert.Equal(before, BoundsIn(copy, dock).Left, 0.5);
+                });
+            });
+
+        [Fact]
+        public void ActionBar_Card400WithADraft_CollapsesTheLabel_ButKeepsTheNameAndTooltip() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                rig.Rx1.HasDraft = true;
+                var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
+                Showing(host, () =>
+                {
+                    Assert.False(LabelOf(view).IsVisible, "the label should give way to the draft chip at 400 px");
+                    var layout = LayoutOf(view);
+                    Assert.Equal("More layouts for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
+                    Assert.Equal("More layouts", layout.ToolTip as string);
+                });
+            });
+
+        [Fact]
+        public void ActionBar_Card400WithoutADraft_KeepsTheLabel() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
+                Showing(host, () => Assert.True(LabelOf(view).IsVisible));
+            });
+
+        [Fact]
+        public void ActionBar_ResizingA400CardWithADraftTo613_BringsTheLabelBack_AndBackAgain() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                rig.Rx1.HasDraft = true;
+                var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
+                Showing(host, () =>
+                {
+                    Assert.False(LabelOf(view).IsVisible);
+                    view.Width = 613;
+                    Relayout(view);
+                    Assert.True(LabelOf(view).IsVisible, "the label did not come back at 613 px");
+                    view.Width = CarouselCardWidth;
+                    Relayout(view);
+                    Assert.False(LabelOf(view).IsVisible, "the label did not give way again at 400 px");
+                    Relayout(view);
+                    Assert.False(LabelOf(view).IsVisible, "the label flip-flops at 400 px");
+                });
+            });
+
+        [Fact]
+        public void DisplayCards_AreNeverNarrowerThanTheBarNeeds_InAnyLayoutThePanelCanProduce() =>
+            RunSta(() =>
+            {
+                Assert.Equal(CarouselCardWidth, GridSpec.DisplayCard.MinCardWidth);
+                Assert.Equal(CarouselCardWidth, Token("Size.Card.Display.Min"));
+                var rig = new CopyRig();
+                var view = rig.View(rig.Rx1, out var host, 300);
+                Assert.Equal(CarouselCardWidth, view.MinWidth);
+
+                // Every width the layout produces (carousel and grid mode, 1 to 12 cards, 1024 to 3840 px wide, any height) is at least 400.
+                foreach (int count in Enumerable.Range(1, 12))
+                    foreach (double width in new[] { 1008.0, 1264.0, 1888.0, 2560.0, 3840.0 })
+                        foreach (double height in new[] { 300.0, 435.0, 900.0, double.PositiveInfinity })
+                        {
+                            var plan = AdaptiveGridLayout.Compute(count, width, height, GridSpec.DisplayCard);
+                            Assert.True(plan.CardWidth >= CarouselCardWidth - 0.01, $"{count} cards in {width}x{height}: {plan.CardWidth:F1} px");
+                        }
+
+                // And the bar fits the narrowest of them (a draft collapses the label, which is covered above).
+                Showing(host, () =>
+                {
+                    view.Width = (double)GridSpec.DisplayCard.MinCardWidth;
+                    Relayout(view);
+                    AssertTheActionBarFits(view);
+                });
             });
 
         [Fact]

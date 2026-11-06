@@ -37,8 +37,9 @@
     <sys:Double x:Key="Size.Dot.S">8</sys:Double>
     <sys:Double x:Key="Size.Dot.M">10</sys:Double>
 
-    <!-- Cards: minimum width (= GridSpec.MinCardWidth) and the fixed rows of the display card around the 16:9 picture -->
+    <!-- Cards: minimum width (= GridSpec.Default.MinCardWidth), the display card's own minimum (= GridSpec.DisplayCard.MinCardWidth: the action bar needs about 350 px of the 374 inside a 400 px card) and the fixed rows of the display card around the 16:9 picture -->
     <sys:Double x:Key="Size.Card.Min">320</sys:Double>
+    <sys:Double x:Key="Size.Card.Display.Min">400</sys:Double>
     <sys:Double x:Key="Size.Card.Row.Header">24</sys:Double>
     <sys:Double x:Key="Size.Card.Row.ActionBar">56</sys:Double>
     <sys:Double x:Key="Size.Card.Row.Dock">64</sys:Double>

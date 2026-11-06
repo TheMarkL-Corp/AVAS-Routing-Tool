@@ -37,7 +37,7 @@ namespace AvasRoutingTool.Controls
         /// Chrome = frame 2 + padding 24 + 24 + 56 + 64 = 170, so the picture keeps 16:9 in every state (a smoke test
         /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
         /// </summary>
-        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5, CarouselMinCardWidth = 400 };
+        public static GridSpec DisplayCard { get; } = Default with { MinCardWidth = 400, MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5, CarouselMinCardWidth = 400 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>

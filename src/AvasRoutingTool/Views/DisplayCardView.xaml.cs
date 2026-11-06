@@ -61,7 +61,8 @@ namespace AvasRoutingTool.Views
                 new CustomPopupPlacement(new Point(target.Width - popup.Width, -popup.Height - 6), PopupPrimaryAxis.Horizontal),
             };
             DataContextChanged += (_, _) => Watch(IsLoaded ? DataContext as DisplayCardViewModel : null);
-            Loaded += (_, _) => Watch(DataContext as DisplayCardViewModel);
+            Loaded += (_, _) => { Watch(DataContext as DisplayCardViewModel); UpdateLayoutLabel(); };
+            FloatingActionDock.SizeChanged += (_, _) => UpdateLayoutLabel();
             Unloaded += (_, _) =>
             {
                 Watch(null);
@@ -105,8 +106,35 @@ namespace AvasRoutingTool.Views
             HideCopyReason(); // a reason belongs to the display it was asked about
         }
 
+        /// <summary>
+        /// The "More layouts" label gives way (icon and chevron stay) only while a draft chip is shown and the full bar, label included, is wider than
+        /// the dock. The need is measured with the label visible, so the answer does not depend on the label's current state and cannot flip-flop.
+        /// </summary>
+        private void UpdateLayoutLabel()
+        {
+            double available = FloatingActionDock.ActualWidth;
+            bool hasDraft = (DataContext as DisplayCardViewModel)?.HasDraft == true;
+            if (!hasDraft) { LayoutLabel.Visibility = Visibility.Visible; return; }
+            if (available <= 0) return;
+
+            LayoutLabel.Visibility = Visibility.Visible;
+            var unbounded = new Size(double.PositiveInfinity, double.PositiveInfinity);
+            double need = 0;
+            foreach (var part in new FrameworkElement[] { LayoutButton, CopyLayoutHandle, DraftChip, TurnOffButton })
+            {
+                if (part.Visibility != Visibility.Visible) continue;
+                part.Measure(unbounded);
+                need += part.DesiredSize.Width + part.Margin.Left + part.Margin.Right;
+            }
+            LayoutLabel.Visibility = need > available + 0.5 ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         private void OnCardChanged(object? sender, PropertyChangedEventArgs e)
         {
+
+            // The draft chip or the power button came or went: the label may need to give way (or come back) once their bindings have settled.
+            if (e.PropertyName is nameof(DisplayCardViewModel.HasDraft) or nameof(DisplayCardViewModel.IsRouted))
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(UpdateLayoutLabel));
             if (sender is not DisplayCardViewModel vm) return;
 
             // The menu closed (StaysOpen=False pushes it through the TwoWay binding at once; Popup.Closed comes later).

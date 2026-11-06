@@ -106,18 +106,12 @@
     </Style>
 
     <!--
-        The "More layouts" label in the action bar. While the display has a draft, the draft chip needs the row's space (a 400 px card has 374 px
-        for the bar: More layouts + Copy layout + the chip + power only fit with the label gone), so the button shows its icon and chevron;
-        the name, tooltip and menu stay.
+        The "More layouts" label in the action bar. DisplayCardView collapses it (code-behind, UpdateLayoutLabel) only while a draft chip is shown
+        and the full bar does not fit the card; the button keeps its name, tooltip and menu.
     -->
     <Style x:Key="Style.Text.ActionBar.LayoutLabel" TargetType="TextBlock">
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Margin" Value="{StaticResource Size.Space.Action.Before}" />
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
-                <Setter Property="Visibility" Value="Collapsed" />
-            </DataTrigger>
-        </Style.Triggers>
     </Style>
 
     <!-- A multiview window on the card: border follows assigned / drag-over -->

@@ -154,7 +154,7 @@ namespace AvasRoutingTool.Tests
                 }
 
                 // At the minimum width the centre must land on the pencil; the corners too (the header sits over the action bar)
-                var narrow = rig.View(rig.Rx1, out var narrowHost, Token("Size.Card.Min"));
+                var narrow = rig.View(rig.Rx1, out var narrowHost, Token("Size.Card.Display.Min"));
                 Showing(narrowHost, () =>
                 {
                     var pencil = RenamePencilOf(narrow);
@@ -238,7 +238,7 @@ namespace AvasRoutingTool.Tests
             {
                 var rig = new CopyRig();
                 rig.Rx1.RenameHandler = () => Task.CompletedTask;
-                foreach (var width in new[] { 613.0, Token("Size.Card.Min") })
+                foreach (var width in new[] { 613.0, Token("Size.Card.Display.Min") })
                 {
                     var view = rig.View(rig.Rx1, out var host, width);
                     Showing(host, () =>

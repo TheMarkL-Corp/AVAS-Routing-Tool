@@ -4,7 +4,7 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
              xmlns:views="clr-namespace:AvasRoutingTool.Views"
-             MinWidth="{StaticResource Size.Card.Min}"
+             MinWidth="{StaticResource Size.Card.Display.Min}"
              AllowDrop="True"
              DragEnter="Card_DragOver"
              DragOver="Card_DragOver"
@@ -56,7 +56,7 @@
 
                     <!--
                         The name's cell: the copy-source tag (when this display is the copy source) and the name, which takes what is left.
-                        On the narrowest card (Size.Card.Min) the pencil, the info badge and the mode badge leave little room: the tag, then the name,
+                        On the narrowest card (Size.Card.Display.Min) the pencil, the info badge and the mode badge leave little room: the tag, then the name,
                         give way (both ellipsize; the name's tooltip has the full name) so that the mode badge is never pushed out of the card.
                     -->
                     <DockPanel Grid.Column="1">

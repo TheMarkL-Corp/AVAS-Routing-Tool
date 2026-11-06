@@ -14,7 +14,7 @@ namespace AvasRoutingTool.Tests
     /// </summary>
     public partial class ViewSmokeTests
     {
-        /// <summary>The card widths the action bar is checked at: a wide card and the narrowest card (Size.Card.Min).</summary>
+        /// <summary>The card widths the action bar is checked at: a wide card and the narrowest card (Size.Card.Display.Min).</summary>
         private static double[] ActionBarWidths() => new[] { 613.0, 400.0 };
 
         /// <summary>Two action-bar parts lie side by side or one above the other (touching is not overlapping).</summary>

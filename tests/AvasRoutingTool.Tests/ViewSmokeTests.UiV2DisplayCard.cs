@@ -35,7 +35,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(Token("Size.Card.Row.Dock"), rows[3].Height.Value);
                     // Frame border 2 + padding 24 = 26 around the rows (AdaptiveCardPanel sizes cards from this sum before measuring).
                     Assert.Equal(GridSpec.DisplayCard.ChromeHeight, rows[0].Height.Value + rows[1].Height.Value + rows[3].Height.Value + 26);
-                    Assert.Equal(Token("Size.Card.Min"), view.MinWidth);
+                    Assert.Equal(Token("Size.Card.Display.Min"), view.MinWidth);
                 });
             });
 

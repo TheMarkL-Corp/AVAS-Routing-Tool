@@ -35,7 +35,7 @@ namespace AvasRoutingTool.Tests
             ("Size.Icon.S", 16.0), ("Size.Icon.M", 22.0), ("Size.Icon.L", 28.0), ("Size.Icon.Brand", 28.0),
             ("Size.Dot.S", 8.0), ("Size.Dot.M", 10.0),
             ("Size.Layout.Button.Width", 64.0), ("Size.Layout.Button.Height", 56.0), ("Size.Icon.Layout", 20.0), ("Size.Icon.Layout.Chevron", 20.0),
-            ("Size.Card.Min", 320.0), ("Size.Card.Row.Header", 24.0), ("Size.Card.Row.ActionBar", 56.0), ("Size.Card.Row.Dock", 64.0),
+            ("Size.Card.Min", 320.0), ("Size.Card.Display.Min", 400.0), ("Size.Card.Row.Header", 24.0), ("Size.Card.Row.ActionBar", 56.0), ("Size.Card.Row.Dock", 64.0),
             ("Size.AppBar.Height", 56.0), ("Size.Tab.MinWidth", 120.0), ("Size.Breakpoint.AppBarLabels", 1400.0),
             ("Size.Window.Default.Width", 1280.0), ("Size.Window.Default.Height", 860.0),
             ("Size.Window.Min.Width", 1024.0), ("Size.Window.Min.Height", 720.0),
@@ -81,6 +81,7 @@ namespace AvasRoutingTool.Tests
             {
                 double Token(string key) => (double)Application.Current.FindResource(key);
                 Assert.Equal(GridSpec.Default.MinCardWidth, Token("Size.Card.Min"));
+                Assert.Equal(GridSpec.DisplayCard.MinCardWidth, Token("Size.Card.Display.Min"));
                 // The display card: frame 2 + padding 24 + the three fixed rows around the 16:9 picture.
                 var rows = Token("Size.Card.Row.Header") + Token("Size.Card.Row.ActionBar") + Token("Size.Card.Row.Dock");
                 Assert.Equal(GridSpec.DisplayCard.ChromeHeight, 26 + rows);
