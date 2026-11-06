@@ -13,8 +13,8 @@ using TextBlock = System.Windows.Controls.TextBlock;
 namespace AvasRoutingTool.Tests
 {
     /// <summary>
-    /// UI v2 layout control on the display card's action bar (plan task A10, then A13): the Layout dropdown is one segment with its
-    /// fill and outline (LayoutSegments), and Copy layout stands apart at its right. The one-tap presets were removed (A13).
+    /// UI v2 layout control on the display card's action bar (plan task A10, A13; round 3): More layouts and Copy layout are two ghost buttons of
+    /// one style (Style.Button.ActionBar); the one-tap presets were removed (A13).
     /// </summary>
     public partial class ViewSmokeTests
     {
@@ -31,52 +31,6 @@ namespace AvasRoutingTool.Tests
             }
             return false;
         }
-
-        [Fact]
-        public void LayoutSegments_HoldTheLayoutDropdown_AsOneSegment_OfTheLayoutButtonSize_FilledByIt() =>
-            RunSta(() =>
-            {
-                var rig = new CopyRig();
-                var view = rig.View(rig.Rx1, out var host, 613);
-                Showing(host, () =>
-                {
-                    var group = (Grid)Named(view, "LayoutSegments").Single();
-                    var layout = (Button)Named(view, "LayoutButton").Single();
-                    Assert.True(Within(layout, group), "Layout is not inside LayoutSegments");
-                    // Size.Layout.Button (64 x 56, A14): the segment is the dropdown's size, not the touch floor.
-                    Assert.True(Math.Abs(layout.ActualWidth - Token("Size.Layout.Button.Width")) <= 0.5 && Math.Abs(layout.ActualHeight - Token("Size.Layout.Button.Height")) <= 0.5,
-                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight}, not the Size.Layout.Button tokens");
-
-                    // The segment is the whole group: its fill and outline are its edge.
-                    var box = BoundsIn(layout, group);
-                    Assert.True(Math.Abs(box.Width - group.ActualWidth) <= 0.5 && Math.Abs(box.Height - group.ActualHeight) <= 0.5,
-                        $"Layout {box} does not fill LayoutSegments {group.ActualWidth:F1}x{group.ActualHeight:F1}");
-                });
-            });
-
-        [Fact]
-        public void LayoutSegments_HaveOneOutline_AndNoSegmentBorder() =>
-            RunSta(() =>
-            {
-                var rig = new CopyRig();
-                var view = rig.View(rig.Rx1, out var host, 613);
-                Showing(host, () =>
-                {
-                    var group = (Grid)Named(view, "LayoutSegments").Single();
-                    var outline = (System.Windows.Controls.Border)Named(view, "LayoutSegmentsOutline").Single();
-                    Assert.Equal(1.0, outline.BorderThickness.Left);
-                    Assert.Null(outline.Background);
-                    Assert.False(outline.IsHitTestVisible);
-                    Assert.True(Within(outline, group), "the outline does not overlay the segment");
-
-                    // The outline is the only border with a width in the group: the segment's own border part is 0 (its focus ring is collapsed).
-                    var drawn = FindAll<System.Windows.Controls.Border>(group).Where(b => b.IsVisible && b.BorderThickness.Left > 0).ToList();
-                    Assert.Same(outline, Assert.Single(drawn));
-                    var layout = (Button)Named(view, "LayoutButton").Single();
-                    var bd = (System.Windows.Controls.Border)layout.Template.FindName("bd", layout);
-                    Assert.Equal(0.0, bd.BorderThickness.Left);
-                });
-            });
 
         /// <summary>
         /// The topmost element a press at <paramref name="point"/> (in <paramref name="view"/>'s coordinates) reaches, as pointer input
@@ -95,14 +49,14 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void LayoutSegments_TheLayoutButton_TakesAPressOnItsWholeArea_IncludingTheOuterRing() =>
+        public void LayoutButton_TakesAPressOnItsWholeArea_IncludingTheEdges() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
                 var view = rig.View(rig.Rx1, out var host, 613);
                 Showing(host, () =>
                 {
-                    // A press anywhere in the Layout segment (Size.Layout.Button, 64x56) must land on the segment, not only in its inset block.
+                    // A press anywhere in the More layouts button must land on it, not only on its icon or label.
                     var segment = (Button)Named(view, "LayoutButton").Single();
                     double w = segment.ActualWidth, h = segment.ActualHeight;
                     var spots = new[]
@@ -122,7 +76,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void LayoutButton_IsAnIconAndAChevron_NoText_WithTheMoreLayoutsTooltip() =>
+        public void LayoutButton_ShowsIconLabelAndChevron_WithTheMoreLayoutsTooltipAndName() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -130,28 +84,27 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var layout = (Button)Named(view, "LayoutButton").Single();
-                    // Icon and chevron only: the SymbolIcon's own glyph text is the chevron, no words.
-                    Assert.Empty(FindAll<TextBlock>(layout).Where(t => !string.IsNullOrEmpty(t.Text) && !FindAll<SymbolIcon>(layout).Any(i => i.IsAncestorOf(t))));
-                    var icon = (System.Windows.Shapes.Path)Named(view, "LayoutIcon").Single();
-                    Assert.Same(Application.Current.FindResource("Icon.Grid"), icon.Data);
-                    Assert.Contains(FindAll<SymbolIcon>(layout), i => i.Symbol == SymbolRegular.ChevronDown24);
+                    Assert.Equal("More layouts", Assert.Single(FindAll<TextBlock>(layout).Where(t => !string.IsNullOrEmpty(t.Text))).Text);
+                    var icons = FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout);
+                    Assert.Contains(icons, i => i.Kind == "grid_view");
+                    Assert.Contains(icons, i => i.Kind == "expand_more");
                     Assert.Equal("More layouts", layout.ToolTip as string);
-                    Assert.Equal("Layout for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
+                    Assert.Equal("More layouts for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
                 });
 
-                // At the minimum card width Layout is still a touch target.
+                // At the carousel's card width Layout is still a touch target.
                 var narrow = new CopyRig();
-                var narrowView = narrow.View(narrow.Rx1, out var narrowHost, Token("Size.Card.Min"));
+                var narrowView = narrow.View(narrow.Rx1, out var narrowHost, 400);
                 Showing(narrowHost, () =>
                 {
                     var layout = (Button)Named(narrowView, "LayoutButton").Single();
                     Assert.True(layout.IsVisible && layout.ActualWidth >= Token("Size.Touch.Min") && layout.ActualHeight >= Token("Size.Touch.Min"),
-                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight} at the minimum width");
+                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight} at the carousel width");
                 });
             });
 
         [Fact]
-        public void CopyLayout_IsAGhostButtonOutsideTheSegments_WithIconAndLabelSideBySide() =>
+        public void CopyLayout_IsAnActionBarGhostButton_WithIconAndLabelSideBySide() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -160,13 +113,15 @@ namespace AvasRoutingTool.Tests
                 Showing(new StackPanel { Children = { h1, h3 } }, () =>
                 {
                     var handle = (Button)Named(rx1, "CopyLayoutHandle").Single();
-                    Assert.Same(Application.Current.FindResource("Style.Button.CopyLayout"), handle.Style);
+                    // The action-bar style, with Copy layout's own armed and nothing-to-copy states on top of it.
+                    Assert.Same(Application.Current.FindResource("Style.Button.ActionBar"), handle.Style.BasedOn);
+                    Assert.Same(Application.Current.FindResource("Style.Button.ActionBar.Copy"), handle.Style);
                     Assert.Equal(Token("Size.Touch.Min"), handle.MinHeight);
                     Assert.True(handle.ActualHeight >= Token("Size.Touch.Min"), $"Copy layout is {handle.ActualHeight} high");
-                    Assert.False(Within(handle, Named(rx1, "LayoutSegments").Single()), "Copy layout is inside the segmented control");
 
                     var label = FindAll<TextBlock>(handle).Single(t => t.Text == "Copy layout");
-                    var icon = FindAll<System.Windows.Shapes.Path>(handle).Single(p => p.Name == "CopyIcon");
+                    var icon = (AvasRoutingTool.Controls.MaterialIcon)Named(rx1, "CopyIcon").Single();
+                    Assert.Equal("content_copy", icon.Kind);
                     var iconBounds = BoundsIn(icon, handle);
                     var labelBounds = BoundsIn(label, handle);
                     Assert.True(iconBounds.Right <= labelBounds.Left + 0.5, "the icon is not before the label");
@@ -210,10 +165,9 @@ namespace AvasRoutingTool.Tests
                     Assert.True(handle.Focusable && handle.IsTabStop, "the handle is not a tab stop");
                     Assert.True(handle.ActualWidth >= 48 && handle.ActualHeight >= 48, $"the handle is {handle.ActualWidth}x{handle.ActualHeight}");
 
-                    // Off is drawn by the template root (its first visual child): dimmed, with the arrow cursor.
-                    var root = (FrameworkElement)System.Windows.Media.VisualTreeHelper.GetChild(handle, 0);
-                    Assert.Equal(0.5, root.Opacity);
-                    Assert.Equal(System.Windows.Input.Cursors.Arrow, root.Cursor);
+                    // Off is drawn by the style: the whole button is dimmed, with the arrow cursor.
+                    Assert.Equal(0.5, handle.Opacity);
+                    Assert.Equal(System.Windows.Input.Cursors.Arrow, handle.Cursor);
                 });
             });
 

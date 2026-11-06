@@ -24,6 +24,12 @@
     <sys:Double x:Key="Size.Layout.Button.Height">56</sys:Double>
     <sys:Double x:Key="Size.Icon.Layout">20</sys:Double>
     <sys:Double x:Key="Size.Icon.Layout.Chevron">20</sys:Double>
+    <!-- Action bar (More layouts, Copy layout, power): the gap between an icon and its label, and between two buttons (8); the horizontal padding
+         inside a button (12 each side). The Thickness forms are for Margin and Padding, which cannot take a Double. -->
+    <sys:Double x:Key="Size.Space.Action">8</sys:Double>
+    <sys:Double x:Key="Size.Action.PadX">12</sys:Double>
+    <Thickness x:Key="Size.Action.Padding">12,0</Thickness>
+    <Thickness x:Key="Size.Space.Action.Before">8,0,0,0</Thickness>
     <!-- The brand mark on an unrouted display's empty tile (the tile's one picture) -->
     <sys:Double x:Key="Size.Brand.Empty">64</sys:Double>
 

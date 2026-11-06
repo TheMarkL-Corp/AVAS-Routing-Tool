@@ -88,64 +88,34 @@
     </Style>
 
     <!--
-        Copy layout: a ghost button beside the layout segments (the same quiet look as Style.Button.Ghost, with a neutral hover).
-        While this display is the copy source it is solid drop-target cyan, so the armed state is a colour and the words.
+        Copy layout: the action-bar button (Style.Button.ActionBar, shared with More layouts) plus its two states, which are the display's:
+        while this display is the copy source it is solid drop-target cyan with its own text colour (a style trigger, so the hover fill does not
+        replace it), and with nothing to copy it stays enabled (focus, tap, the reason on press) but looks off; the reason is its name and help text.
     -->
-    <Style x:Key="Style.Button.CopyLayout" TargetType="Button">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
-        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
-        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
-        <Setter Property="Padding" Value="8,0" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Grid x:Name="Root">
-                        <Border x:Name="bd"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
-                        </Border>
-                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
-                        <Border x:Name="FocusRing"
-                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
-                                BorderThickness="2"
-                                CornerRadius="6"
-                                IsHitTestVisible="False"
-                                Visibility="Collapsed" />
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-                        </Trigger>
-                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
-                        </Trigger>
-                        <!-- Armed: the hover fill above is set on bd, which the style's trigger cannot reach; this one comes after it and keeps the cyan and its text -->
-                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
-                        </DataTrigger>
-                        <!-- Nothing to copy: the handle stays enabled (focus, tap, the reason on press) but looks off; the reason is its name and help text -->
-                        <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
-                            <Setter TargetName="Root" Property="Opacity" Value="0.5" />
-                            <Setter TargetName="Root" Property="Cursor" Value="Arrow" />
-                        </DataTrigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+    <Style x:Key="Style.Button.ActionBar.Copy" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar}">
         <Style.Triggers>
+            <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
+                <Setter Property="Opacity" Value="0.5" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </DataTrigger>
             <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
                 <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
                 <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
+        The "More layouts" label in the action bar. While the display has a draft, the draft chip needs the row's space (a 400 px card has 374 px
+        for the bar: More layouts + Copy layout + the chip + power only fit with the label gone), so the button shows its icon and chevron;
+        the name, tooltip and menu stay.
+    -->
+    <Style x:Key="Style.Text.ActionBar.LayoutLabel" TargetType="TextBlock">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="{StaticResource Size.Space.Action.Before}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
             </DataTrigger>
         </Style.Triggers>
     </Style>
@@ -213,59 +183,6 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-    </Style>
-
-    <!--
-        The Layout dropdown's segment on the display card's layout control: the view draws its fill and outline (LayoutSegments), so the
-        segment has no border of its own. Touch size; own template, not based on WPF-UI.
-        Hover lifts the fill; the 2 px keyboard ring shows through InputModality.ShowsFocus. Part bd is read by the tests.
-    -->
-    <Style x:Key="Style.Button.LayoutSegment" TargetType="Button">
-        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
-        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Grid Background="Transparent">
-                        <Border x:Name="bd"
-                                Background="{TemplateBinding Background}"
-                                BorderThickness="0"
-                                CornerRadius="6"
-                                Margin="3">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
-                        </Border>
-                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
-                        <Border x:Name="FocusRing"
-                                Margin="3"
-                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
-                                BorderThickness="2"
-                                CornerRadius="6"
-                                IsHitTestVisible="False"
-                                Visibility="Collapsed" />
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-                        </Trigger>
-                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- The Layout dropdown (A14): the segment at its own size, Size.Layout.Button. Style.Button.LayoutSegment stays generic. -->
-    <Style x:Key="Style.Button.LayoutDropdown" TargetType="Button" BasedOn="{StaticResource Style.Button.LayoutSegment}">
-        <Setter Property="Width" Value="{StaticResource Size.Layout.Button.Width}" />
-        <Setter Property="Height" Value="{StaticResource Size.Layout.Button.Height}" />
     </Style>
 
 </ResourceDictionary>

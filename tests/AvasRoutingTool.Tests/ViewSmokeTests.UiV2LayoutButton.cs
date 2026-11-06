@@ -3,35 +3,28 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using AvasRoutingTool.Controls;
 using AvasRoutingTool.Services;
 using AvasRoutingTool.Views;
-using Wpf.Ui.Controls;
 using Xunit;
 using Button = System.Windows.Controls.Button;
-using Path = System.Windows.Shapes.Path;
+using TextBlock = System.Windows.Controls.TextBlock;
 
 namespace AvasRoutingTool.Tests
 {
     /// <summary>
-    /// UI v2 Layout button size (task A14): the Layout dropdown on a display card is Size.Layout.Button.Width x Height (64 x 56), its
-    /// icon and chevron are the Size.Icon.Layout tokens, and its fill and outline wrap it exactly. The action bar row is still
-    /// Size.Card.Row.ActionBar (56), so the card does not get taller.
+    /// The "More layouts" button on a display card (round 3, replacing the 64 x 56 segment of task A14): a ghost action-bar button, Size.Touch.Min
+    /// high, [grid_view icon] label [expand_more chevron], icon and chevron the Size.Icon.Layout token, drawn in the primary text colour, with no
+    /// fill or outline of its own. The action bar row is still Size.Card.Row.ActionBar (56), so the card does not get taller.
     /// </summary>
     public partial class ViewSmokeTests
     {
         private static Button LayoutOf(DisplayCardView card) => (Button)Named(card, "LayoutButton").Single();
 
-        /// <summary>Two rectangles agree within <paramref name="tolerance"/> on each edge.</summary>
-        private static bool SameBounds(Rect a, Rect b, double tolerance = 1.0) =>
-            Math.Abs(a.Left - b.Left) <= tolerance && Math.Abs(a.Top - b.Top) <= tolerance &&
-            Math.Abs(a.Right - b.Right) <= tolerance && Math.Abs(a.Bottom - b.Bottom) <= tolerance;
-
         [Fact]
-        public void LayoutButton_IsTheTokenSize_64x56_AndBothAreAtLeastTheTouchFloor() =>
+        public void LayoutButton_IsAtLeastTheTouchFloor_AndAsHighAsTheActionBarButtons() =>
             RunSta(() =>
             {
-                Assert.True(Token("Size.Layout.Button.Width") >= Token("Size.Touch.Min"), "the Layout width is under the touch floor");
-                Assert.True(Token("Size.Layout.Button.Height") >= Token("Size.Touch.Min"), "the Layout height is under the touch floor");
                 foreach (double width in ActionBarWidths())
                 {
                     var rig = new CopyRig();
@@ -39,30 +32,29 @@ namespace AvasRoutingTool.Tests
                     Showing(host, () =>
                     {
                         var layout = LayoutOf(view);
-                        Assert.True(Math.Abs(layout.ActualWidth - Token("Size.Layout.Button.Width")) <= 0.5,
-                            $"Layout is {layout.ActualWidth:F1} wide at a {width} px card, not {Token("Size.Layout.Button.Width")}");
-                        Assert.True(Math.Abs(layout.ActualHeight - Token("Size.Layout.Button.Height")) <= 0.5,
-                            $"Layout is {layout.ActualHeight:F1} high at a {width} px card, not {Token("Size.Layout.Button.Height")}");
+                        Assert.True(layout.ActualWidth >= Token("Size.Touch.Min"), $"Layout is {layout.ActualWidth:F1} wide at a {width} px card");
+                        Assert.Equal(Token("Size.Touch.Min"), layout.ActualHeight);
+                        Assert.Equal(Token("Size.Touch.Min"), layout.MinHeight);
                     });
                 }
             });
 
         [Fact]
-        public void LayoutFill_AndOutline_WrapTheLayoutButtonExactly() =>
+        public void LayoutButton_HasNoFillOrOutline_AtRest_AndNoSegmentGroup() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
                 var view = rig.View(rig.Rx1, out var host, 613);
                 Showing(host, () =>
                 {
-                    var group = (Grid)Named(view, "LayoutSegments").Single();
                     var layout = LayoutOf(view);
-                    var outline = (System.Windows.Controls.Border)Named(view, "LayoutSegmentsOutline").Single();
-                    var fill = (System.Windows.Controls.Border)group.Children[0];
-                    var button = BoundsIn(layout, view);
-                    Assert.True(SameBounds(BoundsIn(outline, view), button), $"the outline {BoundsIn(outline, view)} is not the button {button}");
-                    Assert.True(SameBounds(BoundsIn(fill, view), button), $"the fill {BoundsIn(fill, view)} is not the button {button}");
-                    Assert.True(SameBounds(BoundsIn(group, view), button), $"the group {BoundsIn(group, view)} is not the button {button}");
+                    Assert.Empty(Named(view, "LayoutSegments"));
+                    Assert.Empty(Named(view, "LayoutSegmentsOutline"));
+                    var bd = (Border)layout.Template.FindName("bd", layout);
+                    Assert.Equal(0, ColorOf(bd.Background).A);
+                    Assert.Equal(0.0, bd.BorderThickness.Left);
+                    // No Border in the button draws a visible edge (the keyboard ring is collapsed until the keyboard moves focus here).
+                    Assert.Empty(FindAll<Border>(layout).Where(b => b.IsVisible && b.BorderThickness.Left > 0));
                 });
             });
 
@@ -87,7 +79,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void LayoutIconAndChevron_AreTheIconTokens_InsideTheButton_AndCentred() =>
+        public void LayoutIconAndChevron_AreTheIconToken_InsideTheButton_OnOneLineWithTheLabel() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -95,30 +87,33 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var layout = LayoutOf(view);
-                    var icon = (Path)Named(view, "LayoutIcon").Single();
-                    var chevron = FindAll<SymbolIcon>(layout).Single(i => i.Symbol == SymbolRegular.ChevronDown24);
+                    var icon = (MaterialIcon)Named(view, "LayoutIcon").Single();
+                    var chevron = (MaterialIcon)Named(view, "LayoutChevron").Single();
+                    var label = FindAll<TextBlock>(layout).Single(t => t.IsVisible && t.Text == "More layouts");
 
-                    Assert.True(Math.Abs(icon.ActualWidth - Token("Size.Icon.Layout")) <= 0.5 && Math.Abs(icon.ActualHeight - Token("Size.Icon.Layout")) <= 0.5,
-                        $"the grid icon is {icon.ActualWidth:F1}x{icon.ActualHeight:F1}, not {Token("Size.Icon.Layout")}");
-                    Assert.Equal(Token("Size.Icon.Layout.Chevron"), chevron.FontSize);
-                    Assert.True(Math.Abs(chevron.ActualWidth - Token("Size.Icon.Layout.Chevron")) <= 0.5,
-                        $"the chevron is {chevron.ActualWidth:F1} wide, not {Token("Size.Icon.Layout.Chevron")}");
+                    foreach (var glyph in new[] { icon, chevron })
+                        Assert.True(Math.Abs(glyph.ActualWidth - Token("Size.Icon.Layout")) <= 0.5 && Math.Abs(glyph.ActualHeight - Token("Size.Icon.Layout")) <= 0.5,
+                            $"the {glyph.Kind} icon is {glyph.ActualWidth:F1}x{glyph.ActualHeight:F1}, not {Token("Size.Icon.Layout")}");
 
                     var ib = BoundsIn(icon, layout);
+                    var lb = BoundsIn(label, layout);
                     var cb = BoundsIn(chevron, layout);
                     double w = layout.ActualWidth, h = layout.ActualHeight;
-                    foreach (var (name, box) in new[] { ("icon", ib), ("chevron", cb) })
+                    foreach (var (name, box) in new[] { ("icon", ib), ("label", lb), ("chevron", cb) })
                         Assert.True(box.Left >= 0 && box.Top >= 0 && box.Right <= w && box.Bottom <= h, $"the {name} {box} is outside the {w:F0}x{h:F0} button");
 
-                    double centreX = (Math.Min(ib.Left, cb.Left) + Math.Max(ib.Right, cb.Right)) / 2;
-                    double centreY = (Math.Min(ib.Top, cb.Top) + Math.Max(ib.Bottom, cb.Bottom)) / 2;
-                    Assert.True(Math.Abs(centreX - w / 2) <= 1, $"the icon and chevron are centred at x {centreX:F1}, the button's centre is {w / 2:F1}");
-                    Assert.True(Math.Abs(centreY - h / 2) <= 1, $"the icon and chevron are centred at y {centreY:F1}, the button's centre is {h / 2:F1}");
+                    // Icon, label, chevron in a row with Size.Space.Action between them, and the same padding at both ends.
+                    Assert.True(Math.Abs(lb.Left - ib.Right - Token("Size.Space.Action")) <= 0.5, $"the icon-to-label gap is {lb.Left - ib.Right:F1}");
+                    Assert.True(Math.Abs(cb.Left - lb.Right - Token("Size.Space.Action")) <= 0.5, $"the label-to-chevron gap is {cb.Left - lb.Right:F1}");
+                    Assert.True(Math.Abs(ib.Left - Token("Size.Action.PadX")) <= 0.5 && Math.Abs(w - cb.Right - Token("Size.Action.PadX")) <= 0.5,
+                        $"the padding is {ib.Left:F1} left and {w - cb.Right:F1} right");
+                    foreach (var box in new[] { ib, lb, cb })
+                        Assert.True(Math.Abs((box.Top + box.Bottom) / 2 - h / 2) <= 1.5, $"{box} is not centred on the button's {h / 2:F1}");
                 });
             });
 
         [Fact]
-        public void ActionBar_WithTheTallerLayoutButton_FitsAtBothWidths_WithAnEightPixelGap() =>
+        public void ActionBar_Buttons_FitAtBothWidths_WithTheActionGap() =>
             RunSta(() =>
             {
                 foreach (double width in ActionBarWidths())
@@ -140,24 +135,24 @@ namespace AvasRoutingTool.Tests
                         }
                         AssertTheActionBarFits(view);
 
-                        // The row keeps its height, and the Layout button is the row's full height: the card is not taller.
+                        // The row keeps its height: the 48 px buttons sit in the 56 px bar and the card is not taller.
                         Assert.Equal(Token("Size.Card.Row.ActionBar"), dock.ActualHeight);
                         Assert.True(layout.ActualHeight <= dock.ActualHeight + 0.5, $"Layout is taller than the action bar {at}");
 
                         double gap = BoundsIn(copy, dock).Left - BoundsIn(layout, dock).Right;
-                        Assert.True(gap >= 8, $"the gap between Layout and Copy layout is {gap:F1} px {at}");
+                        Assert.True(Math.Abs(gap - Token("Size.Space.Action")) <= 0.5, $"the gap between Layout and Copy layout is {gap:F1} px {at}");
                         Assert.True(BoundsIn(turnOff, dock).Left >= BoundsIn(copy, dock).Right, $"Turn Off overlaps Copy layout {at}");
                     });
                 }
             });
 
         [Fact]
-        public void ActionBar_WithADraft_KeepsTheEightPixelGap_FromLayoutToCopyLayout_AtTheNarrowWidth() =>
+        public void ActionBar_WithADraft_KeepsTheActionGap_FromLayoutToCopyLayout_AtTheCarouselWidth() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
                 rig.Rx1.HasDraft = true;
-                var view = rig.View(rig.Rx1, out var host, Token("Size.Card.Min"));
+                var view = rig.View(rig.Rx1, out var host, 400);
                 Showing(host, () =>
                 {
                     var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
@@ -165,14 +160,14 @@ namespace AvasRoutingTool.Tests
                     var copy = (Button)Named(view, "CopyLayoutHandle").Single();
                     Assert.True(Named(view, "DraftChip").Single().IsVisible, "the draft chip is not shown");
                     double gap = BoundsIn(copy, dock).Left - BoundsIn(layout, dock).Right;
-                    Assert.True(gap >= 8, $"the gap between Layout and Copy layout is {gap:F1} px with a draft at the narrow width");
+                    Assert.True(Math.Abs(gap - Token("Size.Space.Action")) <= 0.5, $"the gap between Layout and Copy layout is {gap:F1} px with a draft");
                 });
             });
 
         [Theory]
         [InlineData(ThemeMode.Dark)]
         [InlineData(ThemeMode.Light)]
-        public void LayoutIcon_AndOutline_DrawInThePaletteOfTheTheme(ThemeMode mode) =>
+        public void LayoutIconAndChevron_DrawInThePrimaryTextColourOfTheTheme(ThemeMode mode) =>
             RunSta(() =>
             {
                 var theme = new ThemeService();
@@ -185,19 +180,22 @@ namespace AvasRoutingTool.Tests
                     Showing(host, () =>
                     {
                         var layout = LayoutOf(view);
-                        var icon = (Path)Named(view, "LayoutIcon").Single();
-                        var chevron = FindAll<SymbolIcon>(layout).Single(i => i.Symbol == SymbolRegular.ChevronDown24);
-                        var outline = (System.Windows.Controls.Border)Named(view, "LayoutSegmentsOutline").Single();
-                        Assert.Equal(PaletteColor("Brush.Text.Secondary"), ColorOf(icon.Fill));
-                        Assert.Equal(PaletteColor("Brush.Text.Secondary"), ColorOf(chevron.Foreground));
-                        Assert.Equal(PaletteColor("Brush.Border.Control"), ColorOf(outline.BorderBrush));
+                        var icon = (MaterialIcon)Named(view, "LayoutIcon").Single();
+                        var chevron = (MaterialIcon)Named(view, "LayoutChevron").Single();
+                        var label = FindAll<TextBlock>(layout).Single(t => t.IsVisible && t.Text == "More layouts");
+                        var power = FindAll<MaterialIcon>((Button)Named(view, "TurnOffButton").Single()).Single();
+                        var expected = PaletteColor("Brush.Text.Primary");
+                        Assert.Equal(expected, ColorOf(icon.Foreground));
+                        Assert.Equal(expected, ColorOf(chevron.Foreground));
+                        Assert.Equal(expected, ColorOf(label.Foreground));
+                        Assert.Equal(expected, ColorOf(power.Foreground));
                     });
                 }
                 finally { theme.SetTheme(ThemeMode.Dark); }
             });
 
         [Fact]
-        public void LayoutGroup_FillsTheActionBarRow_AndTheRowIsStillTheActionBarToken() =>
+        public void ActionBarRow_IsStillTheActionBarToken_AndTheLayoutButtonIsCentredInIt() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -206,8 +204,10 @@ namespace AvasRoutingTool.Tests
                 {
                     var rows = ((Grid)Named(view, "CardGrid").Single()).RowDefinitions;
                     Assert.Equal(Token("Size.Card.Row.ActionBar"), rows[1].Height.Value);
-                    var group = (Grid)Named(view, "LayoutSegments").Single();
-                    Assert.Equal(Token("Size.Card.Row.ActionBar"), group.ActualHeight);
+                    var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
+                    Assert.Equal(Token("Size.Card.Row.ActionBar"), dock.ActualHeight);
+                    var box = BoundsIn(LayoutOf(view), dock);
+                    Assert.True(Math.Abs((box.Top + box.Bottom) / 2 - dock.ActualHeight / 2) <= 0.5, $"Layout {box} is not centred in the {dock.ActualHeight} px bar");
                 });
             });
     }

@@ -77,13 +77,13 @@ namespace AvasRoutingTool.Tests
                     }
                     var turnOff = (Button)Named(view, "TurnOffButton").Single();
                     Assert.Equal(Token("Size.Touch.Min"), turnOff.MinWidth);
-                    Assert.Equal(Token("Size.Icon.S"), FindAll<System.Windows.Shapes.Path>(turnOff).Single().Width);
+                    Assert.Equal("power_settings_new", FindAll<AvasRoutingTool.Controls.MaterialIcon>(turnOff).Single().Kind);
+                    Assert.Equal(Token("Size.Icon.Layout"), FindAll<AvasRoutingTool.Controls.MaterialIcon>(turnOff).Single().Width);
 
-                    // The chevron after "Layout" is a vector icon, not a character.
+                    // The chevron after "More layouts" is a vector icon (Material expand_more), not a character; the grid icon is another.
                     var layout = Named(view, "LayoutButton").Single();
-                    Assert.Contains(FindAll<SymbolIcon>(layout), i => i.Symbol == SymbolRegular.ChevronDown24);
-                    // Icon and chevron only: the words are the SymbolIcon's own glyph text, nothing else.
-                    Assert.DoesNotContain(FindAll<TextBlock>(layout), t => !string.IsNullOrEmpty(t.Text) && !FindAll<SymbolIcon>(layout).Any(i => i.IsAncestorOf(t)));
+                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout), i => i.Kind == "expand_more");
+                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout), i => i.Kind == "grid_view");
 
                     // The draft chip keeps the shared staged-chip template (part DraftFrame).
                     var chip = (Button)Named(view, "DraftChip").Single();

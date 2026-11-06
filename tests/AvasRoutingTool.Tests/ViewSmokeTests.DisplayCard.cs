@@ -514,7 +514,7 @@ namespace AvasRoutingTool.Tests
                             var b = (Button)Named(card, name).Single();
                             Assert.True(b.ActualHeight >= 48, $"{name} is {b.ActualHeight} high");
                             AssertInside(b, frame);
-                            foreach (var t in FindAll<TextBlock>(b)) AssertTextFits(t);
+                            foreach (var t in FindAll<TextBlock>(b).Where(x => x.IsVisible)) AssertTextFits(t);
                         }
                     }
 
@@ -529,7 +529,7 @@ namespace AvasRoutingTool.Tests
                         var b = (Button)Named(rx1, name).Single();
                         Assert.True(b.IsVisible && b.ActualHeight >= 48);
                         AssertInside(b, choice);
-                        foreach (var t in FindAll<TextBlock>(b)) AssertTextFits(t);
+                        foreach (var t in FindAll<TextBlock>(b).Where(x => x.IsVisible)) AssertTextFits(t);
                     }
                     AssertTextFits((TextBlock)Named(rx1, "DropChoiceTitle").Single());
                     var chip = (FrameworkElement)Named(rx1, "DraftChip").Single();
@@ -1188,8 +1188,8 @@ namespace AvasRoutingTool.Tests
                 {
                     string Name(DisplayCardView card, string part) => AutomationProperties.GetName(Named(card, part).Single());
 
-                    Assert.Equal("Layout for RX1_c059e_SFPA", Name(rx1, "LayoutButton"));
-                    Assert.Equal("Layout for PAX355S_SFP A", Name(pax, "LayoutButton"));
+                    Assert.Equal("More layouts for RX1_c059e_SFPA", Name(rx1, "LayoutButton"));
+                    Assert.Equal("More layouts for PAX355S_SFP A", Name(pax, "LayoutButton"));
                     Assert.Equal("Resume draft for RX1_c059e_SFPA, not on screen", Name(rx1, "DraftChip"));
                     Assert.Equal("Resume draft for PAX355S_SFP A, not on screen", Name(pax, "DraftChip"));
 

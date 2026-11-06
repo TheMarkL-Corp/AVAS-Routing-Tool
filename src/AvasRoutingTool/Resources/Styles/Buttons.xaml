@@ -110,7 +110,7 @@
 
     <!--
         Ghost button (the quiet look of Turn Off and Stop): no fill or border at rest, a neutral hover (the row hover, as
-        Style.Button.CopyLayout), and the 2 px keyboard ring through InputModality.ShowsFocus. Red is for errors only, so nothing here
+        Style.Button.ActionBar), and the 2 px keyboard ring through InputModality.ShowsFocus. Red is for errors only, so nothing here
         is red. Own template, not based on WPF-UI.
     -->
     <Style x:Key="Style.Button.Ghost" TargetType="Button">
@@ -151,6 +151,63 @@
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Action bar button (the display card's "More layouts" and "Copy layout"): one ghost look. No fill and no border at rest, the neutral row
+        hover (and pressed), Size.Touch.Min high, Size.Action.PadX each side, the content (icon, Size.Space.Action, label) in the primary text
+        colour and SemiBold, and the 2 px keyboard ring through InputModality.ShowsFocus. Red is for errors only, so nothing here is red.
+        Part bd is read by the tests. Own template, not based on WPF-UI. Fill and text colour are set through the button's own properties, so
+        a style (Style.Button.ActionBar.Copy) can override them from its triggers.
+    -->
+    <Style x:Key="Style.Button.ActionBar" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Padding" Value="{StaticResource Size.Action.Padding}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root" Background="Transparent">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+                        </Border>
+                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                        </Trigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.5" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>

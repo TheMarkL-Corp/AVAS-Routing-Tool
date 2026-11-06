@@ -63,7 +63,7 @@
                         <!-- This display is the copy source (armed by a tap, or being dragged): the tag lies outside the picture -->
                         <Border x:Name="CopySourceChip"
                                 DockPanel.Dock="Right"
-                                Margin="0,0,6,0"
+                                Margin="{StaticResource Size.Space.Action.Before}"
                                 VerticalAlignment="Center"
                                 Background="{DynamicResource Brush.Border.DropTarget}"
                                 CornerRadius="4"
@@ -149,47 +149,39 @@
                         </Grid.ColumnDefinitions>
 
                         <!--
-                            The layout control: the Layout dropdown, one segment in column 0 with its fill and outline (the look it has on a
-                            narrow card). Its menu holds every layout and marks the one on screen. Copy layout and the draft chip stand apart.
-                            The segment is Size.Layout.Button (64 x 56): the full height of the action bar row, so the fill and outline wrap it exactly.
+                            More layouts: a ghost action-bar button (Style.Button.ActionBar) in column 0: [grid icon] label [chevron]. No fill and no outline;
+                            it looks like Copy layout beside it. Its menu holds every layout and marks the one on screen.
                         -->
-                        <Grid x:Name="LayoutSegments" Grid.Column="0">
-                            <!-- The segment's fill, behind it -->
-                            <Border Background="{DynamicResource Brush.Surface.Card}" CornerRadius="8" />
+                        <Button x:Name="LayoutButton"
+                                Grid.Column="0"
+                                Style="{StaticResource Style.Button.ActionBar}"
+                                AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='More layouts for {0}'}"
+                                ToolTip="More layouts"
+                                PreviewKeyDown="LayoutButton_PreviewKeyDown"
+                                PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
+                                PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
+                                Click="LayoutButton_Click">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <controls:MaterialIcon x:Name="LayoutIcon"
+                                                       Kind="grid_view"
+                                                       Width="{StaticResource Size.Icon.Layout}"
+                                                       Height="{StaticResource Size.Icon.Layout}"
+                                                       VerticalAlignment="Center" />
+                                <TextBlock x:Name="LayoutLabel" Text="More layouts" Style="{StaticResource Style.Text.ActionBar.LayoutLabel}" />
+                                <controls:MaterialIcon x:Name="LayoutChevron"
+                                                       Kind="expand_more"
+                                                       Width="{StaticResource Size.Icon.Layout}"
+                                                       Height="{StaticResource Size.Icon.Layout}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="{StaticResource Size.Space.Action.Before}" />
+                            </StackPanel>
+                        </Button>
 
-                            <!-- Layout menu button (the full dropdown): an icon and a chevron; its name and tooltip say what it is -->
-                            <Button x:Name="LayoutButton"
-                                    Style="{StaticResource Style.Button.LayoutDropdown}"
-                                    AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
-                                    ToolTip="More layouts"
-                                    PreviewKeyDown="LayoutButton_PreviewKeyDown"
-                                    PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
-                                    PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
-                                    Click="LayoutButton_Click">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Path x:Name="LayoutIcon"
-                                          Data="{StaticResource Icon.Grid}"
-                                          Style="{StaticResource Style.Icon.Button}"
-                                          Width="{StaticResource Size.Icon.Layout}"
-                                          Height="{StaticResource Size.Icon.Layout}" />
-                                    <ui:SymbolIcon Symbol="ChevronDown24" FontSize="{StaticResource Size.Icon.Layout.Chevron}" VerticalAlignment="Center" Margin="2,0,0,0" />
-                                </StackPanel>
-                            </Button>
-
-                            <!-- The segment's outline, over it; it takes no hits (the segment under it is the target) -->
-                            <Border x:Name="LayoutSegmentsOutline"
-                                    BorderBrush="{DynamicResource Brush.Border.Control}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    IsHitTestVisible="False" />
-                        </Grid>
-
-                        <!-- Copy layout: a ghost button of its own, outside the segments; its full label always shows (no trimming) -->
+                        <!-- Copy layout: the same ghost style as More layouts, Size.Space.Action to its right; its full label always shows (no trimming) -->
                         <Button x:Name="CopyLayoutHandle"
                                 Grid.Column="1"
-                                Style="{StaticResource Style.Button.CopyLayout}"
-                                Margin="12,0,6,0"
-                                VerticalAlignment="Center"
+                                Style="{StaticResource Style.Button.ActionBar.Copy}"
+                                Margin="{StaticResource Size.Space.Action.Before}"
                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
                                 AutomationProperties.HelpText="{Binding CopyFromBlockedText, Mode=OneWay}"
                                 ToolTip="{Binding CopyHandleToolTip, Mode=OneWay}"
@@ -197,11 +189,13 @@
                                 PreviewMouseLeftButtonDown="CopyHandle_PreviewMouseLeftButtonDown"
                                 PreviewMouseMove="CopyHandle_PreviewMouseMove"
                                 PreviewMouseLeftButtonUp="CopyHandle_PreviewMouseLeftButtonUp">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Path x:Name="CopyIcon"
-                                      Data="{StaticResource Icon.Copy}"
-                                      Style="{StaticResource Style.Icon.Button.Stroke}" />
-                                <TextBlock Text="Copy layout" VerticalAlignment="Center" FontWeight="SemiBold" Margin="6,0,0,0" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <controls:MaterialIcon x:Name="CopyIcon"
+                                                       Kind="content_copy"
+                                                       Width="{StaticResource Size.Icon.Layout}"
+                                                       Height="{StaticResource Size.Icon.Layout}"
+                                                       VerticalAlignment="Center" />
+                                <TextBlock Text="Copy layout" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
                             </StackPanel>
                         </Button>
 
@@ -212,7 +206,7 @@
                         <Button x:Name="DraftChip"
                                 Grid.Column="2"
                                 Style="{StaticResource Style.Button.Chip.Staged}"
-                                Margin="0,0,6,0"
+                                Margin="{StaticResource Size.Space.Action.Before}"
                                 VerticalAlignment="Center"
                                 MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="10,4"
@@ -236,12 +230,13 @@
                                 MinWidth="{StaticResource Size.Touch.Min}"
                                 MinHeight="{StaticResource Size.Touch.Min}"
                                 Padding="0"
+                                Foreground="{DynamicResource Brush.Text.Primary}"
                                 Command="{Binding UnrouteCommand, Mode=OneWay}"
                                 ToolTip="Turn off display feed / Unroute video"
                                 FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
                                 Visibility="{Binding IsRouted, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                            <Path Data="{StaticResource Icon.Power}" Style="{StaticResource Style.Icon.Power}" />
+                            <controls:MaterialIcon Kind="power_settings_new" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Button>
                     </Grid>
                 </Border>

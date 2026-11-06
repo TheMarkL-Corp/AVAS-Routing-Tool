@@ -15,7 +15,7 @@ namespace AvasRoutingTool.Tests
     public partial class ViewSmokeTests
     {
         /// <summary>The card widths the action bar is checked at: a wide card and the narrowest card (Size.Card.Min).</summary>
-        private static double[] ActionBarWidths() => new[] { 613.0, Token("Size.Card.Min") };
+        private static double[] ActionBarWidths() => new[] { 613.0, 400.0 };
 
         /// <summary>Two action-bar parts lie side by side or one above the other (touching is not overlapping).</summary>
         private static bool ActionBarSeparated(Rect a, Rect b) =>
@@ -35,7 +35,7 @@ namespace AvasRoutingTool.Tests
             foreach (var part in parts)
             {
                 AssertInside(part, dock);
-                foreach (var label in FindAll<TextBlock>(part)) AssertTextFits(label);
+                foreach (var label in FindAll<TextBlock>(part).Where(t => t.IsVisible)) AssertTextFits(label); // a collapsed label (More layouts, while a draft shows) takes no room
             }
             for (int i = 0; i < parts.Count; i++)
                 for (int j = i + 1; j < parts.Count; j++)
@@ -83,9 +83,9 @@ namespace AvasRoutingTool.Tests
                             Assert.True(button.ActualWidth >= Token("Size.Touch.Min") && button.ActualHeight >= Token("Size.Touch.Min"),
                                 $"{button.Name} is {button.ActualWidth:F1}x{button.ActualHeight:F1} {at}");
                         }
-                        // Layout is the dropdown's own size (Size.Layout.Button, A14), not just the touch floor.
-                        Assert.True(layout.ActualWidth == Token("Size.Layout.Button.Width") && layout.ActualHeight == Token("Size.Layout.Button.Height"),
-                            $"Layout is {layout.ActualWidth:F1}x{layout.ActualHeight:F1} {at}");
+                        // Layout and Copy layout are the same ghost action-bar height (Size.Touch.Min).
+                        Assert.True(layout.ActualHeight == Token("Size.Touch.Min") && copy.ActualHeight == Token("Size.Touch.Min"),
+                            $"Layout is {layout.ActualHeight:F1} and Copy layout {copy.ActualHeight:F1} high {at}");
                         Assert.True(layout.Focusable && layout.IsTabStop, $"Layout is not a tab stop {at}");
                         Assert.True(copy.Focusable && copy.IsTabStop, $"Copy layout is not a tab stop {at}");
 
@@ -107,7 +107,7 @@ namespace AvasRoutingTool.Tests
                             Assert.True(BoundsIn(button, dock).Left >= layoutBox.Left - 0.5, $"{button.Name} lies left of Layout {at}");
 
                         // Spoken names: the Layout dropdown names its device; Copy layout has a name of its own.
-                        Assert.Equal("Layout for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
+                        Assert.Equal("More layouts for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
                         Assert.False(string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(copy)), $"Copy layout has no spoken name {at}");
                     });
                 }
