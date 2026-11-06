@@ -218,10 +218,11 @@ namespace AvasRoutingTool.Tests
                             Assert.Equal(new Thickness(2), ring.BorderThickness);
                             Assert.Equal(new Thickness(0), ((Border)banner).BorderThickness);
 
+                            // The Stop is an outlined action-bar button in the banner's text colour (no longer a cyan fill like the ring).
                             var stop = (Button)Named(view, "StopPlacingButton").Single();
-                            var stopColour = ((System.Windows.Media.SolidColorBrush)stop.Background).Color;
+                            Assert.Equal(((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.OnCopyTarget")).Color,
+                                ((System.Windows.Media.SolidColorBrush)stop.BorderBrush).Color);
                             var ringColour = ((System.Windows.Media.SolidColorBrush)ring.BorderBrush).Color;
-                            Assert.Equal(stopColour, ringColour);
                             Assert.Equal(((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color, ringColour);
                             ringColours[mode] = ringColour;
                         });

@@ -169,13 +169,17 @@
                             </StackPanel>
                             <Button Grid.Column="1"
                                     x:Name="StopPlacingButton"
-                                    Style="{StaticResource Style.Button.Composer}"
-                                    Background="{DynamicResource Brush.Border.DropTarget}"
-                                    BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-                                    Foreground="{DynamicResource Brush.Text.OnDropTarget}"
-                                    Content="Stop"
-                                    Margin="12,0,0,0"
-                                    Click="StopPlacing_Click" />
+                                    Style="{StaticResource Style.Button.ActionBar.OnBanner}"
+                                    Margin="{StaticResource Size.Space.Action.Before}"
+                                    Click="StopPlacing_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <controls:MaterialIcon Kind="stop"
+                                                           Width="{StaticResource Size.Icon.Layout}"
+                                                           Height="{StaticResource Size.Icon.Layout}"
+                                                           VerticalAlignment="Center" />
+                                    <TextBlock Text="Stop" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                                </StackPanel>
+                            </Button>
                         </Grid>
                     </Grid>
                 </Border>

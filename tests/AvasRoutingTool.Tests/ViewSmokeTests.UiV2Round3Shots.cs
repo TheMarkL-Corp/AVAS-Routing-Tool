@@ -27,9 +27,10 @@ namespace AvasRoutingTool.Tests
                 var themeService = new ThemeService();
                 try
                 {
-                    void Shot(string name, double w, double h, int displays, bool arm, bool scrollToEnd, bool actionBar = false, ThemeMode theme = ThemeMode.Dark, bool draft = false)
+                    void Shot(string name, double w, double h, int displays, bool arm, bool scrollToEnd, bool actionBar = false, ThemeMode theme = ThemeMode.Dark, bool draft = false, bool stream = false)
                     {
                         var (_, vm) = FullHdOverview(3, displays);
+                        if (stream) vm.Sources[0].IsStreaming = true;
                         if (actionBar)
                         {
                             // RX1: routed to TX1 (single view); RX2: a MATRIX 2X2 layout; optionally RX3 carries a draft.
@@ -62,6 +63,9 @@ namespace AvasRoutingTool.Tests
                     Shot("after-actionbar-1024.png", 1024, 720, 4, arm: false, scrollToEnd: false, actionBar: true);
                     Shot("after-actionbar-light-1920.png", 1920, 1080, 4, arm: false, scrollToEnd: false, actionBar: true, theme: ThemeMode.Light);
                     Shot("after-actionbar-draft-1920.png", 1920, 1080, 4, arm: false, scrollToEnd: false, actionBar: true, draft: true);
+                    // The draft chip, the banner Stop (a TX source armed) and the source card Stop (streaming), on the button standard.
+                    Shot("after-buttons-draft-stop-1920.png", 1920, 1080, 4, arm: true, scrollToEnd: false, actionBar: true, draft: true, stream: true);
+                    Shot("after-buttons-draft-stop-light-1920.png", 1920, 1080, 4, arm: true, scrollToEnd: false, actionBar: true, theme: ThemeMode.Light, draft: true, stream: true);
                 }
                 finally { themeService.SetTheme(ThemeMode.Dark); }
             });

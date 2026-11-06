@@ -184,7 +184,8 @@
                     <Grid x:Name="Root" Background="Transparent">
                         <Border x:Name="bd"
                                 Background="{TemplateBinding Background}"
-                                BorderThickness="0"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
@@ -215,6 +216,27 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!--
+        Action bar button on the arm banner (the Stop beside "Placing ..." / "Copying ..."): the action bar button with a 2 px outline in the
+        banner's text colour, because the banner is a solid colour. Hover and press fill it with the drop-target colour and the text turns to its paired colour, so the
+        label keeps its contrast; the neutral row hover of the base style would wash white text out.
+    -->
+    <Style x:Key="Style.Button.ActionBar.OnBanner" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnCopyTarget}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Text.OnCopyTarget}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!--
@@ -438,6 +460,7 @@
     -->
     <Style x:Key="Style.Button.Chip.Staged" TargetType="Button">
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="4" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -447,7 +470,7 @@
                                    Stroke="{DynamicResource Brush.Status.Staged}"
                                    StrokeThickness="1"
                                    RadiusX="8" RadiusY="8" />
-                        <ContentPresenter Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">

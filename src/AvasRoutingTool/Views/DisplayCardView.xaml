@@ -210,14 +210,14 @@
                                 Margin="{StaticResource Size.Space.Action.Before}"
                                 VerticalAlignment="Center"
                                 MinHeight="{StaticResource Size.Touch.Min}"
-                                Padding="10,4"
+                                Padding="{StaticResource Size.Action.Padding}"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
                                 ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
                                 Visibility="{Binding HasDraft, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
                                 Click="DraftChip_Click">
                             <TextBlock Text="DRAFT &#183; Resume"
                                        Style="{StaticResource Style.Text.Body}"
-                                       FontWeight="Bold"
+                                       FontWeight="SemiBold"
                                        TextWrapping="Wrap"
                                        TextAlignment="Center"
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />

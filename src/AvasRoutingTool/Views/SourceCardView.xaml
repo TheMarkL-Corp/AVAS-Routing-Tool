@@ -231,13 +231,14 @@
                                 Style="{StaticResource Style.Button.Ghost}"
                                 ToolTip="Stop Preview Stream"
                                 MinHeight="{StaticResource Size.Touch.Compact}"
-                                Padding="10,4"
-                                Margin="8,0,0,0"
+                                Padding="{StaticResource Size.Action.Padding}"
+                                Margin="{StaticResource Size.Space.Action.Before}"
+                                FontWeight="SemiBold"
                                 IsTabStop="True"
                                 Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <StackPanel Orientation="Horizontal">
                                 <controls:MaterialIcon Kind="stop" Style="{StaticResource Style.Icon.Action}" />
-                                <TextBlock Text="Stop" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Stop" Margin="{StaticResource Size.Space.Action.Before}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="StartStreamButton"
@@ -245,13 +246,14 @@
                                 Style="{StaticResource Style.Button.Secondary}"
                                 ToolTip="Start Preview Stream"
                                 MinHeight="{StaticResource Size.Touch.Compact}"
-                                Padding="10,4"
-                                Margin="8,0,0,0"
+                                Padding="{StaticResource Size.Action.Padding}"
+                                Margin="{StaticResource Size.Space.Action.Before}"
+                                FontWeight="SemiBold"
                                 IsTabStop="True"
                                 Visibility="{Binding ShowStart, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <StackPanel Orientation="Horizontal">
                                 <controls:MaterialIcon Kind="play_arrow" Style="{StaticResource Style.Icon.Action}" />
-                                <TextBlock Text="Start" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Start" Margin="{StaticResource Size.Space.Action.Before}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
