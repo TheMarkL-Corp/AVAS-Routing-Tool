@@ -1,0 +1,162 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\tests\\AvasRoutingTool.Tests\\AvasRoutingTool.Tests.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\src\\AvasRoutingTool\\AvasRoutingTool.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\src\\AvasRoutingTool\\AvasRoutingTool.csproj",
+        "projectName": "AvasRoutingTool",
+        "projectPath": "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\src\\AvasRoutingTool\\AvasRoutingTool.csproj",
+        "packagesPath": "C:\\Users\\POC-615\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\src\\AvasRoutingTool\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\POC-615\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0-windows"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
+          "dependencies": {
+            "Microsoft.Web.WebView2": {
+              "target": "Package",
+              "version": "[1.0.4314.35, )"
+            },
+            "WPF-UI": {
+              "target": "Package",
+              "version": "[4.3.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WPF": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.425/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\tests\\AvasRoutingTool.Tests\\AvasRoutingTool.Tests.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\tests\\AvasRoutingTool.Tests\\AvasRoutingTool.Tests.csproj",
+        "projectName": "AvasRoutingTool.Tests",
+        "projectPath": "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\tests\\AvasRoutingTool.Tests\\AvasRoutingTool.Tests.csproj",
+        "packagesPath": "C:\\Users\\POC-615\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\tests\\AvasRoutingTool.Tests\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\POC-615\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0-windows"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0-windows7.0": {
+            "targetAlias": "net8.0-windows",
+            "projectReferences": {
+              "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\src\\AvasRoutingTool\\AvasRoutingTool.csproj": {
+                "projectPath": "C:\\Users\\POC-615\\Documents\\GitHub\\AVAS-Routing-Tool\\.claude\\worktrees\\ui-round3-6710d5\\src\\AvasRoutingTool\\AvasRoutingTool.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
+          "dependencies": {
+            "Microsoft.NET.Test.Sdk": {
+              "target": "Package",
+              "version": "[17.8.0, )"
+            },
+            "coverlet.collector": {
+              "target": "Package",
+              "version": "[6.0.0, )"
+            },
+            "xunit": {
+              "target": "Package",
+              "version": "[2.5.3, )"
+            },
+            "xunit.runner.visualstudio": {
+              "target": "Package",
+              "version": "[2.5.3, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WPF": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.425/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

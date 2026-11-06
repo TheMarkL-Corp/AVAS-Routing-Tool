@@ -1,0 +1,862 @@
+# Review package: c5c2e63..3cbfe49
+
+## Commits
+3cbfe49 fix(icons): verified contact sheet and icon fill rules
+1519318 feat(icons): Material Symbols Rounded geometry set and MaterialIcon control
+
+## Files changed
+ THIRD-PARTY-NOTICES.md                             |  17 ++
+ src/AvasRoutingTool/App.xaml                       |   1 +
+ src/AvasRoutingTool/Controls/MaterialIcon.cs       | 105 ++++++++
+ src/AvasRoutingTool/Resources/MaterialIcons.xaml   |  31 +++
+ tests/AvasRoutingTool.Tests/MaterialIconTests.cs   | 276 +++++++++++++++++++++
+ tests/AvasRoutingTool.Tests/TestResources.cs       |   1 +
+ tools/icons/SvgPathConverter.ps1                   |  77 ++++++
+ tools/icons/import-material-icons.ps1              |  52 ++++
+ tools/icons/svg/check.svg                          |   1 +
+ tools/icons/svg/chevron_left.svg                   |   1 +
+ tools/icons/svg/chevron_right.svg                  |   1 +
+ tools/icons/svg/cleaning_services.svg              |   1 +
+ tools/icons/svg/close.svg                          |   1 +
+ tools/icons/svg/content_copy.svg                   |   1 +
+ tools/icons/svg/dark_mode.svg                      |   1 +
+ tools/icons/svg/desktop_windows.svg                |   1 +
+ tools/icons/svg/edit.svg                           |   1 +
+ tools/icons/svg/expand_more.svg                    |   1 +
+ tools/icons/svg/folder_open.svg                    |   1 +
+ tools/icons/svg/grid_view.svg                      |   1 +
+ tools/icons/svg/info.svg                           |   1 +
+ tools/icons/svg/light_mode.svg                     |   1 +
+ tools/icons/svg/lock.svg                           |   1 +
+ tools/icons/svg/play_arrow.svg                     |   1 +
+ tools/icons/svg/power_settings_new.svg             |   1 +
+ tools/icons/svg/settings.svg                       |   1 +
+ tools/icons/svg/stop.svg                           |   1 +
+ tools/icons/svg/sync.svg                           |   1 +
+ tools/icons/svg/videocam.svg                       |   1 +
+ tools/icons/svg/warning.svg                        |   1 +
+ .../UI-v2-round3/material-icons-sheet.png          | Bin 0 -> 40357 bytes
+ 31 files changed, 582 insertions(+)
+
+## Diff
+diff --git a/THIRD-PARTY-NOTICES.md b/THIRD-PARTY-NOTICES.md
+new file mode 100644
+index 0000000..06bf3da
+--- /dev/null
++++ b/THIRD-PARTY-NOTICES.md
+@@ -0,0 +1,17 @@
++# Third-party notices
++
++## Material Symbols (Rounded, weight 400, outline)
++
++The icon shapes in `src/AvasRoutingTool/Resources/MaterialIcons.xaml` are generated from Google's Material Symbols
++(Rounded style, weight 400, outline, 24px), imported by `tools/icons/import-material-icons.ps1` from the SVG files in
++`tools/icons/svg/`.
++
++- Source: https://github.com/google/material-design-icons (`symbols/web/<name>/materialsymbolsrounded/<name>_24px.svg`)
++- Copyright Google LLC
++- License: Apache License, Version 2.0, https://www.apache.org/licenses/LICENSE-2.0
++
++Licensed under the Apache License, Version 2.0 (the "License"); you may not use these files except in compliance with
++the License. Unless required by applicable law or agreed to in writing, software distributed under the License is
++distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
++for the specific language governing permissions and limitations under the License. The converted geometry is a derivative
++of those files (coordinates rescaled to a 24 x 24 box).
+diff --git a/src/AvasRoutingTool/App.xaml b/src/AvasRoutingTool/App.xaml
+index 87b8a9d..e3d4446 100644
+--- a/src/AvasRoutingTool/App.xaml
++++ b/src/AvasRoutingTool/App.xaml
+@@ -19,15 +19,16 @@
+                 <ResourceDictionary Source="Resources/Styles/Badges.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/Lists.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/Cards.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/Inputs.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/Overlays.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/SourceCard.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/DisplayCard.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/Composer.xaml" />
+                 <ResourceDictionary Source="Resources/Styles/RoomCameras.xaml" />
+                 <ResourceDictionary Source="Resources/Theme.xaml" />
++                <ResourceDictionary Source="Resources/MaterialIcons.xaml" />
+                 <ResourceDictionary Source="Resources/Icons.xaml" />
+             </ResourceDictionary.MergedDictionaries>
+         </ResourceDictionary>
+     </Application.Resources>
+ </Application>
+diff --git a/src/AvasRoutingTool/Controls/MaterialIcon.cs b/src/AvasRoutingTool/Controls/MaterialIcon.cs
+new file mode 100644
+index 0000000..0ffebdd
+--- /dev/null
++++ b/src/AvasRoutingTool/Controls/MaterialIcon.cs
+@@ -0,0 +1,105 @@
++using System;
++using System.Windows;
++using System.Windows.Automation;
++using System.Windows.Automation.Peers;
++using System.Windows.Controls;
++using System.Windows.Media;
++using System.Windows.Shapes;
++
++namespace AvasRoutingTool.Controls
++{
++    /// <summary>
++    /// A Google Material Symbols Rounded icon (weight 400, outline). <see cref="Kind"/> is the Material name (e.g. <c>play_arrow</c>);
++    /// the shape is the <c>MIcon.&lt;Kind&gt;</c> Geometry in <c>Resources/MaterialIcons.xaml</c>, drawn in a 24 x 24 box and scaled to
++    /// Width x Height (default <c>Size.Icon.M</c>). It is tinted by <see cref="Control.Foreground"/> (inherited, so a button's text colour
++    /// and its disabled dimming apply). An unknown Kind throws <see cref="InvalidOperationException"/> naming the Kind (never a blank icon).
++    /// It is decorative: not hit-testable, not focusable, and not exposed to UI Automation unless <c>AutomationProperties.Name</c> is set.
++    /// </summary>
++    public class MaterialIcon : Control
++    {
++        public const string PathPartName = "PART_Path";
++
++        public static readonly DependencyProperty KindProperty = DependencyProperty.Register(
++            nameof(Kind), typeof(string), typeof(MaterialIcon), new FrameworkPropertyMetadata(string.Empty, OnKindChanged));
++
++        private static readonly ControlTemplate IconTemplate = BuildTemplate();
++
++        static MaterialIcon()
++        {
++            IsHitTestVisibleProperty.OverrideMetadata(typeof(MaterialIcon), new FrameworkPropertyMetadata(false));
++            FocusableProperty.OverrideMetadata(typeof(MaterialIcon), new FrameworkPropertyMetadata(false));
++            IsTabStopProperty.OverrideMetadata(typeof(MaterialIcon), new FrameworkPropertyMetadata(false));
++        }
++
++        public MaterialIcon()
++        {
++            Template = IconTemplate;
++            SetResourceReference(WidthProperty, "Size.Icon.M");
++            SetResourceReference(HeightProperty, "Size.Icon.M");
++        }
++
++        /// <summary>The Material Symbols name, e.g. <c>settings</c>, <c>play_arrow</c>, <c>expand_more</c>.</summary>
++        public string Kind
++        {
++            get => (string)GetValue(KindProperty);
++            set => SetValue(KindProperty, value);
++        }
++
++        private static ControlTemplate BuildTemplate()
++        {
++            var path = new FrameworkElementFactory(typeof(Path));
++            path.Name = PathPartName;
++            path.SetValue(Shape.FillProperty, new TemplateBindingExtension(ForegroundProperty));
++            path.SetValue(Shape.StrokeProperty, null);
++
++            var box = new FrameworkElementFactory(typeof(Canvas));
++            box.SetValue(WidthProperty, 24.0);
++            box.SetValue(HeightProperty, 24.0);
++            box.AppendChild(path);
++
++            var view = new FrameworkElementFactory(typeof(Viewbox));
++            view.SetValue(Viewbox.StretchProperty, Stretch.Uniform);
++            view.AppendChild(box);
++
++            var template = new ControlTemplate(typeof(MaterialIcon)) { VisualTree = view };
++            template.Seal();
++            return template;
++        }
++
++        private static void OnKindChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
++        {
++            var icon = (MaterialIcon)d;
++            if (icon.GetTemplateChild(PathPartName) is Path) icon.ApplyGeometry();
++        }
++
++        public override void OnApplyTemplate()
++        {
++            base.OnApplyTemplate();
++            ApplyGeometry();
++        }
++
++        private void ApplyGeometry()
++        {
++            if (GetTemplateChild(PathPartName) is not Path path) return;
++            var kind = Kind;
++            if (string.IsNullOrWhiteSpace(kind)) { path.Data = null; return; }
++            var key = "MIcon." + kind;
++            path.Data = TryFindResource(key) as Geometry
++                ?? throw new InvalidOperationException($"MaterialIcon Kind '{kind}' has no Geometry resource '{key}'. Add the name to tools/icons/import-material-icons.ps1 and run it.");
++        }
++
++        protected override AutomationPeer OnCreateAutomationPeer() => new MaterialIconAutomationPeer(this);
++
++        private sealed class MaterialIconAutomationPeer : FrameworkElementAutomationPeer
++        {
++            public MaterialIconAutomationPeer(MaterialIcon owner) : base(owner) { }
++
++            private bool IsNamed => !string.IsNullOrEmpty(AutomationProperties.GetName(Owner));
++
++            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Image;
++            protected override string GetClassNameCore() => nameof(MaterialIcon);
++            protected override bool IsControlElementCore() => IsNamed;
++            protected override bool IsContentElementCore() => IsNamed;
++        }
++    }
++}
+diff --git a/src/AvasRoutingTool/Resources/MaterialIcons.xaml b/src/AvasRoutingTool/Resources/MaterialIcons.xaml
+new file mode 100644
+index 0000000..44f4f25
+--- /dev/null
++++ b/src/AvasRoutingTool/Resources/MaterialIcons.xaml
+@@ -0,0 +1,31 @@
++<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
++                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
++
++    <!-- GENERATED by tools/icons/import-material-icons.ps1 - do not edit by hand.
++         Material Symbols Rounded, weight 400, outline, 24px (Apache-2.0, see THIRD-PARTY-NOTICES.md).
++         Geometry is in a 24 x 24 box; MaterialIcon scales it. Fill rule is NonZero (the F1 prefix; WPF defaults to EvenOdd). -->
++
++    <Geometry x:Key="MIcon.settings">F1 M10.825 22q-0.675 0 -1.1625 -0.45T9.075 20.45l-0.225 -1.65q-0.325 -0.125 -0.6125 -0.3T7.675 18.125l-1.55 0.65q-0.625 0.275 -1.25 0.05t-0.975 -0.8l-1.175 -2.05q-0.35 -0.575 -0.2 -1.225t0.675 -1.075l1.325 -1q-0.025 -0.175 -0.025 -0.3375v-0.675q0 -0.1625 0.025 -0.3375l-1.325 -1q-0.525 -0.425 -0.675 -1.075t0.2 -1.225l1.175 -2.05q0.35 -0.575 0.975 -0.8t1.25 0.05l1.55 0.65q0.275 -0.2 0.575 -0.375t0.6 -0.3l0.225 -1.65q0.1 -0.65 0.5875 -1.1t1.1625 -0.45h2.35q0.675 0 1.1625 0.45t0.5875 1.1l0.225 1.65q0.325 0.125 0.6125 0.3t0.5625 0.375l1.55 -0.65q0.625 -0.275 1.25 -0.05t0.975 0.8l1.175 2.05q0.35 0.575 0.2 1.225t-0.675 1.075l-1.325 1q0.025 0.175 0.025 0.3375v0.675q0 0.1625 -0.05 0.3375l1.325 1q0.525 0.425 0.675 1.075t-0.2 1.225l-1.2 2.05q-0.35 0.575 -0.975 0.8t-1.25 -0.05l-1.5 -0.65q-0.275 0.2 -0.575 0.375t-0.6 0.3l-0.225 1.65q-0.1 0.65 -0.5875 1.1T13.175 22h-2.35Zm0.175 -2h1.975l0.35 -2.65q0.775 -0.2 1.4375 -0.5875T15.975 15.825l2.475 1.025 l0.975 -1.7 l-2.15 -1.625q0.125 -0.35 0.175 -0.7375t0.05 -0.7875q0 -0.4 -0.05 -0.7875t-0.175 -0.7375l2.15 -1.625 l-0.975 -1.7 l-2.475 1.05q-0.55 -0.575 -1.2125 -0.9625T13.325 6.65l-0.325 -2.65h-1.975l-0.35 2.65q-0.775 0.2 -1.4375 0.5875T8.025 8.175l-2.475 -1.025 l-0.975 1.7 l2.15 1.6q-0.125 0.375 -0.175 0.75t-0.05 0.8q0 0.4 0.05 0.775t0.175 0.75l-2.15 1.625 l0.975 1.7 l2.475 -1.05q0.55 0.575 1.2125 0.9625T10.675 17.35l0.325 2.65Zm1.05 -4.5q1.45 0 2.475 -1.025t1.025 -2.475q0 -1.45 -1.025 -2.475t-2.475 -1.025q-1.475 0 -2.4875 1.025T8.55 12q0 1.45 1.0125 2.475t2.4875 1.025Zm-0.05 -3.5Z</Geometry>
++    <Geometry x:Key="MIcon.sync">F1 M6 12.05q0 1.125 0.425 2.1875t1.325 1.9625l0.25 0.25v-1.45q0 -0.425 0.2875 -0.7125T9 14q0.425 0 0.7125 0.2875T10 15v4q0 0.425 -0.2875 0.7125T9 20H5q-0.425 0 -0.7125 -0.2875T4 19q0 -0.425 0.2875 -0.7125T5 18h1.75l-0.4 -0.35q-1.3 -1.15 -1.825 -2.625t-0.525 -2.975q0 -2.35 1.2 -4.2625T8.425 4.85q0.35 -0.2 0.7375 -0.025t0.5125 0.575q0.125 0.375 -0.0125 0.75T9.175 6.725q-1.45 0.8 -2.3125 2.2125T6 12.05Zm12 -0.1q0 -1.125 -0.425 -2.1875T16.25 7.8l-0.25 -0.25v1.45q0 0.425 -0.2875 0.7125T15 10q-0.425 0 -0.7125 -0.2875T14 9v-4q0 -0.425 0.2875 -0.7125T15 4h4q0.425 0 0.7125 0.2875T20 5q0 0.425 -0.2875 0.7125T19 6h-1.75l0.4 0.35q1.225 1.225 1.7875 2.6625T20 11.95q0 2.35 -1.2 4.2625T15.575 19.15q-0.35 0.2 -0.7375 0.025T14.325 18.6q-0.125 -0.375 0.0125 -0.75t0.4875 -0.575q1.45 -0.8 2.3125 -2.2125T18 11.95Z</Geometry>
++    <Geometry x:Key="MIcon.light_mode">F1 M12 15q1.25 0 2.125 -0.875t0.875 -2.125q0 -1.25 -0.875 -2.125t-2.125 -0.875q-1.25 0 -2.125 0.875t-0.875 2.125q0 1.25 0.875 2.125t2.125 0.875Zm0 2q-2.075 0 -3.5375 -1.4625T7 12q0 -2.075 1.4625 -3.5375T12 7q2.075 0 3.5375 1.4625T17 12q0 2.075 -1.4625 3.5375T12 17ZM2 13q-0.425 0 -0.7125 -0.2875T1 12q0 -0.425 0.2875 -0.7125T2 11h2q0.425 0 0.7125 0.2875T5 12q0 0.425 -0.2875 0.7125T4 13H2Zm18 0q-0.425 0 -0.7125 -0.2875T19 12q0 -0.425 0.2875 -0.7125T20 11h2q0.425 0 0.7125 0.2875T23 12q0 0.425 -0.2875 0.7125T22 13h-2ZM12 5q-0.425 0 -0.7125 -0.2875T11 4v-2q0 -0.425 0.2875 -0.7125T12 1q0.425 0 0.7125 0.2875T13 2v2q0 0.425 -0.2875 0.7125T12 5Zm0 18q-0.425 0 -0.7125 -0.2875T11 22v-2q0 -0.425 0.2875 -0.7125T12 19q0.425 0 0.7125 0.2875T13 20v2q0 0.425 -0.2875 0.7125T12 23ZM5.65 7.05l-1.075 -1.05q-0.3 -0.275 -0.2875 -0.7t0.2875 -0.725q0.3 -0.3 0.725 -0.3t0.7 0.3l1.05 1.075q0.275 0.3 0.275 0.7t-0.275 0.7q-0.275 0.3 -0.6875 0.2875T5.65 7.05Zm12.35 12.375 l-1.05 -1.075q-0.275 -0.3 -0.275 -0.7125t0.275 -0.6875q0.275 -0.3 0.6875 -0.2875T18.35 16.95l1.075 1.05q0.3 0.275 0.2875 0.7T19.425 19.425q-0.3 0.3 -0.725 0.3t-0.7 -0.3Zm-1.05 -12.375q-0.3 -0.275 -0.2875 -0.6875T16.95 5.65l1.05 -1.075q0.275 -0.3 0.7 -0.2875t0.725 0.2875q0.3 0.3 0.3 0.725t-0.3 0.7l-1.075 1.05q-0.3 0.275 -0.7 0.275t-0.7 -0.275ZM4.575 19.425q-0.3 -0.3 -0.3 -0.725t0.3 -0.7l1.075 -1.05q0.3 -0.275 0.7125 -0.275t0.6875 0.275q0.3 0.275 0.2875 0.6875T7.05 18.35l-1.05 1.075q-0.275 0.3 -0.7 0.2875T4.575 19.425Zm7.425 -7.425Z</Geometry>
++    <Geometry x:Key="MIcon.dark_mode">F1 M12 21q-3.775 0 -6.3875 -2.6125T3 12q0 -3.45 2.25 -5.9875T11 3.05q0.325 -0.05 0.575 0.0875t0.4 0.3625q0.15 0.225 0.1625 0.525t-0.1875 0.575q-0.425 0.65 -0.6375 1.375t-0.2125 1.525q0 2.25 1.575 3.825t3.825 1.575q0.775 0 1.5375 -0.225t1.3625 -0.625q0.275 -0.175 0.5625 -0.1625T20.475 12.025q0.25 0.125 0.3875 0.375t0.0875 0.6q-0.35 3.45 -2.9375 5.725T12 21Zm0 -2q2.2 0 3.95 -1.2125T18.5 14.625q-0.5 0.125 -1 0.2t-1 0.075q-3.075 0 -5.2375 -2.1625T9.1 7.5q0 -0.5 0.075 -1t0.2 -1q-1.95 0.8 -3.1625 2.55T5 12q0 2.9 2.05 4.95t4.95 2.05Zm-0.25 -6.75Z</Geometry>
++    <Geometry x:Key="MIcon.cleaning_services">F1 M5 23q-0.825 0 -1.4125 -0.5875T3 21v-5q0 -2.075 1.4625 -3.5375T8 11h1v-8q0 -0.825 0.5875 -1.4125T11 1h2q0.825 0 1.4125 0.5875T15 3v8h1q2.075 0 3.5375 1.4625T21 16v5q0 0.825 -0.5875 1.4125T19 23H5Zm0 -2h2v-3q0 -0.425 0.2875 -0.7125T8 17q0.425 0 0.7125 0.2875T9 18v3h2v-3q0 -0.425 0.2875 -0.7125T12 17q0.425 0 0.7125 0.2875T13 18v3h2v-3q0 -0.425 0.2875 -0.7125T16 17q0.425 0 0.7125 0.2875T17 18v3h2v-5q0 -1.25 -0.875 -2.125t-2.125 -0.875H8q-1.25 0 -2.125 0.875t-0.875 2.125v5Zm8 -10v-8h-2v8h2Zm0 0h-2 h2Z</Geometry>
++    <Geometry x:Key="MIcon.folder_open">F1 M4 20q-0.825 0 -1.4125 -0.5875T2 18v-12q0 -0.825 0.5875 -1.4125T4 4h5.175q0.4 0 0.7625 0.15t0.6375 0.425l1.425 1.425h9q0.425 0 0.7125 0.2875T22 7q0 0.425 -0.2875 0.7125T21 8H11.175l-2 -2H4v12l1.975 -6.575q0.2 -0.65 0.7375 -1.0375T7.9 10h12.9q1.025 0 1.6125 0.8125T22.725 12.575l-1.8 6q-0.2 0.65 -0.7375 1.0375T19 20H4Zm2.1 -2h12.9l1.8 -6H7.9l-1.8 6Zm-2.1 -6.55v-5.45 v5.45Zm2.1 6.55 l1.8 -6 l-1.8 6Z</Geometry>
++    <Geometry x:Key="MIcon.edit">F1 M5 19h1.425l9.775 -9.775 l-1.425 -1.425 l-9.775 9.775v1.425Zm-1 2q-0.425 0 -0.7125 -0.2875T3 20v-2.425q0 -0.4 0.15 -0.7625t0.425 -0.6375l12.625 -12.6q0.3 -0.275 0.6625 -0.425t0.7625 -0.15q0.4 0 0.775 0.15t0.65 0.45l1.375 1.4q0.3 0.275 0.4375 0.65t0.1375 0.75q0 0.4 -0.1375 0.7625T20.425 7.825L7.825 20.425q-0.275 0.275 -0.6375 0.425t-0.7625 0.15h-2.425Zm15 -14.6 l-1.4 -1.4 l1.4 1.4Zm-3.525 2.125 l-0.7 -0.725 l1.425 1.425 l-0.725 -0.7Z</Geometry>
++    <Geometry x:Key="MIcon.info">F1 M12 17q0.425 0 0.7125 -0.2875T13 16v-4q0 -0.425 -0.2875 -0.7125T12 11q-0.425 0 -0.7125 0.2875T11 12v4q0 0.425 0.2875 0.7125T12 17Zm0 -8q0.425 0 0.7125 -0.2875T13 8q0 -0.425 -0.2875 -0.7125T12 7q-0.425 0 -0.7125 0.2875T11 8q0 0.425 0.2875 0.7125T12 9Zm0 13q-2.075 0 -3.9 -0.7875T4.925 19.075q-1.35 -1.35 -2.1375 -3.175T2 12q0 -2.075 0.7875 -3.9T4.925 4.925q1.35 -1.35 3.175 -2.1375T12 2q2.075 0 3.9 0.7875T19.075 4.925q1.35 1.35 2.1375 3.175T22 12q0 2.075 -0.7875 3.9T19.075 19.075q-1.35 1.35 -3.175 2.1375T12 22Zm0 -2q3.35 0 5.675 -2.325t2.325 -5.675q0 -3.35 -2.325 -5.675t-5.675 -2.325q-3.35 0 -5.675 2.325t-2.325 5.675q0 3.35 2.325 5.675t5.675 2.325Zm0 -8Z</Geometry>
++    <Geometry x:Key="MIcon.play_arrow">F1 M8 17.175v-10.35q0 -0.425 0.3 -0.7125t0.7 -0.2875q0.125 0 0.2625 0.0375T9.525 5.975l8.15 5.175q0.225 0.15 0.3375 0.375t0.1125 0.475q0 0.25 -0.1125 0.475T17.675 12.85L9.525 18.025q-0.125 0.075 -0.2625 0.1125T9 18.175q-0.4 0 -0.7 -0.2875T8 17.175Zm2 -5.175Zm0 3.35 l5.25 -3.35 l-5.25 -3.35v6.7Z</Geometry>
++    <Geometry x:Key="MIcon.stop">F1 M6 16v-8q0 -0.825 0.5875 -1.4125T8 6h8q0.825 0 1.4125 0.5875T18 8v8q0 0.825 -0.5875 1.4125T16 18H8q-0.825 0 -1.4125 -0.5875T6 16Zm2 0h8v-8H8v8Zm4 -4Z</Geometry>
++    <Geometry x:Key="MIcon.check">F1 M9.55 15.15 l8.475 -8.475q0.3 -0.3 0.7 -0.3t0.7 0.3q0.3 0.3 0.3 0.7125T19.425 8.1L10.25 17.3q-0.3 0.3 -0.7 0.3t-0.7 -0.3L4.55 13q-0.3 -0.3 -0.2875 -0.7125T4.575 11.575q0.3 -0.3 0.7125 -0.3t0.7125 0.3l3.55 3.575Z</Geometry>
++    <Geometry x:Key="MIcon.lock">F1 M6 22q-0.825 0 -1.4125 -0.5875T4 20v-10q0 -0.825 0.5875 -1.4125T6 8h1v-2q0 -2.075 1.4625 -3.5375T12 1q2.075 0 3.5375 1.4625T17 6v2h1q0.825 0 1.4125 0.5875T20 10v10q0 0.825 -0.5875 1.4125T18 22H6Zm0 -2h12v-10H6v10Zm6 -3q0.825 0 1.4125 -0.5875T14 15q0 -0.825 -0.5875 -1.4125T12 13q-0.825 0 -1.4125 0.5875T10 15q0 0.825 0.5875 1.4125T12 17ZM9 8h6v-2q0 -1.25 -0.875 -2.125t-2.125 -0.875q-1.25 0 -2.125 0.875t-0.875 2.125v2ZM6 20v-10 v10Z</Geometry>
++    <Geometry x:Key="MIcon.expand_more">F1 M12 14.95q-0.2 0 -0.375 -0.0625t-0.325 -0.2125L6.7 10.075q-0.275 -0.275 -0.275 -0.7t0.275 -0.7q0.275 -0.275 0.7 -0.275t0.7 0.275l3.9 3.9 l3.9 -3.9q0.275 -0.275 0.7 -0.275t0.7 0.275q0.275 0.275 0.275 0.7t-0.275 0.7L12.7 14.675q-0.15 0.15 -0.325 0.2125t-0.375 0.0625Z</Geometry>
++    <Geometry x:Key="MIcon.content_copy">F1 M9 18q-0.825 0 -1.4125 -0.5875T7 16v-12q0 -0.825 0.5875 -1.4125T9 2h9q0.825 0 1.4125 0.5875T20 4v12q0 0.825 -0.5875 1.4125T18 18H9Zm0 -2h9v-12H9v12ZM5 22q-0.825 0 -1.4125 -0.5875T3 20v-13q0 -0.425 0.2875 -0.7125T4 6q0.425 0 0.7125 0.2875T5 7v13h10q0.425 0 0.7125 0.2875T16 21q0 0.425 -0.2875 0.7125T15 22H5Zm4 -6v-12 v12Z</Geometry>
++    <Geometry x:Key="MIcon.grid_view">F1 M5 11q-0.825 0 -1.4125 -0.5875T3 9v-4q0 -0.825 0.5875 -1.4125T5 3h4q0.825 0 1.4125 0.5875T11 5v4q0 0.825 -0.5875 1.4125T9 11H5Zm0 10q-0.825 0 -1.4125 -0.5875T3 19v-4q0 -0.825 0.5875 -1.4125T5 13h4q0.825 0 1.4125 0.5875T11 15v4q0 0.825 -0.5875 1.4125T9 21H5Zm10 -10q-0.825 0 -1.4125 -0.5875T13 9v-4q0 -0.825 0.5875 -1.4125T15 3h4q0.825 0 1.4125 0.5875T21 5v4q0 0.825 -0.5875 1.4125T19 11H15Zm0 10q-0.825 0 -1.4125 -0.5875T13 19v-4q0 -0.825 0.5875 -1.4125T15 13h4q0.825 0 1.4125 0.5875T21 15v4q0 0.825 -0.5875 1.4125T19 21H15ZM5 9h4v-4H5v4Zm10 0h4v-4H15v4Zm0 10h4v-4H15v4Zm-10 0h4v-4H5v4Zm10 -10Zm0 6Zm-6 0Zm0 -6Z</Geometry>
++    <Geometry x:Key="MIcon.power_settings_new">F1 M11 12v-8q0 -0.425 0.2875 -0.7125T12 3q0.425 0 0.7125 0.2875T13 4v8q0 0.425 -0.2875 0.7125T12 13q-0.425 0 -0.7125 -0.2875T11 12Zm1 9q-1.85 0 -3.4875 -0.7125T5.65 18.35q-1.225 -1.225 -1.9375 -2.8625T3 12q0 -1.725 0.6375 -3.3125T5.425 5.85q0.275 -0.3 0.7 -0.3t0.725 0.3q0.275 0.275 0.25 0.6875T6.8 7.275q-0.85 0.95 -1.325 2.1625T5 12q0 2.9 2.05 4.95t4.95 2.05q2.925 0 4.9625 -2.05T19 12q0 -1.35 -0.475 -2.5875T17.175 7.225q-0.275 -0.3 -0.2875 -0.7t0.2625 -0.675q0.3 -0.3 0.725 -0.3t0.7 0.3q1.175 1.25 1.8 2.8375T21 12q0 1.85 -0.7125 3.4875t-1.925 2.8625q-1.2125 1.225 -2.85 1.9375T12 21Z</Geometry>
++    <Geometry x:Key="MIcon.desktop_windows">F1 M10 19v-2H4q-0.825 0 -1.4125 -0.5875T2 15v-10q0 -0.825 0.5875 -1.4125T4 3h16q0.825 0 1.4125 0.5875T22 5v10q0 0.825 -0.5875 1.4125T20 17H14v2h1q0.425 0 0.7125 0.2875T16 20q0 0.425 -0.2875 0.7125T15 21H9q-0.425 0 -0.7125 -0.2875T8 20q0 -0.425 0.2875 -0.7125T9 19h1ZM4 15h16v-10H4v10Zm0 0v-10 v10Z</Geometry>
++    <Geometry x:Key="MIcon.videocam">F1 M4 20q-0.825 0 -1.4125 -0.5875T2 18v-12q0 -0.825 0.5875 -1.4125T4 4h12q0.825 0 1.4125 0.5875T18 6v4.5l3.15 -3.15q0.25 -0.25 0.55 -0.125t0.3 0.475v8.6q0 0.35 -0.3 0.475t-0.55 -0.125L18 13.5v4.5q0 0.825 -0.5875 1.4125T16 20H4Zm0 -2h12v-12H4v12Zm0 0v-12 v12Z</Geometry>
++    <Geometry x:Key="MIcon.chevron_left">F1 M10.8 12 l3.9 3.9q0.275 0.275 0.275 0.7t-0.275 0.7q-0.275 0.275 -0.7 0.275t-0.7 -0.275L8.7 12.7q-0.15 -0.15 -0.2125 -0.325t-0.0625 -0.375q0 -0.2 0.0625 -0.375t0.2125 -0.325l4.6 -4.6q0.275 -0.275 0.7 -0.275t0.7 0.275q0.275 0.275 0.275 0.7t-0.275 0.7L10.8 12Z</Geometry>
++    <Geometry x:Key="MIcon.chevron_right">F1 M12.6 12 L8.7 8.1q-0.275 -0.275 -0.275 -0.7t0.275 -0.7q0.275 -0.275 0.7 -0.275t0.7 0.275l4.6 4.6q0.15 0.15 0.2125 0.325t0.0625 0.375q0 0.2 -0.0625 0.375t-0.2125 0.325L10.1 17.3q-0.275 0.275 -0.7 0.275t-0.7 -0.275q-0.275 -0.275 -0.275 -0.7t0.275 -0.7l3.9 -3.9Z</Geometry>
++    <Geometry x:Key="MIcon.close">F1 M12 13.4 L7.1 18.3q-0.275 0.275 -0.7 0.275t-0.7 -0.275q-0.275 -0.275 -0.275 -0.7t0.275 -0.7l4.9 -4.9 l-4.9 -4.9q-0.275 -0.275 -0.275 -0.7t0.275 -0.7q0.275 -0.275 0.7 -0.275t0.7 0.275l4.9 4.9 l4.9 -4.9q0.275 -0.275 0.7 -0.275t0.7 0.275q0.275 0.275 0.275 0.7t-0.275 0.7L13.4 12l4.9 4.9q0.275 0.275 0.275 0.7t-0.275 0.7q-0.275 0.275 -0.7 0.275t-0.7 -0.275L12 13.4Z</Geometry>
++    <Geometry x:Key="MIcon.warning">F1 M2.725 21q-0.275 0 -0.5 -0.1375T1.875 20.5q-0.125 -0.225 -0.1375 -0.4875T1.875 19.5l9.25 -16q0.15 -0.25 0.3875 -0.375t0.4875 -0.125q0.25 0 0.4875 0.125t0.3875 0.375l9.25 16q0.15 0.25 0.1375 0.5125T22.125 20.5q-0.125 0.225 -0.35 0.3625t-0.5 0.1375H2.725Zm1.725 -2h15.1L12 6 L4.45 19Zm7.55 -1q0.425 0 0.7125 -0.2875T13 17q0 -0.425 -0.2875 -0.7125T12 16q-0.425 0 -0.7125 0.2875T11 17q0 0.425 0.2875 0.7125T12 18Zm0 -3q0.425 0 0.7125 -0.2875T13 14v-3q0 -0.425 -0.2875 -0.7125T12 10q-0.425 0 -0.7125 0.2875T11 11v3q0 0.425 0.2875 0.7125T12 15Zm0 -2.5Z</Geometry>
++
++</ResourceDictionary>
+diff --git a/tests/AvasRoutingTool.Tests/MaterialIconTests.cs b/tests/AvasRoutingTool.Tests/MaterialIconTests.cs
+new file mode 100644
+index 0000000..9dd06af
+--- /dev/null
++++ b/tests/AvasRoutingTool.Tests/MaterialIconTests.cs
+@@ -0,0 +1,276 @@
++using System;
++using System.Diagnostics;
++using System.Threading;
++using System.Windows;
++using System.Windows.Automation.Peers;
++using System.Windows.Controls;
++using System.Windows.Media;
++using System.Windows.Media.Imaging;
++using System.Windows.Shapes;
++using AvasRoutingTool.Controls;
++using Xunit;
++using IoPath = System.IO.Path;
++using ShapePath = System.Windows.Shapes.Path;
++
++namespace AvasRoutingTool.Tests
++{
++    /// <summary>Material Symbols Rounded geometry set (Resources/MaterialIcons.xaml) and the MaterialIcon control.</summary>
++    [Collection("WpfSta")]
++    public class MaterialIconTests
++    {
++        /// <summary>The icon map of the plan; keep in step with the name list at the top of tools/icons/import-material-icons.ps1.</summary>
++        public static readonly string[] MapNames =
++        {
++            "settings", "sync", "light_mode", "dark_mode", "cleaning_services", "folder_open", "edit", "info", "play_arrow", "stop", "check",
++            "lock", "expand_more", "content_copy", "grid_view", "power_settings_new", "desktop_windows", "videocam", "chevron_left",
++            "chevron_right", "close", "warning",
++        };
++
++        private static void RunSta(Action body)
++        {
++            Exception? failure = null;
++            var t = new Thread(() =>
++            {
++                try { TestResources.Ensure(); body(); }
++                catch (Exception ex) { failure = ex; }
++            });
++            t.SetApartmentState(ApartmentState.STA);
++            t.Start();
++            t.Join();
++            if (failure != null) throw new Xunit.Sdk.XunitException("MaterialIcon failure: " + failure);
++        }
++
++        private static ShapePath PathOf(MaterialIcon icon)
++        {
++            icon.ApplyTemplate();
++            return (ShapePath)icon.Template.FindName(MaterialIcon.PathPartName, icon);
++        }
++
++        private static Window Host(FrameworkElement content)
++        {
++            var window = new Window { Content = content, Width = 300, Height = 300, ShowInTaskbar = false, Left = -10000 };
++            window.Show();
++            window.UpdateLayout();
++            return window;
++        }
++
++        [Fact]
++        public void EveryMapIcon_HasAGeometryInA24Box() => RunSta(() =>
++        {
++            var app = Application.Current;
++            foreach (var name in MapNames)
++            {
++                var geometry = Assert.IsAssignableFrom<Geometry>(app.TryFindResource("MIcon." + name) ?? throw new Xunit.Sdk.XunitException("Missing MIcon." + name));
++                var b = geometry.Bounds;
++                Assert.False(b.IsEmpty || b.Width <= 0 || b.Height <= 0, $"MIcon.{name} is empty");
++                Assert.True(b.Left >= -1 && b.Top >= -1 && b.Right <= 25 && b.Bottom <= 25, $"MIcon.{name} bounds {b} leave the 24 box");
++                Assert.True(b.Width > 6 && b.Height > 6, $"MIcon.{name} bounds {b} look unscaled");
++                var stream = Assert.IsType<StreamGeometry>(geometry);
++                Assert.Equal(FillRule.Nonzero, stream.FillRule);
++            }
++        });
++
++        [Fact]
++        public void MaterialIcon_UnknownKind_ThrowsWithTheKindName() => RunSta(() =>
++        {
++            var icon = new MaterialIcon { Kind = "not_an_icon" };
++            var ex = Assert.Throws<InvalidOperationException>(() => icon.ApplyTemplate());
++            Assert.Contains("not_an_icon", ex.Message);
++        });
++
++        [Fact]
++        public void MaterialIcon_FollowsForeground_InBothThemes() => RunSta(() =>
++        {
++            var app = Application.Current;
++            var darkPalette = app.Resources.MergedDictionaries[2];
++            try
++            {
++                foreach (var theme in new[] { "Dark", "Light" })
++                {
++                    app.Resources.MergedDictionaries[2] = theme == "Dark"
++                        ? darkPalette
++                        : new ResourceDictionary { Source = new Uri("pack://application:,,,/AvasRoutingTool;component/Resources/Themes/Theme.Light.xaml") };
++                    var icon = new MaterialIcon { Kind = "settings" };
++                    icon.SetResourceReference(Control.ForegroundProperty, "Brush.Text.Primary");
++                    var window = Host(icon);
++                    try
++                    {
++                        var expected = ((SolidColorBrush)app.FindResource("Brush.Text.Primary")).Color;
++                        var fill = Assert.IsType<SolidColorBrush>(PathOf(icon).Fill);
++                        Assert.Equal(expected, fill.Color);
++                    }
++                    finally { window.Close(); }
++                }
++            }
++            finally { app.Resources.MergedDictionaries[2] = darkPalette; }
++
++            // Inherited from a parent too (a button's text colour), and not baked into the geometry.
++            var inherited = new MaterialIcon { Kind = "check" };
++            var holder = new ContentControl { Content = inherited, Foreground = Brushes.Red };
++            var w = Host(holder);
++            try { Assert.Equal(Colors.Red, Assert.IsType<SolidColorBrush>(PathOf(inherited).Fill).Color); }
++            finally { w.Close(); }
++        });
++
++        [Fact]
++        public void MaterialIcon_SizeComesFromWidthAndHeight() => RunSta(() =>
++        {
++            var defaultIcon = new MaterialIcon { Kind = "edit" };
++            var panel1 = new StackPanel(); panel1.Children.Add(defaultIcon);
++            var w1 = Host(panel1);
++            try
++            {
++                var m = (double)Application.Current.FindResource("Size.Icon.M");
++                Assert.Equal(m, defaultIcon.ActualWidth);
++                Assert.Equal(m, defaultIcon.ActualHeight);
++            }
++            finally { w1.Close(); }
++
++            var small = new MaterialIcon { Kind = "edit", Width = 16, Height = 16 };
++            var panel = new StackPanel(); panel.Children.Add(small);
++            var w2 = Host(panel);
++            try
++            {
++                Assert.Equal(16, small.ActualWidth);
++                Assert.Equal(16, small.ActualHeight);
++                var bounds = VisualTreeHelper.GetDescendantBounds(small);
++                Assert.True(bounds.Width <= 16.01 && bounds.Height <= 16.01, $"drawn bounds {bounds} exceed 16 x 16");
++            }
++            finally { w2.Close(); }
++        });
++
++        [Fact]
++        public void MaterialIcon_IsDecorative_UntilNamed() => RunSta(() =>
++        {
++            var icon = new MaterialIcon { Kind = "info" };
++            Assert.False(icon.IsHitTestVisible);
++            Assert.False(icon.Focusable);
++            var peer = UIElementAutomationPeer.CreatePeerForElement(icon);
++            Assert.False(peer.IsControlElement());
++            Assert.False(peer.IsContentElement());
++            System.Windows.Automation.AutomationProperties.SetName(icon, "Info");
++            Assert.True(peer.IsControlElement());
++        });
++
++        /// <summary>Holes must stay holes: a wrong fill rule or arc would fill them. Renders and samples the alpha channel.</summary>
++        [Fact]
++        public void RenderedIcons_KeepTheirHoles() => RunSta(() =>
++        {
++            foreach (var (kind, hole, solid) in new[]
++            {
++                ("settings", new Point(12, 8), new Point(12, 3)),       // gear: the empty ring between the centre disc and the gear outline vs the outline
++                ("info", new Point(7, 12), new Point(3, 12)),           // ring interior vs the ring itself
++            })
++            {
++                var icon = new MaterialIcon { Kind = kind, Width = 240, Height = 240, Foreground = Brushes.Black };
++                var host = new Canvas { Width = 240, Height = 240 };
++                host.Children.Add(icon);
++                var window = Host(host);
++                try
++                {
++                    host.UpdateLayout();
++                    var bmp = new RenderTargetBitmap(240, 240, 96, 96, PixelFormats.Pbgra32);
++                    bmp.Render(icon);
++                    byte AlphaAt(Point p)
++                    {
++                        var px = new byte[4];
++                        bmp.CopyPixels(new Int32Rect((int)(p.X * 10), (int)(p.Y * 10), 1, 1), px, 4, 0);
++                        return px[3];
++                    }
++                    Assert.True(AlphaAt(hole) == 0, $"{kind}: the hole at {hole} is filled (alpha {AlphaAt(hole)})");
++                    Assert.True(AlphaAt(solid) > 200, $"{kind}: the body at {solid} is empty (alpha {AlphaAt(solid)})");
++                }
++                finally { window.Close(); }
++            }
++        });
++
++        /// <summary>On demand: set AVAS_UIV2_SHOTS to a folder; renders all icons (48 px, dark and light, named) to material-icons-sheet.png. No-op without it.</summary>
++        [Fact]
++        public void ContactSheet_AllIcons()
++        {
++            var folder = Environment.GetEnvironmentVariable("AVAS_UIV2_SHOTS");
++            if (string.IsNullOrWhiteSpace(folder)) return;
++            System.IO.Directory.CreateDirectory(folder);
++            RunSta(() =>
++            {
++                const int cols = 6;
++                var grid = new Grid { Background = Brushes.Gray };
++                var rows = (MapNames.Length + cols - 1) / cols;
++                for (var c = 0; c < cols; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
++                for (var r = 0; r < rows; r++) grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(110) });
++                for (var i = 0; i < MapNames.Length; i++)
++                {
++                    var name = MapNames[i];
++                    Border Half(Brush bg, Brush fg, bool label)
++                    {
++                        var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
++                        stack.Children.Add(new MaterialIcon { Kind = name, Width = 48, Height = 48, Foreground = fg });
++                        if (label) stack.Children.Add(new TextBlock { Text = name, FontSize = 12, Foreground = fg, HorizontalAlignment = HorizontalAlignment.Center });
++                        else stack.Children.Add(new TextBlock { Text = " ", FontSize = 12 });
++                        return new Border { Background = bg, Child = stack };
++                    }
++                    var tile = new Grid { Margin = new Thickness(2) };
++                    tile.ColumnDefinitions.Add(new ColumnDefinition()); tile.ColumnDefinitions.Add(new ColumnDefinition());
++                    var dark = Half(new SolidColorBrush(Color.FromRgb(0x20, 0x20, 0x24)), Brushes.White, true);
++                    var light = Half(Brushes.White, Brushes.Black, false);
++                    Grid.SetColumn(light, 1);
++                    tile.Children.Add(dark); tile.Children.Add(light);
++                    Grid.SetRow(tile, i / cols); Grid.SetColumn(tile, i % cols);
++                    grid.Children.Add(tile);
++                }
++                var window = new Window { Content = grid, Width = 150 * cols + 40, Height = 110 * rows + 60, ShowInTaskbar = false, Left = -10000 };
++                window.Show();
++                try
++                {
++                    grid.Measure(new Size(150 * cols, 110 * rows)); grid.Arrange(new Rect(0, 0, 150 * cols, 110 * rows)); grid.UpdateLayout();
++                    var bmp = new RenderTargetBitmap(150 * cols, 110 * rows, 96, 96, PixelFormats.Pbgra32);
++                    bmp.Render(grid);
++                    var enc = new PngBitmapEncoder(); enc.Frames.Add(BitmapFrame.Create(bmp));
++                    using var fs = System.IO.File.Create(IoPath.Combine(folder, "material-icons-sheet.png"));
++                    enc.Save(fs);
++                }
++                finally { window.Close(); }
++            });
++        }
++
++        // ---- the PowerShell SVG path converter used by tools/icons/import-material-icons.ps1 ----
++
++        private static string Convert(string d)
++        {
++            var script = IoPath.Combine(RepoRoot(), "tools", "icons", "SvgPathConverter.ps1");
++            var psi = new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -Command \". '{script}'; ConvertTo-Material24Path '{d}'\"")
++            { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
++            using var p = Process.Start(psi)!;
++            var output = p.StandardOutput.ReadToEnd().Trim();
++            var error = p.StandardError.ReadToEnd();
++            p.WaitForExit();
++            if (p.ExitCode != 0 || error.Length > 0) throw new InvalidOperationException(error.Length > 0 ? error : "exit " + p.ExitCode);
++            return output;
++        }
++
++        private static string RepoRoot()
++        {
++            var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
++            while (dir != null && !System.IO.File.Exists(IoPath.Combine(dir.FullName, "AvasRoutingTool.sln"))) dir = dir.Parent;
++            return dir?.FullName ?? throw new InvalidOperationException("repo root not found");
++        }
++
++        [Fact]
++        public void Converter_MapsKnownPathsToTheUnit24Box()
++        {
++            // First 'm' is absolute (translated); relative commands only scale; implicit repeats of m become relative l.
++            Assert.Equal("M9.55 15.15 l8.475 -8.475", Convert("m382-354 339-339"));
++            // Absolute: x / 40, (y + 960) / 40; arc radii and the end point scale, flags and rotation do not.
++            Assert.Equal("M1 1A2 2 0 0 1 3 1H4V3z", Convert("M40-920A80 80 0 0 1 120-920H160V-840z"));
++            // V absolute, h and c relative, compact arc flags.
++            Assert.Equal("M0 0V24h1c0 1 1 1 1 2a1 1 0 0 1 0.025 1", Convert("M0-960V0h40c0 40 40 40 40 80a40 40 0 011 40"));
++        }
++
++        [Fact]
++        public void Converter_FailsLoudlyOnUnknownCommands()
++        {
++            var ex = Assert.Throws<InvalidOperationException>(() => Convert("M0 0X1 1"));
++            Assert.Contains("Unsupported SVG path command", ex.Message);
++        }
++    }
++}
+diff --git a/tests/AvasRoutingTool.Tests/TestResources.cs b/tests/AvasRoutingTool.Tests/TestResources.cs
+index 6182a0b..101b50e 100644
+--- a/tests/AvasRoutingTool.Tests/TestResources.cs
++++ b/tests/AvasRoutingTool.Tests/TestResources.cs
+@@ -32,20 +32,21 @@ namespace AvasRoutingTool.Tests
+             "Resources/Styles/Badges.xaml",
+             "Resources/Styles/Lists.xaml",
+             "Resources/Styles/Cards.xaml",
+             "Resources/Styles/Inputs.xaml",
+             "Resources/Styles/Overlays.xaml",
+             "Resources/Styles/SourceCard.xaml",
+             "Resources/Styles/DisplayCard.xaml",
+             "Resources/Styles/Composer.xaml",
+             "Resources/Styles/RoomCameras.xaml",
+             "Resources/Theme.xaml",
++            "Resources/MaterialIcons.xaml",
+             "Resources/Icons.xaml",
+         };
+ 
+         /// <summary>Idempotent. Returns the Application, creating it on the calling STA thread when none exists.</summary>
+         public static Application Ensure()
+         {
+             lock (Gate)
+             {
+                 var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                 var merged = app.Resources.MergedDictionaries;
+diff --git a/tools/icons/SvgPathConverter.ps1 b/tools/icons/SvgPathConverter.ps1
+new file mode 100644
+index 0000000..e5fe30e
+--- /dev/null
++++ b/tools/icons/SvgPathConverter.ps1
+@@ -0,0 +1,77 @@
++# Converts an SVG path 'd' from the Material Symbols viewBox (0 -960 960 960) to a 24 x 24 box:
++# x' = x / 40, y' = (y + 960) / 40. Relative commands only scale; absolute ones also translate.
++# Supports M m L l H h V v C c S s Q q T t A a Z z. Any other command fails loudly.
++function Format-Num([double]$v) {
++    $r = [math]::Round($v, 4)
++    if ($r -eq 0) { return '0' }
++    return $r.ToString('0.####', [System.Globalization.CultureInfo]::InvariantCulture)
++}
++
++function ConvertTo-Material24Path([string]$d) {
++    $inv = [System.Globalization.CultureInfo]::InvariantCulture
++    $numRe = [regex]'\G[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?'
++    $counts = @{ M=2; L=2; H=1; V=1; C=6; S=4; Q=4; T=2; A=7; Z=0 }
++    $pos = 0; $n = $d.Length
++    $out = New-Object System.Text.StringBuilder
++    $cmd = $null
++    $isFirst = $true; $firstRel = $false
++    function Skip-Sep { while ($script:pos -lt $script:n -and ($script:d[$script:pos] -eq ' ' -or $script:d[$script:pos] -eq ',' -or $script:d[$script:pos] -eq "`t" -or $script:d[$script:pos] -eq "`n" -or $script:d[$script:pos] -eq "`r")) { $script:pos++ } }
++    $script:pos = 0; $script:n = $n; $script:d = $d
++    while ($true) {
++        Skip-Sep
++        if ($script:pos -ge $n) { break }
++        $ch = $d[$script:pos]
++        if ([char]::IsLetter($ch)) {
++            if ('MmLlHhVvCcSsQqTtAaZz'.IndexOf($ch) -lt 0) { throw "Unsupported SVG path command '$ch'" }
++            $cmd = $ch; $script:pos++
++            # The first 'm' of a path is absolute (the current point starts at 0,0 of the viewBox origin), so it must be translated too.
++            $firstRel = $false
++            if ($isFirst -and $cmd -ceq 'm') { $cmd = 'M'; $firstRel = $true }
++            [void]$out.Append($cmd)
++            if ($cmd -eq 'Z' -or $cmd -eq 'z') { $cmd = $null; continue }
++        } elseif ($null -eq $cmd) {
++            throw "Path data has numbers without a command at index $($script:pos)"
++        }
++        $isFirst = $false
++        $up = [char]::ToUpper($cmd); $abs = ($cmd -ceq $up)
++        $cnt = $counts[[string]$up]
++        $nums = @()
++        for ($i = 0; $i -lt $cnt; $i++) {
++            Skip-Sep
++            if ($up -eq 'A' -and ($i -eq 3 -or $i -eq 4)) {
++                $f = $d[$script:pos]
++                if ($f -ne '0' -and $f -ne '1') { throw "Bad arc flag '$f' at index $($script:pos)" }
++                $nums += [double]::Parse([string]$f, $inv); $script:pos++
++            } else {
++                $m = $numRe.Match($d, $script:pos)
++                if (-not $m.Success) { throw "Expected a number at index $($script:pos)" }
++                $nums += [double]::Parse($m.Value, $inv); $script:pos += $m.Length
++            }
++        }
++        $vals = @()
++        for ($i = 0; $i -lt $cnt; $i++) {
++            $v = $nums[$i]
++            switch ($up) {
++                'H' { $v = $v / 40; if ($abs) { } }
++                'V' { $v = if ($abs) { ($v + 960) / 40 } else { $v / 40 } }
++                'A' {
++                    if ($i -le 1) { $v = $v / 40 }
++                    elseif ($i -eq 5) { $v = $v / 40 }
++                    elseif ($i -eq 6) { $v = if ($abs) { ($v + 960) / 40 } else { $v / 40 } }
++                }
++                default {
++                    if ($i % 2 -eq 0) { $v = $v / 40 } else { $v = if ($abs) { ($v + 960) / 40 } else { $v / 40 } }
++                }
++            }
++            $vals += (Format-Num $v)
++        }
++        [void]$out.Append(($vals -join ' '))
++        # implicit repeat: M becomes L, m becomes l
++        if ($cmd -ceq 'M') { $cmd = if ($firstRel) { 'l' } else { 'L' } } elseif ($cmd -ceq 'm') { $cmd = 'l' }
++        Skip-Sep
++        if ($script:pos -lt $n -and -not [char]::IsLetter($d[$script:pos])) { [void]$out.Append(' ') }
++        if ($script:pos -lt $n -and [char]::IsLetter($d[$script:pos])) { continue }
++        if ($script:pos -lt $n) { [void]$out.Append($cmd) }
++    }
++    return $out.ToString()
++}
+diff --git a/tools/icons/import-material-icons.ps1 b/tools/icons/import-material-icons.ps1
+new file mode 100644
+index 0000000..33de1f7
+--- /dev/null
++++ b/tools/icons/import-material-icons.ps1
+@@ -0,0 +1,52 @@
++<#
++ Imports Material Symbols Rounded icons (weight 400, outline, 24px) from Google's open-source repository
++ (https://github.com/google/material-design-icons, Apache-2.0) and regenerates
++ src/AvasRoutingTool/Resources/MaterialIcons.xaml as 24 x 24 Geometry resources keyed MIcon.<name>.
++ Idempotent: SVGs already in tools/icons/svg are not downloaded again (use -Force to refresh).
++ Only raw.githubusercontent.com is contacted. Run from anywhere:  pwsh tools/icons/import-material-icons.ps1
++#>
++param([switch]$Force)
++$ErrorActionPreference = 'Stop'
++
++$Names = @(
++    'settings','sync','light_mode','dark_mode','cleaning_services','folder_open','edit','info','play_arrow','stop','check',
++    'lock','expand_more','content_copy','grid_view','power_settings_new','desktop_windows','videocam','chevron_left',
++    'chevron_right','close','warning'
++)
++
++. (Join-Path $PSScriptRoot 'SvgPathConverter.ps1')
++
++$svgDir = Join-Path $PSScriptRoot 'svg'
++$outFile = Join-Path $PSScriptRoot '..\..\src\AvasRoutingTool\Resources\MaterialIcons.xaml'
++New-Item -ItemType Directory -Force $svgDir | Out-Null
++
++$sb = New-Object System.Text.StringBuilder
++[void]$sb.AppendLine('<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"')
++[void]$sb.AppendLine('                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">')
++[void]$sb.AppendLine('')
++[void]$sb.AppendLine('    <!-- GENERATED by tools/icons/import-material-icons.ps1 - do not edit by hand.')
++[void]$sb.AppendLine('         Material Symbols Rounded, weight 400, outline, 24px (Apache-2.0, see THIRD-PARTY-NOTICES.md).')
++[void]$sb.AppendLine('         Geometry is in a 24 x 24 box; MaterialIcon scales it. Fill rule is NonZero (the F1 prefix; WPF defaults to EvenOdd). -->')
++[void]$sb.AppendLine('')
++
++foreach ($name in $Names) {
++    $file = Join-Path $svgDir "$name.svg"
++    if ($Force -or -not (Test-Path $file)) {
++        $url = "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/$name/materialsymbolsrounded/${name}_24px.svg"
++        Write-Host "Downloading $url"
++        Invoke-WebRequest -Uri $url -OutFile $file -UseBasicParsing
++    }
++    $svg = [xml](Get-Content -Raw -Encoding UTF8 $file)
++    if ($svg.svg.viewBox -ne '0 -960 960 960') { throw "$name.svg: unexpected viewBox '$($svg.svg.viewBox)'" }
++    $paths = @($svg.svg.path)
++    if ($paths.Count -lt 1) { throw "$name.svg: no <path>" }
++    foreach ($p in $paths) { if ($p.'fill-rule' -eq 'evenodd') { throw "$name.svg: evenodd fill rule is not supported by this generator" } }
++    $d = 'F1 ' + (($paths | ForEach-Object { ConvertTo-Material24Path $_.d }) -join ' ')
++    [void]$sb.AppendLine("    <Geometry x:Key=`"MIcon.$name`">$d</Geometry>")
++}
++[void]$sb.AppendLine('')
++[void]$sb.AppendLine('</ResourceDictionary>')
++
++$utf8 = New-Object System.Text.UTF8Encoding($false)
++[System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($outFile), $sb.ToString().Replace("`r`n","`n"), $utf8)
++Write-Host "Wrote $($Names.Count) icons to $outFile"
+diff --git a/tools/icons/svg/check.svg b/tools/icons/svg/check.svg
+new file mode 100644
+index 0000000..f23d34a
+--- /dev/null
++++ b/tools/icons/svg/check.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="m382-354 339-339q12-12 28-12t28 12q12 12 12 28.5T777-636L410-268q-12 12-28 12t-28-12L182-440q-12-12-11.5-28.5T183-497q12-12 28.5-12t28.5 12l142 143Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/chevron_left.svg b/tools/icons/svg/chevron_left.svg
+new file mode 100644
+index 0000000..b8ce756
+--- /dev/null
++++ b/tools/icons/svg/chevron_left.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="m432-480 156 156q11 11 11 28t-11 28q-11 11-28 11t-28-11L348-452q-6-6-8.5-13t-2.5-15q0-8 2.5-15t8.5-13l184-184q11-11 28-11t28 11q11 11 11 28t-11 28L432-480Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/chevron_right.svg b/tools/icons/svg/chevron_right.svg
+new file mode 100644
+index 0000000..a5115ed
+--- /dev/null
++++ b/tools/icons/svg/chevron_right.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M504-480 348-636q-11-11-11-28t11-28q11-11 28-11t28 11l184 184q6 6 8.5 13t2.5 15q0 8-2.5 15t-8.5 13L404-268q-11 11-28 11t-28-11q-11-11-11-28t11-28l156-156Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/cleaning_services.svg b/tools/icons/svg/cleaning_services.svg
+new file mode 100644
+index 0000000..8dfbd2b
+--- /dev/null
++++ b/tools/icons/svg/cleaning_services.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M200-40q-33 0-56.5-23.5T120-120v-200q0-83 58.5-141.5T320-520h40v-320q0-33 23.5-56.5T440-920h80q33 0 56.5 23.5T600-840v320h40q83 0 141.5 58.5T840-320v200q0 33-23.5 56.5T760-40H200Zm0-80h80v-120q0-17 11.5-28.5T320-280q17 0 28.5 11.5T360-240v120h80v-120q0-17 11.5-28.5T480-280q17 0 28.5 11.5T520-240v120h80v-120q0-17 11.5-28.5T640-280q17 0 28.5 11.5T680-240v120h80v-200q0-50-35-85t-85-35H320q-50 0-85 35t-35 85v200Zm320-400v-320h-80v320h80Zm0 0h-80 80Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/close.svg b/tools/icons/svg/close.svg
+new file mode 100644
+index 0000000..3956434
+--- /dev/null
++++ b/tools/icons/svg/close.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M480-424 284-228q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536-480l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480-424Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/content_copy.svg b/tools/icons/svg/content_copy.svg
+new file mode 100644
+index 0000000..f215d43
+--- /dev/null
++++ b/tools/icons/svg/content_copy.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-520q0-17 11.5-28.5T160-720q17 0 28.5 11.5T200-680v520h400q17 0 28.5 11.5T640-120q0 17-11.5 28.5T600-80H200Zm160-240v-480 480Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/dark_mode.svg b/tools/icons/svg/dark_mode.svg
+new file mode 100644
+index 0000000..c05121d
+--- /dev/null
++++ b/tools/icons/svg/dark_mode.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M480-120q-151 0-255.5-104.5T120-480q0-138 90-239.5T440-838q13-2 23 3.5t16 14.5q6 9 6.5 21t-7.5 23q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q11-7 22.5-6.5T819-479q10 5 15.5 15t3.5 24q-14 138-117.5 229T480-120Zm0-80q88 0 158-48.5T740-375q-20 5-40 8t-40 3q-123 0-209.5-86.5T364-660q0-20 3-40t8-40q-78 32-126.5 102T200-480q0 116 82 198t198 82Zm-10-270Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/desktop_windows.svg b/tools/icons/svg/desktop_windows.svg
+new file mode 100644
+index 0000000..da206cd
+--- /dev/null
++++ b/tools/icons/svg/desktop_windows.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M400-200v-80H160q-33 0-56.5-23.5T80-360v-400q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v400q0 33-23.5 56.5T800-280H560v80h40q17 0 28.5 11.5T640-160q0 17-11.5 28.5T600-120H360q-17 0-28.5-11.5T320-160q0-17 11.5-28.5T360-200h40ZM160-360h640v-400H160v400Zm0 0v-400 400Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/edit.svg b/tools/icons/svg/edit.svg
+new file mode 100644
+index 0000000..13835e4
+--- /dev/null
++++ b/tools/icons/svg/edit.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M200-200h57l391-391-57-57-391 391v57Zm-40 80q-17 0-28.5-11.5T120-160v-97q0-16 6-30.5t17-25.5l505-504q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L313-143q-11 11-25.5 17t-30.5 6h-97Zm600-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/expand_more.svg b/tools/icons/svg/expand_more.svg
+new file mode 100644
+index 0000000..7915770
+--- /dev/null
++++ b/tools/icons/svg/expand_more.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M480-362q-8 0-15-2.5t-13-8.5L268-557q-11-11-11-28t11-28q11-11 28-11t28 11l156 156 156-156q11-11 28-11t28 11q11 11 11 28t-11 28L508-373q-6 6-13 8.5t-15 2.5Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/folder_open.svg b/tools/icons/svg/folder_open.svg
+new file mode 100644
+index 0000000..583343f
+--- /dev/null
++++ b/tools/icons/svg/folder_open.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h207q16 0 30.5 6t25.5 17l57 57h360q17 0 28.5 11.5T880-680q0 17-11.5 28.5T840-640H447l-80-80H160v480l79-263q8-26 29.5-41.5T316-560h516q41 0 64.5 32.5T909-457l-72 240q-8 26-29.5 41.5T760-160H160Zm84-80h516l72-240H316l-72 240Zm-84-262v-218 218Zm84 262 72-240-72 240Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/grid_view.svg b/tools/icons/svg/grid_view.svg
+new file mode 100644
+index 0000000..2e9718a
+--- /dev/null
++++ b/tools/icons/svg/grid_view.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M200-520q-33 0-56.5-23.5T120-600v-160q0-33 23.5-56.5T200-840h160q33 0 56.5 23.5T440-760v160q0 33-23.5 56.5T360-520H200Zm0 400q-33 0-56.5-23.5T120-200v-160q0-33 23.5-56.5T200-440h160q33 0 56.5 23.5T440-360v160q0 33-23.5 56.5T360-120H200Zm400-400q-33 0-56.5-23.5T520-600v-160q0-33 23.5-56.5T600-840h160q33 0 56.5 23.5T840-760v160q0 33-23.5 56.5T760-520H600Zm0 400q-33 0-56.5-23.5T520-200v-160q0-33 23.5-56.5T600-440h160q33 0 56.5 23.5T840-360v160q0 33-23.5 56.5T760-120H600ZM200-600h160v-160H200v160Zm400 0h160v-160H600v160Zm0 400h160v-160H600v160Zm-400 0h160v-160H200v160Zm400-400Zm0 240Zm-240 0Zm0-240Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/info.svg b/tools/icons/svg/info.svg
+new file mode 100644
+index 0000000..967be33
+--- /dev/null
++++ b/tools/icons/svg/info.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M480-280q17 0 28.5-11.5T520-320v-160q0-17-11.5-28.5T480-520q-17 0-28.5 11.5T440-480v160q0 17 11.5 28.5T480-280Zm0-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/light_mode.svg b/tools/icons/svg/light_mode.svg
+new file mode 100644
+index 0000000..e55d64a
+--- /dev/null
++++ b/tools/icons/svg/light_mode.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M480-360q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35Zm0 80q-83 0-141.5-58.5T280-480q0-83 58.5-141.5T480-680q83 0 141.5 58.5T680-480q0 83-58.5 141.5T480-280ZM80-440q-17 0-28.5-11.5T40-480q0-17 11.5-28.5T80-520h80q17 0 28.5 11.5T200-480q0 17-11.5 28.5T160-440H80Zm720 0q-17 0-28.5-11.5T760-480q0-17 11.5-28.5T800-520h80q17 0 28.5 11.5T920-480q0 17-11.5 28.5T880-440h-80ZM480-760q-17 0-28.5-11.5T440-800v-80q0-17 11.5-28.5T480-920q17 0 28.5 11.5T520-880v80q0 17-11.5 28.5T480-760Zm0 720q-17 0-28.5-11.5T440-80v-80q0-17 11.5-28.5T480-200q17 0 28.5 11.5T520-160v80q0 17-11.5 28.5T480-40ZM226-678l-43-42q-12-11-11.5-28t11.5-29q12-12 29-12t28 12l42 43q11 12 11 28t-11 28q-11 12-27.5 11.5T226-678Zm494 495-42-43q-11-12-11-28.5t11-27.5q11-12 27.5-11.5T734-282l43 42q12 11 11.5 28T777-183q-12 12-29 12t-28-12Zm-42-495q-12-11-11.5-27.5T678-734l42-43q11-12 28-11.5t29 11.5q12 12 12 29t-12 28l-43 42q-12 11-28 11t-28-11ZM183-183q-12-12-12-29t12-28l43-42q12-11 28.5-11t27.5 11q12 11 11.5 27.5T282-226l-42 43q-11 12-28 11.5T183-183Zm297-297Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/lock.svg b/tools/icons/svg/lock.svg
+new file mode 100644
+index 0000000..20b9e39
+--- /dev/null
++++ b/tools/icons/svg/lock.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm0-80h480v-400H240v400Zm240-120q33 0 56.5-23.5T560-360q0-33-23.5-56.5T480-440q-33 0-56.5 23.5T400-360q0 33 23.5 56.5T480-280ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80ZM240-160v-400 400Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/play_arrow.svg b/tools/icons/svg/play_arrow.svg
+new file mode 100644
+index 0000000..6584201
+--- /dev/null
++++ b/tools/icons/svg/play_arrow.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M320-273v-414q0-17 12-28.5t28-11.5q5 0 10.5 1.5T381-721l326 207q9 6 13.5 15t4.5 19q0 10-4.5 19T707-446L381-239q-5 3-10.5 4.5T360-233q-16 0-28-11.5T320-273Zm80-207Zm0 134 210-134-210-134v268Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/power_settings_new.svg b/tools/icons/svg/power_settings_new.svg
+new file mode 100644
+index 0000000..ad02148
+--- /dev/null
++++ b/tools/icons/svg/power_settings_new.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M440-480v-320q0-17 11.5-28.5T480-840q17 0 28.5 11.5T520-800v320q0 17-11.5 28.5T480-440q-17 0-28.5-11.5T440-480Zm40 360q-74 0-139.5-28.5T226-226q-49-49-77.5-114.5T120-480q0-69 25.5-132.5T217-726q11-12 28-12t29 12q11 11 10 27.5T272-669q-34 38-53 86.5T200-480q0 116 82 198t198 82q117 0 198.5-82T760-480q0-54-19-103.5T687-671q-11-12-11.5-28t10.5-27q12-12 29-12t28 12q47 50 72 113.5T840-480q0 74-28.5 139.5t-77 114.5q-48.5 49-114 77.5T480-120Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/settings.svg b/tools/icons/svg/settings.svg
+new file mode 100644
+index 0000000..269c81c
+--- /dev/null
++++ b/tools/icons/svg/settings.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M433-80q-27 0-46.5-18T363-142l-9-66q-13-5-24.5-12T307-235l-62 26q-25 11-50 2t-39-32l-47-82q-14-23-8-49t27-43l53-40q-1-7-1-13.5v-27q0-6.5 1-13.5l-53-40q-21-17-27-43t8-49l47-82q14-23 39-32t50 2l62 26q11-8 23-15t24-12l9-66q4-26 23.5-44t46.5-18h94q27 0 46.5 18t23.5 44l9 66q13 5 24.5 12t22.5 15l62-26q25-11 50-2t39 32l47 82q14 23 8 49t-27 43l-53 40q1 7 1 13.5v27q0 6.5-2 13.5l53 40q21 17 27 43t-8 49l-48 82q-14 23-39 32t-50-2l-60-26q-11 8-23 15t-24 12l-9 66q-4 26-23.5 44T527-80h-94Zm7-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/stop.svg b/tools/icons/svg/stop.svg
+new file mode 100644
+index 0000000..06f4bbe
+--- /dev/null
++++ b/tools/icons/svg/stop.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M240-320v-320q0-33 23.5-56.5T320-720h320q33 0 56.5 23.5T720-640v320q0 33-23.5 56.5T640-240H320q-33 0-56.5-23.5T240-320Zm80 0h320v-320H320v320Zm160-160Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/sync.svg b/tools/icons/svg/sync.svg
+new file mode 100644
+index 0000000..b18e79c
+--- /dev/null
++++ b/tools/icons/svg/sync.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M240-478q0 45 17 87.5t53 78.5l10 10v-58q0-17 11.5-28.5T360-400q17 0 28.5 11.5T400-360v160q0 17-11.5 28.5T360-160H200q-17 0-28.5-11.5T160-200q0-17 11.5-28.5T200-240h70l-16-14q-52-46-73-105t-21-119q0-94 48-170.5T337-766q14-8 29.5-1t20.5 23q5 15-.5 30T367-691q-58 32-92.5 88.5T240-478Zm480-4q0-45-17-87.5T650-648l-10-10v58q0 17-11.5 28.5T600-560q-17 0-28.5-11.5T560-600v-160q0-17 11.5-28.5T600-800h160q17 0 28.5 11.5T800-760q0 17-11.5 28.5T760-720h-70l16 14q49 49 71.5 106.5T800-482q0 94-48 170.5T623-194q-14 8-29.5 1T573-216q-5-15 .5-30t19.5-23q58-32 92.5-88.5T720-482Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/videocam.svg b/tools/icons/svg/videocam.svg
+new file mode 100644
+index 0000000..17f358b
+--- /dev/null
++++ b/tools/icons/svg/videocam.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h480q33 0 56.5 23.5T720-720v180l126-126q10-10 22-5t12 19v344q0 14-12 19t-22-5L720-420v180q0 33-23.5 56.5T640-160H160Zm0-80h480v-480H160v480Zm0 0v-480 480Z"/></svg>
+\ No newline at end of file
+diff --git a/tools/icons/svg/warning.svg b/tools/icons/svg/warning.svg
+new file mode 100644
+index 0000000..21d5e0b
+--- /dev/null
++++ b/tools/icons/svg/warning.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M109-120q-11 0-20-5.5T75-140q-5-9-5.5-19.5T75-180l370-640q6-10 15.5-15t19.5-5q10 0 19.5 5t15.5 15l370 640q6 10 5.5 20.5T885-140q-5 9-14 14.5t-20 5.5H109Zm69-80h604L480-720 178-200Zm302-40q17 0 28.5-11.5T520-280q0-17-11.5-28.5T480-320q-17 0-28.5 11.5T440-280q0 17 11.5 28.5T480-240Zm0-120q17 0 28.5-11.5T520-400v-120q0-17-11.5-28.5T480-560q-17 0-28.5 11.5T440-520v120q0 17 11.5 28.5T480-360Zm0-100Z"/></svg>
+\ No newline at end of file
+diff --git a/ui_screenshots/UI-v2-round3/material-icons-sheet.png b/ui_screenshots/UI-v2-round3/material-icons-sheet.png
+new file mode 100644
+index 0000000..c149108
+Binary files /dev/null and b/ui_screenshots/UI-v2-round3/material-icons-sheet.png differ

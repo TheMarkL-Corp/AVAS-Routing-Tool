@@ -1,0 +1,740 @@
+# Review package: 453abcb..d092f20
+
+## Commits
+d092f20 fix(main-window): displays scroller keeps a vertical safety net on short windows
+d400fd7 feat(layout): display carousel cards are at least 400 px wide
+552f63d test(main-window): picture size baselines follow the carousel rule
+38c24b4 feat(main-window): displays pan sideways with arrow buttons
+
+## Files changed
+ src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs |   8 +-
+ src/AvasRoutingTool/Resources/Styles/Buttons.xaml  |  55 +++++++++
+ src/AvasRoutingTool/Resources/Theme.xaml           |  48 ++++++++
+ src/AvasRoutingTool/Views/VisualRoutingView.xaml   |  37 +++++-
+ .../Views/VisualRoutingView.xaml.cs                |  77 ++++++++++++
+ .../AdaptiveGridLayoutTests.cs                     |  23 +++-
+ .../ViewSmokeTests.DisplayCard.cs                  |   4 +-
+ .../ViewSmokeTests.DisplaysCarousel.cs             | 131 +++++++++++++++++++++
+ .../ViewSmokeTests.UiV2FullHd.cs                   |  10 +-
+ .../ViewSmokeTests.UiV2SourceStrip.cs              |  14 +--
+ 10 files changed, 388 insertions(+), 19 deletions(-)
+
+## Diff
+diff --git a/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs b/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs
+index 5d5adfb..04e1b96 100644
+--- a/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs
++++ b/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs
+@@ -10,38 +10,41 @@ namespace AvasRoutingTool.Controls
+         double HorizontalPadding,
+         double ChromeHeight,
+         double VideoAspect)
+     {
+         /// <summary>
+         /// 0 (default) = fit-all grid. Greater than 0 = one-row carousel showing this many cards across
+         /// the viewport (the half card peeks to signal sideways scrolling).
+         /// </summary>
+         public double CarouselVisibleCards { get; init; }
+ 
++        /// <summary>The carousel never makes a card narrower than this (0 = not used, <see cref="MinCardWidth"/> applies).</summary>
++        public double CarouselMinCardWidth { get; init; }
++
+         /// <summary>
+         /// Tuned for the surgical-touch card: 20px of horizontal padding, ~96px of non-video chrome
+         /// (header, 36px stream-control footer, paddings) and a 16:9 video surface.
+         /// </summary>
+         public static GridSpec Default { get; } = new(
+             MinCardWidth: 320,
+             MaxCardWidth: 600,
+             Gap: 16,
+             HorizontalPadding: 20,
+             ChromeHeight: 96,
+             VideoAspect: 16.0 / 9.0);
+ 
+         /// <summary>
+         /// The display card: a 24 px header, a 56 px action bar (48 px buttons), the 16:9 picture and a 64 px status dock.
+         /// Chrome = frame 2 + padding 24 + 24 + 56 + 64 = 170, so the picture keeps 16:9 in every state (a smoke test
+         /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
+         /// </summary>
+-        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5 };
++        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5, CarouselMinCardWidth = 400 };
+     }
+ 
+     /// <summary>The chosen arrangement for N cards in a viewport.</summary>
+     public readonly record struct GridPlan(int Columns, int Rows, double CardWidth, double CardHeight, bool NeedsScroll);
+ 
+     /// <summary>
+     /// Picks the column count and card size that makes the cards as large as the viewport allows
+     /// while keeping a 16:9 video surface and never exceeding the viewport width.
+     /// Pure and WPF-free so the whole policy is testable at its interface.
+     /// </summary>
+@@ -109,21 +112,22 @@ namespace AvasRoutingTool.Controls
+ 
+             return new GridPlan(fitCols, fitRows, fallbackWidth, fallbackHeight, needsScroll);
+         }
+ 
+         // One row, ignores height. 4 cards share the viewport exactly; otherwise cards are sized so
+         // CarouselVisibleCards fit, which makes 5+ overflow and scroll sideways.
+         private static GridPlan ComputeCarousel(int count, double availableWidth, GridSpec spec)
+         {
+             double visible = count == 4 ? 4 : spec.CarouselVisibleCards;
+             double width = (availableWidth - 3 * spec.Gap) / visible;
+-            width = Math.Min(Math.Max(width, spec.MinCardWidth), spec.MaxCardWidth);
++            double min = spec.CarouselMinCardWidth > 0 ? Math.Max(spec.MinCardWidth, spec.CarouselMinCardWidth) : spec.MinCardWidth;
++            width = Math.Min(Math.Max(width, min), spec.MaxCardWidth);
+ 
+             double rowWidth = count * width + spec.Gap * (count - 1);
+             bool needsScroll = rowWidth > availableWidth + Epsilon;
+ 
+             return new GridPlan(count, 1, width, CardHeightFor(width, spec), needsScroll);
+         }
+ 
+         public static double CardHeightFor(double cardWidth, GridSpec spec)
+         {
+             double videoWidth = Math.Max(0, cardWidth - spec.HorizontalPadding);
+diff --git a/src/AvasRoutingTool/Resources/Styles/Buttons.xaml b/src/AvasRoutingTool/Resources/Styles/Buttons.xaml
+index 5bb0e4e..46857a1 100644
+--- a/src/AvasRoutingTool/Resources/Styles/Buttons.xaml
++++ b/src/AvasRoutingTool/Resources/Styles/Buttons.xaml
+@@ -206,20 +206,75 @@
+                         <Trigger Property="IsEnabled" Value="False">
+                             <Setter Property="Opacity" Value="0.5" />
+                             <Setter Property="Cursor" Value="Arrow" />
+                         </Trigger>
+                     </ControlTemplate.Triggers>
+                 </ControlTemplate>
+             </Setter.Value>
+         </Setter>
+     </Style>
+ 
++    <!--
++        Carousel arrow: a round 48 x 48 icon-only button laid over an edge of a sideways-scrolling row. A floating-strip fill with a
++        hairline border keeps it readable over any card; the icon is the primary text colour and the accent under the mouse; a 2 px ring
++        through InputModality.ShowsFocus; dimmed when it is disabled (the row is at that end).
++    -->
++    <Style x:Key="Style.Button.CarouselArrow" TargetType="Button">
++        <Setter Property="Background" Value="{DynamicResource Brush.Surface.FloatingStrip}" />
++        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
++        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
++        <Setter Property="BorderThickness" Value="1" />
++        <Setter Property="Width" Value="{StaticResource Size.Touch.Min}" />
++        <Setter Property="Height" Value="{StaticResource Size.Touch.Min}" />
++        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
++        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
++        <Setter Property="Padding" Value="0" />
++        <Setter Property="HorizontalContentAlignment" Value="Center" />
++        <Setter Property="VerticalContentAlignment" Value="Center" />
++        <Setter Property="IsTabStop" Value="True" />
++        <Setter Property="Cursor" Value="Hand" />
++        <Setter Property="FocusVisualStyle" Value="{StaticResource Style.FocusVisual.Ring}" />
++        <Setter Property="Template">
++            <Setter.Value>
++                <ControlTemplate TargetType="Button">
++                    <Grid SnapsToDevicePixels="True">
++                        <Border x:Name="Disc"
++                                Background="{TemplateBinding Background}"
++                                BorderBrush="{TemplateBinding BorderBrush}"
++                                BorderThickness="{TemplateBinding BorderThickness}"
++                                CornerRadius="24" />
++                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
++                        <Border x:Name="FocusRing"
++                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
++                                BorderThickness="2"
++                                CornerRadius="24"
++                                IsHitTestVisible="False"
++                                Visibility="Collapsed" />
++                    </Grid>
++                    <ControlTemplate.Triggers>
++                        <Trigger Property="IsMouseOver" Value="True">
++                            <Setter TargetName="Disc" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
++                            <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
++                        </Trigger>
++                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
++                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
++                        </Trigger>
++                        <Trigger Property="IsEnabled" Value="False">
++                            <Setter Property="Opacity" Value="0.4" />
++                            <Setter Property="Cursor" Value="Arrow" />
++                        </Trigger>
++                    </ControlTemplate.Triggers>
++                </ControlTemplate>
++            </Setter.Value>
++        </Setter>
++    </Style>
++
+     <!-- MultiView Composer and the generic touch button: 48 px (D4), 16 px semibold, own focus ring so it shows over any local border colour -->
+     <Style x:Key="Style.Button.Composer" TargetType="Button">
+         <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+         <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+         <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+         <Setter Property="FontWeight" Value="SemiBold" />
+         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+         <Setter Property="BorderThickness" Value="2" />
+diff --git a/src/AvasRoutingTool/Resources/Theme.xaml b/src/AvasRoutingTool/Resources/Theme.xaml
+index 4a446ac..2e7b4f5 100644
+--- a/src/AvasRoutingTool/Resources/Theme.xaml
++++ b/src/AvasRoutingTool/Resources/Theme.xaml
+@@ -155,11 +155,59 @@
+                         </Trigger>
+                         <Trigger Property="HorizontalScrollBarVisibility" Value="Hidden">
+                             <Setter TargetName="HorizontalGutter" Property="Visibility" Value="Collapsed" />
+                         </Trigger>
+                     </ControlTemplate.Triggers>
+                 </ControlTemplate>
+             </Setter.Value>
+         </Setter>
+     </Style>
+ 
++    <!--
++        The displays row: same thin bars as the implicit style, but the vertical bar (a safety net that only shows when the window is too
++        short) overlays the right edge instead of reserving a 16 px gutter, so the cards keep their 3.5-across width when it is not needed.
++    -->
++    <Style x:Key="Style.ScrollViewer.VerticalOverlay" TargetType="{x:Type ScrollViewer}">
++        <Setter Property="Template">
++            <Setter.Value>
++                <ControlTemplate TargetType="{x:Type ScrollViewer}">
++                    <Grid>
++                        <Grid.RowDefinitions>
++                            <RowDefinition Height="*" />
++                            <RowDefinition Height="Auto" />
++                        </Grid.RowDefinitions>
++                        <ScrollContentPresenter Grid.Row="0" CanContentScroll="{TemplateBinding CanContentScroll}" />
++                        <Border x:Name="VerticalGutter" Grid.Row="0" Width="16" HorizontalAlignment="Right">
++                            <ScrollBar x:Name="PART_VerticalScrollBar"
++                                       Style="{StaticResource Style.ScrollBar.Thin}"
++                                       Orientation="Vertical"
++                                       Minimum="0"
++                                       Maximum="{TemplateBinding ScrollableHeight}"
++                                       ViewportSize="{TemplateBinding ViewportHeight}"
++                                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
++                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
++                        </Border>
++                        <Border x:Name="HorizontalGutter" Grid.Row="1" Height="16">
++                            <ScrollBar x:Name="PART_HorizontalScrollBar"
++                                       Style="{StaticResource Style.ScrollBar.Thin}"
++                                       Orientation="Horizontal"
++                                       Minimum="0"
++                                       Maximum="{TemplateBinding ScrollableWidth}"
++                                       ViewportSize="{TemplateBinding ViewportWidth}"
++                                       Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
++                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
++                        </Border>
++                    </Grid>
++                    <ControlTemplate.Triggers>
++                        <Trigger Property="VerticalScrollBarVisibility" Value="Disabled">
++                            <Setter TargetName="VerticalGutter" Property="Visibility" Value="Collapsed" />
++                        </Trigger>
++                        <Trigger Property="HorizontalScrollBarVisibility" Value="Disabled">
++                            <Setter TargetName="HorizontalGutter" Property="Visibility" Value="Collapsed" />
++                        </Trigger>
++                    </ControlTemplate.Triggers>
++                </ControlTemplate>
++            </Setter.Value>
++        </Setter>
++    </Style>
++
+ </ResourceDictionary>
+diff --git a/src/AvasRoutingTool/Views/VisualRoutingView.xaml b/src/AvasRoutingTool/Views/VisualRoutingView.xaml
+index c9419c0..f5d47d2 100644
+--- a/src/AvasRoutingTool/Views/VisualRoutingView.xaml
++++ b/src/AvasRoutingTool/Views/VisualRoutingView.xaml
+@@ -209,36 +209,69 @@
+                                VerticalAlignment="Center">
+                         <Run Text="{Binding Displays.Count, Mode=OneWay}" FontWeight="Bold" />
+                         <Run Text=" discovered" />
+                     </TextBlock>
+                 </Grid>
+ 
+                 <!-- Displays Carousel / Horizontal List -->
+                 <ScrollViewer Grid.Row="1"
+                               x:Name="DisplaysScroll"
+                               Margin="0,8,0,0"
+-                              HorizontalScrollBarVisibility="Disabled"
+-                              VerticalScrollBarVisibility="Auto">
++                              HorizontalScrollBarVisibility="Auto"
++                              VerticalScrollBarVisibility="Auto"
++                              Style="{StaticResource Style.ScrollViewer.VerticalOverlay}"
++                              PanningMode="Both"
++                              Focusable="False"
++                              PreviewMouseWheel="DisplaysScroll_PreviewMouseWheel"
++                              ScrollChanged="DisplaysScroll_ScrollChanged"
++                              SizeChanged="DisplaysScroll_SizeChanged">
+                     <ItemsControl ItemsSource="{Binding Displays}">
+                         <ItemsControl.ItemsPanel>
+                             <ItemsPanelTemplate>
+                                 <!-- The display card's chrome (56 px Layout header, Copy layout row) is taller than the source card's -->
+                                 <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.DisplayCard}" CenterVertically="False" />
+                             </ItemsPanelTemplate>
+                         </ItemsControl.ItemsPanel>
+                         <ItemsControl.ItemTemplate>
+                             <DataTemplate>
+                                 <views:DisplayCardView />
+                             </DataTemplate>
+                         </ItemsControl.ItemTemplate>
+                     </ItemsControl>
+                 </ScrollViewer>
++
++                <!-- Sideways arrows over the row's edges, centred on the card pictures (the margin is set in code); shown only when the row scrolls -->
++                <Button Grid.Row="1"
++                        x:Name="DisplaysScrollLeft"
++                        Style="{StaticResource Style.Button.CarouselArrow}"
++                        HorizontalAlignment="Left"
++                        VerticalAlignment="Top"
++                        Margin="8,0,0,0"
++                        Visibility="Collapsed"
++                        IsEnabled="False"
++                        ToolTip="Scroll displays left"
++                        AutomationProperties.Name="Scroll displays left"
++                        Click="DisplaysScrollLeft_Click">
++                    <ui:SymbolIcon Symbol="ChevronLeft24" FontSize="{StaticResource Size.Icon.M}" />
++                </Button>
++                <Button Grid.Row="1"
++                        x:Name="DisplaysScrollRight"
++                        Style="{StaticResource Style.Button.CarouselArrow}"
++                        HorizontalAlignment="Right"
++                        VerticalAlignment="Top"
++                        Margin="0,0,8,0"
++                        Visibility="Collapsed"
++                        ToolTip="Scroll displays right"
++                        AutomationProperties.Name="Scroll displays right"
++                        Click="DisplaysScrollRight_Click">
++                    <ui:SymbolIcon Symbol="ChevronRight24" FontSize="{StaticResource Size.Icon.M}" />
++                </Button>
+             </Grid>
+         </Border>
+ 
+         <!-- MIDDLE ROW while composing: the MultiView Composer for one display (DataContext = ActiveComposer) -->
+         <views:MultiViewComposerView Grid.Row="2"
+                                      x:Name="ComposerView"
+                                      Margin="16,6,16,12"
+                                      DataContext="{Binding ActiveComposer, Mode=OneWay}"
+                                      Visibility="{Binding Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
+                                      Sources="{Binding DataContext.Sources, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:VisualRoutingView}}" />
+diff --git a/src/AvasRoutingTool/Views/VisualRoutingView.xaml.cs b/src/AvasRoutingTool/Views/VisualRoutingView.xaml.cs
+index 2e1d64a..33420f7 100644
+--- a/src/AvasRoutingTool/Views/VisualRoutingView.xaml.cs
++++ b/src/AvasRoutingTool/Views/VisualRoutingView.xaml.cs
+@@ -82,19 +82,96 @@ namespace AvasRoutingTool.Views
+         /// <summary>
+         /// Esc, from anywhere in the overview or the Composer, stops what is armed one step at a time (the Composer's
+         /// ladder while it is open) and never closes the Composer. Keys a control already used arrive handled.
+         /// </summary>
+         private void Root_KeyDown(object sender, KeyEventArgs e)
+         {
+             if (e.Handled || e.Key != Key.Escape || DataContext is not MainViewModel vm) return;
+             if (vm.Escape()) e.Handled = true;
+         }
+ 
++        /// <summary>Gap between two display cards (the display card spec's gap): one arrow press moves one card width plus this.</summary>
++        private static double CardGap => Controls.GridSpec.DisplayCard.Gap;
++
++        /// <summary>
++        /// Scrolls the displays row sideways by whole cards (one card width plus the gap each); positive = right. Clamped to both ends.
++        /// </summary>
++        public void ScrollDisplaysBy(int cards)
++        {
++            double step = DisplaysCardStep();
++            if (step <= 0) return;
++            double target = Math.Max(0, Math.Min(DisplaysScroll.ScrollableWidth, DisplaysScroll.HorizontalOffset + cards * step));
++            DisplaysScroll.ScrollToHorizontalOffset(target);
++            // The scroll bar and the arrows read the new offset after layout; bring the arrows up to date now.
++            UpdateDisplayArrows(target);
++        }
++
++        private double DisplaysCardStep()
++        {
++            var card = FindFirst<DisplayCardView>(DisplaysScroll);
++            return card == null || card.ActualWidth <= 0 ? 0 : card.ActualWidth + CardGap;
++        }
++
++        private void DisplaysScrollLeft_Click(object sender, RoutedEventArgs e) => ScrollDisplaysBy(-1);
++
++        private void DisplaysScrollRight_Click(object sender, RoutedEventArgs e) => ScrollDisplaysBy(1);
++
++        /// <summary>The mouse wheel over the row pans it sideways (the row has no vertical direction to scroll).</summary>
++        private void DisplaysScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
++        {
++            double target = Math.Max(0, Math.Min(DisplaysScroll.ScrollableWidth, DisplaysScroll.HorizontalOffset - e.Delta));
++            DisplaysScroll.ScrollToHorizontalOffset(target);
++            UpdateDisplayArrows(target);
++            e.Handled = true;
++        }
++
++        private void DisplaysScroll_ScrollChanged(object sender, ScrollChangedEventArgs e) => UpdateDisplayArrows(DisplaysScroll.HorizontalOffset);
++
++        private void DisplaysScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateDisplayArrows(DisplaysScroll.HorizontalOffset);
++
++        /// <summary>Shows the arrows only while the row scrolls, disables each at its end, and centres them on the card pictures.</summary>
++        private void UpdateDisplayArrows(double offset)
++        {
++            double scrollable = DisplaysScroll.ScrollableWidth;
++            var visibility = scrollable > 0.5 ? Visibility.Visible : Visibility.Collapsed;
++            DisplaysScrollLeft.Visibility = visibility;
++            DisplaysScrollRight.Visibility = visibility;
++            DisplaysScrollLeft.IsEnabled = offset > 0.5;
++            DisplaysScrollRight.IsEnabled = offset < scrollable - 0.5;
++            if (visibility != Visibility.Visible) return;
++
++            // Vertically centred on the first card's picture (every card is the same height).
++            var card = FindFirst<DisplayCardView>(DisplaysScroll);
++            var picture = card == null ? null : FindFirst<FrameworkElement>(card, f => f.Name == "PreviewSurface");
++            if (picture == null || picture.ActualHeight <= 0 || !picture.IsDescendantOf(DisplaysScroll)) return;
++            var bounds = picture.TransformToAncestor(DisplaysScroll).TransformBounds(new Rect(0, 0, picture.ActualWidth, picture.ActualHeight));
++            double centre = bounds.Top + bounds.Height / 2;
++            double top = Math.Max(0, centre + DisplaysScroll.Margin.Top - DisplaysScrollLeft.Height / 2);
++            if (Math.Abs(DisplaysScrollLeft.Margin.Top - top) > 0.5)
++            {
++                DisplaysScrollLeft.Margin = new Thickness(DisplaysScrollLeft.Margin.Left, top, 0, 0);
++                DisplaysScrollRight.Margin = new Thickness(0, top, DisplaysScrollRight.Margin.Right, 0);
++            }
++        }
++
++        private static T? FindFirst<T>(DependencyObject root, Func<T, bool>? match = null) where T : DependencyObject
++        {
++            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
++            for (int i = 0; i < count; i++)
++            {
++                var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
++                if (child is T t && (match == null || match(t))) return t;
++                var nested = FindFirst(child, match);
++                if (nested != null) return nested;
++            }
++            return null;
++        }
++
+         /// <summary>The arm banner's Stop: stops placing the armed source (tapping it again), or stops copying.</summary>
+         private void StopPlacing_Click(object sender, RoutedEventArgs e)
+         {
+             if (DataContext is not MainViewModel vm) return;
+             if (vm.ArmedSource is { } armed) vm.ArmSource(armed);
+             else if (vm.ArmedDisplay != null) vm.DisarmDisplay();
+         }
+     }
+ }
+diff --git a/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs b/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs
+index f66b368..763dc13 100644
+--- a/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs
++++ b/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs
+@@ -158,28 +158,47 @@ namespace AvasRoutingTool.Tests
+         {
+             var plan = AdaptiveGridLayout.Compute(5, 1888, 435, GridSpec.DisplayCard);
+ 
+             Assert.InRange(plan.CardWidth, 525.71 - 0.5, 525.71 + 0.5);
+             Assert.Equal(1, plan.Rows);
+             Assert.Equal(5, plan.Columns);
+             Assert.True(plan.NeedsScroll);
+         }
+ 
+         [Fact]
+-        public void Carousel_At992_UsesMinWidth()
++        public void Carousel_At992_Is400()
+         {
+             var plan = AdaptiveGridLayout.Compute(5, 992, 435, GridSpec.DisplayCard);
+ 
+-            Assert.Equal(320, plan.CardWidth, 3);
++            Assert.Equal(400, plan.CardWidth, 3);
+             Assert.True(plan.NeedsScroll);
+         }
+ 
++        [Fact]
++        public void Carousel_At1232_UsesCarouselMin400()
++        {
++            // (1232 - 48) / 3.5 = 338, below the carousel minimum
++            var plan = AdaptiveGridLayout.Compute(5, 1232, 435, GridSpec.DisplayCard);
++
++            Assert.Equal(400, plan.CardWidth, 3);
++            Assert.Equal(400, GridSpec.DisplayCard.CarouselMinCardWidth);
++            Assert.Equal(0, GridSpec.Default.CarouselMinCardWidth);
++            Assert.True(plan.NeedsScroll);
++        }
++
++        [Fact]
++        public void Carousel_At1888_StaysW35_WithTheCarouselMin()
++        {
++            Assert.InRange(AdaptiveGridLayout.Compute(5, 1888, 435, GridSpec.DisplayCard).CardWidth, 525.21, 526.21);
++            Assert.InRange(AdaptiveGridLayout.Compute(2, 1888, 435, GridSpec.DisplayCard).CardWidth, 525.21, 526.21);
++        }
++
+         [Fact]
+         public void Carousel_Twelve_OneRow()
+         {
+             var plan = AdaptiveGridLayout.Compute(12, 1888, double.PositiveInfinity, GridSpec.DisplayCard);
+ 
+             Assert.Equal(1, plan.Rows);
+             Assert.Equal(12, plan.Columns);
+             Assert.True(plan.NeedsScroll);
+             Assert.Equal(AdaptiveGridLayout.CardHeightFor(plan.CardWidth, GridSpec.DisplayCard), plan.CardHeight, 3);
+         }
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs
+index d061c7e..dfbe79e 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs
+@@ -548,22 +548,22 @@ namespace AvasRoutingTool.Tests
+ 
+                     var rx3 = cards.Single(c => c.DataContext == rig.Rx3);
+                     Assert.True(Named(rx3, "CopyTargetLock").Single().IsVisible);
+                     var rx3Handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
+                     Assert.Equal("No layout to copy yet", (string?)rx3Handle.ToolTip);
+                     Assert.Equal(rig.Rx3.CopyFromBlockedText, AutomationProperties.GetHelpText(rx3Handle));
+ 
+                     // Copying / choosing: the overview has no layout bar any more; the first row's Layout and Copy layout
+                     // buttons are in view without scrolling (they sit at the top of the card).
+                     var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
+-                    // The displays hold drag sources (Copy layout, drops): touch never pans them (the 16 px bar does).
+-                    Assert.Equal(PanningMode.None, scroll.PanningMode);
++                    // Round 3: the row is one row that pans sideways (with a vertical safety net on short windows) (touch drag, drag threshold keeps a tap a tap).
++                    Assert.Equal(PanningMode.Both, scroll.PanningMode);
+                     foreach (var card in cards.Where(c => BoundsIn(c, scroll).Top < 1))
+                     {
+                         foreach (var name in new[] { "LayoutButton", "CopyLayoutHandle" })
+                         {
+                             var r = BoundsIn((FrameworkElement)Named(card, name).Single(), scroll);
+                             Assert.True(r.Bottom <= scroll.ViewportHeight + 0.5, $"{name} ends at {r.Bottom:F0}, the displays show {scroll.ViewportHeight:F0} px");
+                         }
+                     }
+ 
+                     // Every card's picture keeps 16:9 - unrouted (RX3), MultiView (PAX), MultiView with a draft chip (RX1):
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplaysCarousel.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplaysCarousel.cs
+new file mode 100644
+index 0000000..02888b4
+--- /dev/null
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplaysCarousel.cs
+@@ -0,0 +1,131 @@
++using System;
++using System.Linq;
++using System.Windows;
++using System.Windows.Controls;
++using System.Windows.Input;
++using AvasRoutingTool.Views;
++using Xunit;
++
++namespace AvasRoutingTool.Tests
++{
++    /// <summary>Round 3: the displays row is one row that pans sideways, with an arrow button at each edge.</summary>
++    public partial class ViewSmokeTests
++    {
++        private const double CarouselGap = 16;
++
++        [Fact]
++        public void Displays_FiveAt1920_ScrollsSideways_NotVertically() =>
++            RunSta(() =>
++            {
++                var (view, _) = FullHdOverview(3, 5);
++                WithFullHdWindow(view, () =>
++                {
++                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
++                    Assert.Equal(ScrollBarVisibility.Auto, scroll.HorizontalScrollBarVisibility);
++                    // Vertical Auto is only a safety net for short windows: at 1920x1080 it does not scroll.
++                    Assert.Equal(ScrollBarVisibility.Auto, scroll.VerticalScrollBarVisibility);
++                    Assert.Equal(PanningMode.Both, scroll.PanningMode);
++                    Assert.False(scroll.Focusable);
++                    Assert.True(scroll.ScrollableWidth > 0, $"scrollable width {scroll.ScrollableWidth}");
++                    Assert.Equal(0, scroll.ScrollableHeight, 1);
++                    Assert.NotEqual(Visibility.Visible, scroll.ComputedVerticalScrollBarVisibility);
++                    return 0;
++                });
++            });
++
++        [Fact]
++        public void Displays_Arrows_StepOneCard_AndDisableAtEnds() =>
++            RunSta(() =>
++            {
++                var (view, _) = FullHdOverview(3, 12);
++                WithFullHdWindow(view, () =>
++                {
++                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
++                    var left = (Button)Named(view, "DisplaysScrollLeft").Single();
++                    var right = (Button)Named(view, "DisplaysScrollRight").Single();
++                    double step = FindAll<DisplayCardView>(view).First().ActualWidth + CarouselGap;
++
++                    Assert.True(left.IsVisible && right.IsVisible);
++                    Assert.True(left.ActualWidth >= 48 && left.ActualHeight >= 48);
++                    Assert.Equal("Scroll displays left", System.Windows.Automation.AutomationProperties.GetName(left));
++                    Assert.Equal("Scroll displays right", System.Windows.Automation.AutomationProperties.GetName(right));
++                    Assert.False(left.IsEnabled, "left is enabled at the start");
++                    Assert.False(left.IsTabStop && left.IsEnabled);
++                    Assert.True(right.IsEnabled);
++                    Assert.Equal(0, scroll.HorizontalOffset, 1);
++
++                    Click(right);
++                    Relayout(view);
++                    Assert.Equal(step, scroll.HorizontalOffset, 1);
++                    Assert.True(left.IsEnabled);
++
++                    Click(left);
++                    Relayout(view);
++                    Assert.Equal(0, scroll.HorizontalOffset, 1);
++                    Assert.False(left.IsEnabled);
++
++                    // Clamps at the far end; the last card is whole, the right arrow is off.
++                    view.ScrollDisplaysBy(100);
++                    Relayout(view);
++                    Assert.Equal(scroll.ScrollableWidth, scroll.HorizontalOffset, 1);
++                    Assert.False(right.IsEnabled);
++                    Assert.True(left.IsEnabled);
++                    var lastCard = FindAll<DisplayCardView>(view).Last();
++                    var b = lastCard.TransformToAncestor(scroll).TransformBounds(new Rect(0, 0, lastCard.ActualWidth, lastCard.ActualHeight));
++                    Assert.True(b.Right <= scroll.ViewportWidth + 0.5, $"the last card ends at {b.Right}, viewport {scroll.ViewportWidth}");
++
++                    // And clamps at the start.
++                    view.ScrollDisplaysBy(-100);
++                    Relayout(view);
++                    Assert.Equal(0, scroll.HorizontalOffset, 1);
++
++                    // The arrows sit over the picture, vertically.
++                    var card = FindAll<DisplayCardView>(view).First();
++                    var picture = (FrameworkElement)Named(card, "PreviewSurface").Single();
++                    var pic = picture.TransformToAncestor(view).TransformBounds(new Rect(0, 0, picture.ActualWidth, picture.ActualHeight));
++                    var lb = left.TransformToAncestor(view).TransformBounds(new Rect(0, 0, left.ActualWidth, left.ActualHeight));
++                    Assert.Equal(pic.Top + pic.Height / 2, lb.Top + lb.Height / 2, 2);
++                    return 0;
++                });
++            });
++
++        [Fact]
++        public void Displays_FourAt1920_ArrowsHidden() =>
++            RunSta(() =>
++            {
++                var (view, _) = FullHdOverview(3, 4);
++                WithFullHdWindow(view, () =>
++                {
++                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
++                    Assert.Equal(0, scroll.ScrollableWidth, 1);
++                    Assert.False(((Button)Named(view, "DisplaysScrollLeft").Single()).IsVisible);
++                    Assert.False(((Button)Named(view, "DisplaysScrollRight").Single()).IsVisible);
++                    return 0;
++                });
++            });
++
++        [Fact]
++        public void Displays_MouseWheel_PansSideways() =>
++            RunSta(() =>
++            {
++                var (view, _) = FullHdOverview(3, 6);
++                WithFullHdWindow(view, () =>
++                {
++                    var scroll = (ScrollViewer)Named(view, "DisplaysScroll").Single();
++                    Assert.Equal(0, scroll.HorizontalOffset, 1);
++                    var down = new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = UIElement.PreviewMouseWheelEvent, Source = scroll };
++                    scroll.RaiseEvent(down);
++                    Relayout(view);
++                    Assert.True(down.Handled);
++                    Assert.True(scroll.HorizontalOffset > 0, $"offset {scroll.HorizontalOffset}");
++                    double after = scroll.HorizontalOffset;
++
++                    var up = new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, 120) { RoutedEvent = UIElement.PreviewMouseWheelEvent, Source = scroll };
++                    scroll.RaiseEvent(up);
++                    Relayout(view);
++                    Assert.True(scroll.HorizontalOffset < after);
++                    return 0;
++                });
++            });
++    }
++}
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2FullHd.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2FullHd.cs
+index e5414de..f6d740f 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2FullHd.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2FullHd.cs
+@@ -107,31 +107,33 @@ namespace AvasRoutingTool.Tests
+                     Assert.Equal(8, FindAll<SourceCardView>(view).Count(c => !c.IsCompact));
+                     Assert.Equal(6, FindAll<DisplayCardView>(view).Count);
+                     Assert.Empty(FindAll<System.Windows.Controls.VirtualizingPanel>(view).Where(p => FindAll<SourceCardView>(p).Any() || FindAll<DisplayCardView>(p).Any()));
+                     // The sources are a plain CenteredWrapPanel (A9/A10b, not virtualized); the displays stay on AdaptiveCardPanel. Each holds all of its cards.
+                     Assert.Equal(8, FindAll<CenteredWrapPanel>(view).Where(p => FindAll<SourceCardView>(p).Any()).SelectMany(p => FindAll<SourceCardView>(p)).Count());
+                     Assert.Equal(6, FindAll<AdaptiveCardPanel>(view).Where(p => FindAll<DisplayCardView>(p).Any()).SelectMany(p => FindAll<DisplayCardView>(p)).Count());
+                     return 0;
+                 });
+             });
+ 
++        // Round 3: the display row is a carousel, 3.5 cards across at 1920 (W35 = (1888 - 3 x 16) / 3.5 = 525.71 card, 500 x 281 picture) for 1 to 3 and 5+ displays; exactly 4 share the viewport (434 wide).
++        // These are guards that the pictures never get smaller than that. Earlier baselines (731 / 587 / 336 wide) are superseded.
+         // Recorded at 1920x952 before the cap change (the overview is height-bound there): the pictures must never get smaller than this.
+         // Round 2 / A1: the Displays header row is a fixed 48 px (the arm banner shares it, so arming moves nothing), about 18 px taller than
+         // the old idle header; the 1 and 2 display pictures were re-recorded at 640x360 (-33 px wide).
+         // Round 2 / A14: the Layout button is 64 x 56 in the same 56 px action-bar row (the row did not change): the pictures are unchanged.
+         // Round 2 / A9: the dense source strip (an Auto row, 243 px tiles, two rows at most) gives the height back: 1 and 2 displays were 745x419; A10b keeps an 8 px gap between the section header or arm banner and the cards, so they are 731x411.
+         [Theory]
+-        [InlineData(1, 731, 411)]
+-        [InlineData(2, 731, 411)]
+-        [InlineData(3, 587, 330)]
++        [InlineData(1, 500, 281)]
++        [InlineData(2, 500, 281)]
++        [InlineData(3, 500, 281)]
+         [InlineData(4, 430, 242)]
+-        [InlineData(5, 336, 189)]
++        [InlineData(5, 500, 281)]
+         public void FullHd_DisplayPictures_AreAtLeastTheRecordedBaseline(int displays, double width, double height) =>
+             RunSta(() =>
+             {
+                 var m = MeasureFullHd(3, displays, displayCards: true);
+                 Assert.True(m.PictureWidth >= width - 1.5 && m.PictureHeight >= height - 1.5, $"{displays} displays: {m.PictureWidth:F0}x{m.PictureHeight:F0} < {width}x{height}");
+                 Assert.False(m.Scrolls);
+                 Assert.Equal(16.0 / 9.0, m.PictureWidth / m.PictureHeight, 1);
+             });
+ 
+         // Round 2 / A9: a source is a 240 px tile with a 214 x 120 thumbnail (16:9). It replaces the 398 x 309 card (picture 370 x 203):
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SourceStrip.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SourceStrip.cs
+index 80092d7..d5c10bb 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SourceStrip.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SourceStrip.cs
+@@ -220,22 +220,22 @@ namespace AvasRoutingTool.Tests
+                 WithFullHdWindow(view, () =>
+                 {
+                     Assert.Empty(FindAll<SourceCardView>(view));
+                     // The Sources count is the first "N discovered" of the overview: a run "0" then " discovered".
+                     var counts = FindAll<TextBlock>(view).Where(t => t.IsVisible && t.Inlines.OfType<System.Windows.Documents.Run>().Any(r => r.Text == " discovered")).ToList();
+                     Assert.Contains(counts, t => t.Inlines.OfType<System.Windows.Documents.Run>().First().Text == "0");
+                     return 0;
+                 });
+ 
+                 var m = MeasureFullHd(0, 2, displayCards: true);
+-                Assert.True(m.PictureWidth >= 673 - 0.5 && m.PictureHeight >= 378 - 0.5,
+-                    $"2 displays with no sources: {m.PictureWidth:F0}x{m.PictureHeight:F0} (the gate is 673x378)");
++                Assert.True(m.PictureWidth >= 499 - 0.5 && m.PictureHeight >= 281 - 0.5,
++                    $"2 displays with no sources: {m.PictureWidth:F0}x{m.PictureHeight:F0} (the gate is 499x281, the 3.5 card carousel picture)");
+             });
+ 
+         [Fact]
+         public void Overview_SourcesRow_IsAuto_AndTheAllowlistHasNoRowDefinitionStyle() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var view = new VisualRoutingView { DataContext = rig.Vm };
+                 Showing(view, () =>
+                 {
+@@ -249,29 +249,29 @@ namespace AvasRoutingTool.Tests
+                     Assert.True(rows[0].Height.IsAuto, $"composing sources row {rows[0].Height}");
+                 });
+ 
+                 var allow = UiV2Allowlist.Load();
+                 Assert.DoesNotContain(allow.InlineStyleExceptions, e => e.File == "Views/VisualRoutingView.xaml");
+                 var json = File.ReadAllText(Path.Combine(UiV2Allowlist.TestsDirectory(), UiV2Allowlist.FileName));
+                 Assert.DoesNotContain("TargetType=\\\"RowDefinition\\\"", json);
+             });
+ 
+         [Fact]
+-        public void FullHd_DisplayPictures_GainTheStripHeight() =>
++        public void FullHd_DisplayPictures_KeepTheCarouselSize() =>
+             RunSta(() =>
+             {
+                 var one = MeasureFullHd(3, 1, displayCards: true);
+                 var two = MeasureFullHd(3, 2, displayCards: true);
+-                Assert.True(one.PictureWidth >= 673 - 0.5 && one.PictureHeight >= 378 - 0.5,
+-                    $"1 display: {one.PictureWidth:F0}x{one.PictureHeight:F0} (the gate is 673x378)");
+-                Assert.True(two.PictureWidth >= 673 - 0.5 && two.PictureHeight >= 378 - 0.5,
+-                    $"2 displays: {two.PictureWidth:F0}x{two.PictureHeight:F0} (the gate is 673x378)");
++                Assert.True(one.PictureWidth >= 499 - 0.5 && one.PictureHeight >= 281 - 0.5,
++                    $"1 display: {one.PictureWidth:F0}x{one.PictureHeight:F0} (the gate is 499x281, the 3.5 card carousel picture)");
++                Assert.True(two.PictureWidth >= 499 - 0.5 && two.PictureHeight >= 281 - 0.5,
++                    $"2 displays: {two.PictureWidth:F0}x{two.PictureHeight:F0} (the gate is 499x281, the 3.5 card carousel picture)");
+             });
+ 
+         [Fact]
+         public void Floor_1008x615_TheStripScrolls_AndDisplaysStayReachable() =>
+             RunSta(() =>
+             {
+                 var (view, vm) = FullHdOverview(sources: 3, displays: 2);
+                 ShowingAt(view, 1008, 615, () =>
+                 {
+                     var sources = SourcesScrollOf(view, vm);

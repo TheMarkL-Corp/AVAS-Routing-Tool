@@ -1,0 +1,15 @@
+# Task 1 report
+Status: DONE_WITH_CONCERNS. Commit: see `git log -1` on claude/ui-round3-6710d5 (feat(icons): Material Symbols Rounded geometry set and MaterialIcon control).
+Download URL pattern (verified, HTTP 200): https://raw.githubusercontent.com/google/material-design-icons/master/symbols/web/<name>/materialsymbolsrounded/<name>_24px.svg (22 files, only that host). The default file in this folder is weight 400, outline.
+Icons: 22 (the names listed in the task). SVG paths use only H L M T Z h l m q t v (converter also supports C c S s Q q T t A a; anything else throws).
+Files: tools/icons/import-material-icons.ps1, tools/icons/SvgPathConverter.ps1, tools/icons/svg/*.svg (22), src/AvasRoutingTool/Resources/MaterialIcons.xaml, src/AvasRoutingTool/Controls/MaterialIcon.cs, src/AvasRoutingTool/App.xaml (merged before Icons.xaml, which must stay last per UiV2ThemeBridgeTests), tests/AvasRoutingTool.Tests/TestResources.cs, tests/AvasRoutingTool.Tests/MaterialIconTests.cs (8 tests), THIRD-PARTY-NOTICES.md. tools/ is outside src, so nothing ships.
+Test command: dotnet test ... -p:BaseOutputPath=bin/r7/ --filter "MaterialIconTests|UiV2Guards|UiV2StylesTests|UiV2IconFontTests|UiV2ThemeBridgeTests" -- RunConfiguration.DisableParallelization=true
+Result GREEN: Passed 180, Failed 0. Guard allowlist untouched.
+Holes: StreamGeometry mini-language defaults to EvenOdd, so every geometry is prefixed "F1 " (NonZero), asserted per icon in a test. RenderedIcons_KeepTheirHoles renders at 240 px and checks alpha: info ring interior alpha 0 and ring alpha > 200; settings empty ring between gear outline and centre disc alpha 0. Visually confirmed with a PNG dump.
+Converter bug found and fixed: the first 'm' of a path is absolute (needs the y translation); implicit repeats after it stay relative 'l'. Covered by Converter_MapsKnownPathsToTheUnit24Box. Converter tests run powershell.exe (dot-sources SvgPathConverter.ps1).
+Concerns: (1) I drafted the generator and control before the first test run, so there is no pristine RED run; the first run did fail (TypeInitializationException in the control metadata, converter spacing expectation, wrong hole sample for settings), then went GREEN. (2) The settings icon centre is a filled disc in this Material set (faithful nonzero rendering). (3) Converter tests need powershell.exe on PATH (Windows only, same as the project).
+
+## Fix round 1 (QA Important findings)
+RED: MaterialIcon_StyleSetterSizeOverridesTheDefault failed (1 failed, 12 passed of 13 MaterialIconTests); the other three new tests (kind change, live re-tint incl. DynamicResource swap, frozen and shared geometry) already passed.
+Fix: removed SetResourceReference for Width/Height; the generator now emits an implicit Style for MaterialIcon (Width/Height DynamicResource Size.Icon.M) at the top of MaterialIcons.xaml; regenerated. Note: an explicit Style replaces the implicit one (no merge), so a style that wants the default size needs BasedOn.
+GREEN: MaterialIconTests|UiV2Guards|UiV2StylesTests|UiV2IconFontTests|UiV2ThemeBridgeTests: 185 passed, 0 failed.

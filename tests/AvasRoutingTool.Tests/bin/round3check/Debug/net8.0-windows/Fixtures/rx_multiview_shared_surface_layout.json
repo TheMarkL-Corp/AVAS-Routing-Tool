@@ -1,0 +1,93 @@
+{
+    "status":  "SUCCESS",
+    "request_id":  null,
+    "result":  {
+                   "devices":  [
+                                   {
+                                       "device_id":  "74fe483c059e",
+                                       "device_name":  "RX1_c059e_SFPA",
+                                       "status":  {
+                                                      "active":  true,
+                                                      "point_to_point":  false,
+                                                      "point_to_point_peer":  "",
+                                                      "boot_status":  "PRIMARY",
+                                                      "update_in_progress":  false,
+                                                      "igmp_reporting_mode":  "QUERY",
+                                                      "core_dump_available":  false,
+                                                      "error_status":  {
+                                                                           "has_error_code":  false,
+                                                                           "error_code":  0
+                                                                       }
+                                                  },
+                                       "nodes":  [
+                                                     {
+                                                         "type":  "FRAME_BUFFER",
+                                                         "index":  0,
+                                                         "configuration":  {
+                                                                               "display_mode":  "MULTIVIEW",
+                                                                               "multiview_layout":  {
+                                                                                                        "name":  "avas_spike_1920x1080",
+                                                                                                        "width":  1920,
+                                                                                                        "height":  1080,
+                                                                                                        "read_only":  false,
+                                                                                                        "windows":  [
+                                                                                                                        {
+                                                                                                                            "index":  0,
+                                                                                                                            "horizontal_position":  0,
+                                                                                                                            "vertical_position":  0,
+                                                                                                                            "width":  960,
+                                                                                                                            "height":  540,
+                                                                                                                            "horizontal_offset":  0,
+                                                                                                                            "vertical_offset":  0,
+                                                                                                                            "content":  "VIDEO",
+                                                                                                                            "target_surface":  1
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "index":  1,
+                                                                                                                            "horizontal_position":  960,
+                                                                                                                            "vertical_position":  0,
+                                                                                                                            "width":  960,
+                                                                                                                            "height":  540,
+                                                                                                                            "horizontal_offset":  0,
+                                                                                                                            "vertical_offset":  0,
+                                                                                                                            "content":  "VIDEO",
+                                                                                                                            "target_surface":  2
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "index":  2,
+                                                                                                                            "horizontal_position":  0,
+                                                                                                                            "vertical_position":  540,
+                                                                                                                            "width":  960,
+                                                                                                                            "height":  540,
+                                                                                                                            "horizontal_offset":  0,
+                                                                                                                            "vertical_offset":  0,
+                                                                                                                            "content":  "VIDEO",
+                                                                                                                            "target_surface":  1
+                                                                                                                        },
+                                                                                                                        {
+                                                                                                                            "index":  3,
+                                                                                                                            "horizontal_position":  960,
+                                                                                                                            "vertical_position":  540,
+                                                                                                                            "width":  960,
+                                                                                                                            "height":  540,
+                                                                                                                            "horizontal_offset":  0,
+                                                                                                                            "vertical_offset":  0,
+                                                                                                                            "content":  "VIDEO",
+                                                                                                                            "target_surface":  255
+                                                                                                                        }
+                                                                                                                    ]
+                                                                                                    }
+                                                                           },
+                                                         "status":  {
+
+                                                                    }
+                                                     }
+                                                 ]
+                                   }
+                               ],
+                   "error":  [
+
+                             ]
+               },
+    "error":  null
+}
