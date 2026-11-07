@@ -213,7 +213,7 @@
                                 Visibility="{Binding HasDraft, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
                                 Click="DraftChip_Click">
                             <StackPanel Orientation="Horizontal">
-                                <controls:MaterialIcon Kind="undo"
+                                <controls:MaterialIcon Kind="play_arrow"
                                                        Width="{StaticResource Size.Icon.Layout}"
                                                        Height="{StaticResource Size.Icon.Layout}"
                                                        VerticalAlignment="Center" />
