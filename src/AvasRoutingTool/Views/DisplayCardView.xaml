@@ -223,18 +223,14 @@
                                        Foreground="{DynamicResource Brush.Status.StagedChipText}" />
                         </Button>
 
-                        <!-- Quick Power / Turn Off Button: a vector power icon, a ghost button (no red at rest) -->
+                        <!-- Quick Power / Turn Off Button: a vector power icon, an action-bar ghost button (no red at rest) -->
                         <Button x:Name="TurnOffButton"
                                 Grid.Column="4"
-                                Style="{StaticResource Style.Button.Ghost}"
+                                Style="{StaticResource Style.Button.ActionBar}"
                                 VerticalAlignment="Center"
                                 MinWidth="{StaticResource Size.Touch.Min}"
-                                MinHeight="{StaticResource Size.Touch.Min}"
-                                Padding="0"
-                                Foreground="{DynamicResource Brush.Text.Primary}"
                                 Command="{Binding UnrouteCommand, Mode=OneWay}"
                                 ToolTip="Turn off display feed / Unroute video"
-                                FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
                                 Visibility="{Binding IsRouted, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <controls:MaterialIcon Kind="power_settings_new" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" HorizontalAlignment="Center" VerticalAlignment="Center" />

@@ -1068,9 +1068,9 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(Named(rx1, "UndoToastLabel").Single()));
                     Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(Named(rx1, "ErrorBannerText").Single()));
 
-                    // The Turn Off button (Phase 1 default template) gets the theme ring and a name.
+                    // The Turn Off button is an action-bar button: its own 2 px ring (no second system ring) and a name.
                     var turnOff = FindAll<Button>(rx1).Single(b => b.Command == rig.Rx1.UnrouteCommand);
-                    Assert.Same(Application.Current.FindResource("Style.FocusVisual.Ring"), turnOff.FocusVisualStyle);
+                    Assert.Null(turnOff.FocusVisualStyle);
                     Assert.Equal("Turn off RX1_c059e_SFPA", AutomationProperties.GetName(turnOff));
                 });
             });

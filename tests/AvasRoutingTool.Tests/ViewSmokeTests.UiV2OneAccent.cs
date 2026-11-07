@@ -109,7 +109,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void DisplayCard_TurnOff_IsTheGhostButton() =>
+        public void DisplayCard_TurnOff_IsTheActionBarGhostButton() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -117,7 +117,9 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var turnOff = (Button)Named(view, "TurnOffButton").Single();
-                    Assert.Same(Res("Style.Button.Ghost"), turnOff.Style);
+                    Assert.Same(Res("Style.Button.ActionBar"), turnOff.Style);
+                    Assert.Equal(Res("Size.Action.Padding"), turnOff.Padding);
+                    Assert.Null(turnOff.FocusVisualStyle);
                     Assert.True(turnOff.IsVisible && turnOff.ActualHeight >= 48, $"Turn Off {turnOff.ActualWidth}x{turnOff.ActualHeight}");
                 });
             });
