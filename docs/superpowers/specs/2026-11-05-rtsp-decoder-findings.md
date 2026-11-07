@@ -1,5 +1,7 @@
 # RTSP decoder spike (T0) findings
 
+> Scope note (2026-11-07): the RTSP stream is a per-camera preview choice on the Room Cameras page, not a Main Window source. The decoder numbers below are unaffected.
+
 Date: 2026-11-07. Plan: `docs/superpowers/plans/2026-11-05-rtsp-view-source.md`. The stream address was read from `AVAS_RTSP_URL` in the shell only; it is not written here ("the user's camera").
 
 ## Setup
