@@ -16,6 +16,12 @@ namespace AvasRoutingTool.Tests
         public void FractionOf_ScalesTheLengthByTheParameter(double length, double fraction, double expected) =>
             Assert.Equal(expected, (double)new FractionOfConverter().Convert(length, typeof(double), fraction, CultureInfo.InvariantCulture), 6);
 
+        [Theory]
+        [InlineData(500.0, 287.0)]
+        [InlineData(1000.0, 370.0)]
+        public void FractionOf_NeverGoesBelowItsFloor(double length, double expected) =>
+            Assert.Equal(expected, (double)new FractionOfConverter { Floor = 287 }.Convert(length, typeof(double), 0.37, CultureInfo.InvariantCulture), 6);
+
         [Fact]
         public void FractionOf_AcceptsAnIntOrATextParameter()
         {

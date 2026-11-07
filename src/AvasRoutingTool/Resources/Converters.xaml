@@ -20,6 +20,8 @@
 
     <!-- A length times a fraction (the ConverterParameter, a Size.* fraction token): a window-relative cap as a double. Anything unusable gives no cap -->
     <conv:FractionOfConverter x:Key="Converter.FractionOf" />
+    <!-- The same, never below one whole source tile row (Size.Strip.Row.Min.Height): on a short window the strip scrolls only past its first row, and a tile's Start row is never clipped -->
+    <conv:FractionOfConverter x:Key="Converter.FractionOf.StripCap" Floor="{StaticResource Size.Strip.Row.Min.Height}" />
 
     <!-- A bool picks a row or column length. Default: true = *, false = Auto; a parameter "true;false" (for example "Auto;2*") overrides it -->
     <conv:BoolToGridLengthConverter x:Key="Converter.BoolToGridLength" />

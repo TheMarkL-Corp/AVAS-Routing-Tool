@@ -93,7 +93,7 @@
                 <!-- The overview strip: a plain CenteredWrapPanel (rows centred; not virtualized: every tile owns a live preview). It never takes more than Size.Strip.Max.Fraction of the overview height; beyond that it scrolls -->
                 <ScrollViewer Grid.Row="1"
                               Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}"
-                              MaxHeight="{Binding ActualHeight, ElementName=OverviewGrid, Converter={StaticResource Converter.FractionOf}, ConverterParameter={StaticResource Size.Strip.Max.Fraction}}"
+                              MaxHeight="{Binding ActualHeight, ElementName=OverviewGrid, Converter={StaticResource Converter.FractionOf.StripCap}, ConverterParameter={StaticResource Size.Strip.Max.Fraction}}"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Sources}">

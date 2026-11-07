@@ -11,8 +11,11 @@ namespace AvasRoutingTool.Converters
     /// </summary>
     public sealed class FractionOfConverter : IValueConverter
     {
+        /// <summary>The smallest cap it gives (0 = none): a window-relative cap that never drops below what one whole row of content needs.</summary>
+        public double Floor { get; set; }
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
-            value is double length && TryNumber(parameter, out var fraction) ? length * fraction : double.PositiveInfinity;
+            value is double length && TryNumber(parameter, out var fraction) ? Math.Max(Floor, length * fraction) : double.PositiveInfinity;
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
             throw new NotSupportedException();
