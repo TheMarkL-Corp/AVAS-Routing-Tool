@@ -152,14 +152,14 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Border.CornerRadius" Value="10" />
         <Setter Property="Padding" Value="12" />
-        <Setter Property="Margin" Value="0,0,4,12" />
+        <Setter Property="Margin" Value="0,0,0,12" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="Focusable" Value="False" />
     </Style>
 
     <!-- The last card of the rail takes the free height down to the pinned cluster; its list scrolls inside the rail only when it must -->
     <Style x:Key="Style.Card.Rail.Fill" TargetType="{x:Type ui:Card}" BasedOn="{StaticResource Style.Card.Rail}">
-        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Margin" Value="0,0,0,0" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Top" />
     </Style>

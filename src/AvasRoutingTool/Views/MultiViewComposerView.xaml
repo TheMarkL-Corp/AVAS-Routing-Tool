@@ -82,8 +82,8 @@
             </Grid.ColumnDefinitions>
 
             <!-- ===== Left rail: Step 1 layout and the sources a layout change left unplaced ===== -->
-            <ScrollViewer x:Name="LeftRailScroll" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-                <StackPanel Margin="0,0,4,0" Style="{StaticResource Style.Panel.BusyDisables}">
+            <ScrollViewer x:Name="LeftRailScroll" Grid.Column="0" Style="{StaticResource Style.ScrollViewer.VerticalOverlay}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <StackPanel Style="{StaticResource Style.Panel.BusyDisables}">
 
                     <!-- Step 1 -->
                     <controls:StepHeader x:Name="StepLayoutHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,6"
@@ -164,7 +164,7 @@
 
                     <!-- Step 2 heads this row. The WrapPanel moves the status under the heading when the canvas is narrow (a 1024 px window) -->
                     <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,12,0" VerticalAlignment="Center"
+                        <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,12,0" VerticalAlignment="Center" MinHeight="{StaticResource Size.Touch.Min}"
                                              Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
                                              AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}"
                                              AutomationProperties.HelpText="Tap a source in the strip above, then its blocks - or tap an empty block." />
@@ -189,11 +189,11 @@
                     </WrapPanel>
 
                     <!-- Done placing / Cancel move (Disarm stops both) -->
-                    <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Center" Style="{StaticResource Style.Button.Done}" />
+                    <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Top" Style="{StaticResource Style.Button.Done}" />
                 </Grid>
 
                 <!-- The screen: black canvas at the display's real aspect, framed by its state -->
-                <Grid Grid.Row="1" x:Name="CanvasHost" Margin="8" Background="Transparent" Style="{StaticResource Style.Panel.BusyDisables}">
+                <Grid Grid.Row="1" x:Name="CanvasHost" Margin="6,8" Background="Transparent" Style="{StaticResource Style.Panel.BusyDisables}">
 
                     <controls:FractionalLayoutPanel>
                         <controls:FractionalLayoutPanel.AspectRatio>
@@ -402,7 +402,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" Style="{StaticResource Style.ScrollViewer.VerticalOverlay}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                     <!-- At least as tall as the rail, so the Changes card stretches into the free height; taller content still scrolls -->
                     <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Mode=OneWay}">
                         <Grid.RowDefinitions>
