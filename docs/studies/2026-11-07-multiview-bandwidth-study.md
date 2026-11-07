@@ -245,5 +245,40 @@ Boom's scaler was already 1080p and its divider already on; only `start` stream 
 ### Rollback (done 2026-11-07)
 Both receivers returned to FAST_SWITCHED 3840x2160@60; Boom and PTZ stream 1 stopped with `free`; PTZ divider back to 0; layouts `study_pip_4k` and `study_2x2_1080` deleted (HTTP `DELETE /api/multiview/layout/{name}`); netstat selection cleared on VEGA, Boom, PTZ. The PTZ scaler stays 1080p (it was 0x0 before).
 
+### Side-by-side and 1+3 (run 2026-11-07, `observed-live`; pictures not looked at)
+Both on PAX_AVAS_Right (3840x2160@60 canvas), geometry from `MultiViewPresets` (side-by-side: two 1920x1080 at y=540; 1+3: Focus 2560x1440 plus three 1280x720). Counters cleared, 10 s window.
+
+| Case | Predicted | Measured | Flags |
+|---|---|---|---|
+| Side-by-side: VEGA S1 + PTZ S1, both 1080p30 → RX ingress | 3.2 | **3.13** (VEGA 7.90, PTZ 4.72 total) | none |
+| 1+3 with two live sources: PTZ S1 2560x1440@30 + VEGA S1 1280x720@30 → RX ingress | 3.6 | **3.50** (PTZ S1 2.80, VEGA S1 0.70; PTZ total 5.95, VEGA total 7.04) | none |
+| 1+3 with all four windows live (extrapolated, **not measured**): 2.85 + 3 × 0.71 | 5.0 | n/a | n/a |
+
+- Model error ≤ 2 % again (PTZ 2.80 vs 2.85, VEGA 0.70 vs 0.71). Both layouts are bandwidth-light compared with PiP; the limiting factor is the transmitter, not the receiver.
+- **New rule, found by the API:** subscribing the same source stream to two windows of one receiver is refused: `"Source stream is duplicated"`. So one multiview can show each (source, stream) once. With three transmitters a full 1+3 needs 4 distinct streams, which this lab cannot make without Boom's stream 1 (over budget, see above) or stream 0 at a size that does not match the window. The 1+3 with four live tiles was therefore not run.
+- Each transmitter has one scaler size, so 1+3 forced the PTZ to 2560x1440 and VEGA to 1280x720 while it ran; the layouts could not run at the same time as a 1080p layout using the same transmitters.
+- Rollback (done): receiver back to Fast Switch 4K60, layouts deleted, PTZ stream 1 stopped with `free`, PTZ scaler 1080p and divider 0, VEGA stream 1 restored to its original state (1080p scaler, running, divider 1), netstat selection cleared.
+
+### BAVM output-format selector (user screenshot, 2026-11-07)
+The BAVM multiview page has a per-receiver output format dropdown: "EDID (Recommended)" or an explicit mode (720p50/60, 1080p24 to 120, 4K24 to 60, 4096x2160 and more); one receiver there was set to 3840x2160@60.
+- Per SDVoE docs the receiver output format is a command argument, not something fixed by the display: `set:video`, `join` (optional) and `set:multiview` (`"video":{width,height,fps}`) all take it [INTRO §5.1 p.37, API §2.5 p.14]. "EDID (Recommended)" is the display's preferred timing, which is what our app already chooses (`MultiViewCanvasPolicy.Choose`).
+- So **BAVM can run a multiview canvas lower than the panel's native size** (for example 1920x1080@30 on a 4K panel) and the app can too: `set:multiview` with a smaller `video`. The display, not the Control Server, must accept that timing; a 4K panel normally lists 1080p in its EDID. This answers open question #6 of the UX spec as "the receiver does output it", but it is **not tested on our lab displays**.
+- Why it matters for bandwidth: canvas size and fps do not set the stream size (stream size = scaler size and source fps), but they set the layout's window geometry (window size = scaler size, so a smaller canvas means smaller windows and smaller scaled streams) and which surfaces are needed. A 1080p canvas makes 2×2 tiles 960x540 (0.4 Gbps each) instead of 1080p (1.6 Gbps each).
+- Not found in the supplied docs: whether BAVM filters that list by the display's EDID. The screenshot list includes 1080p@120, so probably not filtered.
+
+### Lower canvas test (run 2026-11-08, `observed-live`, picture confirmed clean by Mark)
+PAX_AVAS_Right (a 4K panel) driven at **1920x1080@60** with a 2×2 of 960x540 windows (two live: VEGA S1 and PTZ S1 with 960x540 scalers, dividers on; two black).
+
+| Measured (Gbps) | 4K canvas, 1080p tiles (side-by-side/2×2 tests) | 1080p canvas, 960x540 tiles |
+|---|---|---|
+| RX ingress | 3.13 | **0.78** |
+| VEGA scaled stream / TX total | 1.57 / 7.90 | **0.39 / 6.73** |
+| PTZ scaled stream / TX total | 1.57 / 4.72 | **0.39 / 3.55** |
+
+- No drop flags, CRC 0, pause frames 0. Mark confirmed the picture is clean (user-reported).
+- Confirms the lever: the canvas sets window size, window size must equal the scaler size, so a smaller canvas gives a proportionally smaller scaled stream. Stream bandwidth ≈ canvas pixels per tile × tile fps × 24 ÷ 0.93.
+- It does **not** reduce a transmitter's original stream (VEGA 6.28, Boom 8.56), so it cannot fix a TX that is over budget because of stream 0.
+- Rollback (done 2026-11-08): receiver back to Fast Switch 4K60, layout deleted, PTZ stream 1 stopped, scaler 1080p, divider 0; VEGA stream 1 restored (1080p, running); netstat selection cleared.
+
 ## Evidence gaps
 Fuzzy state not reproduced · netstat units inferred · drop-flag latching unknown · version-mismatch effect on FW 2.x unresolved · switch unknown · AVAS-specific (L4) divider and compression behaviour is vendor-dependent. QSG (AV Manager) only says it uses the scaled stream for multiview and sets the frame-rate divider automatically; it states no bandwidth rule.
