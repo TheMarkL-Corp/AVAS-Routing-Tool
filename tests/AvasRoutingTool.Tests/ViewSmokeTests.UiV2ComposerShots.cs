@@ -102,16 +102,7 @@ namespace AvasRoutingTool.Tests
                         Assert.Equal(BannerKind.Error, c.Banner.Kind);
                         Shoot("composer-banner-error-1920.png", 1920, 1080, rig, c, ThemeMode.Dark);
                     }
-                    {
-                        var rig = new ComposerRig();
-                        var c = Staged(rig);
-                        Shoot("composer-left-rail-scroll-1024.png", 1024, 720, rig, c, ThemeMode.Dark, v =>
-                        {
-                            Relayout(v);
-                            var left = (ScrollViewer)v.FindName("LeftRailScroll");
-                            if (left.ScrollableHeight > 0) left.ScrollToEnd();
-                        });
-                    }
+                    // No left-rail scroll shot: at 1024x720 the five layout tiles fit, so the real window cannot make that rail scroll.
                 }
                 finally
                 {
