@@ -22,6 +22,17 @@ namespace AvasRoutingTool.Controls
             nameof(AspectRatio), typeof(double), typeof(FractionalLayoutPanel),
             new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsArrange));
 
+        /// <summary>Where the canvas sits in leftover height: Center (default) or Top, which keeps it attached to what sits above it.</summary>
+        public static readonly DependencyProperty CanvasVerticalAlignmentProperty = DependencyProperty.Register(
+            nameof(CanvasVerticalAlignment), typeof(VerticalAlignment), typeof(FractionalLayoutPanel),
+            new FrameworkPropertyMetadata(VerticalAlignment.Center, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        public VerticalAlignment CanvasVerticalAlignment
+        {
+            get => (VerticalAlignment)GetValue(CanvasVerticalAlignmentProperty);
+            set => SetValue(CanvasVerticalAlignmentProperty, value);
+        }
+
         public double AspectRatio
         {
             get => (double)GetValue(AspectRatioProperty);
@@ -90,7 +101,7 @@ namespace AvasRoutingTool.Controls
 
             double width = Math.Min(space.Width, space.Height * AspectRatio);
             double height = width / AspectRatio;
-            return new Rect((space.Width - width) / 2, (space.Height - height) / 2, width, height);
+            return new Rect((space.Width - width) / 2, CanvasVerticalAlignment == VerticalAlignment.Top ? 0 : (space.Height - height) / 2, width, height);
         }
     }
 }

@@ -2540,7 +2540,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void Composer_Undo_HasUndoIcon_AndTheLabelStillWraps() =>
+        public void Composer_Undo_HasUndoIcon_AndAOneLineLabel() =>
             RunSta(() =>
             {
                 var now = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
@@ -2562,7 +2562,8 @@ namespace AvasRoutingTool.Tests
                     Assert.True(undo.IsVisible && undo.ActualHeight >= 48);
                     Assert.Equal("undo", FindAll<AvasRoutingTool.Controls.MaterialIcon>(undo).Single().Kind);
                     var label = FindAll<TextBlock>(undo).Single(t => t.Text.StartsWith("Undo", StringComparison.Ordinal));
-                    Assert.Equal(TextWrapping.Wrap, label.TextWrapping);
+                    Assert.Equal("Undo", label.Text);
+                    Assert.Equal("Undo - back to the previous picture", (string)undo.ToolTip);
                 });
             });
 

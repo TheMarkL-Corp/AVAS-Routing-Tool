@@ -91,6 +91,11 @@
                                          AutomationProperties.Name="{Binding StepLayoutText, Mode=OneWay}" />
 
                     <ItemsControl ItemsSource="{Binding LayoutOptions, Mode=OneWay}" Focusable="False" Margin="0,0,0,10">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="1" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Button x:Name="LayoutTile"
@@ -156,15 +161,15 @@
                 </Grid.RowDefinitions>
 
                 <!-- Status line: what the frame shows, and Done placing / Cancel move -->
-                <Grid Grid.Row="0" MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,0,6">
+                <Grid Grid.Row="0" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <!-- Step 2 heads this row. The WrapPanel moves the status under the heading when the canvas is narrow (a 1024 px window) -->
-                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,12,0" VerticalAlignment="Center" MinHeight="{StaticResource Size.Touch.Min}"
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,12,0">
+                        <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,12,0" VerticalAlignment="Center"
                                              Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
                                              AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}"
                                              AutomationProperties.HelpText="Tap a source in the strip above, then its blocks - or tap an empty block." />
@@ -195,7 +200,7 @@
                 <!-- The screen: black canvas at the display's real aspect, framed by its state -->
                 <Grid Grid.Row="1" x:Name="CanvasHost" Margin="6,8" Background="Transparent" Style="{StaticResource Style.Panel.BusyDisables}">
 
-                    <controls:FractionalLayoutPanel>
+                    <controls:FractionalLayoutPanel CanvasVerticalAlignment="Top">
                         <controls:FractionalLayoutPanel.AspectRatio>
                             <MultiBinding Converter="{StaticResource AspectRatio}" Mode="OneWay">
                                 <Binding Path="Draft.Plan.Width" Mode="OneWay" />
@@ -225,7 +230,7 @@
                     <ItemsControl x:Name="BlocksHost" ItemsSource="{Binding Blocks, Mode=OneWay}" Focusable="False" ItemContainerStyle="{StaticResource Style.Item.Fractional.Block}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <controls:FractionalLayoutPanel>
+                                <controls:FractionalLayoutPanel CanvasVerticalAlignment="Top">
                                     <controls:FractionalLayoutPanel.AspectRatio>
                                         <MultiBinding Converter="{StaticResource AspectRatio}" Mode="OneWay">
                                             <Binding Path="Draft.Plan.Width" Mode="OneWay" />
@@ -512,17 +517,13 @@
                     <Button x:Name="UndoButton"
                             Style="{StaticResource Style.Button.Undo}"
                             KeyboardNavigation.TabIndex="1"
+                            ToolTip="Undo - back to the previous picture"
                             AutomationProperties.Name="Undo - back to the previous picture"
                             Click="Undo_Click">
-                        <!-- Wraps in the narrow (264 px) rail instead of clipping mid-word -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal">
                             <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="Undo - back to the previous picture" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
-                        </Grid>
+                            <TextBlock Text="Undo" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                        </StackPanel>
                     </Button>
 
                     <!-- Tab order of the right rail: Undo, Discard, Clear all, and Take last (review the changes, then take) -->

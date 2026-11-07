@@ -47,8 +47,8 @@
                         <TextBlock x:Name="LabelText" Text="{TemplateBinding Title}" Style="{StaticResource Style.Text.Section}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         <controls:MaterialIcon x:Name="DoneCheck"
                                                Kind="check"
-                                               Width="{StaticResource Size.Icon.S}"
-                                               Height="{StaticResource Size.Icon.S}"
+                                               Width="{StaticResource Size.Icon.Layout}"
+                                               Height="{StaticResource Size.Icon.Layout}"
                                                Margin="{StaticResource Size.Space.Action.Before}"
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource Brush.Text.Accent}"
@@ -95,7 +95,6 @@
                         </DataTrigger>
                         <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
                             <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
-                            <Setter TargetName="bd" Property="BorderThickness" Value="3" />
                         </DataTrigger>
                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                             <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />

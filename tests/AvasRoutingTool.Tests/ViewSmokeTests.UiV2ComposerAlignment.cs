@@ -138,7 +138,8 @@ namespace AvasRoutingTool.Tests
 
                     double Mid(FrameworkElement e) => BoundsIn(e, view).Top + BoundsIn(e, view).Height / 2;
                     var step2 = VisibleNamed(view, "StepPlaceHeading");
-                    Assert.True(Math.Abs(Mid(done) - Mid(step2)) <= EdgeTolerance, $"Done centre {Mid(done):F1} vs Step 2 header {Mid(step2):F1}");
+                    // The 48 px floor is on the Done button; the 32 px step marker keeps the baseline of Step 1, so its centre lies within the button
+                    Assert.True(Mid(step2) >= BoundsIn(done, view).Top && Mid(step2) <= BoundsIn(done, view).Bottom, $"Step 2 header centre {Mid(step2):F1} is outside Done {BoundsIn(done, view).Top:F1}-{BoundsIn(done, view).Bottom:F1}");
                     var discard = VisibleNamed(view, "DiscardButton");
                     var clear = VisibleNamed(view, "ClearAllButton");
                     Assert.True(Math.Abs(Mid(discard) - Mid(clear)) <= EdgeTolerance, $"Discard centre {Mid(discard):F1} vs Clear all {Mid(clear):F1}");
