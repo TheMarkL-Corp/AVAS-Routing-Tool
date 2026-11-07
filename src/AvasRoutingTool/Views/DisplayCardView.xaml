@@ -97,7 +97,7 @@
                             IsTabStop="True"
                             Margin="0,-12,2,-12"
                             VerticalAlignment="Center">
-                        <controls:MaterialIcon Kind="edit" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}" />
+                        <controls:MaterialIcon Kind="edit" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" />
                     </Button>
 
                     <!-- Network telemetry (IP, MAC) lives in this badge's tooltip, reachable by keyboard -->
@@ -118,14 +118,15 @@
                             </TextBlock>
                         </Border.ToolTip>
                         <controls:MaterialIcon Kind="info"
-                                               Width="{StaticResource Size.Icon.S}"
-                                               Height="{StaticResource Size.Icon.S}"
+                                               Width="{StaticResource Size.Icon.Layout}"
+                                               Height="{StaticResource Size.Icon.Layout}"
                                                Foreground="{DynamicResource Brush.Text.Secondary}" />
                     </Border>
 
                     <!-- Mode tag: the layout and its fill ("MATRIX 2X2 &#183; 3/4"); neutral, the picture and the card say routed -->
                     <ui:Badge x:Name="ModeBadge"
                               Grid.Column="4"
+                              Margin="{StaticResource Size.Space.Action.Before}"
                               Style="{StaticResource Style.Badge.Neutral}">
                         <TextBlock x:Name="ModeBadgeText" Text="{Binding ModeBadge, Mode=OneWay}" />
                     </ui:Badge>

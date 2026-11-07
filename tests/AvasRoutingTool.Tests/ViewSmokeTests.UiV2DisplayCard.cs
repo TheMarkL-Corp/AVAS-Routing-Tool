@@ -250,7 +250,7 @@ namespace AvasRoutingTool.Tests
                 Showing(host, () =>
                 {
                     var pencil = FindAll<AvasRoutingTool.Controls.MaterialIcon>(Named(view, "DeviceInfoBadge").Single());
-                    var small = Token("Size.Icon.S");
+                    var small = Token("Size.Icon.Layout"); // the pencil and the info glyph are the action bar's 20 px
                     var header = FindAll<AvasRoutingTool.Controls.MaterialIcon>(view).Where(i => i.Kind is "edit" or "info").ToList();
                     Assert.Equal(2, header.Count);
                     Assert.All(header, i => { Assert.Equal(small, i.Width); Assert.Equal(small, i.Height); });

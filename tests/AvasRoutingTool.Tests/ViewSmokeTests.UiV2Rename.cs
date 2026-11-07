@@ -49,7 +49,7 @@ namespace AvasRoutingTool.Tests
         };
 
         /// <summary>The pencil is one icon-only, touch-sized tab stop, wired to the card's command, with its spoken name and tooltip.</summary>
-        private static void AssertRenamePencil(DependencyObject view, ICommand command, string spokenName)
+        private static void AssertRenamePencil(DependencyObject view, ICommand command, string spokenName, string iconToken = "Size.Icon.S")
         {
             var pencil = RenamePencilOf(view);
             Assert.Same(Application.Current.FindResource("Style.Button.IconPencil"), pencil.Style);
@@ -63,7 +63,7 @@ namespace AvasRoutingTool.Tests
 
             var icon = PencilIconOf(pencil);
             Assert.Equal("edit", icon.Kind);
-            Assert.Equal(Token("Size.Icon.S"), icon.Size);
+            Assert.Equal(Token(iconToken), icon.Size);
             // Icon only: no words (a SymbolIcon's own glyph is its only text)
             Assert.Empty(FindAll<TextBlock>(pencil).Where(t => !string.IsNullOrEmpty(t.Text) && !icon.Element.IsAncestorOf(t)));
         }
@@ -88,14 +88,14 @@ namespace AvasRoutingTool.Tests
                 Showing(routedHost, () =>
                 {
                     Assert.True(rig.Rx1.IsRouted);
-                    AssertRenamePencil(routed, rig.Rx1.RenameCommand, "Rename RX1_c059e_SFPA");
+                    AssertRenamePencil(routed, rig.Rx1.RenameCommand, "Rename RX1_c059e_SFPA", "Size.Icon.Layout");
                 });
 
                 var unrouted = rig.View(rig.Rx3, out var unroutedHost, 613);
                 Showing(unroutedHost, () =>
                 {
                     Assert.False(rig.Rx3.IsRouted);
-                    AssertRenamePencil(unrouted, rig.Rx3.RenameCommand, "Rename RX3_1080P_SFPA");
+                    AssertRenamePencil(unrouted, rig.Rx3.RenameCommand, "Rename RX3_1080P_SFPA", "Size.Icon.Layout");
                 });
             });
 
