@@ -157,7 +157,7 @@
             </ScrollViewer>
 
             <!-- ===== Centre: the staged canvas ===== -->
-            <Grid Grid.Column="1" Margin="16,0">
+            <Grid Grid.Column="1" Margin="{StaticResource Size.Composer.Canvas.Margin}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -269,7 +269,7 @@
                                         <Grid Style="{StaticResource Style.Panel.BlockContent}">
                                             <!-- Live preview, fitted uniformly: never cropped or stretched -->
                                             <Image Source="{Binding PreviewBitmap, Mode=OneWay}"
-                                                   Stretch="Uniform"
+                                                   Style="{StaticResource Style.Image.BlockPreview}"
                                                    RenderOptions.BitmapScalingMode="LowQuality" />
                                             <!-- Placed non-AVAS source: no preview, say so with its name -->
                                             <StackPanel Style="{StaticResource Style.Panel.NoPreview}">
@@ -277,6 +277,7 @@
                                                 <TextBlock x:Name="NoPreviewLabel" Text="NO PREVIEW · non-AVAS source" Style="{StaticResource Style.Text.Block.Caption}" Foreground="{DynamicResource Brush.Text.OnPreview}" />
                                             </StackPanel>
                                             <!-- Empty block, nothing armed and no move: what a tap does -->
+                                            <controls:MaterialIcon x:Name="EmptyAdd" Kind="add" Style="{StaticResource Style.Icon.BlockAdd}" Foreground="{DynamicResource Brush.Text.OnPreview}" />
                                             <TextBlock x:Name="EmptyHint" Text="Tap to choose a source" Style="{StaticResource Style.Text.Block.Hint}" Foreground="{DynamicResource Brush.Text.OnPreview}" />
                                         </Grid>
                                     </Button>
@@ -397,6 +398,7 @@
                                     <DataTrigger Binding="{Binding ActualWidth, ElementName=BlockRoot, Converter={StaticResource LessThan}, ConverterParameter={x:Static views:BlockDensity.CompactBelow}}" Value="True">
                                         <Setter TargetName="BlockRoot" Property="views:BlockDensity.IsCompact" Value="True" />
                                         <Setter TargetName="NoPreviewLabel" Property="Text" Value="NO PREVIEW" />
+                                        <Setter TargetName="NoPreviewLabel" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>
                             </DataTemplate>
@@ -456,7 +458,6 @@
                                                    HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock Text="{Binding OutputText, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" Margin="0,8,0,0" />
                             </StackPanel>
                         </ui:Card>
 

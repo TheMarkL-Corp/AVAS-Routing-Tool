@@ -17,6 +17,7 @@
     <sys:Double x:Key="Size.Composer.Rail.Right.Min">264</sys:Double>
     <sys:Double x:Key="Size.Composer.Rail.Right.Max">360</sys:Double>
     <sys:Double x:Key="Size.Composer.Tile.Min">96</sys:Double>
+    <Thickness x:Key="Size.Composer.Canvas.Margin">8,0</Thickness>
     <sys:Double x:Key="Size.Composer.Ghost.Opacity">0.85</sys:Double>
 
     <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN SAVE &amp; APPLY) ===== -->
@@ -34,7 +35,7 @@
                                 CornerRadius="16"
                                 Margin="0,0,10,0"
                                 Background="{DynamicResource Brush.Surface.Elevated}"
-                                BorderBrush="{DynamicResource Brush.Border.Strong}"
+                                BorderBrush="{DynamicResource Brush.Border.Control}"
                                 BorderThickness="1">
                             <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <TextBlock x:Name="StepNumberText"
@@ -523,6 +524,39 @@
     </Style>
 
     <!-- A placed non-AVAS source: no preview, say so with its name -->
+    <!-- The block picture: a placed source without a preview (non-AVAS) never shows a stale frame behind its "no preview" text -->
+    <Style x:Key="Style.Image.BlockPreview" TargetType="Image">
+        <Setter Property="Stretch" Value="Uniform" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- An empty compact block has no room for the hint sentence: a plus says it can be tapped. Same show rules as the hint. -->
+    <Style x:Key="Style.Icon.BlockAdd" TargetType="controls:MaterialIcon">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.Brand}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.Brand}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </Trigger>
+            <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DataContext.ArmedSource, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DataContext.MovingFromIndex, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="Style.Panel.NoPreview" TargetType="StackPanel">
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
@@ -784,6 +818,8 @@
         <Style.Triggers>
             <Trigger Property="views:BlockDensity.IsCompact" Value="True">
                 <Setter Property="Margin" Value="0" />
+                <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Compact}" />
+                <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Compact}" />
             </Trigger>
         </Style.Triggers>
     </Style>
