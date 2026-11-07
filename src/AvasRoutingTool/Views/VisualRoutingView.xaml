@@ -209,7 +209,14 @@
                                VerticalAlignment="Center"
                                Margin="12,0,8,0" />
 
+                    <!-- Which displays the sideways row shows ("Showing 1-3 of 12"): set in code while the row scrolls, and then it replaces the plain count -->
                     <TextBlock Grid.Column="2"
+                               x:Name="DisplaysRange"
+                               Style="{StaticResource Style.Text.Caption}"
+                               VerticalAlignment="Center"
+                               Visibility="Collapsed" />
+                    <TextBlock Grid.Column="2"
+                               x:Name="DisplaysCount"
                                Style="{StaticResource Style.Text.Caption}"
                                VerticalAlignment="Center">
                         <Run Text="{Binding Displays.Count, Mode=OneWay}" FontWeight="Bold" />

@@ -69,6 +69,9 @@
     <!-- Section header row (Displays): the arm banner shares this row with the header, so arming never changes its height. 56 = Touch.Min + 4 px above and below: the 48 px Stop button clears the banner's 2 px ring, so its own keyboard ring is not drawn on the same pixels -->
     <sys:Double x:Key="Size.Section.Header.Height">56</sys:Double>
 
+    <!-- The displays row fades its edge over this width where more cards continue, so a card is never cut mid-word with nothing to say it goes on -->
+    <sys:Double x:Key="Size.Scroll.Edge.Fade">24</sys:Double>
+
     <!-- Main window and app bar -->
     <sys:Double x:Key="Size.AppBar.Height">56</sys:Double>
     <sys:Double x:Key="Size.Tab.MinWidth">120</sys:Double>

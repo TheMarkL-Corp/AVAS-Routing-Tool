@@ -170,6 +170,8 @@ namespace AvasRoutingTool.Views
             bool rightHadFocus = DisplaysScrollRight.IsKeyboardFocused;
             DisplaysScrollLeft.IsEnabled = offset > 0.5;
             DisplaysScrollRight.IsEnabled = offset < scrollable - 0.5;
+            UpdateEdgeFade(offset, scrollable);
+            UpdateRangeCaption(scrollable);
             if (scrollable <= 0.5)
             {
                 DisplaysScrollLeft.Visibility = Visibility.Collapsed;
@@ -192,14 +194,66 @@ namespace AvasRoutingTool.Views
             // A focused arrow that just disabled itself hands the keyboard to the other arrow, else to the nearest card.
             if (leftHadFocus && !DisplaysScrollLeft.IsEnabled) MoveFocusFromArrow(DisplaysScrollRight, first: true);
             else if (rightHadFocus && !DisplaysScrollRight.IsEnabled) MoveFocusFromArrow(DisplaysScrollLeft, first: false);
+            // Centred on the part of the picture that is in view (a short window scrolls the row down), and kept inside the viewport so an arrow never sits on the scroll bar.
             var bounds = picture.TransformToAncestor(DisplaysScroll).TransformBounds(new Rect(0, 0, picture.ActualWidth, picture.ActualHeight));
-            double centre = bounds.Top + bounds.Height / 2;
-            double top = Math.Max(0, centre + DisplaysScroll.Margin.Top - DisplaysScrollLeft.Height / 2);
+            double viewport = DisplaysScroll.ViewportHeight;
+            double seenTop = Math.Max(0, bounds.Top);
+            double seenBottom = Math.Min(viewport, bounds.Bottom);
+            double centre = seenBottom > seenTop ? (seenTop + seenBottom) / 2 : viewport / 2;
+            double arrow = DisplaysScrollLeft.Height;
+            double top = Math.Max(0, Math.Min(centre - arrow / 2, viewport - arrow)) + DisplaysScroll.Margin.Top;
             if (Math.Abs(DisplaysScrollLeft.Margin.Top - top) > 0.5)
             {
                 DisplaysScrollLeft.Margin = new Thickness(DisplaysScrollLeft.Margin.Left, top, 0, 0);
                 DisplaysScrollRight.Margin = new Thickness(0, top, DisplaysScrollRight.Margin.Right, 0);
             }
+        }
+
+        /// <summary>Fades the row's edge over Size.Scroll.Edge.Fade where more cards lie that way (none when the row does not scroll).</summary>
+        private void UpdateEdgeFade(double offset, double scrollable)
+        {
+            double width = DisplaysScroll.ViewportWidth;
+            if (scrollable <= 0.5 || width <= 0)
+            {
+                if (DisplaysScroll.OpacityMask != null) DisplaysScroll.OpacityMask = null;
+                return;
+            }
+            double fade = Math.Min(0.5, ((double)FindResource("Size.Scroll.Edge.Fade")) / width);
+            bool more = offset > 0.5, moreRight = offset < scrollable - 0.5;
+            var brush = new System.Windows.Media.LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0) };
+            var clear = System.Windows.Media.Colors.Transparent;
+            var solid = System.Windows.Media.Colors.Black;
+            if (more) brush.GradientStops.Add(new System.Windows.Media.GradientStop(clear, 0));
+            brush.GradientStops.Add(new System.Windows.Media.GradientStop(solid, more ? fade : 0));
+            brush.GradientStops.Add(new System.Windows.Media.GradientStop(solid, moreRight ? 1 - fade : 1));
+            if (moreRight) brush.GradientStops.Add(new System.Windows.Media.GradientStop(clear, 1));
+            brush.Freeze();
+            DisplaysScroll.OpacityMask = brush;
+        }
+
+        /// <summary>"Showing 1-3 of 12": the cards at least half in view, shown in the header only while the row scrolls.</summary>
+        private void UpdateRangeCaption(double scrollable)
+        {
+            var cards = new System.Collections.Generic.List<DisplayCardView>();
+            CollectAll(DisplaysScroll, cards);
+            int first = 0, last = 0;
+            if (scrollable > 0.5)
+            {
+                for (int i = 0; i < cards.Count; i++)
+                {
+                    var c = cards[i];
+                    if (c.ActualWidth <= 0 || !c.IsDescendantOf(DisplaysScroll)) continue;
+                    var b = c.TransformToAncestor(DisplaysScroll).TransformBounds(new Rect(c.RenderSize));
+                    double seen = Math.Min(b.Right, DisplaysScroll.ViewportWidth) - Math.Max(b.Left, 0);
+                    if (seen < c.ActualWidth / 2) continue;
+                    if (first == 0) first = i + 1;
+                    last = i + 1;
+                }
+            }
+            bool show = first > 0;
+            DisplaysRange.Text = show ? (first == last ? $"Showing {first} of {cards.Count}" : $"Showing {first}-{last} of {cards.Count}") : "";
+            DisplaysRange.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            DisplaysCount.Visibility = show ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void MoveFocusFromArrow(Button other, bool first)
