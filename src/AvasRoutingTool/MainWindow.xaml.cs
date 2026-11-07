@@ -72,6 +72,7 @@ namespace AvasRoutingTool
         {
             _roomCameras.StopAll();
             _roomCameras.Dispose();
+            _viewModel.Dispose();
             _rtpReceiver.Dispose();
             _sdvoeClient.Dispose();
         }
@@ -94,6 +95,9 @@ namespace AvasRoutingTool
 
             // Leaving the Room Cameras tab for any other tab stops its motion (the view also stops on hide; this is the belt and braces).
             if (TabRoomCameras.IsChecked != true) _roomCameras.StopAll();
+
+            // The RTSP stream runs only while Visual Routing is shown (logic and memory of "was running" live in the view model).
+            _viewModel?.OnVisualRoutingVisibilityChanged(TabVisualRouting.IsChecked == true);
 
             if (TabVisualRouting.IsChecked == true)
             {

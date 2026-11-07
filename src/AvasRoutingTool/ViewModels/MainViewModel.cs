@@ -28,7 +28,7 @@ namespace AvasRoutingTool.ViewModels
         Offline
     }
 
-    public class MainViewModel : INotifyPropertyChanged
+    public class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         /// <summary>An armed source is disarmed after this long without placing or arming (spec 5.1).</summary>
         public static readonly TimeSpan ArmIdleTimeout = TimeSpan.FromSeconds(15);
@@ -195,8 +195,44 @@ namespace AvasRoutingTool.ViewModels
             RaiseViewOnlySource();
         }
 
+        private bool _visualRoutingVisible = true;
+        private bool _resumeRtspOnReturn;
+
+        /// <summary>
+        /// Called when the Visual Routing tab is shown or hidden. Leaving stops the RTSP stream (remembering whether it
+        /// was running: Connecting, Live or Lost); returning restarts only such a stream. Repeated calls with the same
+        /// value are ignored, so a second "left" cannot overwrite what was remembered.
+        /// </summary>
+        public void OnVisualRoutingVisibilityChanged(bool visible)
+        {
+            if (_visualRoutingVisible == visible) return;
+            _visualRoutingVisible = visible;
+            var source = _viewOnlySource;
+            if (!visible)
+            {
+                _resumeRtspOnReturn = source != null && source.State is RtspTileState.Connecting or RtspTileState.Live or RtspTileState.Lost;
+                source?.Stop();
+            }
+            else
+            {
+                var resume = _resumeRtspOnReturn;
+                _resumeRtspOnReturn = false;
+                if (resume && source != null && source.State == RtspTileState.Stopped)
+                    source.StartCommand.Execute(null);
+            }
+        }
+
+        /// <summary>Window closing: the RTSP stream is stopped and disposed; later player events change nothing.</summary>
+        public void Dispose()
+        {
+            _resumeRtspOnReturn = false;
+            DisposeViewOnlySource();
+            RaiseViewOnlySource();
+        }
+
         private void DisposeViewOnlySource()
         {
+            _resumeRtspOnReturn = false;
             var old = _viewOnlySource;
             _viewOnlySource = null;
             if (old == null) return;
