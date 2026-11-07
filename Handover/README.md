@@ -28,7 +28,7 @@ All commands run from the repository root: `c:\Users\POC-615\Documents\GitHub\AV
 | **Run Application** | `dotnet run --project src/AvasRoutingTool/AvasRoutingTool.csproj` |
 | **Publish Standalone Binary** | `dotnet publish src/AvasRoutingTool/AvasRoutingTool.csproj -c Release -o publish/AvasRoutingTool` |
 
-> **Current Test Status**: **701 non-live tests passing** (unit, integration, STA view-smoke). The `Live*` tests route/unroute real lab hardware when a Control Server is up, so run them only deliberately (the classes `LiveControlServerTests` and `LiveFunctionTests`): `dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests"` for the safe set. (Do not use `!~Live`: it also skips every test whose name merely contains "live".) If the app is running, add `--artifacts-path <scratch dir>` because the Debug output is locked.
+> **Current Test Status**: **812 non-live tests passing (2026-11-08, this branch)** (unit, integration, STA view-smoke). The `Live*` tests route/unroute real lab hardware when a Control Server is up, so run them only deliberately (the classes `LiveControlServerTests` and `LiveFunctionTests`): `dotnet test AvasRoutingTool.sln --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests"` for the safe set. (Do not use `!~Live`: it also skips every test whose name merely contains "live".) If the app is running, add `--artifacts-path <scratch dir>` because the Debug output is locked.
 
 ---
 
@@ -43,6 +43,7 @@ Please read the following documents in order depending on your immediate task:
 | [`03_PROTOCOLS_AND_HARDWARE.md`](./03_PROTOCOLS_AND_HARDWARE.md) | Semtech BlueRiver REST API specifications, raw TCP CLI commands, in-band Cypress Baseboard MCU UART protocol, and RFC 4175 RTP headers. |
 | [`04_VERIFIED_FEATURES_AND_KNOWN_LIMITATIONS.md`](./04_VERIFIED_FEATURES_AND_KNOWN_LIMITATIONS.md) | Catalog of all physical hardware-verified features, discovered quirks, and technical workarounds. |
 | [`05_NEXT_STEPS_AND_PHASE_2_PLAN.md`](./05_NEXT_STEPS_AND_PHASE_2_PLAN.md) | Phase 2 MultiView roadmap (Matrix 2x2, PIP, Side-by-Side, 1+3 Quad), route persistence, and immediate tasks. |
+| [`06_MULTIVIEW_BANDWIDTH_HANDOVER.md`](./06_MULTIVIEW_BANDWIDTH_HANDOVER.md) | Multiview bandwidth study, warn-only check, UX spec status, and the merge plan with `claude/ui-round3-6710d5`. |
 
 ---
 

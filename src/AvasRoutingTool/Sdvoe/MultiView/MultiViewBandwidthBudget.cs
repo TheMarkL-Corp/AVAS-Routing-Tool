@@ -16,7 +16,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
     /// <summary>
     /// Pure bandwidth arithmetic for multiview admission (see docs/studies/2026-11-07-multiview-bandwidth-study.md).
-    /// Not wired into any Take yet: nothing here talks to a device or changes behaviour.
+    /// Used only for a warning log on Save &amp; Apply (MultiViewOrchestrator.WarnIfOverBudgetAsync); it never blocks. This class itself talks to no device.
     /// wire rate = active pixels x fps x bits per pixel / 0.93; light compression is about 1.5:1.
     /// Calibrated against vendor figures, field notes and live netstat (within about 2 %, slightly pessimistic).
     /// </summary>
