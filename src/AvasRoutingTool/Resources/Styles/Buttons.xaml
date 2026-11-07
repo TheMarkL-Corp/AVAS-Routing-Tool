@@ -250,6 +250,24 @@
     </Style>
 
     <!--
+        Staged action bar button (the display card's draft chip): the Outlined action bar button (48 px, 6 px radius, 2 px outline, the own
+        2 px keyboard ring, icon and label) in the staged colours - amber outline, fill and label - with the staged hover tint.
+    -->
+    <Style x:Key="Style.Button.ActionBar.Staged" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Staged}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Staged}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.StagedHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.StagedHover}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
         Pencil (rename): an icon-only button for a card header. 48 x 48 hit box (Size.Touch.Min) whose whole box takes the press (transparent
         root Grid); the icon is the secondary text colour at rest and the accent (blue) under the mouse and on keyboard focus; the fill is
         the neutral row hover, under the mouse only; a 2 px ring through InputModality.ShowsFocus. Red is for errors only, so nothing here is red.

@@ -85,9 +85,9 @@ namespace AvasRoutingTool.Tests
                     Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout), i => i.Kind == "expand_more");
                     Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout), i => i.Kind == "grid_view");
 
-                    // The draft chip keeps the shared staged-chip template (part DraftFrame).
+                    // The draft chip is the staged action bar button (part bd).
                     var chip = (Button)Named(view, "DraftChip").Single();
-                    Assert.NotNull(chip.Template.FindName("DraftFrame", chip));
+                    Assert.NotNull(chip.Template.FindName("bd", chip));
 
                     foreach (var tb in FindAll<TextBlock>(view).Where(t => t.IsVisible && !string.IsNullOrEmpty(t.Text) && FindAll<SymbolIcon>(view).All(i => i.Glyph != t.Text)))
                     {

@@ -206,21 +206,23 @@
                         -->
                         <Button x:Name="DraftChip"
                                 Grid.Column="2"
-                                Style="{StaticResource Style.Button.Chip.Staged}"
+                                Style="{StaticResource Style.Button.ActionBar.Staged}"
                                 Margin="{StaticResource Size.Space.Action.Before}"
-                                VerticalAlignment="Center"
-                                MinHeight="{StaticResource Size.Touch.Min}"
-                                Padding="{StaticResource Size.Action.Padding}"
                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
                                 ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
                                 Visibility="{Binding HasDraft, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
                                 Click="DraftChip_Click">
-                            <TextBlock Text="DRAFT &#183; Resume"
-                                       Style="{StaticResource Style.Text.Body}"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap"
-                                       TextAlignment="Center"
-                                       Foreground="{DynamicResource Brush.Status.StagedChipText}" />
+                            <StackPanel Orientation="Horizontal">
+                                <controls:MaterialIcon Kind="undo"
+                                                       Width="{StaticResource Size.Icon.Layout}"
+                                                       Height="{StaticResource Size.Icon.Layout}"
+                                                       VerticalAlignment="Center" />
+                                <TextBlock Text="DRAFT &#183; Resume"
+                                           VerticalAlignment="Center"
+                                           Margin="{StaticResource Size.Space.Action.Before}"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
                         </Button>
 
                         <!-- Quick Power / Turn Off Button: a vector power icon, an action-bar ghost button (no red at rest) -->

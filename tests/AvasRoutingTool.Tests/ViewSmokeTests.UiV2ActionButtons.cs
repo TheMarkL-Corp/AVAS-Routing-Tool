@@ -41,6 +41,39 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void DraftChip_IsAnOutlinedActionBarButton_WithIcon_OwnFocusRing_AndOneLineLabel() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                rig.Rx1.HasDraft = true;
+                var view = rig.View(rig.Rx1, out var host, 480);
+                Showing(host, () =>
+                {
+                    var chip = (Button)Named(view, "DraftChip").Single();
+                    var outlined = Application.Current.FindResource("Style.Button.ActionBar.Outlined");
+                    var style = (Style)chip.Style;
+                    Assert.True(ReferenceEquals(style.BasedOn, outlined), "the draft chip is not based on Style.Button.ActionBar.Outlined");
+
+                    var bd = (Border)chip.Template.FindName("bd", chip);
+                    Assert.Equal(6.0, bd.CornerRadius.TopLeft);
+                    Assert.Equal(2.0, bd.BorderThickness.Left);
+                    var ring = (Border)chip.Template.FindName("FocusRing", chip);
+                    Assert.Equal(6.0, ring.CornerRadius.TopLeft);
+                    Assert.Equal(System.Windows.Visibility.Collapsed, ring.Visibility);
+                    chip.SetValue(InputModality.ShowsFocusProperty, true);
+                    Assert.Equal(System.Windows.Visibility.Visible, ring.Visibility);
+                    Assert.Same(Application.Current.FindResource("Brush.Status.Staged"), bd.BorderBrush);
+
+                    var icon = FindAll<MaterialIcon>(chip).Single();
+                    var label = FindAll<TextBlock>(chip).Single(t => t.Text.StartsWith("DRAFT"));
+                    double gap = BoundsIn(label, chip).Left - BoundsIn(icon, chip).Right;
+                    Assert.True(Math.Abs(gap - Token("Size.Space.Action")) <= 0.5, $"icon-to-label gap is {gap:F1}");
+                    Assert.Equal(System.Windows.TextWrapping.NoWrap, label.TextWrapping);
+                    Assert.Equal(System.Windows.TextTrimming.CharacterEllipsis, label.TextTrimming);
+                });
+            });
+
+        [Fact]
         public void ArmBanner_StopButton_IsAnActionBarButton_WithIconAndLabel() =>
             RunSta(() =>
             {
