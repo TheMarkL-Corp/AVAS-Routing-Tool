@@ -151,6 +151,39 @@ namespace AvasRoutingTool.Tests
                 });
             });
 
+        // The foot of the right rail (Discard / Clear all) ends on the bottom edge of the canvas frame, with or without Undo offered,
+        // so the whole lower edge of the window is one line.
+        [Theory]
+        [InlineData(1920, 720, false)]
+        [InlineData(2400, 900, false)]
+        [InlineData(1920, 720, true)]
+        [InlineData(2400, 900, true)]
+        public void ComposerRail_FootEndsOnTheCanvasFrameBottom(double w, double h, bool undoOffered) =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                MultiViewComposerView view;
+                MultiViewComposerViewModel c;
+                if (undoOffered) { view = AlignedComposerView(rig, ThemeMode.Dark); c = (MultiViewComposerViewModel)view.DataContext; }
+                else
+                {
+                    new ThemeService().SetTheme(ThemeMode.Dark);
+                    c = rig.Composer("quad_1_3");
+                    c.Arm(rig.Tx1); c.TapBlock(0); c.Disarm();
+                    view = rig.View(c);
+                }
+                ShowingAt(view, w, h, () =>
+                {
+                    Assert.Equal(undoOffered, c.CanUndo);
+                    var frame = BoundsIn(VisibleNamed(view, "CanvasFrame"), view).Bottom;
+                    foreach (var n in new[] { "DiscardButton", "ClearAllButton" })
+                    {
+                        var bottom = BoundsIn(VisibleNamed(view, n), view).Bottom;
+                        Assert.True(Math.Abs(bottom - frame) <= 1.5, $"{n} bottom {bottom:F1} vs canvas frame bottom {frame:F1}");
+                    }
+                });
+            });
+
         [Fact]
         public void ComposerUndo_AtTheFloor_KeepsTouchHeightAndItsLabel() =>
             RunSta(() =>

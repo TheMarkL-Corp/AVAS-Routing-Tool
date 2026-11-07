@@ -990,10 +990,10 @@
     </Style>
 
     <Style x:Key="Style.Button.Undo" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
-        <Setter Property="Margin" Value="0,8,0,0" />
+        <Setter Property="Margin" Value="0,0,0,8" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <!-- Hidden, not Collapsed: the slot is kept so Save &amp; apply stays at one position when Undo comes and goes -->
-        <Setter Property="Visibility" Value="Hidden" />
+        <!-- Collapsed when not offered: it heads a cluster anchored to the rail's foot, so nothing below it moves -->
+        <Setter Property="Visibility" Value="Collapsed" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding CanUndo, Mode=OneWay}" Value="True">
                 <Setter Property="Visibility" Value="Visible" />

@@ -104,7 +104,8 @@ namespace AvasRoutingTool.Tests
                     }
                     else
                         Assert.True(Math.Abs(discard.Top - take.Bottom - gap) <= 0.5, $"Save to Discard: {discard.Top - take.Bottom:F1}");
-                    Assert.True(Math.Abs(undo.Top - discard.Bottom - gap) <= 0.5, $"Discard to Undo: {undo.Top - discard.Bottom:F1}");
+                    var banner = BoundsIn(VisibleNamed(view, "BannerSlot"), view);
+                    Assert.True(Math.Abs(banner.Top - undo.Bottom - gap) <= 0.5, $"Undo to the banner slot: {banner.Top - undo.Bottom:F1}");
                     Assert.Equal(gap, clear.Left - discard.Right, 0.5); // the pair is two 4 px margins
                 });
             });

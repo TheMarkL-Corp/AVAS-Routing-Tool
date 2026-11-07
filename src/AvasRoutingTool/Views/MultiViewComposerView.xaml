@@ -203,7 +203,7 @@
                 </Grid>
 
                 <!-- The screen: black canvas at the display's real aspect, framed by its state -->
-                <Grid Grid.Row="1" x:Name="CanvasHost" Margin="6,8" Background="Transparent" Style="{StaticResource Style.Panel.BusyDisables}">
+                <Grid Grid.Row="1" x:Name="CanvasHost" Margin="6" Background="Transparent" Style="{StaticResource Style.Panel.BusyDisables}">
 
                     <controls:FractionalLayoutPanel CanvasVerticalAlignment="Top">
                         <controls:FractionalLayoutPanel.AspectRatio>
@@ -490,6 +490,18 @@
                 </ScrollViewer>
 
                 <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                    <!-- Undo heads the pinned cluster and is Collapsed when not offered. The cluster is anchored to the foot of the rail, so Save and the pair never move when it comes and goes, and no blank slot is left between Save and Discard or under them. -->
+                    <Button x:Name="UndoButton"
+                            Style="{StaticResource Style.Button.Undo}"
+                            KeyboardNavigation.TabIndex="1"
+                            ToolTip="Undo - back to the previous picture"
+                            AutomationProperties.Name="Undo - back to the previous picture"
+                            Click="Undo_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                            <TextBlock Text="Undo" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                        </StackPanel>
+                    </Button>
                     <!-- The banner has a slot of its own above step 3, so Save &amp; apply and its header never move when a hint or a result appears -->
                     <Grid x:Name="BannerSlot" MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,0,8">
     <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
@@ -551,18 +563,6 @@
                             </StackPanel>
                         </Button>
                     </UniformGrid>
-
-                    <Button x:Name="UndoButton"
-                            Style="{StaticResource Style.Button.Undo}"
-                            KeyboardNavigation.TabIndex="1"
-                            ToolTip="Undo - back to the previous picture"
-                            AutomationProperties.Name="Undo - back to the previous picture"
-                            Click="Undo_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
-                            <TextBlock Text="Undo" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
-                        </StackPanel>
-                    </Button>
                 </StackPanel>
             </Grid>
         </Grid>
