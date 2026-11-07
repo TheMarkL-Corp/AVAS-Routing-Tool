@@ -126,6 +126,10 @@ Behaviour: in `Rtsp` mode `Preview` maps the `RtspSourceViewModel` state (Stoppe
 - [ ] **Step 1:** Edit the csproj (the package's `build\VideoLAN.LibVLC.Windows.targets` defines both properties), build into a scratch `BaseOutputPath`, check size and the folder list.
 - [ ] **Step 2:** Run the gated real-decoder tests and the full suite. Commit.
 
+## Status (2026-11-08)
+
+RC0-RC5 are built and committed on `claude/rtsp-source-352452`; nothing is pushed or merged. RC5 measured: the app build output is 89 MB (was 205 MB) with only `libvlc\win-x64` and 15 plugin groups; the MSBuild wildcards in the exclude list must be written escaped (`%2A%2A`), as the package does. The player also runs with audio off (`--no-audio`, `:no-audio`) because the preview is a picture reference only. Not measured: glass-to-glass latency, H.265. Open default: D-6.
+
 ## Order and sizes
 
 RC0 (M) and RC1 (M) are independent and can run in parallel (different files; use different `BaseOutputPath` lanes). RC2 (M) and RC3 (S-M) need RC1 and touch different files. RC4 (S) needs RC1-RC3. RC5 (S) is independent. About 4 working days in all.
