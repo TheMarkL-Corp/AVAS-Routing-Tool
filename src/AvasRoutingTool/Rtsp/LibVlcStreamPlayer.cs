@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -13,8 +13,9 @@ namespace AvasRoutingTool.Rtsp
     /// <summary>
     /// LibVLC adapter for <see cref="IRtspStreamPlayer"/>. Restartable: every Start builds a fresh media and media player.
     /// Frames are decoded to RV32, copied into an unmanaged buffer, then to the shared <see cref="RtspFrameSink"/> on the UI thread.
-    /// Failure kind comes from the decoder's log lines, masked through <see cref="RtspUrl.MaskInText"/> and reduced to flags on
-    /// arrival; no log text is stored, forwarded or written to AppLogger.
+    /// A failure before the first frame is classified by <see cref="RtspProbe"/> against THIS player's own URL, so several
+    /// players can fail independently. Decoder log lines are never stored or written to AppLogger; the masked line reaches only
+    /// the test hook <see cref="MaskedLogSink"/>.
     /// </summary>
     public sealed class LibVlcStreamPlayer : IRtspStreamPlayer
     {
@@ -127,7 +128,8 @@ namespace AvasRoutingTool.Rtsp
             private bool _played;
             private bool _ended;
             private int _uiPending;
-            private volatile bool _sawAuth, _sawNotFound, _sawUnreachable;
+            private RtspUrl? _url;
+            private readonly CancellationTokenSource _probeCts = new();
 
             // delegates kept in fields so the GC cannot collect them while native code holds them
             private MediaPlayer.LibVLCVideoFormatCb? _format;
@@ -141,6 +143,8 @@ namespace AvasRoutingTool.Rtsp
             public void Begin(string url)
             {
                 ActiveSessions[this] = 0;
+                RtspUrl.TryParse(url, out var parsed, out _);
+                _url = parsed;
                 try
                 {
                     var vlc = Shared();
@@ -171,14 +175,9 @@ namespace AvasRoutingTool.Rtsp
             {
                 if (_closed) return;
                 try { _owner.MaskedLogSink?.Invoke(maskedLine); } catch { }
-                var l = maskedLine.ToLowerInvariant();
-                if (l.Contains("401") || l.Contains("unauthorized") || l.Contains("authentication")) _sawAuth = true;
-                if (l.Contains("404") || l.Contains("not found")) _sawNotFound = true;
-                if (l.Contains("connection failed") || l.Contains("refused") || l.Contains("timed out") || l.Contains("unable to connect")
-                    || l.Contains("could not connect") || l.Contains("connect error")) _sawUnreachable = true;
             }
 
-            private void Ended(bool error)
+            private async void Ended(bool error)
             {
                 bool played;
                 lock (_gate)
@@ -187,13 +186,11 @@ namespace AvasRoutingTool.Rtsp
                     _ended = true;
                     played = _played;
                 }
-                RtspPlayerEvent ev;
-                if (played) ev = RtspPlayerEvent.Dropped;
-                else if (_sawAuth) ev = RtspPlayerEvent.Failed(RtspFailure.AuthFailed);
-                else if (_sawNotFound) ev = RtspPlayerEvent.Failed(RtspFailure.NotFound);
-                else if (_sawUnreachable) ev = RtspPlayerEvent.Failed(RtspFailure.Unreachable);
-                else ev = RtspPlayerEvent.Failed(RtspFailure.Other);
-                _owner.Raise(this, ev);
+                if (played) { _owner.Raise(this, RtspPlayerEvent.Dropped); return; }
+                var kind = RtspFailure.Other;
+                try { if (_url != null) kind = await RtspProbe.ClassifyAsync(_url, _probeCts.Token).ConfigureAwait(false); }
+                catch { kind = RtspFailure.Other; }
+                _owner.Raise(this, RtspPlayerEvent.Failed(kind));
             }
 
             public void Shutdown()
@@ -203,6 +200,7 @@ namespace AvasRoutingTool.Rtsp
                 {
                     if (_closed) return;
                     _closed = true;
+                    try { _probeCts.Cancel(); } catch { }
                     p = _player; m = _media;
                     _player = null; _media = null;
                 }

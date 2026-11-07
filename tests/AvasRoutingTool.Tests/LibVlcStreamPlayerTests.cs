@@ -253,6 +253,29 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void TwoPlayersAtOnce_EachReportsItsOwnFailure()
+        {
+            if (!RealEnabled) return;
+            RunSta(() =>
+            {
+                using var bad = new FakeRtspServer(FakeRtspMode.Require401);
+                using var good = new FakeRtspServer(FakeRtspMode.Normal);
+                using var p1 = new LibVlcStreamPlayer(Dispatcher.CurrentDispatcher);
+                using var p2 = new LibVlcStreamPlayer(Dispatcher.CurrentDispatcher);
+                var e1 = new Probe();
+                var e2 = new Probe();
+                p1.Event += e1.On;
+                p2.Event += e2.On;
+                p1.Start(Url(bad));
+                p2.Start(Url(good));
+                Assert.True(PumpUntil(() => e1.FirstFailed != null && e2.Has(RtspPlayerEventKind.Playing), 20), "missing Failed or Playing");
+                Assert.Equal(RtspFailure.AuthFailed, e1.FirstFailed!.Failure);
+                Assert.False(e1.Has(RtspPlayerEventKind.Playing));
+                Assert.False(e2.Has(RtspPlayerEventKind.Failed));
+            });
+        }
+
+        [Fact]
         public void DecoderLogs_NeverContainFakePassword()
         {
             if (!RealEnabled) return;
