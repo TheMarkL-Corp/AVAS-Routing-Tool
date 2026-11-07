@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** The user enters an RTSP stream address once, and the Main Window shows that stream as a view-only tile next to the TX sources. The tile says plainly that it cannot be routed to an SDVoE display.
+**Goal:** The user pastes one RTSP URL into one text box, and the Main Window shows that stream as a view-only tile next to the TX sources. The tile says plainly that it cannot be routed to an SDVoE display.
 
 **Architecture:** An RTSP source is **not** an `AvasDevice` and never enters `MainViewModel.Sources` (routing, the Composer and arming all key off that list and an `AvasDevice` MAC). It gets its own `RtspSourceViewModel` in a separate `ViewOnlySources` collection, drawn by a new `RtspSourceCardView` after the TX tiles in the full (non-compact) strip. The decoder sits behind `IRtspStreamPlayer` so the state machine, retry policy and UI are tested with a fake player; one gated test drives the real decoder against an in-process fake RTSP server.
 
-**Tech Stack:** .NET 8 WPF MVVM, WPF-UI 4.3.0, xUnit STA view tests, decoder per Decision D-3 (recommended: LibVLCSharp + `VideoLAN.LibVLC.Windows`, frames copied into a `WriteableBitmap` through video callbacks, the same `Image` pattern as `SourceCardViewModel.PreviewBitmap`).
+**Tech Stack:** .NET 8 WPF MVVM, WPF-UI 4.3.0, xUnit STA view tests, LibVLCSharp + `VideoLAN.LibVLC.Windows` (D-3, frames copied into a `WriteableBitmap` through video callbacks, the same `Image` pattern as `SourceCardViewModel.PreviewBitmap`).
 
-**Spec:** the **Decisions** section below plus the planning request of 2026-11-05. Nothing here is fixed by the user yet except D-1; D-2 to D-4 are open and are listed with a recommendation.
+**Spec:** the **Decisions** section below plus the planning request of 2026-11-05. D-1 to D-6 are fixed by the user.
 
 ## What was read (facts that shape the plan)
 
@@ -18,7 +18,7 @@
 - Room Cameras: `RoomCameraViewModel` re-resolves a bound `SourceCardViewModel` and shows its `PreviewBitmap` through the `CameraPreviewState` enum (`NoSourceBound, SourceOffline, Standby, Starting, Live`); `RoomCamerasViewModel.Dispose()` stops previews; `RoomCamerasView.xaml.cs` stops on `Unloaded`. The harness `tests/AvasRoutingTool.Tests/RoomCamerasPreviewHarness.cs` is a gated (`AVAS_RC_PREVIEW=1`) interactive window with fake VISCA servers, an in-memory `IConfigService` and a painted test pattern on a card. The RTSP harness copies that shape.
 - `src/AvasRoutingTool/Configuration/AppConfig.cs`: flat properties plus `List<RoomCameraConfig> RoomCameras`; `ShowLogs`/`ShowAdvanced` are the existing switch pattern. Config is plain JSON (`appsettings.json`), so a stored URL would be readable.
 - `AppLogger` (`Logging/`) is a static logger with an in-memory buffer shown on the Logs tab and a file under `Logs`. Every message goes there, so masking must happen before the call.
-- The repo has no `PublishSingleFile`/`SelfContained` setting in any `.csproj`, `.pubxml` or script (searched `*.csproj`, `*.pubxml`, `*.ps1`, `*.props`); the single-file packaging step lives outside the repo. Task 0 must be run with the real packaging command.
+- The repo has no `PublishSingleFile`/`SelfContained` setting in any `.csproj`, `.pubxml` or script (searched `*.csproj`, `*.pubxml`, `*.ps1`, `*.props`); packaging lives outside the repo. The user confirmed (2026-11-05) that the final package need not be one exe, so `libvlc` ships in a folder beside it.
 
 ## Decoder comparison (D-3)
 
@@ -36,16 +36,16 @@ Verified = found on a package page or vendor doc during this planning turn; **un
 | WPF display | `VideoView` is an HWND (airspace problems with overlays and the tile's rounded corners); video callbacks into a `WriteableBitmap` avoid that at the cost of a CPU copy. | Always a copy into a `WriteableBitmap`. | Needs interop; no ready WPF control for RTSP. |
 | Effort | Low: it is a player. | High: roughly 400+ lines of unsafe interop plus threading. | Medium, with the highest compatibility risk. |
 
-**Recommendation:** LibVLCSharp with `VideoLAN.LibVLC.Windows` and video callbacks into a `WriteableBitmap`. It is the only option that gives RTSP, H.264 and H.265 and a permissive licence for little code. Its cost is size and the native-DLL layout, so Task 0 is a mandatory spike that gates everything else; if the size or the single-file cost is unacceptable, the fallback is FFmpeg with an LGPL shared build (more code, smaller, same DLL layout issue). Media Foundation is not recommended: compatibility with arbitrary IP-camera RTSP servers is the risk this feature cannot afford.
+**Recommendation (accepted by the user as D-3):** LibVLCSharp with `VideoLAN.LibVLC.Windows` and video callbacks into a `WriteableBitmap`. It is the only option that gives RTSP, H.264 and H.265 and a permissive licence for little code. Its cost is size and the native-DLL layout, so Task 0 is a short spike; because the package may be a folder, the single-file cost no longer matters. The fallback, if a measured number is unacceptable, is FFmpeg with an LGPL shared build. Media Foundation is not recommended: compatibility with arbitrary IP-camera RTSP servers is the risk this feature cannot afford.
 
 ## Decisions
 
 - **D-1 (fixed by the user)** The stream is view-only. It cannot be routed to an SDVoE display, and the tile says so. The URL is given in chat and never written to files, logs, commits or screenshots.
-- **D-2 (open, recommended)** Entry: an "Add RTSP stream" tile at the end of the source strip opens a dialog with **Name**, **Address** (`rtsp://host:port/path`), **User** and **Password** (a `PasswordBox`). Pasting a full URL with credentials into Address splits it into the fields, and the Address box then shows it without credentials. Edit and Remove sit on the tile's menu. Several streams are allowed (one list), but the first release is tested with one.
-- **D-3 (open, recommended)** Decoder: LibVLCSharp, subject to the Task 0 numbers. See the comparison above.
-- **D-4 (open, recommended)** Storage: `AppConfig.RtspSources` (`List<RtspSourceConfig>`), where the whole URL including credentials is stored only as a Windows DPAPI blob (`ProtectedData`, `CurrentUser`) in `UrlProtected`; `Id`, `Name` and the masked display text are stored in clear. A blob made on one PC or user cannot be read on another, so the portable exe on a new machine shows the tile as "Re-enter password". Alternative: do not persist, ask each session.
-- **D-5 (open, recommended)** Retry: automatic retry with delays 1, 2, 5, 10 s then every 10 s, forever, only for a lost or unreachable stream; an authentication or "not found" answer is an Error that stops retrying and offers a Retry button. A Stop button halts everything.
-- **D-6 (open, recommended)** First place is the Main Window strip. The Room Cameras page can bind a camera to an RTSP source later (it would need `CameraPreviewState` to accept a non-`SourceCardViewModel` source); out of scope here.
+- **D-2 (fixed by the user, 2026-11-05)** One single text box takes the whole URL in one go (credentials included). One stream only in this phase: no list, no Name field, no User/Password fields. The tile is named "RTSP stream" and shows the masked address.
+- **D-3 (fixed by the user, 2026-11-05)** Decoder: LibVLCSharp with `VideoLAN.LibVLC.Windows`. The final package does **not** have to be one exe: `libvlc.dll` and the `plugins` folder ship beside the exe. T0 still measures size, latency and H.265, and may veto D-3 only if a number is unacceptable.
+- **D-4 (fixed by the user, 2026-11-05: "keep it simple")** No encryption and no config file. The URL lives in memory for the session and is pasted again after a restart. This keeps the rule "the URL is never written to a file" true. Persistence is deferred (see the end of this plan).
+- **D-5 (fixed by the user, 2026-11-05)** Retry a lost or unreachable stream after 1, 2, 5, then every 10 s, forever. A 401 or "not found" is an Error that stops retrying and shows a Retry button. A Stop button halts everything.
+- **D-6 (fixed by the user, 2026-11-05)** First place is the Main Window strip. Room Cameras later.
 
 ## Global Constraints
 
@@ -67,7 +67,7 @@ Each line has its test in the owning task.
 3. The stream drops mid-playback, the server is unreachable at start, the server answers 401, and the server comes back after being down. (T3, T4)
 4. The user leaves the Visual Routing tab or closes the window while the state is Connecting (a connect call is in flight). (T6)
 5. A frame size change mid-stream (the camera switches resolution) must not crash the bitmap copy. (T4)
-6. The stored blob cannot be decrypted (other user or PC): the tile asks to re-enter, never crashes, never shows garbage. (T2)
+6. Empty box, whitespace-only text, a non-rtsp URL, and a second paste replacing a running stream: the old stream stops first. (T1, T5)
 7. An RTSP tile must never be armed, routed or counted in `OnlineSourcesCount`. (T5)
 
 ---
@@ -76,39 +76,30 @@ Each line has its test in the owning task.
 
 Sizes: S = under half a day, M = about a day, L = 1-2 days.
 
-### T0: Decoder spike and numbers (M, gates T4 and T5)
+### T0: Decoder spike and numbers (S, gates T4)
 
 **Files:** Create `docs/superpowers/specs/2026-11-05-rtsp-decoder-findings.md`; a throwaway console project under the scratchpad, not in the repo.
-**Completion criterion:** the findings file holds, for LibVLC and (if LibVLC fails a limit below) FFmpeg: published exe size with and without the decoder, first-start time on a clean user profile, whether it runs when copied to another folder and another PC, glass-to-glass latency, H.264 and H.265 pass/fail, and the decision for D-3. No stream address appears in it (write "the user's camera").
+**Completion criterion:** the findings file holds the app folder size with and without LibVLC (full and trimmed `plugins`), glass-to-glass latency with the user's camera, H.264 and H.265 pass/fail, and whether a `win-x64` publish with `libvlc` beside the exe starts on a clean user profile. No stream address appears in it (write "the user's camera").
 
-- [ ] **Step 1:** Run the repo's real single-file packaging command (ask the lead for it; it is not in the repo) with LibVLCSharp added to a copy of the project; record size and whether `libvlc.dll` and `plugins` land beside the exe or in a temp extraction folder.
-- [ ] **Step 2:** With `AVAS_RTSP_URL` set in the shell only, play the stream with `:network-caching=150 :rtsp-tcp`; measure latency against a running clock held in front of the camera; try `:rtsp-tcp` off.
-- [ ] **Step 3:** Trim the `plugins` folder to the needed plugins and re-measure size and playback.
-- [ ] **Step 4:** Write the findings file, commit, and stop for the user's D-3 answer.
+- [ ] **Step 1:** With `AVAS_RTSP_URL` set in the shell only, play the stream with `:network-caching=150 :rtsp-tcp`; measure latency against a running clock held in front of the camera; try `:rtsp-tcp` off.
+- [ ] **Step 2:** Trim the `plugins` folder to the needed plugins and re-measure size and playback.
+- [ ] **Step 3:** Write the findings file, commit, report the numbers.
 
 ### T1: `RtspUrl` parse and mask (S)
 
 **Files:** Create `src/AvasRoutingTool/Rtsp/RtspUrl.cs` (namespace `AvasRoutingTool.Rtsp`; the existing `Rtp` folder is for SDVoE RTP, keep them apart); test `tests/AvasRoutingTool.Tests/RtspUrlTests.cs`.
 **Interfaces:** Produces `sealed record RtspUrl(string Host, int Port, string PathAndQuery, string? User, string? Password)` with `static bool TryParse(string text, out RtspUrl url, out string reason)`, `string ToFullUrl()` (for the decoder only), `string ToMasked()`, and `static string MaskInText(string text)` which replaces any `rtsp(s)://...` found in free text with the masked form.
 
-- [ ] **Step 1:** Write failing tests: `Parse_SplitsUserAndPassword`; `Parse_PasswordWithAtAndColon_PercentEncoded`; `Parse_NoPort_Uses554`; `Parse_Ipv6Host`; `Parse_TrimsWhitespace`; `Parse_RejectsHttp_WithReason`; `Mask_HidesUserPasswordAndQueryValues` asserting `ToMasked()` equals `rtsp://***:***@host:554/path?token=***` for a fake `user`/`pass-fake`/`token=abc` input and contains neither `pass-fake` nor `abc`; `MaskInText_ReplacesUrlInsideAnExceptionMessage`. Run: red.
+- [ ] **Step 1:** Write failing tests: `Parse_SplitsUserAndPassword`; `Parse_PasswordWithAtAndColon`; `Parse_NoPort_Uses554`; `Parse_Ipv6Host`; `Parse_TrimsWhitespace`; `Parse_Empty_ReturnsReason`; `Parse_RejectsHttp_WithReason`; `Mask_HidesUserPasswordAndQueryValues` asserting `ToMasked()` equals `rtsp://***:***@host:554/path?token=***` for a fake `user`/`pass-fake`/`token=abc` input and contains neither `pass-fake` nor `abc`; `MaskInText_ReplacesUrlInsideAnExceptionMessage`. Run: red.
 - [ ] **Step 2:** Implement with `System.Uri` plus manual user-info handling. Run: green.
 - [ ] **Step 3:** Commit.
-
-### T2: Config and DPAPI store (S)
-
-**Files:** Modify `Configuration/AppConfig.cs` (add `List<RtspSourceConfig> RtspSources`); create `Configuration/RtspSourceConfig.cs`, `Rtsp/RtspUrlProtector.cs`; test `RtspUrlProtectorTests.cs`.
-**Interfaces:** Produces `RtspSourceConfig { string Id; string Name; string MaskedDisplay; string? UrlProtected; }`; `static string Protect(RtspUrl url)`; `static bool TryUnprotect(string blob, out RtspUrl url)`.
-
-- [ ] **Step 1:** Failing tests: `RoundTrip_ReturnsSameUrl`; `Blob_DoesNotContainPasswordOrHostInClear` (decode base64, search bytes); `CorruptBlob_ReturnsFalse_NoThrow`; `Config_JsonRoundTrip_KeepsRtspSources` using a temp `ConfigService` file, then read the file text and assert it holds no `pass-fake`. Red.
-- [ ] **Step 2:** Implement with `System.Security.Cryptography.ProtectedData` (add the `System.Security.Cryptography.ProtectedData` package reference if the SDK does not provide it for `net8.0-windows`). Green. Commit.
 
 ### T3: `RtspSourceViewModel` state machine (M)
 
 **Files:** Create `ViewModels/RtspSourceViewModel.cs`, `Rtsp/IRtspStreamPlayer.cs`, `Rtsp/RtspRetryPolicy.cs`; test `RtspSourceViewModelTests.cs` with `Fakes/FakeRtspPlayer.cs`.
 **Interfaces:** Produces
 `enum RtspTileState { Stopped, Connecting, Live, Lost, Error }`;
-`interface IRtspStreamPlayer : IDisposable { event Action<RtspPlayerEvent> Event; WriteableBitmap? Bitmap { get; } void Start(string fullUrl); void Stop(); }` with `RtspPlayerEvent` = `Playing | Dropped | Failed(RtspFailure kind: AuthFailed, NotFound, Unreachable, Other)`; `RtspRetryPolicy.NextDelay(int attempt) -> TimeSpan` (1, 2, 5, 10 s, then 10 s); `RtspSourceViewModel(RtspSourceConfig config, RtspUrl url, Func<IRtspStreamPlayer> playerFactory, Func<TimeSpan, CancellationToken, Task> delay)` with `State`, `StatusText`, `DisplayName`, `MaskedAddress`, `PreviewBitmap`, `StartCommand`, `StopCommand`, `RetryCommand`, `Dispose()`.
+`interface IRtspStreamPlayer : IDisposable { event Action<RtspPlayerEvent> Event; WriteableBitmap? Bitmap { get; } void Start(string fullUrl); void Stop(); }` with `RtspPlayerEvent` = `Playing | Dropped | Failed(RtspFailure kind: AuthFailed, NotFound, Unreachable, Other)`; `RtspRetryPolicy.NextDelay(int attempt) -> TimeSpan` (1, 2, 5, 10 s, then 10 s); `RtspSourceViewModel(RtspUrl url, Func<IRtspStreamPlayer> playerFactory, Func<TimeSpan, CancellationToken, Task> delay)` with `State`, `StatusText`, `MaskedAddress`, `PreviewBitmap`, `StartCommand`, `StopCommand`, `RetryCommand`, `Dispose()`.
 Status texts: Connecting "Connecting...", Live "Live", Lost "Connection lost - retrying in N s", Error "Cannot open stream: <kind sentence>"; the kind sentences never contain the URL.
 
 - [ ] **Step 1:** Failing tests against the fake player and an instant `delay`: `Start_GoesConnecting_ThenLiveOnPlaying`; `Dropped_GoesLost_AndRetriesWithPolicyDelays` (assert delays 1, 2, 5, 10, 10); `RetrySucceeds_ReturnsToLive_ResetsAttemptCounter`; `AuthFailed_GoesError_NoRetry`; `Unreachable_AtStart_RetriesAutomatically`; `Stop_CancelsPendingRetry_AndStopsPlayer`; `Dispose_StopsPlayer_NoFurtherEvents`; `StatusText_NeverContainsPasswordOrHost` over every state and failure kind; `PlayerFailureMessage_WithUrl_IsMasked`. Run: red.
@@ -124,13 +115,13 @@ Status texts: Connecting "Connecting...", Live "Live", Lost "Connection lost - r
 - [ ] **Step 3:** Implement `LibVlcStreamPlayer` per D-3: one shared `LibVLC` instance created lazily with `--no-video-title-show` and **no verbose logging**; the log callback, if used for failure classification, passes every line through `RtspUrl.MaskInText` before `AppLogger`. Video callbacks (format, lock, unlock, display) copy into a `WriteableBitmap` recreated on size change; media option `:rtsp-tcp` and `:network-caching` from T0. Map LibVLC's error and end-reached events to `RtspPlayerEvent`. Green.
 - [ ] **Step 4:** Commit.
 
-### T5: Tile, add/edit dialog, strip placement (M)
+### T5: Tile, URL box, strip placement (M)
 
-**Files:** Create `Views/RtspSourceCardView.xaml(.cs)`, `Views/RtspSourceDialog.xaml(.cs)`; modify `ViewModels/MainViewModel.cs` (add `ObservableCollection<RtspSourceViewModel> ViewOnlySources`, `AddRtspSourceCommand`, load from `AppConfig.RtspSources` at startup, save on add/edit/remove), `Views/VisualRoutingView.xaml` (after line 110's `ItemsControl`, a second `ItemsControl` over `ViewOnlySources` plus the "Add RTSP stream" tile; none in the compact palette); test `ViewSmokeTests.RtspSource.cs`.
-**Interfaces:** Consumes T1-T3. The tile shows the name, status dot plus word (D-5 texts), the picture (`PreviewBitmap`, or the state message in the thumbnail area when not Live), the badge "View only - cannot be routed to a display", and a menu with Edit, Remove and Stop/Start/Retry. Same size as a TX tile.
+**Files:** Create `Views/RtspSourceCardView.xaml(.cs)`; modify `ViewModels/MainViewModel.cs` (add `RtspSourceViewModel? ViewOnlySource`, `SetRtspUrl(string text)` and `RemoveRtsp()`), `Views/VisualRoutingView.xaml` (after line 110's `ItemsControl`, one RTSP tile; none in the compact palette); test `ViewSmokeTests.RtspSource.cs`.
+**Interfaces:** Consumes T1, T3. With no stream set, the tile is an empty "Add RTSP stream" tile holding one text box (48 px, placeholder "rtsp://...") and a Start button; Enter also starts. Once set, the box is replaced by the live tile: masked address, status dot plus word (D-5 texts), the picture, the badge "View only - cannot be routed to a display", and a menu with Stop/Start/Retry and Remove (Remove clears the stream and returns to the empty tile). Same size as a TX tile.
 
-- [ ] **Step 1:** Failing STA tests: tile renders each of the five states with its word; badge text present and in `AutomationProperties.HelpText`; tile has no arm/drag handlers (pressing it leaves `Sources.Any(s => s.IsArmed)` false and `MainViewModel` route methods uncalled); `OnlineSourcesCount` unchanged by an added RTSP source; dialog `OK` disabled with a reason until Address parses (reasons from `RtspUrl.TryParse`) and Name is 1-19 characters; pasting a full URL splits user, password and address and the Address box then shows no credentials; the tile's name, tooltip and automation name contain no credentials and no query values; Remove stops the player and deletes the config entry. Red.
-- [ ] **Step 2:** Implement view, dialog and wiring. Green.
+- [ ] **Step 1:** Failing STA tests: empty tile shows the box; Start stays disabled with the parser's reason until the text parses; the tile renders each of the five states with its word; badge text is present and in `AutomationProperties.HelpText`; pressing the tile leaves `Sources.Any(s => s.IsArmed)` false and calls no `MainViewModel` route method; `OnlineSourcesCount` is unchanged; the tile's text, tooltip and automation name contain no credentials and no query values; a second Start with a new URL stops the first player before starting the next; Remove stops the player. Red.
+- [ ] **Step 2:** Implement view and wiring. Green.
 - [ ] **Step 3:** Run the full suite. Commit.
 
 ### T6: Lifecycle: stop on tab switch and window close (S)
@@ -143,15 +134,20 @@ Status texts: Connecting "Connecting...", Live "Live", Lost "Connection lost - r
 ### T7: Preview harness and screenshots (S)
 
 **Files:** Create `tests/AvasRoutingTool.Tests/RtspSourcePreviewHarness.cs`.
-**Completion criterion:** gated by `AVAS_RTSP_PREVIEW=1` like `RoomCamerasPreviewHarness`; opens the Main Window strip with TX cards, one tile on a `FakeRtspServer` (Normal), one on `Require401`, one on `RefuseConnection`, with a "Drop connection" button on the first to show Lost then Live; optional `AVAS_RTSP_URL` adds a real tile for an interactive run only. Screenshots (both themes, 1920x1080 and 1024x720, tiles in Live with the fixture pattern, Lost, Error) go to `ui_screenshots/UI-v2-rtsp/`; they use the fake server only, never the real URL, and are checked by eye for any address text before commit.
+**Completion criterion:** gated by `AVAS_RTSP_PREVIEW=1` like `RoomCamerasPreviewHarness`; opens the Main Window strip with TX cards and the RTSP tile pointed at a `FakeRtspServer` (buttons to switch it to Normal, Require401, Refuse and "Drop connection" to show Lost then Live). With `AVAS_RTSP_URL` set, the real stream is used instead, for an interactive run only. Screenshots (both themes, 1920x1080 and 1024x720; Live, Lost, Error) go to `ui_screenshots/UI-v2-rtsp/` and use the fake server only; check them by eye for any address text before commit.
 
 - [ ] **Step 1:** Write the harness; smoke it with `AVAS_RTSP_PREVIEW_AUTOCLOSE_SECONDS=5`.
 - [ ] **Step 2:** Shoot, inspect, run the full suite, commit.
 
 ## Order and sizes
 
-T0 (M) first, then the user's D-3 answer. T1, T2 (S each) are independent and can run in parallel. T3 (M) needs T1. T4 (L) needs T0, T3. T5 (M) needs T2, T3. T6 (S) needs T5. T7 (S) last. Total about 5 to 6 working days.
+T0 (S) first; T1 (S) can start at the same time. T3 (M) needs T1. T4 (L) needs T0 and T3. T5 (M) needs T3. T6 (S) needs T5. T7 (S) last. Total about 4 to 5 working days (the config and encryption task and the multi-field dialog are gone).
+
+## Deferred (not in this phase)
+
+- Persisting the URL: an `AppConfig` entry holding only a Windows DPAPI (`ProtectedData`, `CurrentUser`) blob; it cannot be read on another PC or user, so the tile would ask for a new paste.
+- Several streams, a Name field, Room Cameras binding (`CameraPreviewState` would need to accept a non-`SourceCardViewModel` source).
 
 ## Self-review
 
-Spec coverage: entry and storage (D-2, D-4, T2, T5); masking in UI and logs (T1, T3, T4, T5); tile states (T3, T5); stop on tab switch and close (T6); fake RTSP source (T4); decoder decision (comparison, D-3, T0). Types used across tasks (`RtspUrl`, `RtspSourceConfig`, `IRtspStreamPlayer`, `RtspTileState`, `RtspPlayerEvent`) are defined once in T1-T3.
+Spec coverage: entry and session-only storage (D-2, D-4, T5); masking in UI and logs (T1, T3, T4, T5); tile states (T3, T5); stop on tab switch and close (T6); fake RTSP source (T4); decoder decision (comparison, D-3, T0). Types used across tasks (`RtspUrl`, `IRtspStreamPlayer`, `RtspTileState`, `RtspPlayerEvent`) are defined once in T1 and T3.
