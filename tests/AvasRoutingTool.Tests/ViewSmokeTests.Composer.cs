@@ -1751,8 +1751,10 @@ namespace AvasRoutingTool.Tests
                         Assert.NotEmpty(doneHeaders);
                         foreach (var header in doneHeaders)
                         {
-                            var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(header).Single(i => i.IsVisible);
-                            Assert.Equal(onAction, ((SolidColorBrush)icon.Foreground).Color);
+                            var number = (TextBlock)header.Template.FindName("StepNumberText", header);
+                            Assert.True(number.IsVisible);
+                            Assert.Equal(onAction, ((SolidColorBrush)number.Foreground).Color);
+                            Assert.True(((FrameworkElement)header.Template.FindName("DoneCheck", header)).IsVisible);
                             var marker = (Border)header.Template.FindName("Marker", header);
                             Assert.Equal(takeFill, ((SolidColorBrush)marker.Background).Color);
                         }

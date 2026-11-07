@@ -42,21 +42,24 @@
                                            FontSize="{StaticResource Font.Size.Title}"
                                            FontWeight="Bold"
                                            Foreground="{DynamicResource Brush.Text.Primary}" />
-                                <ui:SymbolIcon x:Name="CheckIcon"
-                                               Symbol="Checkmark24"
-                                               FontSize="{StaticResource Size.Icon.M}"
-                                               Foreground="{DynamicResource Brush.Text.OnAction}"
-                                               Visibility="Collapsed" />
                             </Grid>
                         </Border>
-                        <TextBlock Text="{TemplateBinding Title}" Style="{StaticResource Style.Text.Section}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="LabelText" Text="{TemplateBinding Title}" Style="{StaticResource Style.Text.Section}" VerticalAlignment="Center" />
+                        <controls:MaterialIcon x:Name="DoneCheck"
+                                               Kind="check"
+                                               Width="{StaticResource Size.Icon.S}"
+                                               Height="{StaticResource Size.Icon.S}"
+                                               Margin="{StaticResource Size.Space.Action.Before}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.Text.Accent}"
+                                               Visibility="Collapsed" />
                     </StackPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsDone" Value="True">
                             <Setter TargetName="Marker" Property="Background" Value="{DynamicResource Brush.Action.Take}" />
                             <Setter TargetName="Marker" Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
-                            <Setter TargetName="StepNumberText" Property="Visibility" Value="Collapsed" />
-                            <Setter TargetName="CheckIcon" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="StepNumberText" Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
+                            <Setter TargetName="DoneCheck" Property="Visibility" Value="Visible" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
