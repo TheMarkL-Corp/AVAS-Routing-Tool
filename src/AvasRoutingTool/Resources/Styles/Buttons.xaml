@@ -333,12 +333,12 @@
     <!--
         Carousel arrow: a round 48 x 48 icon-only button laid over an edge of a sideways-scrolling row. A floating-strip fill with a
         hairline border keeps it readable over any card; the icon is the primary text colour and the accent under the mouse; a 2 px ring
-        through InputModality.ShowsFocus; dimmed when it is disabled (the row is at that end).
+        through InputModality.ShowsFocus; muted (not faded, so the outline stays at 3:1) when it is disabled (the row is at that end).
     -->
     <Style x:Key="Style.Button.CarouselArrow" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.FloatingStrip}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Width" Value="{StaticResource Size.Touch.Min}" />
         <Setter Property="Height" Value="{StaticResource Size.Touch.Min}" />
@@ -376,7 +376,7 @@
                             <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
