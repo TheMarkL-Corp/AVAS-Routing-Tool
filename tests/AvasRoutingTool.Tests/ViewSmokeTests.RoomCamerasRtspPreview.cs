@@ -167,6 +167,27 @@ namespace AvasRoutingTool.Tests
                 Assert.False(retry.IsVisible);
             });
 
+        // The real player raises events on a worker thread. Retry is visible in Failed and must also be enabled (found in the RC4
+        // screenshot, where it looked dimmed); no input event is sent after the state changes.
+        [Fact]
+        public void RetryButton_IsEnabled_WhenFailedFromAWorkerThread_WithoutAnyInputEvent() =>
+            RunSta(() =>
+            {
+                using var rig = new Rig(RtspCam());
+                rig.Cam.StartPreview();
+                rig.Relayout();
+                var retry = rig.Named<Button>("RetryPreviewButton");
+                Task.Run(() => rig.Players[0].Raise(RtspPlayerEvent.Failed(RtspFailure.AuthFailed))).Wait();
+                var deadline = DateTime.UtcNow.AddSeconds(2);
+                while (rig.Cam.Preview != CameraPreviewState.Failed && DateTime.UtcNow < deadline)
+                    rig.Relayout();
+                rig.Relayout();
+                Assert.Equal(CameraPreviewState.Failed, rig.Cam.Preview);
+                Assert.True(retry.IsVisible);
+                Assert.True(rig.Cam.RetryPreviewCommand.CanExecute(null));
+                Assert.True(retry.IsEnabled, "Retry is visible in Failed but still disabled");
+            });
+
         [Fact]
         public void PtzControls_StayEnabled_WhileReconnectingAndFailed() =>
             RunSta(() =>
@@ -189,7 +210,7 @@ namespace AvasRoutingTool.Tests
             Assert.True(rig.Cam.MotionEnabled);
             Assert.True(rig.Named<FrameworkElement>("Pad").IsEnabled);
             Assert.True(rig.Named<Slider>("ZoomSlider").IsEnabled);
-            Assert.True(rig.Named<Slider>("FocusSlider").IsEnabled);
+            Assert.Equal(!rig.Cam.AutoFocus, rig.Named<Slider>("FocusSlider").IsEnabled);   // follows the camera's autofocus status, never the preview state
             Assert.True(rig.Named<FrameworkElement>("SpeedSegment").IsEnabled);
         }
 

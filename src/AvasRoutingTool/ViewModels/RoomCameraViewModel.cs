@@ -32,6 +32,7 @@ namespace AvasRoutingTool.ViewModels
 
         private readonly Func<DateTime> _now;
         private readonly SynchronizationContext? _uiContext;
+        private readonly System.Windows.Threading.Dispatcher _dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;   // the UI thread this view model was built on
         private readonly AbsoluteSlider _zoom;
         private readonly AbsoluteSlider _focus;
         private CameraPower _power = CameraPower.Unknown;
@@ -574,6 +575,26 @@ namespace AvasRoutingTool.ViewModels
             if (_disposed || !ReferenceEquals(sender, _rtsp))
                 return;
             RaisePreview();
+            RequeryCommands();
+        }
+
+        /// <summary>
+        /// The stream reports from a worker thread. Commands (Retry, Stop) re-evaluate CanExecute only on a requery, and a requery
+        /// raised off the UI thread is lost, so a button could stay disabled after the state changed. Raise it on the UI thread.
+        /// </summary>
+        private void RequeryCommands()
+        {
+            try
+            {
+                if (_dispatcher.CheckAccess())
+                    System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+                else
+                    _dispatcher.BeginInvoke(new Action(System.Windows.Input.CommandManager.InvalidateRequerySuggested));
+            }
+            catch (Exception)
+            {
+                // A dispatcher that is shutting down has no buttons left to refresh.
+            }
         }
 
         private void OnCardPropertyChanged(object? sender, PropertyChangedEventArgs e)
