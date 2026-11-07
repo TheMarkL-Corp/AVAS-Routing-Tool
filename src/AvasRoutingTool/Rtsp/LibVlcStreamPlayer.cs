@@ -30,7 +30,7 @@ namespace AvasRoutingTool.Rtsp
                 if (_shared == null)
                 {
                     Core.Initialize();
-                    var vlc = new LibVLC("--no-video-title-show");
+                    var vlc = new LibVLC("--no-video-title-show", "--no-audio");   // a picture reference only: never play the camera's sound in the room
                     vlc.Log += OnLog;
                     _shared = vlc;
                 }
@@ -149,6 +149,7 @@ namespace AvasRoutingTool.Rtsp
                 {
                     var vlc = Shared();
                     var media = new Media(vlc, url, FromType.FromLocation);
+                    media.AddOption(":no-audio");
                     media.AddOption(":rtsp-tcp");
                     media.AddOption(":network-caching=150");
                     var player = new MediaPlayer(media);
