@@ -197,6 +197,14 @@
                                 CornerRadius="6"
                                 IsHitTestVisible="False"
                                 Visibility="Collapsed" />
+                        <!-- A 2 px line inside the ring in the on-action colour: the ring alone vanishes on a button filled with the ring colour (Save and apply, light theme) -->
+                        <Border x:Name="FocusGap"
+                                Margin="2"
+                                BorderBrush="{DynamicResource Brush.Text.OnAction}"
+                                BorderThickness="2"
+                                CornerRadius="4"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -207,6 +215,7 @@
                         </Trigger>
                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                             <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="FocusGap" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Root" Property="Opacity" Value="0.5" />

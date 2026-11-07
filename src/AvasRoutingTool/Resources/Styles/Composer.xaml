@@ -78,14 +78,24 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd"
-                            Background="{DynamicResource Brush.Surface.Card}"
-                            BorderBrush="{DynamicResource Brush.Border.Control}"
-                            BorderThickness="2"
-                            CornerRadius="10"
-                            Padding="10">
-                        <ContentPresenter />
-                    </Border>
+                    <Grid>
+                        <Border x:Name="bd"
+                                Background="{DynamicResource Brush.Surface.Card}"
+                                BorderBrush="{DynamicResource Brush.Border.Control}"
+                                BorderThickness="2"
+                                CornerRadius="10"
+                                Padding="10">
+                            <ContentPresenter />
+                        </Border>
+                        <!-- Keyboard focus: a ring of its own inside the tile, in the text colour, so it differs from the selected accent border -->
+                        <Border x:Name="FocusRing"
+                                Margin="4"
+                                BorderBrush="{DynamicResource Brush.Text.Primary}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
@@ -98,6 +108,7 @@
                         </DataTrigger>
                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
                             <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -745,7 +756,7 @@
                                 BorderThickness="1"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center">
-                            <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}"
+                            <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}"
                                            Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
