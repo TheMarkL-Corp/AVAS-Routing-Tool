@@ -127,3 +127,31 @@ Switch configuration, firmware changes, new SDVoE features, Composer icon work, 
 | 9 | One receiver's multiview refuses the same (source, stream) in two windows (`Source stream is duplicated`, measured) | Layouts need distinct streams; the ledger and gallery must count a source once per receiver, and disable layouts that need more distinct streams than the sources offer |
 | 7 | Field-notes PiP asymmetry (60 Hz big window fails near 7 Gbps) not explained by bandwidth | Ledger can say "fits" while the picture fails; the health check is the safety net |
 | 8 | Layouts made in BAVM or on unopened RXs | Ledger incomplete; shown as unverified |
+
+## 10. Merge-readiness with the UI v2 composer (other branch)
+Checked read-only on 2026-11-08; nothing merged. The redesigned composer lives on `ui-v2/integration-all` (same composer change is on `ui-v2/composer-round2` and `ui-v2/preview-final`; Mark to confirm which is the target). A `git merge-tree` dry run of this branch against `ui-v2/integration-all` reports **no conflicts**: this branch changes only `MultiViewBandwidthBudget.cs`, `SourceVideoReader.cs`, small additions to `ISdvoeClient`/`SdvoeClient` and `WarnIfOverBudgetAsync` in the orchestrator (all additive); UI v2 rewrites `MultiViewComposerView.xaml` (594 lines) and edits `DraftValidator`, `MultiViewPresets` (adds `pip_large`, variable inset width), `ScreenState`, the view model and 3 orchestrator lines.
+
+### 10.1 Build the spec on logic, not on XAML
+Everything in §4 that decides (ledger, gate, ladder, health check) goes in the non-UI layer (`Sdvoe/MultiView/*`), exposing plain properties the new window binds to. The XAML change is then a few bindings, so the two branches do not fight over the layout file.
+
+### 10.2 Where each piece lands in the new window (existing hooks on `ui-v2/integration-all`)
+| Spec item | New-window hook | Note |
+|---|---|---|
+| Canvas ladder result, "using 1080p so every source stays clear" | Header `OutputChip` / `RateChip` | Already shows the output format; add the reason as a tooltip or second line |
+| Per-source "OK as a 1080p tile / can't check / over capacity" | Block `IssueBand` + `IssueText`, and `UnavailableReason` with the lock icon for sources that cannot be placed | Reuse; no new control |
+| Won't-fit refusal and its fixes | `TakeBlockedReason` (text) + right-rail pinned banner (fix buttons) | Take already has a "blocked" path (`CanTake`) |
+| Tight (amber) note | Right-rail banner, informational | |
+| Post-apply health check, Revert | Right-rail pinned banner / `ON SCREEN NOW` card | |
+| Engineer Details panel, "Apply anyway" | A collapsed section in the right rail | New, small |
+| Layout disabled with reason | Left-rail `LayoutTile` with tooltip | Needs the new `pip_large` too |
+
+### 10.3 Corrections the UI v2 branch forces on the model
+1. **PiP inset exemption.** UI v2 lets a PiP inset be a different size from the same encoder's block on another display (lab note 2026-10-30: the decoder scales the surface into the window; scaler readback unconfirmed). So for an inset the **window size is not the scaled-stream size**. The ledger must read each TX's real scaler size from the device and never infer stream size from window size; the canvas ladder (§4.4a) shrinks a stream only for windows that equal the scaler size. Consequence: stepping the canvas down does not reduce an inset's stream unless the TX scaler is also changed.
+2. **New preset `pip_large`** (inset about a third of the canvas) must be covered by the same ledger and gallery rules.
+3. **Wording:** UI v2 changed the change list to "Block 2: empty -> TX1"; the new messages must use "Block N" and the display's name, not "window".
+
+### 10.4 Merge plan
+1. Merge this branch's logic (ledger, gate, ladder) into the UI v2 integration branch first, with the guard setting **Off**: no visible change.
+2. Add bindings in the new XAML for the chips and banner from §10.2, then set the guard to Warn.
+3. Re-run the dry-run merge before each step; resolve `MultiViewOrchestrator.cs` by hand (both branches touch it; the changes are in different regions today).
+4. Keep the study and spec in `docs/studies/` unchanged by UI work; update the "Open questions" table as tests close them.
