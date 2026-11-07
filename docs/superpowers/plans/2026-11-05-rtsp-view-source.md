@@ -1,153 +1,139 @@
-# RTSP View-Only Source Implementation Plan
+# Room Cameras RTSP Preview Choice Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** The user pastes one RTSP URL into one text box, and the Main Window shows that stream as a view-only tile next to the TX sources. The tile says plainly that it cannot be routed to an SDVoE display.
+**Goal:** On the Room Cameras page, each camera lets the user choose its reference picture while driving PTZ: the live preview from the bound TX (today's behaviour) or the camera's own RTSP stream.
 
-**Architecture:** An RTSP source is **not** an `AvasDevice` and never enters `MainViewModel.Sources` (routing, the Composer and arming all key off that list and an `AvasDevice` MAC). It gets its own `RtspSourceViewModel` in a separate `ViewOnlySources` collection, drawn by a new `RtspSourceCardView` after the TX tiles in the full (non-compact) strip. The decoder sits behind `IRtspStreamPlayer` so the state machine, retry policy and UI are tested with a fake player; one gated test drives the real decoder against an in-process fake RTSP server.
+**Architecture:** `RoomCameraConfig` gains a preview mode and an RTSP URL; `RoomCameraViewModel` drives either the existing TX preview path or an `RtspSourceViewModel` (already built: state machine, retry, `IRtspStreamPlayer` seam, LibVLC player). The picture area of the Room Cameras view shows whichever is active. Nothing touches the Main Window, routing, or `MainViewModel.Sources`.
 
-**Tech Stack:** .NET 8 WPF MVVM, WPF-UI 4.3.0, xUnit STA view tests, LibVLCSharp + `VideoLAN.LibVLC.Windows` (D-3, frames copied into a `WriteableBitmap` through video callbacks, the same `Image` pattern as `SourceCardViewModel.PreviewBitmap`).
+**Tech Stack:** .NET 8 WPF MVVM, WPF-UI 4.3.0, LibVLCSharp 3.9.1 + `VideoLAN.LibVLC.Windows` 3.0.21 (`win-x64`), xUnit STA view tests, the in-repo fake RTSP server.
 
-**Spec:** the **Decisions** section below plus the planning request of 2026-11-05. D-1 to D-6 are fixed by the user.
+**Spec:** the **Decisions** section below (the user's answers, 2026-11-05 and 2026-11-07).
 
-## What was read (facts that shape the plan)
+## Correction record (read this first)
 
-- `src/AvasRoutingTool/ViewModels/SourceCardViewModel.cs`: wraps one `AvasDevice`; owns `PreviewBitmap` (`WriteableBitmap`), `IsStreaming`, `Fps`, `IsArmed`, `UsedInBlocks`, start/stop/refresh preview commands; identity is `MacAddress`. Anything in `MainViewModel.Sources` can be armed and routed, so an RTSP tile must stay out of it.
-- `src/AvasRoutingTool/Views/SourceCardView.xaml`: full 4-row tile (header with status dot, name, rename pencil, info badge; 16:9 thumbnail `Size.Strip.Thumb.Height` inside a 240 px tile `Size.Strip.Tile.Width`; footer) and a compact Composer layout. The new tile reuses its styles (`Style.Card.Source`, `Style.Text.Title`, `Style.StatusDot.Small`).
-- `src/AvasRoutingTool/Views/VisualRoutingView.xaml` lines 78-110: two `ItemsControl`s bind `Sources` (compact palette when a Composer is open, full strip otherwise). The RTSP tiles go after the second one only.
-- Room Cameras: `RoomCameraViewModel` re-resolves a bound `SourceCardViewModel` and shows its `PreviewBitmap` through the `CameraPreviewState` enum (`NoSourceBound, SourceOffline, Standby, Starting, Live`); `RoomCamerasViewModel.Dispose()` stops previews; `RoomCamerasView.xaml.cs` stops on `Unloaded`. The harness `tests/AvasRoutingTool.Tests/RoomCamerasPreviewHarness.cs` is a gated (`AVAS_RC_PREVIEW=1`) interactive window with fake VISCA servers, an in-memory `IConfigService` and a painted test pattern on a card. The RTSP harness copies that shape.
-- `src/AvasRoutingTool/Configuration/AppConfig.cs`: flat properties plus `List<RoomCameraConfig> RoomCameras`; `ShowLogs`/`ShowAdvanced` are the existing switch pattern. Config is plain JSON (`appsettings.json`), so a stored URL would be readable.
-- `AppLogger` (`Logging/`) is a static logger with an in-memory buffer shown on the Logs tab and a file under `Logs`. Every message goes there, so masking must happen before the call.
-- The repo has no `PublishSingleFile`/`SelfContained` setting in any `.csproj`, `.pubxml` or script (searched `*.csproj`, `*.pubxml`, `*.ps1`, `*.props`); packaging lives outside the repo. The user confirmed (2026-11-05) that the final package need not be one exe, so `libvlc` ships in a folder beside it.
+The first version of this plan (2026-11-05) put the stream on the **Main Window** as a view-only source tile next to the TX tiles ("Main Window first, Room Cameras later"). That was wrong. The user's use case is on the Room Cameras page: when adjusting PTZ, the operator's only visual reference is the live preview from the encoder, and the user wants to choose between that and the camera's RTSP stream. The Main Window tile, its strip edit, its lifecycle hooks and its screenshots were built, then removed in commit `618905c`. See the memory notes `rtsp-source-is-room-cameras-preview` and `ask-purpose-before-building`.
 
-## Decoder comparison (D-3)
+What stays from that work and is reused as is: `Rtsp/RtspUrl.cs`, `Rtsp/IRtspStreamPlayer.cs`, `Rtsp/LibVlcStreamPlayer.cs`, `Rtsp/RtspFrameSink.cs`, `Rtsp/RtspRetryPolicy.cs`, `ViewModels/RtspSourceViewModel.cs`, `tests/.../Fakes/FakeRtspPlayer.cs`, `Fakes/FakeRtspServer.cs` and the H.264 fixture, plus the decoder findings in `docs/superpowers/specs/2026-11-05-rtsp-decoder-findings.md`.
 
-Verified = found on a package page or vendor doc during this planning turn; **unverified** = not confirmed, Task 0 must measure it.
+## What was read
 
-| | LibVLCSharp + VideoLAN.LibVLC.Windows | FFmpeg.AutoGen + FFmpeg DLLs | Media Foundation (Windows built-in) |
-|---|---|---|---|
-| Licence | LibVLCSharp LGPL-2.1 (also sold under a commercial licence); `VideoLAN.LibVLC.Windows` nuspec LGPL-2.1-or-later. Verified. Commercial use is allowed if the DLLs stay replaceable (ship them as separate files, credit, offer LGPL text). | Bindings are MIT from 9.x (earlier versions LGPL). Verified. FFmpeg binaries keep their own licence: LGPL builds are fine, GPL builds (some forks bundle those) are not. Verified. | Part of Windows, no licence cost. |
-| Native DLLs | Separate package of natives plus a `plugins` folder. Verified that natives are separate from the wrapper. Single-file behaviour **unverified**: native DLLs cannot run from inside the bundle, so either `IncludeNativeLibrariesForSelfExtract` (extracts to a temp folder on first start) or ship `libvlc` beside the exe. | Bindings do not include FFmpeg; you point at a DLL folder (or take a bundled LGPL clone such as `FFmpegDotNet._AutoGen`). Verified. Same single-file question as VLC. | None. |
-| Added size | **Unverified** (package pages gave download counts only). Expect tens of MB compressed and well over 100 MB extracted with all plugins; Task 0 measures it and a trimmed `plugins` set. | **Unverified.** LGPL shared builds are usually smaller than VLC. | 0. |
-| RTSP | Built in (not re-checked on a package page, but it is VLC's standard input). Our own reconnect is needed regardless. | Built in to libavformat; you write the demux, decode, colour-convert and display loop yourself. | Microsoft lists RTSP over UDP/TCP as supported. Verified. Forum reports show real servers rejected with "not a compatible streaming media server". Verified as reports, cause unknown. |
-| H.264 / H.265 | **Unverified** in the packages; VLC decodes both. | Both, given the build. | H.264 is standard; H.265 needs an installed extension. **Unverified.** |
-| Latency | Tunable with `:network-caching=` and `:rtsp-tcp`; **unverified** how low it goes; Task 0 measures. | Lowest, you control buffering. | Not controllable enough to promise. **Unverified.** |
-| Reconnect | None promised; the app does it (Task 3). | None; the app does it. | None; the app does it. |
-| WPF display | `VideoView` is an HWND (airspace problems with overlays and the tile's rounded corners); video callbacks into a `WriteableBitmap` avoid that at the cost of a CPU copy. | Always a copy into a `WriteableBitmap`. | Needs interop; no ready WPF control for RTSP. |
-| Effort | Low: it is a player. | High: roughly 400+ lines of unsafe interop plus threading. | Medium, with the highest compatibility risk. |
+- `Configuration/RoomCameraConfig.cs`: `Id, Name, Host, Port, Transport, ViscaAddress, BoundTxMac, ZoomMax, FocusMax`; stored in `AppConfig.RoomCameras` (plain JSON, `appsettings.json`).
+- `ViewModels/RoomCameraViewModel.cs`: the picture area comes from `CameraPreviewState { NoSourceBound, SourceOffline, Standby, Starting, Live }`, derived from the bound `SourceCardViewModel`; `StartPreview()` / `StopPreview()` (stop only what this tab started); `PreviewBitmap`, `PreviewMessage`, `CaptionText`, `StartDisabledReason`; `Dispose()`.
+- `ViewModels/RoomCamerasViewModel.cs`: builds one `RoomCameraViewModel` per config (`CreateCameraViewModel`), rebuilds it on edit (`ReplaceCamera`), `StopAll()` calls `cam.StopPreview()`, `Dispose()` disposes every camera.
+- `Views/RoomCamerasView.xaml.cs`: calls `ViewModel.StopAll()` when the view is hidden, unloaded, when the window is deactivated and when keyboard focus leaves the view, so the TX preview stops in all those cases today. The RTSP preview inherits the same rule.
+- `Views/RoomCamerasView.xaml` lines 180-270: the picture area (an `Image` plus one panel per state, a "Start preview" button, a "Stop preview" button).
+- `Views/CameraEditorDialog.xaml(.cs)` and `CameraEditorViewModel`: Name, Host/Port (with Detect), Transport radio buttons, a TX `ComboBox` (`TxBox`), a Test button, Save, Remove.
+- `tests/.../RoomCamerasPreviewHarness.cs`: gated interactive window with fake VISCA servers, an in-memory `IConfigService`, and a painted test pattern on a TX card.
 
-**Recommendation (accepted by the user as D-3):** LibVLCSharp with `VideoLAN.LibVLC.Windows` and video callbacks into a `WriteableBitmap`. It is the only option that gives RTSP, H.264 and H.265 and a permissive licence for little code. Its cost is size and the native-DLL layout, so Task 0 is a short spike; because the package may be a folder, the single-file cost no longer matters. The fallback, if a measured number is unacceptable, is FFmpeg with an LGPL shared build. Media Foundation is not recommended: compatibility with arbitrary IP-camera RTSP servers is the risk this feature cannot afford.
+## Decoder (decided, kept for the record)
 
-## Decisions
+LibVLCSharp with `VideoLAN.LibVLC.Windows`, `win-x64` natives only, trimmed plugins, video callbacks into a `WriteableBitmap`. Licence: LGPL-2.1 for both packages (verified). Measured on the user's camera (H.264, 1920x1090): first frame about 0.25 s, 53-58 fps, TCP and UDP both work; folder size 205 MB untrimmed, about 80 MB for `win-x64` with trimmed plugins. Not measured: glass-to-glass latency, H.265. FFmpeg.AutoGen and Media Foundation were compared and rejected (more code, or RTSP compatibility risk). Details: the findings file.
 
-- **D-1 (fixed by the user)** The stream is view-only. It cannot be routed to an SDVoE display, and the tile says so. The URL is given in chat and never written to files, logs, commits or screenshots.
-- **D-2 (fixed by the user, 2026-11-05)** One single text box takes the whole URL in one go (credentials included). One stream only in this phase: no list, no Name field, no User/Password fields. The tile is named "RTSP stream" and shows the masked address.
-- **D-3 (fixed by the user, 2026-11-05)** Decoder: LibVLCSharp with `VideoLAN.LibVLC.Windows`. The final package does **not** have to be one exe: `libvlc.dll` and the `plugins` folder ship beside the exe. T0 still measures size, latency and H.265, and may veto D-3 only if a number is unacceptable.
-- **D-4 (fixed by the user, 2026-11-05: "keep it simple")** No encryption and no config file. The URL lives in memory for the session and is pasted again after a restart. This keeps the rule "the URL is never written to a file" true. Persistence is deferred (see the end of this plan).
-- **D-5 (fixed by the user, 2026-11-05)** Retry a lost or unreachable stream after 1, 2, 5, then every 10 s, forever. A 401 or "not found" is an Error that stops retrying and shows a Retry button. A Stop button halts everything.
-- **D-6 (fixed by the user, 2026-11-05)** First place is the Main Window strip. Room Cameras later.
+## Decisions (fixed by the user; do not reopen)
+
+- **D-1 (confirmed 2026-11-07)** Use case and screen: on the **Room Cameras page**, each camera has a preview source choice, **TX live preview** or **RTSP stream**, so the operator can use the camera's own picture as the reference while adjusting PTZ. RTSP is not a Main Window source and is never routed.
+- **D-2 (2026-11-07)** The RTSP address is typed in each camera's **Add/Edit dialog**, next to the VISCA host. One text box for the whole URL.
+- **D-3 (2026-11-07)** The **whole RTSP URL, credentials included, is saved with the camera** in `appsettings.json` (`RoomCameras`). The user accepted plain-text storage. Everywhere else the URL is masked (`RtspUrl.ToMasked()`): UI text, tooltips, automation names, logs, screenshots, test output, commits.
+- **D-4 (2026-11-05)** Retry a lost or unreachable stream after 1, 2, 5, then every 10 s, forever. A 401 or "not found" is an Error that stops retrying and shows a Retry button.
+- **D-5 (2026-11-05)** Decoder: LibVLCSharp. The final package need not be a single exe.
+- **D-6 (default, change on request)** The RTSP preview follows the TX preview's rules: it starts with the "Start preview" button, and it stops when the Room Cameras page is hidden, the window is deactivated or keyboard focus leaves the page (the existing `StopAll` hooks). Starting it automatically is not part of this plan.
 
 ## Global Constraints
 
-- WPF-UI controls only; vector icons; touch targets 48 px (36 px compact); font floor 12 px; accent roles: blue = selection/primary, red = errors only, amber = staged only.
+- WPF-UI controls only; vector icons; touch targets 48 px (36 px compact); font floor 12 px; accent roles: blue = selection/primary, red = errors only, amber = staged only. New XAML must pass `UiV2Guards` (size tokens, no inline styles without a base).
 - Status is a dot plus a word, never colour alone.
-- **No URL, host, user, password or query string is written to any file, log, exception text, commit, test output or screenshot.** Everything that prints a stream goes through `RtspUrl.Mask`. Tests use only the fake server on `127.0.0.1` with fake credentials `user`/`pass-fake`; the real URL appears only in the `AVAS_RTSP_URL` environment variable of an interactive run.
-- The tile never offers arm, drag, route or "use in composer", and its always-visible badge reads "View only - cannot be routed to a display".
-- A stream is stopped when its tab is left, when its window closes, and when it is removed; no decoder thread or native handle outlives that.
-- Subagents are Sonnet 5.5 for development and Haiku 5.5 only for simple retrieval, never Opus. The lead diff-reviews every task and records red-then-green evidence.
-- Test command: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutputPath=bin/<lane>/ --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests" --blame-hang-timeout 120s -- RunConfiguration.DisableParallelization=true`. A known flaky STA test: rerun once before treating a failure as real.
+- **The full RTSP URL appears only in `appsettings.json`, in the editor box while it is being edited, and in memory.** It never appears in `AppLogger`, exception text, captions, tooltips, automation names, harness labels, screenshots, test output or commits. Tests use only the fake server on `127.0.0.1` with fake credentials `user` / `pass-fake`; the real URL appears only in the `AVAS_RTSP_URL` environment variable of an interactive run and is never saved by a harness.
+- Existing TX preview behaviour and every existing Room Cameras test stay unchanged: a config without the new fields loads as TX mode.
+- PTZ motion never depends on the preview: motion keeps working while the stream is Connecting, Lost or Error.
+- Subagents are Sonnet 5.5 for development and Haiku 5.5 only for simple retrieval, never Opus. The lead diff-reviews every task, gives red-then-green evidence (a mutation check where the subagent did not capture a real red), and runs the **full** non-live suite before committing, not only filtered runs.
+- Test command: `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutputPath=bin/<lane>/ --filter "FullyQualifiedName!~LiveControlServerTests&FullyQualifiedName!~LiveFunctionTests" --blame-hang-timeout 120s -- RunConfiguration.DisableParallelization=true`. A filter for these tests must be `FullyQualifiedName~Rtsp` or `~RoomCamera`, not a narrower name. A known flaky STA test: rerun once before treating a failure as real.
 - No merge to `main`, no push.
 
 ## Review Focus
 
 Each line has its test in the owning task.
 
-1. Credentials in the URL leak through a log line, an exception message, the tooltip, the tile title, a UI automation name, or the decoder's own log callback. (T1, T3, T4, T5)
-2. A URL with an `@` or `:` in the password, IPv6 host, no port, a query token (`?token=`), or whitespace pasted around it. (T1)
-3. The stream drops mid-playback, the server is unreachable at start, the server answers 401, and the server comes back after being down. (T3, T4)
-4. The user leaves the Visual Routing tab or closes the window while the state is Connecting (a connect call is in flight). (T6)
-5. A frame size change mid-stream (the camera switches resolution) must not crash the bitmap copy. (T4)
-6. Empty box, whitespace-only text, a non-rtsp URL, and a second paste replacing a running stream: the old stream stops first. (T1, T5)
-7. An RTSP tile must never be armed, routed or counted in `OnlineSourcesCount`. (T5)
+1. The URL leaks into a log line, caption, tooltip, automation name, exception text or harness label. (RC0, RC1, RC2, RC3)
+2. An old `appsettings.json` without `PreviewMode` and `RtspUrl` loads as TX mode, and saving it again keeps TX behaviour. (RC1)
+3. Switching a camera from RTSP to TX (or back) in the editor while its preview runs: the old preview is stopped and disposed first. (RC1)
+4. RTSP mode with an empty or invalid URL: the picture area says "No RTSP address" or the parser's reason, Start stays disabled, the editor refuses to save an invalid URL. (RC1, RC2)
+5. Two cameras in RTSP mode at once: each stream, state and failure classification is its own (a failure on one camera must not show on the other). (RC0, RC1)
+6. PTZ buttons, sliders, power and Home keep working while the stream is Lost or Error. (RC1)
+7. The window is deactivated or the page is hidden while the stream is Connecting: it stops and a late "Playing" does not revive it. (RC1)
 
 ---
+
+## Done earlier and reused (no further work)
+
+- **T0** decoder spike and findings; **T1** `RtspUrl` (parse, `ToFullUrl`, `ToMasked`, `MaskInText`); **T3** `RtspSourceViewModel` (states Stopped/Connecting/Live/Lost/Error, `StartCommand`, `StopCommand`, `RetryCommand`, `PreviewBitmap`, `StatusText`, `StatusDetail`, `IsLive`, `MaskedAddress`, `Dispose`) and `RtspRetryPolicy`; **T4** `FakeRtspServer` (+ fixture) and `LibVlcStreamPlayer` (+ `RtspFrameSink`).
+- Known limit to fix in RC0: `LibVlcStreamPlayer` classifies a failure from a decoder log hook that is shared by all players, so it is correct only while one stream is active. The Room Cameras page can have several.
 
 ## Tasks
 
 Sizes: S = under half a day, M = about a day, L = 1-2 days.
 
-### T0: Decoder spike and numbers (S, gates T4)
+### RC0: Per-player failure classification (M)
 
-**Files:** Create `docs/superpowers/specs/2026-11-05-rtsp-decoder-findings.md`; a throwaway console project under the scratchpad, not in the repo.
-**Completion criterion:** the findings file holds the app folder size with and without LibVLC (full and trimmed `plugins`), glass-to-glass latency with the user's camera, H.264 and H.265 pass/fail, and whether a `win-x64` publish with `libvlc` beside the exe starts on a clean user profile. No stream address appears in it (write "the user's camera").
+**Files:** Create `src/AvasRoutingTool/Rtsp/RtspProbe.cs`; modify `Rtsp/LibVlcStreamPlayer.cs`; test `tests/AvasRoutingTool.Tests/RtspProbeTests.cs`, modify `LibVlcStreamPlayerTests.cs`.
+**Interfaces:** Produces `static Task<RtspFailure> RtspProbe.ClassifyAsync(RtspUrl url, CancellationToken token)`: opens its own TCP connection to the camera and sends `OPTIONS` then `DESCRIBE` (with Basic and Digest credentials from the URL when a 401 asks), returning `AuthFailed` for 401 after credentials, `NotFound` for 404, `Unreachable` for a refused, timed-out or reset connection, `Other` otherwise. It never logs or returns text.
 
-- [ ] **Step 1:** With `AVAS_RTSP_URL` set in the shell only, play the stream with `:network-caching=150 :rtsp-tcp`; measure latency against a running clock held in front of the camera; try `:rtsp-tcp` off.
-- [ ] **Step 2:** Trim the `plugins` folder to the needed plugins and re-measure size and playback.
-- [ ] **Step 3:** Write the findings file, commit, report the numbers.
+- [ ] **Step 1:** Failing tests against `FakeRtspServer`: `Probe_Require401_WithoutCredentials_AuthFailed`; `Probe_Require401_WithWrongCredentials_AuthFailed`; `Probe_NotFound404_NotFound`; `Probe_RefuseConnection_Unreachable`; `Probe_Normal_ReturnsOther` (the server is fine, so the decoder's own failure stays "Other"); `Probe_Timeout_Unreachable` (a listener that never answers, 2 s limit); `Probe_NeverLogsOrThrowsTheUrl`. Run: red.
+- [ ] **Step 2:** Implement `RtspProbe`. In `LibVlcStreamPlayer`, when the media errors or ends before the first frame, call `RtspProbe.ClassifyAsync` with that player's own URL instead of reading the shared log hook; keep the log scrubbing only as a guard (never store a log line). Remove the shared classification flag.
+- [ ] **Step 3:** Extend `LibVlcStreamPlayerTests` (gated `AVAS_RTSP_REAL=1`): two players at once, one against `Require401` and one against `Normal`, each reports its own result. Run all Rtsp tests, gated and ungated: green. Commit.
 
-### T1: `RtspUrl` parse and mask (S)
+### RC1: Camera config and view model (M)
 
-**Files:** Create `src/AvasRoutingTool/Rtsp/RtspUrl.cs` (namespace `AvasRoutingTool.Rtsp`; the existing `Rtp` folder is for SDVoE RTP, keep them apart); test `tests/AvasRoutingTool.Tests/RtspUrlTests.cs`.
-**Interfaces:** Produces `sealed record RtspUrl(string Host, int Port, string PathAndQuery, string? User, string? Password)` with `static bool TryParse(string text, out RtspUrl url, out string reason)`, `string ToFullUrl()` (for the decoder only), `string ToMasked()`, and `static string MaskInText(string text)` which replaces any `rtsp(s)://...` found in free text with the masked form.
+**Files:** Modify `Configuration/RoomCameraConfig.cs`, `ViewModels/RoomCameraViewModel.cs`, `ViewModels/RoomCamerasViewModel.cs`; test `tests/AvasRoutingTool.Tests/RoomCameraRtspPreviewTests.cs` (and the existing Room Cameras tests must still pass).
+**Interfaces:** Produces `enum RoomCameraPreviewMode { Tx, Rtsp }` (JSON as string, default `Tx`); `RoomCameraConfig.PreviewMode` and `string RtspUrl` (default empty); `CameraPreviewState` gains `Reconnecting` and `Failed`; `RoomCameraViewModel` ctor gains optional `Func<IRtspStreamPlayer>? rtspPlayerFactory` and `Func<TimeSpan, CancellationToken, Task>? rtspDelay` (defaults: `new LibVlcStreamPlayer()`, `Task.Delay`; `RoomCamerasViewModel` passes its own pair through for tests); `RetryPreviewCommand`; `PreviewMode` and `IsRtsp` read-only properties.
+Behaviour: in `Rtsp` mode `Preview` maps the `RtspSourceViewModel` state (Stopped -> Standby, Connecting -> Starting, Live -> Live, Lost -> Reconnecting, Error -> Failed; no or invalid URL -> NoSourceBound with `PreviewMessage` "No RTSP address"); `StartPreview` creates and starts the `RtspSourceViewModel` from `Config.RtspUrl`; `StopPreview`, `StopAll` and `Dispose` stop and dispose it; `PreviewBitmap` comes from it; `CaptionText` is `"<Name> · via RTSP <masked address>"` with no fps; `StartDisabledReason` is the parser's reason when the URL is invalid. In `Tx` mode nothing changes.
 
-- [ ] **Step 1:** Write failing tests: `Parse_SplitsUserAndPassword`; `Parse_PasswordWithAtAndColon`; `Parse_NoPort_Uses554`; `Parse_Ipv6Host`; `Parse_TrimsWhitespace`; `Parse_Empty_ReturnsReason`; `Parse_RejectsHttp_WithReason`; `Mask_HidesUserPasswordAndQueryValues` asserting `ToMasked()` equals `rtsp://***:***@host:554/path?token=***` for a fake `user`/`pass-fake`/`token=abc` input and contains neither `pass-fake` nor `abc`; `MaskInText_ReplacesUrlInsideAnExceptionMessage`. Run: red.
-- [ ] **Step 2:** Implement with `System.Uri` plus manual user-info handling. Run: green.
-- [ ] **Step 3:** Commit.
+- [ ] **Step 1:** Failing tests with `FakeRtspPlayer` and the fake clock pattern used by the existing Room Cameras tests: `OldConfig_WithoutNewFields_LoadsAsTx` (deserialize JSON lacking both fields); `ConfigJsonRoundTrip_KeepsModeAndUrl`; `Rtsp_StartPreview_GoesStartingThenLive`; `Rtsp_Dropped_ShowsReconnecting_ThenLive`; `Rtsp_AuthFailed_ShowsFailed_RetryRestarts`; `Rtsp_EmptyUrl_NoSourceBound_StartDisabled`; `Rtsp_InvalidUrl_StartDisabledWithReason`; `Rtsp_StopAll_StopsAndLateEventIgnored`; `Rtsp_Dispose_DisposesPlayer`; `Rtsp_CaptionAndMessagesNeverContainCredentialsOrQuery` (URL `rtsp://user:pass-fake@example.test:554/live/1?token=abc`; also assert the `AppLogger` memory buffer holds neither); `Rtsp_PtzControlsWorkWhileLostOrFailed` (MotionEnabled and commands stay available); `SwitchingMode_StopsTheOldPreviewFirst` (TX running then rebuilt as RTSP, and RTSP running then rebuilt as TX, through `UpdateCamera`); `TwoRtspCameras_AreIndependent`. Run: red.
+- [ ] **Step 2:** Implement. Reuse `RtspSourceViewModel` unchanged where possible; raise `PropertyChanged` for the preview properties from its events. Run the new tests and every existing `RoomCamera*` test: green.
+- [ ] **Step 3:** Run the full non-live suite. Commit.
 
-### T3: `RtspSourceViewModel` state machine (M)
+### RC2: Add/Edit dialog (M)
 
-**Files:** Create `ViewModels/RtspSourceViewModel.cs`, `Rtsp/IRtspStreamPlayer.cs`, `Rtsp/RtspRetryPolicy.cs`; test `RtspSourceViewModelTests.cs` with `Fakes/FakeRtspPlayer.cs`.
-**Interfaces:** Produces
-`enum RtspTileState { Stopped, Connecting, Live, Lost, Error }`;
-`interface IRtspStreamPlayer : IDisposable { event Action<RtspPlayerEvent> Event; WriteableBitmap? Bitmap { get; } void Start(string fullUrl); void Stop(); }` with `RtspPlayerEvent` = `Playing | Dropped | Failed(RtspFailure kind: AuthFailed, NotFound, Unreachable, Other)`; `RtspRetryPolicy.NextDelay(int attempt) -> TimeSpan` (1, 2, 5, 10 s, then 10 s); `RtspSourceViewModel(RtspUrl url, Func<IRtspStreamPlayer> playerFactory, Func<TimeSpan, CancellationToken, Task> delay)` with `State`, `StatusText`, `MaskedAddress`, `PreviewBitmap`, `StartCommand`, `StopCommand`, `RetryCommand`, `Dispose()`.
-Status texts: Connecting "Connecting...", Live "Live", Lost "Connection lost - retrying in N s", Error "Cannot open stream: <kind sentence>"; the kind sentences never contain the URL.
+**Files:** Modify `Views/CameraEditorDialog.xaml(.cs)` and `CameraEditorViewModel` (find it with `grep -rn "class CameraEditorViewModel"`); test `ViewSmokeTests.RoomCameraEditorRtsp.cs`.
+**Interfaces:** Consumes RC1's config fields. Produces, in the dialog: radio buttons "TX live preview" / "RTSP stream" (names `PreviewTxChoice`, `PreviewRtspChoice`); in TX mode the existing TX combo is shown, in RTSP mode a 48 px text box `RtspUrlBox` (placeholder `rtsp://...`) and its reason caption replace it; `Result` carries `PreviewMode` and `RtspUrl` (the whole URL, trimmed).
 
-- [ ] **Step 1:** Failing tests against the fake player and an instant `delay`: `Start_GoesConnecting_ThenLiveOnPlaying`; `Dropped_GoesLost_AndRetriesWithPolicyDelays` (assert delays 1, 2, 5, 10, 10); `RetrySucceeds_ReturnsToLive_ResetsAttemptCounter`; `AuthFailed_GoesError_NoRetry`; `Unreachable_AtStart_RetriesAutomatically`; `Stop_CancelsPendingRetry_AndStopsPlayer`; `Dispose_StopsPlayer_NoFurtherEvents`; `StatusText_NeverContainsPasswordOrHost` over every state and failure kind; `PlayerFailureMessage_WithUrl_IsMasked`. Run: red.
-- [ ] **Step 2:** Implement; events marshal to the dispatcher; the retry loop is one cancellable task. Run: green. Commit.
+- [ ] **Step 1:** Failing STA tests: default for a new camera is TX; choosing RTSP shows the URL box and hides the TX combo (and the reverse); Save is disabled with the parser's reason for empty, whitespace, `http://x` and `rtsp://` (no host) in RTSP mode, enabled for a valid URL; editing a saved RTSP camera pre-fills the box and the RTSP choice; Save returns a config whose `RtspUrl` equals the typed text and whose `PreviewMode` is `Rtsp`; the dialog's title, status line, tooltips and automation names (everything except the URL box's own text) contain no `pass-fake` and no `abc`; switching to TX keeps the old URL in memory but saves `PreviewMode = Tx`. Red.
+- [ ] **Step 2:** Implement (XAML must pass `UiV2Guards`). Green.
+- [ ] **Step 3:** Run the full non-live suite. Commit.
 
-### T4: Fake RTSP server and the LibVLC adapter (L)
+### RC3: Room Cameras picture area (S-M)
 
-**Files:** Create `tests/AvasRoutingTool.Tests/Fakes/FakeRtspServer.cs`, `tests/AvasRoutingTool.Tests/Fixtures/rtsp-testpattern.h264` (a few seconds of a synthetic pattern, Annex-B, under 200 KB, generated once with ffmpeg `testsrc`; contains no camera content), `src/AvasRoutingTool/Rtsp/LibVlcStreamPlayer.cs` (implements `IRtspStreamPlayer`); tests `FakeRtspServerTests.cs`, `LibVlcStreamPlayerTests.cs`.
-**Interfaces:** Produces `FakeRtspServer(FakeRtspMode mode)` with `int Port`, `Drop()` (close all connections), `Dispose()`, modes `Normal | Require401 | NotFound404 | RefuseConnection`; speaks `OPTIONS`, `DESCRIBE` (SDP for H.264), `SETUP` and `PLAY` over TCP-interleaved RTP, sending the fixture as single-NAL and FU-A packets in a loop at 25 fps, with Basic or Digest auth for `user`/`pass-fake`. Consumes `IRtspStreamPlayer`, `RtspUrl.MaskInText`.
+**Files:** Modify `Views/RoomCamerasView.xaml` (picture area lines ~180-270); test `ViewSmokeTests.RoomCamerasRtspPreview.cs`.
+**Interfaces:** Consumes RC1's `CameraPreviewState.Reconnecting` and `Failed`, `PreviewMessage`, `RetryPreviewCommand`. Produces two panels beside the existing ones: Reconnecting (message "Connection lost - retrying in N s", dot plus word) and Failed (the failure sentence and a 48 px "Retry" button); the existing Standby "Start preview" and "Stop preview" buttons serve RTSP unchanged; the caption shows "via RTSP".
 
-- [ ] **Step 1:** Failing server tests with a raw TCP client: DESCRIBE returns an SDP containing `H264`; `Require401` answers 401 then 200 with credentials; `Drop` closes the socket. Red, implement, green.
-- [ ] **Step 2:** Failing adapter tests (gated by `AVAS_RTSP_REAL=1` like the harness because they need the native decoder): `Plays_FakeServer_RaisesPlaying_AndBitmapChanges`; `ServerDrop_RaisesDropped`; `Auth401_RaisesFailedAuth`; `Refused_RaisesFailedUnreachable`; `ResolutionChange_DoesNotThrow` (fake server switches to a second fixture size); `DecoderLogCallback_IsFilteredThroughMaskInText` using a capturing `AppLogger` listener. Red.
-- [ ] **Step 3:** Implement `LibVlcStreamPlayer` per D-3: one shared `LibVLC` instance created lazily with `--no-video-title-show` and **no verbose logging**; the log callback, if used for failure classification, passes every line through `RtspUrl.MaskInText` before `AppLogger`. Video callbacks (format, lock, unlock, display) copy into a `WriteableBitmap` recreated on size change; media option `:rtsp-tcp` and `:network-caching` from T0. Map LibVLC's error and end-reached events to `RtspPlayerEvent`. Green.
-- [ ] **Step 4:** Commit.
+- [ ] **Step 1:** Failing STA tests with a view model built over `FakeRtspPlayer`: each of Standby, Starting, Live, Reconnecting, Failed shows its panel and message; Retry is shown only in Failed and runs `RetryPreviewCommand`; the Live picture shows `PreviewBitmap`; the PTZ pad stays enabled in Reconnecting and Failed; no visible text, tooltip or automation name contains the credentials or the query. Red.
+- [ ] **Step 2:** Implement. Green.
+- [ ] **Step 3:** Run the full non-live suite. Commit.
 
-### T5: Tile, URL box, strip placement (M)
+### RC4: Harness, screenshots and a live check (S)
 
-**Files:** Create `Views/RtspSourceCardView.xaml(.cs)`; modify `ViewModels/MainViewModel.cs` (add `RtspSourceViewModel? ViewOnlySource`, `SetRtspUrl(string text)` and `RemoveRtsp()`), `Views/VisualRoutingView.xaml` (after line 110's `ItemsControl`, one RTSP tile; none in the compact palette); test `ViewSmokeTests.RtspSource.cs`.
-**Interfaces:** Consumes T1, T3. With no stream set, the tile is an empty "Add RTSP stream" tile holding one text box (48 px, placeholder "rtsp://...") and a Start button; Enter also starts. Once set, the box is replaced by the live tile: masked address, status dot plus word (D-5 texts), the picture, the badge "View only - cannot be routed to a display", and a menu with Stop/Start/Retry and Remove (Remove clears the stream and returns to the empty tile). Same size as a TX tile.
+**Files:** Modify `tests/AvasRoutingTool.Tests/RoomCamerasPreviewHarness.cs`.
+**Completion criterion:** the existing gated harness gains a fourth camera "Camera D (RTSP)" in RTSP mode on a `FakeRtspServer` (Normal) with buttons "RTSP: Drop", "RTSP: 401", "RTSP: Normal"; with `AVAS_RTSP_URL` set, Camera D uses that address instead (in memory only, never written, never labelled). Screenshots of the Room Cameras page in both themes at 1920x1080 and 1024x720, camera D in Standby, Live, Reconnecting and Failed (fake server only; `AVAS_RTSP_URL` ignored in shot mode), plus the editor dialog in RTSP mode, go to `ui_screenshots/UI-v2-rtsp-room-cameras/` (git-ignored); the lead opens every PNG and confirms no address text beyond the fake `127.0.0.1` one. A live smoke with the real camera ends with the state word "Live" printed and nothing else.
 
-- [ ] **Step 1:** Failing STA tests: empty tile shows the box; Start stays disabled with the parser's reason until the text parses; the tile renders each of the five states with its word; badge text is present and in `AutomationProperties.HelpText`; pressing the tile leaves `Sources.Any(s => s.IsArmed)` false and calls no `MainViewModel` route method; `OnlineSourcesCount` is unchanged; the tile's text, tooltip and automation name contain no credentials and no query values; a second Start with a new URL stops the first player before starting the next; Remove stops the player. Red.
-- [ ] **Step 2:** Implement view and wiring. Green.
-- [ ] **Step 3:** Run the full suite. Commit.
+- [ ] **Step 1:** Extend the harness; smoke it with `AVAS_RC_PREVIEW=1 AVAS_RC_PREVIEW_AUTOCLOSE_SECONDS=5 AVAS_RTSP_REAL=1`.
+- [ ] **Step 2:** Shoot, inspect all PNGs, live smoke, full suite, commit.
 
-### T6: Lifecycle: stop on tab switch and window close (S)
+### RC5: Package only `win-x64` and trim plugins (S)
 
-**Files:** Modify `ViewModels/MainViewModel.cs` (`StopAllRtsp()`, called from the tab-change handler and the window `Closing`/`Dispose` path), `Views/VisualRoutingView.xaml.cs` (stop on `Unloaded`/`IsVisibleChanged` false; start again only streams the user had running when the tab returns); test `RtspLifecycleTests.cs`.
+**Files:** Modify `src/AvasRoutingTool/AvasRoutingTool.csproj`.
+**Completion criterion:** `VlcWindowsX86Enabled=false` and `VlcWindowsX64ExcludeFiles` for `libvlc.lib`, `libvlccore.lib`, `hrtfs\**`, `lua\**` and the plugin folders `stream_out, visualization, lua, text_renderer, access_output, services_discovery, meta_engine, spu, audio_filter, mux, video_splitter, audio_mixer`; a `dotnet build` output folder of about 80 MB (was 205 MB) with no `libvlc\win-x86`; the gated real-decoder tests (`AVAS_RTSP_REAL=1`) still pass against the trimmed folder.
 
-- [ ] **Step 1:** Failing tests with the fake player: `LeavingVisualRoutingTab_StopsPlayers`; `ReturningToTab_RestartsOnlyStreamsThatWereRunning`; `WindowClose_DisposesPlayers`; `TabSwitchWhileConnecting_CancelsConnect_NoLateEventRevivesTile` (the fake raises `Playing` after Stop; state must stay Stopped); `ShowLogs`/`ShowAdvanced` toggles do not restart anything. Red.
-- [ ] **Step 2:** Implement. Green. Commit.
-
-### T7: Preview harness and screenshots (S)
-
-**Files:** Create `tests/AvasRoutingTool.Tests/RtspSourcePreviewHarness.cs`.
-**Completion criterion:** gated by `AVAS_RTSP_PREVIEW=1` like `RoomCamerasPreviewHarness`; opens the Main Window strip with TX cards and the RTSP tile pointed at a `FakeRtspServer` (buttons to switch it to Normal, Require401, Refuse and "Drop connection" to show Lost then Live). With `AVAS_RTSP_URL` set, the real stream is used instead, for an interactive run only. Screenshots (both themes, 1920x1080 and 1024x720; Live, Lost, Error) go to `ui_screenshots/UI-v2-rtsp/` and use the fake server only; check them by eye for any address text before commit.
-
-- [ ] **Step 1:** Write the harness; smoke it with `AVAS_RTSP_PREVIEW_AUTOCLOSE_SECONDS=5`.
-- [ ] **Step 2:** Shoot, inspect, run the full suite, commit.
+- [ ] **Step 1:** Edit the csproj (the package's `build\VideoLAN.LibVLC.Windows.targets` defines both properties), build into a scratch `BaseOutputPath`, check size and the folder list.
+- [ ] **Step 2:** Run the gated real-decoder tests and the full suite. Commit.
 
 ## Order and sizes
 
-T0 (S) first; T1 (S) can start at the same time. T3 (M) needs T1. T4 (L) needs T0 and T3. T5 (M) needs T3. T6 (S) needs T5. T7 (S) last. Total about 4 to 5 working days (the config and encryption task and the multi-field dialog are gone).
+RC0 (M) and RC1 (M) are independent and can run in parallel (different files; use different `BaseOutputPath` lanes). RC2 (M) and RC3 (S-M) need RC1 and touch different files. RC4 (S) needs RC1-RC3. RC5 (S) is independent. About 4 working days in all.
 
-## Deferred (not in this phase)
+## Open questions
 
-- Persisting the URL: an `AppConfig` entry holding only a Windows DPAPI (`ProtectedData`, `CurrentUser`) blob; it cannot be read on another PC or user, so the tile would ask for a new paste.
-- Several streams, a Name field, Room Cameras binding (`CameraPreviewState` would need to accept a non-`SourceCardViewModel` source).
+- None blocking. D-6 (manual Start, stops on window deactivation like the TX preview) is a default; say if the RTSP preview should instead start by itself and survive deactivation.
 
 ## Self-review
 
-Spec coverage: entry and session-only storage (D-2, D-4, T5); masking in UI and logs (T1, T3, T4, T5); tile states (T3, T5); stop on tab switch and close (T6); fake RTSP source (T4); decoder decision (comparison, D-3, T0). Types used across tasks (`RtspUrl`, `IRtspStreamPlayer`, `RtspTileState`, `RtspPlayerEvent`) are defined once in T1 and T3.
+Spec coverage: use case and screen (D-1); entry in the dialog (D-2, RC2); whole URL saved with the camera (D-3, RC1, RC2); masking everywhere else (Global Constraints, Review Focus 1, tests in RC0-RC3); states and retry (D-4, RC1, RC3); stop on page hide and close (D-6, RC1); decoder (D-5, RC5); fake RTSP source for tests (reused `FakeRtspServer`, RC0, RC4). Types used across tasks (`RoomCameraPreviewMode`, `CameraPreviewState.Reconnecting/Failed`, `RtspProbe.ClassifyAsync`, `RetryPreviewCommand`) are defined once, in RC0 and RC1.
