@@ -789,59 +789,28 @@
     </Style>
 
     <!-- ===== Right rail: ON SCREEN NOW, banner, Take and the actions ===== -->
-    <sys:Double x:Key="Size.Composer.Take.Min">72</sys:Double>
+    <sys:Double x:Key="Size.Composer.Take.Min">56</sys:Double>
 
-    <!-- MultiView Composer: Take (primary; the one content-specific touch exception: 72 px, because it is the only action that changes what the surgeon sees). Disabled keeps a readable label (no opacity fade). -->
-    <Style x:Key="Style.Button.Take" TargetType="Button">
+    <!--
+        MultiView Composer: Save &amp; apply (primary). The action bar button (6 px radius, Body SemiBold, own keyboard ring, icon, label) filled with
+        the action colour; the one content-specific exception is its height, Size.Composer.Take.Min (56), because it is the only action that
+        changes what the surgeon sees. Hover and press are the filled colours; disabled is the action bar's.
+    -->
+    <Style x:Key="Style.Button.Take" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar}">
         <Setter Property="MinHeight" Value="{StaticResource Size.Composer.Take.Min}" />
-        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
         <Setter Property="Background" Value="{DynamicResource Brush.Action.Take}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
         <Setter Property="BorderThickness" Value="2" />
-        <Setter Property="Padding" Value="16,8" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="HorizontalContentAlignment" Value="Center" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False">
-                            <ContentPresenter.Resources>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="TextWrapping" Value="Wrap" />
-                                    <Setter Property="TextAlignment" Value="Center" />
-                                </Style>
-                            </ContentPresenter.Resources>
-                        </ContentPresenter>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="{DynamicResource Brush.Action.TakeHover}" />
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter Property="Background" Value="{DynamicResource Brush.Action.TakePressed}" />
-                        </Trigger>
-                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
-                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
-                            <Setter Property="Cursor" Value="Arrow" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Action.TakeHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Action.TakePressed}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="Style.Surface.LiveTile" TargetType="Border">
@@ -871,10 +840,9 @@
 
     <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
     <Style x:Key="Style.Banner.Composer" TargetType="Border">
-        <Setter Property="BorderThickness" Value="2" />
-        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="10,6" />
-        <Setter Property="Margin" Value="0,0,0,8" />
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Info}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
         <Style.Triggers>
@@ -955,7 +923,7 @@
 
     <Style x:Key="Style.Text.Reason" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Soft}" />
-        <Setter Property="Margin" Value="0,6,0,0" />
+        <Setter Property="Margin" Value="0,8,0,0" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding TakeBlockedReason, Mode=OneWay}" Value="{x:Null}">
                 <Setter Property="Visibility" Value="Collapsed" />

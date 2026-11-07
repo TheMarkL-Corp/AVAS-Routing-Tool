@@ -484,24 +484,27 @@
                 </ScrollViewer>
 
                 <StackPanel Grid.Row="1" Margin="0,8,0,0">
-                    <!-- Step 3 heads the pinned cluster: the check and the Take below it -->
-                    <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,4"
+                    <!-- The banner has a slot of its own above step 3, so Save &amp; apply and its header never move when a hint or a result appears -->
+                    <Grid x:Name="BannerSlot" MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,0,8">
+    <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
+                        <Border x:Name="BannerHost" Style="{StaticResource Style.Banner.Composer}" VerticalAlignment="Bottom">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <controls:MaterialIcon Style="{StaticResource Style.Icon.Banner}" />
+                                <!-- A live region: hints, refusals and the Take result are read out when they appear; an error interrupts -->
+                                <TextBlock x:Name="BannerText" Grid.Column="1" Text="{Binding Banner.Text, Mode=OneWay}" Style="{StaticResource Style.Text.Banner}" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Step 3 heads the pinned cluster: the check and the Save &amp; apply below it -->
+                    <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,8"
                                          Number="3" Title="CHECK, THEN SAVE &amp; APPLY" IsDone="{Binding CanTake, Mode=OneWay}"
                                          AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}"
                                          AutomationProperties.HelpText="Nothing changes on screen until you press Save &amp; Apply." />
-
-                    <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
-                    <Border x:Name="BannerHost" Style="{StaticResource Style.Banner.Composer}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <controls:MaterialIcon Style="{StaticResource Style.Icon.Banner}" />
-                            <!-- A live region: hints, refusals and the Take result are read out when they appear; an error interrupts -->
-                            <TextBlock x:Name="BannerText" Grid.Column="1" Text="{Binding Banner.Text, Mode=OneWay}" Style="{StaticResource Style.Text.Banner}" />
-                        </Grid>
-                    </Border>
 
                     <Button x:Name="TakeButton"
                             Style="{StaticResource Style.Button.Take}"
@@ -509,7 +512,16 @@
                             IsEnabled="{Binding CanTake, Mode=OneWay}"
                             KeyboardNavigation.TabIndex="3"
                             AutomationProperties.Name="{Binding TakeAutomationName, Mode=OneWay}"
-                            Click="Take_Click" />
+                            Click="Take_Click">
+                        <Button.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <controls:MaterialIcon Kind="check" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Mode=OneWay}" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </Button.ContentTemplate>
+                    </Button>
                     <TextBlock x:Name="TakeBlockedReasonText"
                                Text="{Binding TakeBlockedReason, Mode=OneWay}"
                                Style="{StaticResource Style.Text.Reason}" />

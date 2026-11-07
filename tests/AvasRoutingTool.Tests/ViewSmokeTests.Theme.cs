@@ -85,8 +85,8 @@ namespace AvasRoutingTool.Tests
                 var bg = Of(setters.Single(s => s.Property == Control.BackgroundProperty).Value);
                 Assert.True(Contrast(fg, bg) >= 4.5, $"normal {Contrast(fg, bg):F2}");
 
-                var template = (ControlTemplate)setters.Single(s => s.Property == Control.TemplateProperty).Value;
-                foreach (var trigger in template.Triggers.OfType<Trigger>())
+                // Save & apply is the action bar button filled: hover and press are the style's own triggers (disabled is the shared 50 % fade)
+                foreach (var trigger in style.Triggers.OfType<Trigger>())
                 {
                     var ts = trigger.Setters.OfType<Setter>().ToList();
                     var tFg = ts.FirstOrDefault(s => s.Property == Control.ForegroundProperty) is { } f ? Of(f.Value) : fg;

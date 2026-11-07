@@ -293,8 +293,8 @@ namespace AvasRoutingTool.ViewModels
             {
                 if (_busy) return $"Applying to {_display.DeviceName}...";
                 int n = _changes.Count;
-                if (n == 0 && LayoutDiffers) return "SAVE & APPLY NEW LAYOUT";
-                return $"SAVE & APPLY {n} CHANGE{(n == 1 ? string.Empty : "S")}";
+                if (n == 0 && LayoutDiffers) return "Save & apply new layout";
+                return $"Save & apply {n} change{(n == 1 ? string.Empty : "s")}";
             }
         }
 

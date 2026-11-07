@@ -411,13 +411,13 @@ namespace AvasRoutingTool.Tests
             var vm = await rig.Matrix();
             vm.Arm(rig.Tx1);
             vm.TapBlock(0);
-            Assert.Equal("SAVE & APPLY 1 CHANGE", vm.TakeLabel);
+            Assert.Equal("Save & apply 1 change", vm.TakeLabel);
             vm.Arm(rig.Tx2);
             vm.TapBlock(1);
             vm.Arm(rig.Tx3);
             vm.TapBlock(2);
             vm.Disarm();
-            Assert.Equal("SAVE & APPLY 3 CHANGES", vm.TakeLabel);
+            Assert.Equal("Save & apply 3 changes", vm.TakeLabel);
         }
 
         [Fact]
@@ -430,7 +430,7 @@ namespace AvasRoutingTool.Tests
             await vm.TakeAsync();
             await vm.SelectLayoutAsync("side_by_side"); // same sources, new layout
             Assert.Empty(vm.Changes);
-            Assert.Equal("SAVE & APPLY NEW LAYOUT", vm.TakeLabel);
+            Assert.Equal("Save & apply new layout", vm.TakeLabel);
         }
 
         [Fact]
@@ -491,12 +491,12 @@ namespace AvasRoutingTool.Tests
             var vm = await rig.Matrix();
             vm.Arm(rig.Tx1);
             vm.TapBlock(0);
-            Assert.Equal("SAVE & APPLY 1 CHANGE", vm.TakeLabel);
+            Assert.Equal("Save & apply 1 change", vm.TakeLabel);
             vm.Arm(rig.Tx2);
             vm.TapBlock(1);
             vm.Disarm();
 
-            Assert.Equal("SAVE & APPLY 2 CHANGES", vm.TakeLabel);
+            Assert.Equal("Save & apply 2 changes", vm.TakeLabel);
             Assert.Equal(2, vm.Changes.Count);
             Assert.True(vm.CanTake);
             Assert.Null(vm.TakeBlockedReason);
@@ -848,7 +848,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Empty(vm.Changes);
             Assert.True(vm.CanTake);
-            Assert.Equal("SAVE & APPLY NEW LAYOUT", vm.TakeLabel);
+            Assert.Equal("Save & apply new layout", vm.TakeLabel);
         }
 
         [Fact]
@@ -1708,15 +1708,15 @@ namespace AvasRoutingTool.Tests
         {
             var rig = new Rig();
             var vm = await rig.Matrix();
-            Assert.Equal("SAVE & APPLY 0 CHANGES. Place at least one source (Step 2).", vm.TakeAutomationName);
+            Assert.Equal("Save & apply 0 changes. Place at least one source (Step 2).", vm.TakeAutomationName);
 
             vm.Arm(rig.Tx1);
             vm.TapBlock(0);
-            Assert.Equal("SAVE & APPLY 1 CHANGE", vm.TakeAutomationName);
+            Assert.Equal("Save & apply 1 change", vm.TakeAutomationName);
 
             vm.Disarm();
             rig.Tx1.SetOnlineState(false);
-            Assert.Equal("SAVE & APPLY 1 CHANGE. TX1 is offline - clear or replace block 1", vm.TakeAutomationName);
+            Assert.Equal("Save & apply 1 change. TX1 is offline - clear or replace block 1", vm.TakeAutomationName);
 
             var raised = new List<string?>();
             vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);

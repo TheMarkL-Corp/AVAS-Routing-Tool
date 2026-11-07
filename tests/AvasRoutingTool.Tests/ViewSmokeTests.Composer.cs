@@ -403,7 +403,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void Composer_TakeButton_IsAtLeast72High_AndBlockedReasonVisibleWhenBlocked() =>
+        public void Composer_TakeButton_IsAtLeastTheTakeToken_AndBlockedReasonVisibleWhenBlocked() =>
             RunSta(() =>
             {
                 var rig = new ComposerRig();
@@ -413,7 +413,7 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var take = (Button)Named(view, "TakeButton").Single();
-                    Assert.True(take.ActualHeight >= 72, $"Take is {take.ActualHeight} high");
+                    Assert.True(take.ActualHeight >= Token("Size.Composer.Take.Min"), $"Take is {take.ActualHeight} high");
                     Assert.False(take.IsEnabled);
                     AssertVisibleText(view, "Place at least one source (Step 2).");
 
@@ -422,7 +422,7 @@ namespace AvasRoutingTool.Tests
                     Relayout(view);
 
                     Assert.True(take.IsEnabled);
-                    Assert.Equal("SAVE & APPLY 1 CHANGE", take.Content as string);
+                    Assert.Equal("Save & apply 1 change", take.Content as string);
                     Assert.False(Named(view, "TakeBlockedReasonText").Single().IsVisible);
                 });
             });
@@ -533,7 +533,7 @@ namespace AvasRoutingTool.Tests
                     Assert.True(take.IsVisible);
                     var tr = BoundsIn(take, view);
                     Assert.True(tr.Top >= 0 && tr.Bottom <= view.ActualHeight + 0.5, $"Take at {tr} in a {view.ActualHeight} high view");
-                    Assert.True(take.ActualHeight >= 72);
+                    Assert.True(take.ActualHeight >= Token("Size.Composer.Take.Min"));
 
                     var blocks = Named(view, "BlockSurface").Where(e => e.IsVisible).ToList();
                     Assert.Equal(4, blocks.Count);
@@ -1090,13 +1090,13 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal("PIP, not selected", AutomationProperties.GetName(tiles[1]));
 
                     var take = Named(view, "TakeButton").Single();
-                    Assert.Equal("SAVE & APPLY 0 CHANGES. Place at least one source (Step 2).", AutomationProperties.GetName(take));
+                    Assert.Equal("Save & apply 0 changes. Place at least one source (Step 2).", AutomationProperties.GetName(take));
 
                     c.Arm(rig.Tx1);
                     c.TapBlock(0);
                     Relayout(view);
                     Assert.Equal("Block 1, 960 by 540, TX1, staged", AutomationProperties.GetName(Surfaces(view)[0]));
-                    Assert.Equal("SAVE & APPLY 1 CHANGE", AutomationProperties.GetName(take));
+                    Assert.Equal("Save & apply 1 change", AutomationProperties.GetName(take));
                     Assert.Equal("Clear block 1", AutomationProperties.GetName(Named(view, "CornerClear").First(e => e.IsVisible)));
                     Assert.Equal("Back to displays", AutomationProperties.GetName(Named(view, "CloseComposerButton").Single()));
 
@@ -2651,8 +2651,8 @@ namespace AvasRoutingTool.Tests
                     var changesBottom = BoundsIn(changes, scroll).Bottom;
                     Assert.True(Math.Abs(changesBottom - scroll.ViewportHeight) <= 1, $"Changes card ends at {changesBottom} in a {scroll.ViewportHeight} high rail");
 
-                    // The pinned cluster (its Step 3 heading, banner, Take) starts 8 px under the rail: no dead zone between them
-                    var clusterTop = BoundsIn((FrameworkElement)Named(view, "StepTakeHeading").Single(), view).Top;
+                    // The pinned cluster (its banner slot, Step 3 heading, Take) starts 8 px under the rail: no dead zone between them
+                    var clusterTop = BoundsIn((FrameworkElement)Named(view, "BannerSlot").Single(), view).Top;
                     var railBottom = BoundsIn(scroll, view).Bottom;
                     Assert.True(clusterTop - railBottom <= 8.5, $"{clusterTop - railBottom} px between the rail and the pinned cluster");
                 });
