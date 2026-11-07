@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using AvasRoutingTool.Configuration;
+using AvasRoutingTool.Rtsp;
 using AvasRoutingTool.Services;
 using AvasRoutingTool.Services.Visca;
 
@@ -15,7 +16,7 @@ namespace AvasRoutingTool.ViewModels
     public enum SpeedStep { Slow, Medium, Fast }
 
     /// <summary>What the picture area of a camera shows (plan, "Preview states").</summary>
-    public enum CameraPreviewState { NoSourceBound, SourceOffline, Standby, Starting, Live }
+    public enum CameraPreviewState { NoSourceBound, SourceOffline, Standby, Starting, Live, Reconnecting, Failed }
 
     /// <summary>
     /// One room camera as the Room Cameras tab shows it: link and power state, motion commands,
@@ -50,8 +51,20 @@ namespace AvasRoutingTool.ViewModels
         private bool _startedByTab;
         private bool _startRequested;
 
-        public RoomCameraViewModel(RoomCameraConfig config, IPtzCamera camera, Func<DateTime> now)
+        // RTSP preview (per-camera choice): created on Start, disposed on Stop and Dispose.
+        private readonly Func<IRtspStreamPlayer> _rtspPlayerFactory;
+        private readonly Func<TimeSpan, CancellationToken, Task> _rtspDelay;
+        private RtspSourceViewModel? _rtsp;
+
+        public RoomCameraViewModel(
+            RoomCameraConfig config,
+            IPtzCamera camera,
+            Func<DateTime> now,
+            Func<IRtspStreamPlayer>? rtspPlayerFactory = null,
+            Func<TimeSpan, CancellationToken, Task>? rtspDelay = null)
         {
+            _rtspPlayerFactory = rtspPlayerFactory ?? (() => new LibVlcStreamPlayer());
+            _rtspDelay = rtspDelay ?? ((t, ct) => Task.Delay(t, ct));
             Config = config ?? throw new ArgumentNullException(nameof(config));
             Camera = camera ?? throw new ArgumentNullException(nameof(camera));
             _now = now ?? throw new ArgumentNullException(nameof(now));
@@ -80,6 +93,7 @@ namespace AvasRoutingTool.ViewModels
 
             StartPreviewCommand = new RelayCommand(_ => StartPreview(), _ => CanStartPreview);
             StopPreviewCommand = new RelayCommand(_ => StopPreview(), _ => ShowStopPreview);
+            RetryPreviewCommand = new RelayCommand(_ => RetryPreview(), _ => CanRetryPreview);
         }
 
         /// <summary>Seam: how the card's start command is reached. Tests replace it; the default is the card's own command.</summary>
@@ -90,6 +104,11 @@ namespace AvasRoutingTool.ViewModels
 
         public RelayCommand StartPreviewCommand { get; }
         public RelayCommand StopPreviewCommand { get; }
+        /// <summary>Retry the RTSP stream; enabled only while it is Failed or Reconnecting.</summary>
+        public RelayCommand RetryPreviewCommand { get; }
+
+        public RoomCameraPreviewMode PreviewMode => Config.PreviewMode;
+        public bool IsRtsp => Config.PreviewMode == RoomCameraPreviewMode.Rtsp;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -357,6 +376,8 @@ namespace AvasRoutingTool.ViewModels
         {
             get
             {
+                if (IsRtsp)
+                    return RtspPreview;
                 if (_card == null)
                     return string.IsNullOrEmpty(Config.BoundTxMac) ? CameraPreviewState.NoSourceBound : CameraPreviewState.SourceOffline;
                 if (!_card.IsActive)
@@ -369,12 +390,43 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
-        public string SourceName => _card?.DeviceName ?? _lastSourceName;
+        private bool TryParseRtsp(out RtspUrl url, out string reason)
+        {
+            if (string.IsNullOrWhiteSpace(Config.RtspUrl))
+            {
+                url = null!;
+                reason = "No RTSP address";
+                return false;
+            }
+            return RtspUrl.TryParse(Config.RtspUrl, out url, out reason);
+        }
 
-        public WriteableBitmap? PreviewBitmap => Preview == CameraPreviewState.Live ? _card?.PreviewBitmap : null;
+        private CameraPreviewState RtspPreview
+        {
+            get
+            {
+                if (_rtsp == null)
+                    return TryParseRtsp(out _, out _) ? CameraPreviewState.Standby : CameraPreviewState.NoSourceBound;
+                return _rtsp.State switch
+                {
+                    RtspTileState.Connecting => CameraPreviewState.Starting,
+                    RtspTileState.Live => CameraPreviewState.Live,
+                    RtspTileState.Lost => CameraPreviewState.Reconnecting,
+                    RtspTileState.Error => CameraPreviewState.Failed,
+                    _ => CameraPreviewState.Standby,
+                };
+            }
+        }
+
+        public string SourceName => IsRtsp ? string.Empty : _card?.DeviceName ?? _lastSourceName;
+
+        public WriteableBitmap? PreviewBitmap =>
+            Preview == CameraPreviewState.Live ? (IsRtsp ? _rtsp?.PreviewBitmap : _card?.PreviewBitmap) : null;
 
         public string PreviewMessage => Preview switch
         {
+            CameraPreviewState.NoSourceBound when IsRtsp => TryParseRtsp(out _, out var reason) ? string.Empty : reason,
+            CameraPreviewState.Reconnecting or CameraPreviewState.Failed => _rtsp?.StatusText ?? string.Empty,
             CameraPreviewState.NoSourceBound => $"No source bound to {Name}",
             CameraPreviewState.SourceOffline => $"{SourceName} is offline",
             CameraPreviewState.Standby => "Preview standby",
@@ -387,6 +439,8 @@ namespace AvasRoutingTool.ViewModels
             get
             {
                 var text = Name;
+                if (IsRtsp)
+                    return TryParseRtsp(out var url, out _) ? text + " \u00B7 via RTSP " + url.ToMasked() : text;
                 if (!string.IsNullOrEmpty(SourceName) && Preview != CameraPreviewState.NoSourceBound)
                     text += $" \u00B7 via {SourceName}";
                 if (Preview == CameraPreviewState.Live && _card != null)
@@ -400,6 +454,8 @@ namespace AvasRoutingTool.ViewModels
         {
             get
             {
+                if (IsRtsp)
+                    return TryParseRtsp(out _, out var reason) ? null : reason;
                 if (_card == null)
                     return null;
                 if (!_card.IsPreviewSupported)
@@ -410,16 +466,27 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
-        public bool CanStartPreview =>
-            !_disposed && _card != null && Preview == CameraPreviewState.Standby
+        public bool CanStartPreview => IsRtsp
+            ? !_disposed && Preview == CameraPreviewState.Standby && StartDisabledReason == null
+            : !_disposed && _card != null && Preview == CameraPreviewState.Standby
             && StartDisabledReason == null && StartCommandOf(_card).CanExecute(null);
 
         /// <summary>"Stop preview" is offered only for a stream this tab started.</summary>
-        public bool ShowStopPreview => !_disposed && _startedByTab && Preview == CameraPreviewState.Live;
+        public bool ShowStopPreview => IsRtsp
+            ? !_disposed && _rtsp != null
+            : !_disposed && _startedByTab && Preview == CameraPreviewState.Live;
+
+        private bool CanRetryPreview => !_disposed && IsRtsp
+            && (Preview == CameraPreviewState.Failed || Preview == CameraPreviewState.Reconnecting);
 
         /// <summary>Starts the bound card's preview. Only in standby; never touches a stream that is already running.</summary>
         public void StartPreview()
         {
+            if (IsRtsp)
+            {
+                StartRtsp();
+                return;
+            }
             if (!CanStartPreview || _card == null)
                 return;
             _startedByTab = true;
@@ -432,6 +499,11 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Stops the preview, but only if this tab started it.</summary>
         public void StopPreview()
         {
+            if (IsRtsp)
+            {
+                StopRtsp();
+                return;
+            }
             if (!_startedByTab)
                 return;
             _startedByTab = false;
@@ -465,6 +537,42 @@ namespace AvasRoutingTool.ViewModels
                 }
             }
             SettleFlags();
+            RaisePreview();
+        }
+
+        private void StartRtsp()
+        {
+            if (!CanStartPreview || !TryParseRtsp(out var url, out _))
+                return;
+            var source = new RtspSourceViewModel(url, _rtspPlayerFactory, _rtspDelay);
+            source.PropertyChanged += OnRtspPropertyChanged;
+            _rtsp = source;
+            source.StartCommand.Execute(null);
+            RaisePreview();
+        }
+
+        private void StopRtsp()
+        {
+            var source = _rtsp;
+            if (source == null)
+                return;
+            _rtsp = null;
+            source.PropertyChanged -= OnRtspPropertyChanged;
+            source.Stop();
+            source.Dispose();
+            RaisePreview();
+        }
+
+        private void RetryPreview()
+        {
+            if (CanRetryPreview)
+                _rtsp?.RetryCommand.Execute(null);
+        }
+
+        private void OnRtspPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (_disposed || !ReferenceEquals(sender, _rtsp))
+                return;
             RaisePreview();
         }
 
@@ -502,12 +610,15 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(StartDisabledReason));
             OnPropertyChanged(nameof(CanStartPreview));
             OnPropertyChanged(nameof(ShowStopPreview));
+            OnPropertyChanged(nameof(IsRtsp));
+            OnPropertyChanged(nameof(PreviewMode));
         }
 
         public void Dispose()
         {
             if (_disposed)
                 return;
+            StopPreview();   // TX stream this tab started, or the RTSP source
             _disposed = true;
 
             if (_card != null)
