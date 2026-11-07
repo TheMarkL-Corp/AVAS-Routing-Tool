@@ -23,7 +23,7 @@
     <Color x:Key="Color.Action.Danger">#DC2626</Color> <!-- Red 600 -->
 
     <!-- MultiView Composer: Staged Status -->
-    <Color x:Key="Color.Status.Staged">#D97706</Color> <!-- Amber 600 -->
+    <Color x:Key="Color.Status.Staged">#B45309</Color> <!-- Amber 700 (5.0:1 with white, 4.5:1 on its Amber 100 fill) -->
     <Color x:Key="Color.Status.StagedText">#92400E</Color> <!-- Amber 800 -->
     <Color x:Key="Color.Status.StagedChipText">#78350F</Color> <!-- Amber 900 -->
 

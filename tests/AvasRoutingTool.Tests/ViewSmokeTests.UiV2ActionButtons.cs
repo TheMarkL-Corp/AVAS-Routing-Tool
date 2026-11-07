@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using AvasRoutingTool.Controls;
+using AvasRoutingTool.Services;
 using AvasRoutingTool.Views;
 using Xunit;
 using Button = System.Windows.Controls.Button;
@@ -71,6 +72,38 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(System.Windows.TextWrapping.NoWrap, label.TextWrapping);
                     Assert.Equal(System.Windows.TextTrimming.CharacterEllipsis, label.TextTrimming);
                 });
+            });
+
+        [Fact]
+        public void DraftChip_IconMeansResume_NotTheComposersUndoGlyph() =>
+            RunSta(() =>
+            {
+                var rig = new CopyRig();
+                rig.Rx1.HasDraft = true;
+                var view = rig.View(rig.Rx1, out var host, 480);
+                Showing(host, () =>
+                {
+                    var chip = (Button)Named(view, "DraftChip").Single();
+                    var icon = FindAll<MaterialIcon>(chip).Single();
+                    Assert.NotEqual("undo", icon.Kind); // undo is the Composer's Undo button
+                    Assert.Equal("play_arrow", icon.Kind); // not "edit": that is the rename pencil
+                });
+            });
+
+        [Fact]
+        public void DraftChip_StagedOutline_Reaches3To1_OnItsFill_AndTheCard_InTheLightTheme() =>
+            RunSta(() =>
+            {
+                try
+                {
+                    new ThemeService().SetTheme(ThemeMode.Light);
+                    var outline = BrushColour("Brush.Status.Staged");
+                    var ratioFill = RatioOf(outline, BrushColour("Brush.Surface.Staged"));
+                    var ratioCard = RatioOf(outline, BrushColour("Brush.Surface.Card"));
+                    Assert.True(ratioFill >= 3.0, $"amber outline on the chip fill {ratioFill:F2}:1");
+                    Assert.True(ratioCard >= 3.0, $"amber outline on the card {ratioCard:F2}:1");
+                }
+                finally { new ThemeService().SetTheme(ThemeMode.Dark); }
             });
 
         [Fact]
