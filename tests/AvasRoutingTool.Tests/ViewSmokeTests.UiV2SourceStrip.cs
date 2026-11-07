@@ -158,7 +158,7 @@ namespace AvasRoutingTool.Tests
                 Showing(view, () =>
                 {
                     var thumb = ThumbnailOf(view);
-                    Assert.Single(FindAll<TextBlock>(thumb).Where(t => t.IsVisible && t.Text == "Preview Standby"));
+                    Assert.Single(FindAll<TextBlock>(thumb).Where(t => t.IsVisible && t.Text == "Preview standby"));
                     var mode = Assert.Single(FindAll<TextBlock>(thumb).Where(t => t.IsVisible && t.Text == link));
                     Assert.True(mode.FontSize >= 12, $"'{link}' is {mode.FontSize} px");
                     var muted = ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.OnPreviewMuted")).Color;

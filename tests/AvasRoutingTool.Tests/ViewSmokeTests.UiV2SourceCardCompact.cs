@@ -65,7 +65,7 @@ namespace AvasRoutingTool.Tests
                     Assert.True(Named(view, "CompactLayout").Single().IsVisible);
                     foreach (var name in new[] { "StartStreamButton", "StopStreamButton", "RefreshStreamButton" })
                         Assert.False(Named(view, name).Single().IsVisible, $"{name} is shown in the compact tile");
-                    Assert.Empty(VisibleTexts(view, "DUAL LINK"));
+                    Assert.Empty(VisibleTexts(view, "Dual link"));
                     Assert.Empty(FindAll<Badge>(view).Where(b => b.IsVisible));
                     Assert.False(Named(view, "SourceInfoBadge").Single().IsVisible);
                     Assert.False(string.IsNullOrEmpty(vm.StreamStatusText));

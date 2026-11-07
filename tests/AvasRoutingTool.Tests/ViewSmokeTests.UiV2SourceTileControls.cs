@@ -47,7 +47,7 @@ namespace AvasRoutingTool.Tests
             RunSta(() =>
                 SourceCardAt(UiV2Source(), view =>
                 {
-                    var caption = FindAll<TextBlock>(view).First(t => t.IsVisible && t.Text == "Preview Standby");
+                    var caption = FindAll<TextBlock>(view).First(t => t.IsVisible && t.Text == "Preview standby");
                     double opacity = 1;
                     for (DependencyObject d = caption; d != null && d != view; d = VisualTreeHelper.GetParent(d))
                         if (d is UIElement e) opacity *= e.Opacity;

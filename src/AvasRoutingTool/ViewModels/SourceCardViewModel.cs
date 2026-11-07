@@ -68,6 +68,7 @@ namespace AvasRoutingTool.ViewModels
                 OnPropertyChanged(nameof(ShowStop));
                 OnPropertyChanged(nameof(ShowStart));
                 OnPropertyChanged(nameof(ShowStandby));
+                OnPropertyChanged(nameof(ShowConnecting));
                 OnPropertyChanged(nameof(StreamStatusText));
             }
         }
@@ -81,7 +82,7 @@ namespace AvasRoutingTool.ViewModels
         public WriteableBitmap? PreviewBitmap
         {
             get => _previewBitmap;
-            set { _previewBitmap = value; OnPropertyChanged(); }
+            set { _previewBitmap = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowConnecting)); }
         }
 
         /// <summary>
@@ -127,13 +128,16 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>"Preview Standby" placeholder: an AVAS source that is not streaming.</summary>
         public bool ShowStandby => IsPreviewSupported && !_isStreaming;
 
+        /// <summary>"Connecting preview" placeholder: streaming, but no frame has arrived yet.</summary>
+        public bool ShowConnecting => _isStreaming && _previewBitmap == null;
+
         /// <summary>"Preview not supported" placeholder: a non-AVAS source.</summary>
         public bool ShowUnsupported => !IsPreviewSupported;
 
         /// <summary>Footer line: the frame rate while streaming, else why there is no picture.</summary>
         public string StreamStatusText => _isStreaming
-            ? string.Format(CultureInfo.InvariantCulture, "{0:F1} FPS", _fps)
-            : IsPreviewSupported ? "PREVIEW PAUSED" : "EXTERNAL SOURCE";
+            ? (_fps <= 0 ? "Waiting for signal" : string.Format(CultureInfo.InvariantCulture, "{0:F1} FPS", _fps))
+            : IsPreviewSupported ? "Preview paused" : "External source";
 
         public ICommand RefreshPreviewCommand { get; }
         public ICommand StartPreviewCommand { get; }

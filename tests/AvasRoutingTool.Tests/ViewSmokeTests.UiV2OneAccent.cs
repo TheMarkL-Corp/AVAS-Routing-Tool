@@ -70,7 +70,7 @@ namespace AvasRoutingTool.Tests
             RunSta(() =>
                 SourceCardAt(UiV2Source(link: "Dual Link"), view =>
                 {
-                    var tag = FindAll<Badge>(view).Single(b => FindAll<TextBlock>(b).Any(t => t.Text == "DUAL LINK"));
+                    var tag = FindAll<Badge>(view).Single(b => FindAll<TextBlock>(b).Any(t => t.Text == "Dual link"));
                     Assert.Same(Res("Style.Badge.Neutral"), tag.Style);
 
                     var start = Named(view, "StartStreamButton");

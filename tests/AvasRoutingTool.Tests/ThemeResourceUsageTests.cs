@@ -76,7 +76,7 @@ namespace AvasRoutingTool.Tests
         [InlineData("MultiViewComposerView.xaml", "NamePlateText", "name", "Brush.Text.OnPreview")]
         [InlineData("SourceCardView.xaml", "Preview not supported", null, "Brush.Text.OnPreview")]
         [InlineData("SourceCardView.xaml", "Non-AVAS Device", null, "Brush.Text.OnPreviewMuted")]
-        [InlineData("SourceCardView.xaml", "Preview Standby", null, "Brush.Text.OnPreviewMuted")]
+        [InlineData("SourceCardView.xaml", "Preview standby", null, "Brush.Text.OnPreviewMuted")]
         public void VideoOverlayText_UsesOnPreviewOrOnScrimTokens(string file, string anchor, string? selector, string expectedBrush)
         {
             var path = Path.Combine(SourceRoot(), "Views", file);

@@ -131,9 +131,11 @@
                                     HorizontalAlignment="Center"
                                     Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <controls:MaterialIcon Kind="videocam"
-                                  Style="{StaticResource Style.Icon.Placeholder}" />
-                            <TextBlock Text="Preview Standby"
+                                  Style="{StaticResource Style.Icon.Placeholder}"
+                                  Width="{StaticResource Size.Icon.L}" Height="{StaticResource Size.Icon.L}" />
+                            <TextBlock Text="Preview standby"
                                        Style="{StaticResource Style.Text.Caption}"
+                                       FontSize="{StaticResource Font.Size.Body}"
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,4,0,0" />
@@ -142,6 +144,21 @@
                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
                                        HorizontalAlignment="Center"
                                        Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <!-- Streaming, no frame yet: say it is connecting instead of a blank picture -->
+                        <StackPanel VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    Visibility="{Binding ShowConnecting, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                            <controls:MaterialIcon Kind="videocam"
+                                  Style="{StaticResource Style.Icon.Placeholder}"
+                                  Width="{StaticResource Size.Icon.L}" Height="{StaticResource Size.Icon.L}" />
+                            <TextBlock Text="Connecting preview&#8230;"
+                                       Style="{StaticResource Style.Text.Caption}"
+                                       FontSize="{StaticResource Font.Size.Body}"
+                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0" />
                         </StackPanel>
 
                         <!-- Routing state chips (on the picture, so the footer stays one touch-safe row) -->
@@ -193,7 +210,7 @@
                     <ui:Badge Style="{StaticResource Style.Badge.Neutral}"
                               Margin="8,0,0,0"
                               Visibility="{Binding IsDualLink, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
-                        <TextBlock Text="DUAL LINK" />
+                        <TextBlock Text="Dual link" />
                     </ui:Badge>
                 </StackPanel>
 

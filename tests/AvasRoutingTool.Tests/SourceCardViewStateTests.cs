@@ -48,12 +48,27 @@ namespace AvasRoutingTool.Tests
         public void StreamStatusText_ReadsPausedExternalOrTheFrameRate()
         {
             var avas = Card();
-            Assert.Equal("PREVIEW PAUSED", avas.StreamStatusText);
+            Assert.Equal("Preview paused", avas.StreamStatusText);
             avas.IsStreaming = true;
+            Assert.Equal("Waiting for signal", avas.StreamStatusText);
             avas.Fps = 29.97;
             Assert.Equal("30.0 FPS", avas.StreamStatusText);
 
-            Assert.Equal("EXTERNAL SOURCE", Card(avasTransmitter: false).StreamStatusText);
+            Assert.Equal("External source", Card(avasTransmitter: false).StreamStatusText);
+        }
+
+        [Fact]
+        public void ShowConnecting_IsStreamingWithNoFrameYet()
+        {
+            var card = Card();
+            Assert.False(card.ShowConnecting);
+            card.IsStreaming = true;
+            Assert.True(card.ShowConnecting);
+            card.PreviewBitmap = new System.Windows.Media.Imaging.WriteableBitmap(2, 2, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
+            Assert.False(card.ShowConnecting);
+            card.IsStreaming = false;
+            Assert.False(card.ShowConnecting);
+            Assert.False(Card(avasTransmitter: false).ShowConnecting);
         }
 
         [Theory]

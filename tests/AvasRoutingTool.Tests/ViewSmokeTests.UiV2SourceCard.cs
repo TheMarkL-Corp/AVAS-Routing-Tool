@@ -87,9 +87,39 @@ namespace AvasRoutingTool.Tests
                     Assert.False(Named(view, "StartStreamButton").Single().IsVisible);
                     Assert.Equal("stop", FindAll<AvasRoutingTool.Controls.MaterialIcon>(Named(view, "StopStreamButton").Single()).Single().Kind);
                     AssertVisibleText(view, "30.0 FPS");
-                    Assert.Empty(VisibleTexts(view, "Preview Standby"));
+                    Assert.Empty(VisibleTexts(view, "Preview standby"));
                 });
             });
+
+        [Fact]
+        public void SourceCard_StreamingWithNoFrameYet_SaysItIsConnecting_NotABlankPicture() =>
+            RunSta(() =>
+            {
+                var vm = UiV2Source();
+                vm.IsStreaming = true;
+                SourceCardAt(vm, view =>
+                {
+                    AssertVisibleText(view, "Connecting preview");
+                    AssertVisibleText(view, "Waiting for signal");
+                    Assert.Empty(VisibleTexts(view, "Preview standby"));
+                });
+                var idle = UiV2Source();
+                SourceCardAt(idle, view => Assert.Empty(VisibleTexts(view, "Connecting preview")));
+            });
+
+        [Fact]
+        public void SourceCard_Words_AreSentenceCase_AndPlaceholderIconIsIconL() =>
+            RunSta(() =>
+                SourceCardAt(UiV2Source(link: "Dual Link"), view =>
+                {
+                    AssertVisibleText(view, "Preview standby");
+                    AssertVisibleText(view, "Preview paused");
+                    AssertVisibleText(view, "Dual link");
+                    var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(view).First(i => i.Kind == "videocam" && i.IsVisible);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.L"), icon.ActualWidth, 1);
+                    var label = VisibleTexts(view, "Preview standby").Single();
+                    Assert.True(label.FontSize >= 13, $"label {label.FontSize}");
+                }));
 
         [Fact]
         public void SourceCard_StopStreamButton_IsTheOutlinedActionBarButton_NotTheRedUnrouteStyle() =>
@@ -159,7 +189,7 @@ namespace AvasRoutingTool.Tests
                 {
                     var badges = FindAll<Badge>(view).Where(b => b.IsVisible).ToList();
                     Assert.Single(badges);
-                    Assert.Contains(badges, b => FindAll<TextBlock>(b).Any(t => t.Text == "DUAL LINK"));
+                    Assert.Contains(badges, b => FindAll<TextBlock>(b).Any(t => t.Text == "Dual link"));
                     AssertVisibleText(view, "Online");
                     Assert.Empty(VisibleTexts(view, "ONLINE"));
                 });
