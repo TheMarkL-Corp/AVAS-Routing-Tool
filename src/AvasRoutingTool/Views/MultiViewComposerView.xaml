@@ -532,19 +532,7 @@
                                Text="{Binding TakeBlockedReason, Mode=OneWay}"
                                Style="{StaticResource Style.Text.Reason}" />
 
-                    <Button x:Name="UndoButton"
-                            Style="{StaticResource Style.Button.Undo}"
-                            KeyboardNavigation.TabIndex="1"
-                            ToolTip="Undo - back to the previous picture"
-                            AutomationProperties.Name="Undo - back to the previous picture"
-                            Click="Undo_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
-                            <TextBlock Text="Undo" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
-                        </StackPanel>
-                    </Button>
-
-                    <!-- Tab order of the right rail: Undo, Discard, Clear all, and Take last (review the changes, then take) -->
+                    <!-- Tab order of the right rail: Undo, Discard, Clear all, and Take last (review the changes, then take). Undo is last on screen: its slot is kept (Hidden) so nothing moves, and an empty slot is then blank space at the foot of the rail, not a hole between Save and Discard. -->
                     <UniformGrid Columns="2" Margin="0,8,0,0" KeyboardNavigation.TabIndex="2">
                         <Button x:Name="DiscardButton" Style="{StaticResource Style.Button.Discard}" Margin="0,0,4,0"
                                 ToolTip="Go back to what is on screen now"
@@ -563,6 +551,18 @@
                             </StackPanel>
                         </Button>
                     </UniformGrid>
+
+                    <Button x:Name="UndoButton"
+                            Style="{StaticResource Style.Button.Undo}"
+                            KeyboardNavigation.TabIndex="1"
+                            ToolTip="Undo - back to the previous picture"
+                            AutomationProperties.Name="Undo - back to the previous picture"
+                            Click="Undo_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                            <TextBlock Text="Undo" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Grid>
