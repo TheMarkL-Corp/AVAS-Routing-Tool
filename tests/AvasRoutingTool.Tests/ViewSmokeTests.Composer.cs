@@ -479,7 +479,7 @@ namespace AvasRoutingTool.Tests
                     var glyph = Named(clear[0], "CornerClearGlyph").Single();
                     Assert.Equal(32, glyph.ActualWidth);
                     Assert.Equal(32, glyph.ActualHeight);
-                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.Dismiss24, FindAll<Wpf.Ui.Controls.SymbolIcon>(clear[0]).Single().Symbol);
+                    Assert.Equal("close", FindAll<AvasRoutingTool.Controls.MaterialIcon>(clear[0]).Single().Kind);
                     Assert.False(((Button)clear[0]).IsTabStop);
 
                     ((Button)clear[0]).Command.Execute(null);
@@ -2122,7 +2122,7 @@ namespace AvasRoutingTool.Tests
                     var selected = tiles.Single(t => ((ComposerLayoutOptionViewModel)t.DataContext).IsSelected);
                     var row = FindAll<StackPanel>(selected).Single(p => p.Name == "SelectedRow");
                     Assert.True(row.IsVisible);
-                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.Checkmark24, FindAll<Wpf.Ui.Controls.SymbolIcon>(row).Single().Symbol);
+                    Assert.Equal("check", FindAll<AvasRoutingTool.Controls.MaterialIcon>(row).Single().Kind);
                     Assert.Contains(FindAll<TextBlock>(row), t => t.Text == "Selected");
                     foreach (var other in tiles.Where(t => t != selected))
                         Assert.False(FindAll<StackPanel>(other).Single(p => p.Name == "SelectedRow").IsVisible);
@@ -2164,9 +2164,10 @@ namespace AvasRoutingTool.Tests
                     var back = (Button)Named(view, "CloseComposerButton").Single();
                     Assert.Equal("Back to displays", AutomationProperties.GetName(back));
                     Assert.True(back.ActualHeight >= 48);
-                    var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(back).Single();
-                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.ArrowLeft24, icon.Symbol);
-                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.FontSize);
+                    var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(back).Single();
+                    Assert.Equal("arrow_back", icon.Kind);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.ActualWidth, 1);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.ActualHeight, 1);
                     Assert.Contains(FindAll<TextBlock>(back), t => t.Text == "Back to displays");
                 });
             });
@@ -2399,7 +2400,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void Composer_UnavailableBlock_LockIsASymbolIcon() =>
+        public void Composer_UnavailableBlock_LockIsAMaterialIcon() =>
             RunSta(() =>
             {
                 var rig = new ComposerRig();
@@ -2411,7 +2412,7 @@ namespace AvasRoutingTool.Tests
                 {
                     var locks = Named(view, "LockIcon").Where(e => e.IsVisible).ToList();
                     Assert.Equal(3, locks.Count);
-                    Assert.All(locks, l => Assert.Equal(Wpf.Ui.Controls.SymbolRegular.LockClosed24, ((Wpf.Ui.Controls.SymbolIcon)l).Symbol));
+                    Assert.All(locks, l => Assert.Equal("lock", ((AvasRoutingTool.Controls.MaterialIcon)l).Kind));
                 });
             });
 
@@ -2511,10 +2512,10 @@ namespace AvasRoutingTool.Tests
         // ---- UI v2 Task 8: right rail ----
 
         [Theory]
-        [InlineData(BannerKind.Info, "Info24")]
-        [InlineData(BannerKind.Success, "CheckmarkCircle24")]
-        [InlineData(BannerKind.Warning, "Warning24")]
-        [InlineData(BannerKind.Error, "ErrorCircle24")]
+        [InlineData(BannerKind.Info, "info")]
+        [InlineData(BannerKind.Success, "check_circle")]
+        [InlineData(BannerKind.Warning, "warning")]
+        [InlineData(BannerKind.Error, "error")]
         public void Composer_Banner_ShowsASeverityIconPerKind(BannerKind kind, string symbol) =>
             RunSta(() =>
             {
@@ -2527,9 +2528,10 @@ namespace AvasRoutingTool.Tests
                 {
                     var host = Named(view, "BannerHost").Single();
                     Assert.True(host.IsVisible);
-                    var icon = FindAll<Wpf.Ui.Controls.SymbolIcon>(host).Single();
-                    Assert.Equal(symbol, icon.Symbol.ToString());
-                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.FontSize);
+                    var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(host).Single();
+                    Assert.Equal(symbol, icon.Kind);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.ActualWidth, 1);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.ActualHeight, 1);
                     Assert.DoesNotContain(FindAll<TextBlock>(host), t => t.Text is "i" or "!" or "✓" or "✕");
                     var text = (TextBlock)Named(host, "BannerText").Single();
                     Assert.Equal("Something to read", text.Text);
@@ -2558,7 +2560,7 @@ namespace AvasRoutingTool.Tests
                 {
                     var undo = (Button)Named(view, "UndoButton").Single();
                     Assert.True(undo.IsVisible && undo.ActualHeight >= 48);
-                    Assert.Equal(Wpf.Ui.Controls.SymbolRegular.ArrowUndo24, FindAll<Wpf.Ui.Controls.SymbolIcon>(undo).Single().Symbol);
+                    Assert.Equal("undo", FindAll<AvasRoutingTool.Controls.MaterialIcon>(undo).Single().Kind);
                     var label = FindAll<TextBlock>(undo).Single(t => t.Text.StartsWith("Undo", StringComparison.Ordinal));
                     Assert.Equal(TextWrapping.Wrap, label.TextWrapping);
                 });
@@ -2822,7 +2824,7 @@ namespace AvasRoutingTool.Tests
                     Assert.NotEmpty(disabled);
                     foreach (var t in tiles)
                     {
-                        var locks = FindAll<Wpf.Ui.Controls.SymbolIcon>(t).Where(i => i.Symbol == Wpf.Ui.Controls.SymbolRegular.LockClosed24).ToList();
+                        var locks = FindAll<AvasRoutingTool.Controls.MaterialIcon>(t).Where(i => i.Kind == "lock").ToList();
                         Assert.Single(locks);
                         Assert.Equal(!t.IsEnabled, locks[0].IsVisible);
                     }

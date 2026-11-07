@@ -23,7 +23,7 @@ namespace AvasRoutingTool.Tests
         {
             "settings", "sync", "light_mode", "dark_mode", "cleaning_services", "folder_open", "edit", "info", "play_arrow", "stop", "check",
             "lock", "expand_more", "content_copy", "grid_view", "power_settings_new", "desktop_windows", "videocam", "chevron_left",
-            "chevron_right", "close", "warning",
+            "chevron_right", "close", "warning", "arrow_back", "undo", "delete_sweep", "swap_horiz", "open_with", "check_circle", "error",
         };
 
         private static void RunSta(Action body)

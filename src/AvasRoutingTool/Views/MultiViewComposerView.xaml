@@ -64,7 +64,7 @@
                     AutomationProperties.Name="Back to displays"
                     Click="Close_Click">
                 <StackPanel Orientation="Horizontal">
-                    <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="{StaticResource Size.Icon.M}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <controls:MaterialIcon Kind="arrow_back" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" Margin="0,0,8,0" VerticalAlignment="Center" />
                     <TextBlock Text="Back to displays" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
@@ -112,7 +112,7 @@
                                             <TextBlock Text="{Binding Subtitle, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
                                             <StackPanel x:Name="SelectedRow" Orientation="Horizontal" Margin="0,2,0,0"
                                                         Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                                <ui:SymbolIcon Symbol="Checkmark24" FontSize="{StaticResource Size.Icon.S}" Foreground="{DynamicResource Brush.Text.Accent}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <controls:MaterialIcon Kind="check" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}" Foreground="{DynamicResource Brush.Text.Accent}" Margin="0,0,4,0" VerticalAlignment="Center" />
                                                 <TextBlock Text="Selected" Style="{StaticResource Style.Text.Selected}" />
                                             </StackPanel>
                                             <TextBlock Text="Reading the display..." Style="{StaticResource Style.Text.Pending}" Margin="0,2,0,0"
@@ -292,7 +292,7 @@
                                     <!-- 4. Armed and this block cannot take it: lock + the reason, in words (chips hidden meanwhile) -->
                                     <Border Style="{StaticResource Style.Panel.UnavailableOverlay}" Background="{DynamicResource Brush.Surface.Scrim}">
                                         <DockPanel x:Name="UnavailableStack" Style="{StaticResource Style.Panel.UnavailableStack}" ToolTip="{Binding UnavailableReason, Mode=OneWay}">
-                                            <ui:SymbolIcon x:Name="LockIcon" Symbol="LockClosed24" Style="{StaticResource Style.Icon.BlockLock}" Foreground="{DynamicResource Brush.Text.OnScrim}" />
+                                            <controls:MaterialIcon x:Name="LockIcon" Kind="lock" Style="{StaticResource Style.Icon.BlockLock}" Foreground="{DynamicResource Brush.Text.OnScrim}" />
                                             <TextBlock x:Name="ReasonText" Text="{Binding UnavailableReason, Mode=OneWay}" Style="{StaticResource Style.Text.Block.Reason}" Foreground="{DynamicResource Brush.Text.OnScrim}" />
                                         </DockPanel>
                                     </Border>
@@ -306,7 +306,7 @@
                                     <Border x:Name="IssueBand" Style="{StaticResource Style.Panel.IssueBand}"
                                             Background="{DynamicResource Brush.Surface.ScrimDanger}" BorderBrush="{DynamicResource Brush.Action.Danger}">
                                         <StackPanel Orientation="Horizontal">
-                                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="{StaticResource Size.Icon.S}" Foreground="{DynamicResource Brush.Text.OnAction}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}" Foreground="{DynamicResource Brush.Text.OnAction}" Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBlock x:Name="IssueTextBlock" Text="{Binding IssueText, Mode=OneWay}" Style="{StaticResource Style.Text.Block.Chip}" Foreground="{DynamicResource Brush.Text.OnAction}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Border>
@@ -482,7 +482,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <ui:SymbolIcon Style="{StaticResource Style.Icon.Banner}" />
+                            <controls:MaterialIcon Style="{StaticResource Style.Icon.Banner}" />
                             <!-- A live region: hints, refusals and the Take result are read out when they appear; an error interrupts -->
                             <TextBlock x:Name="BannerText" Grid.Column="1" Text="{Binding Banner.Text, Mode=OneWay}" Style="{StaticResource Style.Text.Banner}" />
                         </Grid>
@@ -510,7 +510,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <ui:SymbolIcon Symbol="ArrowUndo24" FontSize="{StaticResource Size.Icon.M}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" Margin="0,0,8,0" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="Undo - back to the previous picture" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                     </Button>
@@ -578,7 +578,7 @@
                                             <TextBlock Text="{Binding Source.DeviceName, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Name}" />
                                             <TextBlock Text="{Binding Source.LinkMode, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
                                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                <ui:SymbolIcon Symbol="LockClosed24" Style="{StaticResource Style.Icon.PickerLock}" />
+                                                <controls:MaterialIcon Kind="lock" Style="{StaticResource Style.Icon.PickerLock}" />
                                                 <TextBlock Text="{Binding Note, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Note}" />
                                             </StackPanel>
                                         </StackPanel>
