@@ -517,11 +517,17 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(PanningMode.VerticalOnly, ((ScrollViewer)Named(view, "RightRailScroll").Single()).PanningMode);
 
                     var step3 = (AvasRoutingTool.Controls.StepHeader)Named(view, "StepTakeHeading").Single();
+                    Assert.True(c.CanTake && step3.IsDone, "precondition: step 3 must be done so its check shows");
                     var step3Parent = (FrameworkElement)VisualTreeHelper.GetParent(step3);
-                    Assert.True(step3.ActualWidth <= step3Parent.ActualWidth + 0.5, "the step 3 header is wider than its rail");
                     var step3Check = (FrameworkElement)step3.Template.FindName("DoneCheck", step3);
-                    if (step3Check.IsVisible)
-                        Assert.True(BoundsIn(step3Check, step3Parent).Right <= step3Parent.ActualWidth + 0.5, "the step 3 check is outside the rail");
+                    var step3Label = (FrameworkElement)step3.Template.FindName("LabelText", step3);
+                    Assert.True(step3Check.IsVisible, "the step 3 check is not visible");
+                    var checkBox = BoundsIn(step3Check, step3Parent);
+                    var labelBox = BoundsIn(step3Label, step3Parent);
+                    var rail = (FrameworkElement)Named(view, "RightRailScroll").Single();
+                    Console.WriteLine($"STEP3 {width}x{height}: rail {rail.ActualWidth:F1}, parent {step3Parent.ActualWidth:F1}, header {step3.ActualWidth:F1}, label {labelBox.Left:F1}..{labelBox.Right:F1} (h {labelBox.Height:F1}), check {checkBox.Left:F1}..{checkBox.Right:F1}");
+                    Assert.True(checkBox.Right <= step3Parent.ActualWidth + 0.5, $"the step 3 check ends at {checkBox.Right} but its rail is {step3Parent.ActualWidth} wide");
+                    Assert.True(labelBox.Right <= checkBox.Left + 0.5, "the step 3 label runs past its check");
 
                     var take = (FrameworkElement)Named(view, "TakeButton").Single();
                     Assert.True(take.IsVisible);
