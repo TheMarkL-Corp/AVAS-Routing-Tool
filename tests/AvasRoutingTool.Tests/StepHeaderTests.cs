@@ -116,10 +116,10 @@ namespace AvasRoutingTool.Tests
                 Assert.True(number.IsVisible);
                 Assert.True(check.IsVisible);
                 Assert.Equal("check", check.Kind);
-                var size = (double)Application.Current.FindResource("Size.Icon.S");
+                var size = (double)Application.Current.FindResource("Size.Icon.Layout");
                 Assert.Equal(size, check.ActualWidth, 1);
                 Assert.Equal(size, check.ActualHeight, 1);
-                var accent = (SolidColorBrush)Application.Current.FindResource("Brush.Text.Accent");
+                var accent = (SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary");
                 Assert.Equal(accent.Color, ((SolidColorBrush)check.Foreground).Color);
                 var gap = BoundsIn(check, h).Left - BoundsIn(label, h).Right;
                 Assert.True(gap >= (double)Application.Current.FindResource("Size.Space.Action") - 0.5, "gap was " + gap);
@@ -191,7 +191,7 @@ namespace AvasRoutingTool.Tests
                 Assert.True(h.ActualWidth <= 240.5);
                 var marker = BoundsIn(Part(h, "Marker"), host);
                 Assert.Equal(32, marker.Width, 1);
-                Assert.Equal(16, check.ActualWidth, 1);
+                Assert.Equal((double)Application.Current.FindResource("Size.Icon.Layout"), check.ActualWidth, 1);
             });
         });
 
