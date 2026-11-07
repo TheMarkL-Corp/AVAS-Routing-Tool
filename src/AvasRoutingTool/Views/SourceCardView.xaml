@@ -112,8 +112,7 @@
                                     HorizontalAlignment="Center"
                                     Visibility="{Binding ShowUnsupported, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <controls:MaterialIcon Kind="videocam"
-                                  Style="{StaticResource Style.Icon.Placeholder}"
-                                  Opacity="0.4" />
+                                  Style="{StaticResource Style.Icon.Placeholder}" />
                             <TextBlock Text="Preview not supported"
                                        Style="{StaticResource Style.Text.Caption}"
                                        FontWeight="SemiBold"
@@ -285,7 +284,6 @@
                                     Visibility="{Binding ShowUnsupported, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <controls:MaterialIcon Kind="videocam"
                                   Style="{StaticResource Style.Icon.Placeholder}"
-                                  Opacity="0.4"
                                   Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                             <TextBlock Text="No preview"
                                        Style="{StaticResource Style.Text.Caption}"
@@ -301,7 +299,6 @@
                                     Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <controls:MaterialIcon Kind="videocam"
                                   Style="{StaticResource Style.Icon.Placeholder}"
-                                  Opacity="0.4"
                                   Visibility="{Binding IsArmed, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}" />
                             <TextBlock Text="Standby"
                                        Style="{StaticResource Style.Text.Caption}"

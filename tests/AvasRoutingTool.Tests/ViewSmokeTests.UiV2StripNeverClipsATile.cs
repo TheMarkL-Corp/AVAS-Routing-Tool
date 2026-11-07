@@ -11,6 +11,7 @@ namespace AvasRoutingTool.Tests
     public partial class ViewSmokeTests
     {
         [Theory]
+        [InlineData(1024, 720)]
         [InlineData(1024, 600)]
         [InlineData(1024, 560)]
         [InlineData(1366, 640)]

@@ -64,12 +64,12 @@
     <!--
         Copy layout: the action-bar button (Style.Button.ActionBar, shared with More layouts) plus its two states, which are the display's:
         while this display is the copy source it is solid drop-target cyan with its own text colour (a style trigger, so the hover fill does not
-        replace it), and with nothing to copy it stays enabled (focus, tap, the reason on press) but looks off; the reason is its name and help text.
+        replace it), and with nothing to copy it stays enabled (focus, tap, the reason on press) but looks off (the muted text colour, 4.5:1; never whole-button Opacity); the reason is its name and help text.
     -->
     <Style x:Key="Style.Button.ActionBar.Copy" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar}">
         <Style.Triggers>
             <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
-                <Setter Property="Opacity" Value="0.5" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
                 <Setter Property="Cursor" Value="Arrow" />
                 <Setter Property="Background" Value="Transparent" />
             </DataTrigger>

@@ -66,8 +66,8 @@
     <sys:Double x:Key="Size.Strip.Compact.Name.LineHeight">18</sys:Double>
     <sys:Double x:Key="Size.Strip.Compact.Name.MaxHeight">36</sys:Double>
 
-    <!-- Section header row (Displays): the arm banner shares this row with the header, so arming never changes its height. 48 = Touch.Min: the Stop button overlaps the banner border (same colour) -->
-    <sys:Double x:Key="Size.Section.Header.Height">48</sys:Double>
+    <!-- Section header row (Displays): the arm banner shares this row with the header, so arming never changes its height. 56 = Touch.Min + 4 px above and below: the 48 px Stop button clears the banner's 2 px ring, so its own keyboard ring is not drawn on the same pixels -->
+    <sys:Double x:Key="Size.Section.Header.Height">56</sys:Double>
 
     <!-- Main window and app bar -->
     <sys:Double x:Key="Size.AppBar.Height">56</sys:Double>

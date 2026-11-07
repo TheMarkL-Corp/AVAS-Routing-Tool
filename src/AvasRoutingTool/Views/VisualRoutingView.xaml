@@ -135,12 +135,13 @@
                 <Border Grid.Row="0"
                         x:Name="ArmBanner"
                         VerticalAlignment="Center"
+                        MinHeight="{StaticResource Size.Section.Header.Height}"
                         Style="{StaticResource Style.Banner.Arm}"
                         Visibility="{Binding HasArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <Grid>
                         <!--
                             The 2 px ring, drawn beneath the content and over the banner's full size: the Stop button's own keyboard focus ring sits
-                            on its outer 2 px and must draw over it. The content sits 14 px in (the 2 px ring + 12 px, as before) and keeps the full 48 px.
+                            on its outer 2 px and must draw over it. The content sits 14 px in (the 2 px ring + 12 px, as before) and the 48 px Stop sits 4 px clear of the ring above and below (the banner is Size.Section.Header.Height).
                         -->
                         <Border x:Name="ArmBannerRing"
                                 Style="{StaticResource Style.Banner.Arm.Ring}" />

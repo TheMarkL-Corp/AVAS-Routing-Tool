@@ -312,9 +312,8 @@
                                             <TextBlock Text="{Binding Label, Mode=OneWay}"
                                                        Style="{StaticResource Style.Text.Title}"
                                                        FontWeight="Bold"
-                                                       Foreground="{DynamicResource Brush.Text.Muted}"
-                                                       HorizontalAlignment="Center"
-                                                       Opacity="0.6" />
+                                                       Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
+                                                       HorizontalAlignment="Center" />
                                             <TextBlock Text="Drop source"
                                                        Style="{StaticResource Style.Text.Caption}"
                                                        Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"

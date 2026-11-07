@@ -165,8 +165,8 @@ namespace AvasRoutingTool.Tests
                     Assert.True(handle.Focusable && handle.IsTabStop, "the handle is not a tab stop");
                     Assert.True(handle.ActualWidth >= 48 && handle.ActualHeight >= 48, $"the handle is {handle.ActualWidth}x{handle.ActualHeight}");
 
-                    // Off is drawn by the style: the whole button is dimmed, with the arrow cursor.
-                    Assert.Equal(0.5, handle.Opacity);
+                    // Off is drawn by the style: the text is dimmed, with the arrow cursor.
+                    Assert.Equal(1.0, handle.Opacity); // dimmed by the muted text colour, not by opacity
                     Assert.Equal(System.Windows.Input.Cursors.Arrow, handle.Cursor);
                 });
             });

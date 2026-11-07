@@ -61,12 +61,12 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
     </Style>
 
-    <!-- Placeholder glyph on a picture surface (no preview, standby): Material icon, Size.Icon.M, muted -->
+    <!-- Placeholder glyph on a picture surface (no preview, standby): Material icon, Size.Icon.M, the muted colour made for the always-dark preview tile (4.5:1 in both themes); never thinned by Opacity -->
     <Style x:Key="Style.Icon.Placeholder" TargetType="controls:MaterialIcon">
         <Setter Property="Width" Value="{StaticResource Size.Icon.M}" />
         <Setter Property="Height" Value="{StaticResource Size.Icon.M}" />
         <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnPreviewMuted}" />
     </Style>
 
     <!--
