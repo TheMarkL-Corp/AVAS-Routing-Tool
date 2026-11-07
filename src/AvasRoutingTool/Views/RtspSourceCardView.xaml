@@ -144,7 +144,7 @@
                     <Grid VerticalAlignment="Center">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <TextBlock x:Name="StateWord" Style="{StaticResource Style.Text.Status}" Text="{Binding State, Mode=OneWay}" Margin="0,0,6,0" />
-                        <TextBlock x:Name="StatusLine" Grid.Column="1" Text="{Binding StatusText, Mode=OneWay}" Style="{StaticResource Style.Text.Caption}"
+                        <TextBlock x:Name="StatusLine" Grid.Column="1" Text="{Binding StatusDetail, Mode=OneWay}" Style="{StaticResource Style.Text.Caption}"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                    ToolTip="{Binding StatusText, Mode=OneWay}" />
                     </Grid>

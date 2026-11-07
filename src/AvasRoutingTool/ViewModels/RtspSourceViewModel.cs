@@ -51,6 +51,8 @@ namespace AvasRoutingTool.ViewModels
         public RtspTileState State => _state;
         public string StatusText => _statusText;
         public bool IsLive => _state == RtspTileState.Live;
+        /// <summary>The status text beside the state word, empty when it only repeats the word (Live, Stopped).</summary>
+        public string StatusDetail => string.Equals(_statusText, _state.ToString(), StringComparison.Ordinal) ? string.Empty : _statusText;
         public WriteableBitmap? PreviewBitmap => _player?.Bitmap;
 
         private void Start()
@@ -226,7 +228,7 @@ namespace AvasRoutingTool.ViewModels
             _state = state;
             _statusText = text;
             if (stateChanged) { OnPropertyChanged(nameof(State)); OnPropertyChanged(nameof(IsLive)); }
-            if (textChanged) OnPropertyChanged(nameof(StatusText));
+            if (textChanged || stateChanged) { OnPropertyChanged(nameof(StatusText)); OnPropertyChanged(nameof(StatusDetail)); }
             if (stateChanged) CommandManagerRequery();
         }
 
