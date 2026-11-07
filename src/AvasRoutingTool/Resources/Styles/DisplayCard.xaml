@@ -71,6 +71,7 @@
             <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
                 <Setter Property="Opacity" Value="0.5" />
                 <Setter Property="Cursor" Value="Arrow" />
+                <Setter Property="Background" Value="Transparent" />
             </DataTrigger>
             <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
                 <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />

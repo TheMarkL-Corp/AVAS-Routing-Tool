@@ -135,6 +135,18 @@ namespace AvasRoutingTool.Tests
         private static TextBlock LabelOf(DisplayCardView card) => (TextBlock)Named(card, "LayoutLabel").Single();
 
         [Fact]
+        public void ActionBar_CopyWithNothingToCopy_HasNoHoverFill() =>
+            RunSta(() =>
+            {
+                var style = (Style)Application.Current.FindResource("Style.Button.ActionBar.Copy");
+                var off = style.Triggers.OfType<DataTrigger>()
+                    .Single(t => t.Binding is System.Windows.Data.Binding b && b.Path.Path == "CanCopyFrom" && string.Equals(t.Value?.ToString(), "False", StringComparison.OrdinalIgnoreCase));
+                var fill = off.Setters.OfType<Setter>().SingleOrDefault(x => x.Property == Control.BackgroundProperty);
+                Assert.True(fill is not null, "a Copy layout that looks off still takes the hover fill");
+                Assert.Equal(Brushes.Transparent.ToString(), fill.Value?.ToString());
+            });
+
+        [Fact]
         public void ActionBar_WideCardWithADraft_KeepsTheMoreLayoutsLabel_AndNothingJumpsWhenTheDraftToggles() =>
             RunSta(() =>
             {
