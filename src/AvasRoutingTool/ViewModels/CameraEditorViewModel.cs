@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AvasRoutingTool.Configuration;
+using AvasRoutingTool.Rtsp;
 using AvasRoutingTool.Services.Visca;
 
 namespace AvasRoutingTool.ViewModels
@@ -48,6 +49,8 @@ namespace AvasRoutingTool.ViewModels
         private bool _isTesting;
         private string _testText = string.Empty;
         private bool _isRemovePending;
+        private RoomCameraPreviewMode _previewMode;
+        private string _rtspUrl;
 
         public CameraEditorViewModel(
             RoomCameraConfig? existing,
@@ -69,6 +72,9 @@ namespace AvasRoutingTool.ViewModels
             _portText = (existing?.Port ?? DefaultPortFor(_transport)).ToString(CultureInfo.InvariantCulture);
             // An existing camera on a non-default port keeps it when the transport is flipped.
             _portTouched = existing != null && existing.Port != DefaultPortFor(_transport);
+
+            _previewMode = existing?.PreviewMode ?? RoomCameraPreviewMode.Tx;
+            _rtspUrl = existing?.RtspUrl ?? string.Empty;
 
             string boundMac = existing?.BoundTxMac ?? string.Empty;
             TxChoices = BuildTxChoices(sources ?? Enumerable.Empty<SourceCardViewModel>(), boundMac);
@@ -156,6 +162,42 @@ namespace AvasRoutingTool.ViewModels
             }
         }
 
+        /// <summary>Where the camera's preview picture comes from: the bound TX or the camera's own RTSP stream.</summary>
+        public RoomCameraPreviewMode PreviewMode
+        {
+            get => _previewMode;
+            set
+            {
+                if (_previewMode == value) return;
+                _previewMode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsRtsp));
+                RaiseValidity();
+                OnPropertyChanged(nameof(RtspReason));
+            }
+        }
+
+        public bool IsRtsp => _previewMode == RoomCameraPreviewMode.Rtsp;
+
+        /// <summary>The whole RTSP address as typed. Kept when the mode is switched back to TX. Never put it in any text but its own box.</summary>
+        public string RtspUrl
+        {
+            get => _rtspUrl;
+            set
+            {
+                value ??= string.Empty;
+                if (_rtspUrl == value) return;
+                _rtspUrl = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(RtspReason));
+                RaiseValidity();
+            }
+        }
+
+        /// <summary>The parser's reason while the address is invalid in RTSP mode; empty otherwise. Never echoes the input.</summary>
+        public string RtspReason =>
+            IsRtsp && !Rtsp.RtspUrl.TryParse(_rtspUrl, out _, out string reason) ? reason : string.Empty;
+
         public bool IsValid => string.IsNullOrEmpty(SaveDisabledReason);
 
         /// <summary>Why Save is disabled; empty when it is enabled.</summary>
@@ -166,7 +208,7 @@ namespace AvasRoutingTool.ViewModels
                 if (string.IsNullOrWhiteSpace(_host)) return "Enter the camera address";
                 if (Port < 1 || Port > 65535) return "Port must be 1-65535";
                 if (string.IsNullOrWhiteSpace(_name)) return "Enter a name";
-                return string.Empty;
+                return RtspReason;
             }
         }
 
@@ -240,6 +282,8 @@ namespace AvasRoutingTool.ViewModels
                 Port = Port,
                 Transport = _transport,
                 BoundTxMac = _selectedTx.Mac,
+                PreviewMode = _previewMode,
+                RtspUrl = _rtspUrl.Trim(),
             };
             if (_existing != null)
             {

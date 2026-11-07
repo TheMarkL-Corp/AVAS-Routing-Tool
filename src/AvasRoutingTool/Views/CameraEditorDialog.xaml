@@ -133,8 +133,31 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Bound TX -->
+                <!-- Preview source choice -->
                 <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="Preview source" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <RadioButton x:Name="PreviewTxChoice"
+                                     GroupName="CameraPreviewSource"
+                                     Content="TX live preview"
+                                     Style="{StaticResource Style.ToggleButton.Segment}"
+                                     MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                                     Margin="0,0,8,0"
+                                     IsChecked="{Binding PreviewMode, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Tx}"
+                                     AutomationProperties.Name="TX live preview" />
+                        <RadioButton x:Name="PreviewRtspChoice"
+                                     GroupName="CameraPreviewSource"
+                                     Content="RTSP stream"
+                                     Style="{StaticResource Style.ToggleButton.Segment}"
+                                     MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                                     IsChecked="{Binding PreviewMode, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Rtsp}"
+                                     AutomationProperties.Name="RTSP stream" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Bound TX (TX mode) -->
+                <StackPanel x:Name="TxBlock" Margin="0,0,0,16"
+                            Visibility="{Binding IsRtsp, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
                     <TextBlock Text="Picture source (TX)" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
                     <ComboBox x:Name="TxBox"
                               Margin="0,6,0,0"
@@ -153,6 +176,24 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+                </StackPanel>
+
+                <!-- RTSP address (RTSP mode). The full address appears only in this box's own text. -->
+                <StackPanel x:Name="RtspBlock" Margin="0,0,0,16"
+                            Visibility="{Binding IsRtsp, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                    <TextBlock Text="RTSP address" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <ui:TextBox x:Name="RtspUrlBox"
+                                Style="{StaticResource Style.TextBox.Field}"
+                                Margin="0,6,0,0"
+                                PlaceholderText="rtsp://..."
+                                Text="{Binding RtspUrl, UpdateSourceTrigger=PropertyChanged}"
+                                AutomationProperties.Name="RTSP address" />
+                    <TextBlock x:Name="RtspReasonText"
+                               Text="{Binding RtspReason, Mode=OneWay}"
+                               Visibility="{Binding RtspReason, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}"
+                               Style="{StaticResource Style.Text.Caption}"
+                               Foreground="{DynamicResource Brush.Text.Secondary}"
+                               TextWrapping="Wrap" Margin="0,4,0,0" />
                 </StackPanel>
 
                 <!-- Test connection -->
