@@ -59,13 +59,13 @@
             <Button x:Name="CloseComposerButton"
                     Grid.Column="1"
                     Margin="12,0,0,0"
-                    Style="{StaticResource Style.Button.Composer}"
+                    Style="{StaticResource Style.Button.ActionBar.Outlined}"
                     ToolTip="Close the Composer. Changes that are not on screen are kept as a draft on the display card."
                     AutomationProperties.Name="Back to displays"
                     Click="Close_Click">
                 <StackPanel Orientation="Horizontal">
-                    <controls:MaterialIcon Kind="arrow_back" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                    <TextBlock Text="Back to displays" VerticalAlignment="Center" />
+                    <controls:MaterialIcon Kind="arrow_back" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                    <TextBlock Text="Back to displays" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
                 </StackPanel>
             </Button>
         </Grid>
@@ -358,10 +358,20 @@
                                                 Canvas.Top="{Binding ActualHeight, RelativeSource={RelativeSource Self}, Mode=OneWay, Converter={StaticResource NegativeHalf}}"
                                                 Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                             <UniformGrid Columns="2">
-                                                <Button x:Name="ReplaceButton" Style="{StaticResource Style.Button.Strip}" Content="Replace" Margin="0,0,4,0"
-                                                        AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Replace the source of block {0}'}" Click="Replace_Click" />
-                                                <Button x:Name="MoveButton" Style="{StaticResource Style.Button.Strip}" Content="Move" Margin="4,0,0,0"
-                                                        AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Move block {0} to another block'}" Click="Move_Click" />
+                                                <Button x:Name="ReplaceButton" Style="{StaticResource Style.Button.Strip}" Margin="0,0,4,0"
+                                                        AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Replace the source of block {0}'}" Click="Replace_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <controls:MaterialIcon Kind="swap_horiz" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                                                        <TextBlock Text="Replace" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button x:Name="MoveButton" Style="{StaticResource Style.Button.Strip}" Margin="4,0,0,0"
+                                                        AutomationProperties.Name="{Binding Number, Mode=OneWay, StringFormat='Move block {0} to another block'}" Click="Move_Click">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <controls:MaterialIcon Kind="open_with" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                                                        <TextBlock Text="Move" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                                                    </StackPanel>
+                                                </Button>
                                             </UniformGrid>
                                         </Border>
                                     </Canvas>
@@ -510,19 +520,29 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="Undo - back to the previous picture" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" />
+                            <controls:MaterialIcon Kind="undo" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="Undo - back to the previous picture" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
                         </Grid>
                     </Button>
 
                     <!-- Tab order of the right rail: Undo, Discard, Clear all, and Take last (review the changes, then take) -->
                     <UniformGrid Columns="2" Margin="0,8,0,0" KeyboardNavigation.TabIndex="2">
-                        <Button x:Name="DiscardButton" Style="{StaticResource Style.Button.Discard}" Margin="0,0,6,0" Content="Discard"
+                        <Button x:Name="DiscardButton" Style="{StaticResource Style.Button.Discard}" Margin="0,0,4,0"
                                 ToolTip="Go back to what is on screen now"
-                                Click="Discard_Click" />
-                        <Button x:Name="ClearAllButton" Style="{StaticResource Style.Button.ClearAll}" Margin="6,0,0,0" Content="Clear all"
+                                Click="Discard_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                                <TextBlock Text="Discard" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ClearAllButton" Style="{StaticResource Style.Button.ClearAll}" Margin="4,0,0,0"
                                 ToolTip="Empty every block (staged only)"
-                                Click="ClearAll_Click" />
+                                Click="ClearAll_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <controls:MaterialIcon Kind="delete_sweep" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                                <TextBlock Text="Clear all" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                            </StackPanel>
+                        </Button>
                     </UniformGrid>
                 </StackPanel>
             </Grid>
@@ -548,7 +568,12 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="PickerTitle" Style="{StaticResource Style.Text.Lead}"
                                    TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <Button Grid.Column="1" Style="{StaticResource Style.Button.Composer}" Content="Cancel" Click="PickerCancel_Click" />
+                        <Button x:Name="PickerCancelButton" Grid.Column="1" Style="{StaticResource Style.Button.ActionBar.Outlined}" Click="PickerCancel_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                                <TextBlock Text="Cancel" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                     <TextBlock x:Name="PickerEmpty" DockPanel.Dock="Top" Text="No sources discovered." Style="{StaticResource Style.Text.ComposerLabel}" Visibility="Collapsed" />
                     <ScrollViewer x:Name="PickerScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">

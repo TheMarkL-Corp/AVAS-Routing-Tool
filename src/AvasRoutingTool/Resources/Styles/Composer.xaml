@@ -232,9 +232,25 @@
     </Style>
 
     <!-- Done placing / Cancel move (Disarm stops both) -->
-    <Style x:Key="Style.Button.Done" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+    <Style x:Key="Style.Button.Done" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
         <Setter Property="Visibility" Value="Collapsed" />
         <Setter Property="Content" Value="Done placing" />
+        <!-- The Content stays the plain string (it is the automation name); the template adds the icon: check, or close for Cancel move -->
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <controls:MaterialIcon x:Name="DoneIcon" Kind="check" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding}" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                    </StackPanel>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding}" Value="Cancel move">
+                            <Setter TargetName="DoneIcon" Property="Kind" Value="close" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
         <Style.Triggers>
             <DataTrigger Binding="{Binding MovingFromIndex, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
                 <Setter Property="Visibility" Value="Visible" />
@@ -765,12 +781,10 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="Style.Button.Strip" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+    <Style x:Key="Style.Button.Strip" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
         <Style.Triggers>
             <Trigger Property="views:BlockDensity.IsCompact" Value="True">
                 <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Compact}" />
-                <Setter Property="MinWidth" Value="0" />
-                <Setter Property="Padding" Value="10,6" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -950,7 +964,7 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="Style.Button.Undo" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+    <Style x:Key="Style.Button.Undo" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
         <Setter Property="Margin" Value="0,8,0,0" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="Visibility" Value="Collapsed" />
@@ -961,7 +975,7 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="Style.Button.Discard" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+    <Style x:Key="Style.Button.Discard" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
         <Style.Triggers>
             <DataTrigger Binding="{Binding Draft, Mode=OneWay}" Value="{x:Null}">
                 <Setter Property="IsEnabled" Value="False" />
@@ -972,7 +986,7 @@
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="Style.Button.ClearAll" TargetType="Button" BasedOn="{StaticResource Style.Button.Composer}">
+    <Style x:Key="Style.Button.ClearAll" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
         <Style.Triggers>
             <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="False">
                 <Setter Property="IsEnabled" Value="False" />

@@ -2166,8 +2166,8 @@ namespace AvasRoutingTool.Tests
                     Assert.True(back.ActualHeight >= 48);
                     var icon = FindAll<AvasRoutingTool.Controls.MaterialIcon>(back).Single();
                     Assert.Equal("arrow_back", icon.Kind);
-                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.ActualWidth, 1);
-                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.M"), icon.ActualHeight, 1);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.Layout"), icon.ActualWidth, 1);
+                    Assert.Equal((double)Application.Current.FindResource("Size.Icon.Layout"), icon.ActualHeight, 1);
                     Assert.Contains(FindAll<TextBlock>(back), t => t.Text == "Back to displays");
                 });
             });

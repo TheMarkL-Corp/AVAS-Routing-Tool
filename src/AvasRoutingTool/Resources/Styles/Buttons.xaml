@@ -240,6 +240,16 @@
     </Style>
 
     <!--
+        Outlined action bar button (the Composer's secondary buttons): the action bar button (48 px, Size.Action.PadX, Body SemiBold, hover,
+        press, keyboard ring and disabled from the base) drawn with a 2 px Brush.Border.Control outline on the elevated surface, not ghost.
+    -->
+    <Style x:Key="Style.Button.ActionBar.Outlined" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="BorderThickness" Value="2" />
+    </Style>
+
+    <!--
         Pencil (rename): an icon-only button for a card header. 48 x 48 hit box (Size.Touch.Min) whose whole box takes the press (transparent
         root Grid); the icon is the secondary text colour at rest and the accent (blue) under the mouse and on keyboard focus; the fill is
         the neutral row hover, under the mouse only; a 2 px ring through InputModality.ShowsFocus. Red is for errors only, so nothing here is red.
