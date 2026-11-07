@@ -96,7 +96,19 @@
                               MaxHeight="{Binding ActualHeight, ElementName=OverviewGrid, Converter={StaticResource Converter.FractionOf}, ConverterParameter={StaticResource Size.Strip.Max.Fraction}}"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Sources}">
+                    <ItemsControl>
+                        <ItemsControl.Resources>
+                            <controls:BindingProxy x:Key="MainProxy" Data="{Binding}" />
+                        </ItemsControl.Resources>
+                        <!-- The TX tiles, then the view-only RTSP tile in the same strip (not in Sources, not in the compact palette) -->
+                        <ItemsControl.ItemsSource>
+                            <CompositeCollection>
+                                <CollectionContainer Collection="{Binding Data.Sources, Source={StaticResource MainProxy}}" />
+                                <views:RtspSourceCardView x:Name="RtspTile"
+                                                          Margin="{StaticResource Size.Strip.TileMargin}"
+                                                          DataContext="{Binding Data, Source={StaticResource MainProxy}}" />
+                            </CompositeCollection>
+                        </ItemsControl.ItemsSource>
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <controls:CenteredWrapPanel />

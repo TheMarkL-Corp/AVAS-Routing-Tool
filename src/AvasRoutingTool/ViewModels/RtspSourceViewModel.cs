@@ -89,6 +89,7 @@ namespace AvasRoutingTool.ViewModels
                 {
                     _player = _playerFactory();
                     _player.Event += OnPlayerEvent;
+                    _player.BitmapChanged += OnBitmapChanged;
                 }
                 _player.Start(_url.ToFullUrl());
             }
@@ -101,6 +102,8 @@ namespace AvasRoutingTool.ViewModels
         }
 
         private void OnPlayerEvent(RtspPlayerEvent e) => RunOnUi(() => Handle(e));
+
+        private void OnBitmapChanged() => RunOnUi(RaisePreview);
 
         private void Handle(RtspPlayerEvent e)
         {
@@ -208,6 +211,7 @@ namespace AvasRoutingTool.ViewModels
             if (p != null)
             {
                 p.Event -= OnPlayerEvent;
+                p.BitmapChanged -= OnBitmapChanged;
                 try { p.Dispose(); } catch (Exception) { }
             }
             _state = RtspTileState.Stopped;

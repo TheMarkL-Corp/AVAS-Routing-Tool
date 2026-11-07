@@ -59,7 +59,13 @@ namespace AvasRoutingTool.Rtsp
 
         public LibVlcStreamPlayer() : this(Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher) { }
 
-        public LibVlcStreamPlayer(Dispatcher dispatcher) { _dispatcher = dispatcher; }
+        public LibVlcStreamPlayer(Dispatcher dispatcher)
+        {
+            _dispatcher = dispatcher;
+            _sink.BitmapReplaced += () => BitmapChanged?.Invoke();
+        }
+
+        public event Action? BitmapChanged;
 
         public event Action<RtspPlayerEvent>? Event;
 

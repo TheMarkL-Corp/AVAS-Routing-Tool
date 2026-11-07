@@ -19,6 +19,8 @@ namespace AvasRoutingTool.Rtsp
     public interface IRtspStreamPlayer : IDisposable
     {
         event Action<RtspPlayerEvent> Event;
+        /// <summary>Raised (any thread) when <see cref="Bitmap"/> is replaced by a new instance (frame size change).</summary>
+        event Action BitmapChanged;
         WriteableBitmap? Bitmap { get; }
         void Start(string fullUrl);
         void Stop();

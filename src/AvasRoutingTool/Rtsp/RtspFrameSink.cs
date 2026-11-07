@@ -16,15 +16,23 @@ namespace AvasRoutingTool.Rtsp
 
         public WriteableBitmap? Bitmap { get; private set; }
 
+        /// <summary>Raised after a new bitmap instance replaced the old one.</summary>
+        public event Action? BitmapReplaced;
+
         /// <returns>true when the bitmap now holds this frame.</returns>
         public bool Present(int width, int height, IntPtr pixels, int stride)
         {
             if (width < MinSide || height < MinSide || pixels == IntPtr.Zero || stride < width * 4) return false;
             try
             {
+                bool replaced = false;
                 if (Bitmap == null || Bitmap.PixelWidth != width || Bitmap.PixelHeight != height)
+                {
                     Bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
+                    replaced = true;
+                }
                 Bitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, stride * height, stride);
+                if (replaced) BitmapReplaced?.Invoke();
                 return true;
             }
             catch (Exception)

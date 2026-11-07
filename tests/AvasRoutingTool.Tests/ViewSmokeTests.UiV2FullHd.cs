@@ -66,7 +66,7 @@ namespace AvasRoutingTool.Tests
                 var source = FindAll<SourceCardView>(view).First(c => c.IsVisible);
                 // The source tile's one picture is its 16:9 thumbnail (A9)
                 var thumb = ThumbnailOf(source);
-                var sourceScroll = FindAll<ScrollViewer>(view).First(s => s.Name != "CompactSourcePalette" && s.Content is ItemsControl ic && ic.Items.Count == sources);
+                var sourceScroll = FindAll<ScrollViewer>(view).First(s => s.Name != "CompactSourcePalette" && s.Content is ItemsControl ic && ic.ItemsSource is System.Windows.Data.CompositeCollection);
                 return new CardMeasure(source.ActualWidth, source.ActualHeight, thumb.ActualWidth, thumb.ActualHeight, sourceScroll.ScrollableHeight > 0.5);
             });
         }
