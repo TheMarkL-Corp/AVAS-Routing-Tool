@@ -24,7 +24,7 @@ namespace AvasRoutingTool.Tests
 
         /// <summary>The Sources list's own ScrollViewer (the one that hosts the source ItemsControl).</summary>
         private static ScrollViewer SourcesScrollOf(VisualRoutingView view, MainViewModel vm) =>
-            FindAll<ScrollViewer>(view).Single(s => s.Name != "CompactSourcePalette" && s.Content is ItemsControl ic && ic.ItemsSource is System.Windows.Data.CompositeCollection);
+            FindAll<ScrollViewer>(view).Single(s => s.Name != "CompactSourcePalette" && s.Content is ItemsControl ic && ReferenceEquals(ic.ItemsSource, vm.Sources));
 
         [Fact]
         public void Strip_IsCentred_TilesHaveEqualSizeFromTokens() =>
@@ -33,8 +33,8 @@ namespace AvasRoutingTool.Tests
                 var (view, _) = FullHdOverview(sources: 3, displays: 2);
                 WithFullHdWindow(view, () =>
                 {
-                    var tiles = FindAll<FrameworkElement>(view).Where(t => (t is SourceCardView sc && !sc.IsCompact || t is RtspSourceCardView) && t.IsVisible).OrderBy(t => BoundsIn(t, view).Left).ToList();
-                    Assert.Equal(4, tiles.Count); // three sources and the view-only RTSP tile
+                    var tiles = FindAll<SourceCardView>(view).Where(t => t.IsVisible).OrderBy(t => BoundsIn(t, view).Left).ToList();
+                    Assert.Equal(3, tiles.Count);
                     foreach (var tile in tiles)
                         Assert.True(Math.Abs(tile.ActualWidth - Token("Size.Strip.Tile.Width")) < 0.5, $"tile is {tile.ActualWidth:F1} px wide, the token is {Token("Size.Strip.Tile.Width")}");
                     Assert.All(tiles, t => Assert.True(Math.Abs(t.ActualHeight - tiles[0].ActualHeight) < 0.5, $"tile heights differ: {t.ActualHeight:F1} and {tiles[0].ActualHeight:F1}"));

@@ -17,8 +17,8 @@ namespace AvasRoutingTool.Tests
             FindAll<CenteredWrapPanel>(view).Single(p => FindAll<SourceCardView>(p).Any());
 
         /// <summary>The tiles in row order: grouped by their top edge, each row left to right.</summary>
-        private static List<List<FrameworkElement>> RowsOf(VisualRoutingView view, CenteredWrapPanel strip) =>
-            FindAll<FrameworkElement>(view).Where(t => (t is SourceCardView sc && !sc.IsCompact || t is RtspSourceCardView) && t.IsVisible)
+        private static List<List<SourceCardView>> RowsOf(VisualRoutingView view, CenteredWrapPanel strip) =>
+            FindAll<SourceCardView>(view).Where(t => t.IsVisible)
                 .GroupBy(t => Math.Round(BoundsIn(t, strip).Top))
                 .OrderBy(g => g.Key)
                 .Select(g => g.OrderBy(t => BoundsIn(t, strip).Left).ToList())
@@ -36,7 +36,7 @@ namespace AvasRoutingTool.Tests
                     var rows = RowsOf(view, strip);
                     Assert.Single(rows);
                     var tiles = rows[0];
-                    Assert.Equal(3, tiles.Count); // two sources and the view-only RTSP tile
+                    Assert.Equal(2, tiles.Count);
 
                     var left = BoundsIn(tiles[0], strip).Left;
                     var right = strip.ActualWidth - BoundsIn(tiles[^1], strip).Right;

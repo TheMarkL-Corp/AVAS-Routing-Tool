@@ -6,14 +6,12 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using AvasRoutingTool.Configuration;
 using AvasRoutingTool.Logging;
 using AvasRoutingTool.Rtp;
-using AvasRoutingTool.Rtsp;
 using AvasRoutingTool.Sdvoe;
 using AvasRoutingTool.Sdvoe.MultiView;
 using AvasRoutingTool.Services;
@@ -28,7 +26,7 @@ namespace AvasRoutingTool.ViewModels
         Offline
     }
 
-    public class MainViewModel : INotifyPropertyChanged, IDisposable
+    public class MainViewModel : INotifyPropertyChanged
     {
         /// <summary>An armed source is disarmed after this long without placing or arming (spec 5.1).</summary>
         public static readonly TimeSpan ArmIdleTimeout = TimeSpan.FromSeconds(15);
@@ -157,94 +155,6 @@ namespace AvasRoutingTool.ViewModels
         }
 
         public int OnlineSourcesCount => Sources.Count(s => s.IsActive);
-
-        // ---- RTSP view-only stream (one, in memory only: never routed, armed, counted or written anywhere) ----
-
-        private RtspSourceViewModel? _viewOnlySource;
-
-        /// <summary>Builds the decoder behind the RTSP tile. Default: LibVLC. Tests inject a fake.</summary>
-        public Func<IRtspStreamPlayer> RtspPlayerFactory { get; set; } = () => new LibVlcStreamPlayer();
-
-        /// <summary>Waits between RTSP retries. Default: Task.Delay.</summary>
-        public Func<TimeSpan, CancellationToken, Task> RtspDelay { get; set; } = Task.Delay;
-
-        /// <summary>The view-only RTSP stream, or null. It is not in <see cref="Sources"/>.</summary>
-        public RtspSourceViewModel? ViewOnlySource => _viewOnlySource;
-
-        /// <summary>An RTSP stream is set (the tile shows the stream, not the address box).</summary>
-        public bool HasViewOnlySource => _viewOnlySource != null;
-
-        /// <summary>Parses the address; on success the old stream is stopped and disposed first, then the new one starts. The address is never stored or logged.</summary>
-        public bool TrySetRtspUrl(string text, out string reason)
-        {
-            if (!RtspUrl.TryParse(text ?? string.Empty, out var url, out reason))
-                return false;
-            DisposeViewOnlySource();
-            var source = new RtspSourceViewModel(url, RtspPlayerFactory, RtspDelay);
-            _viewOnlySource = source;
-            RaiseViewOnlySource();
-            source.StartCommand.Execute(null);
-            return true;
-        }
-
-        /// <summary>Stops and removes the RTSP stream; the tile returns to the address box.</summary>
-        public void RemoveRtsp()
-        {
-            if (_viewOnlySource == null) return;
-            DisposeViewOnlySource();
-            RaiseViewOnlySource();
-        }
-
-        private bool _visualRoutingVisible = true;
-        private bool _resumeRtspOnReturn;
-
-        /// <summary>
-        /// Called when the Visual Routing tab is shown or hidden. Leaving stops the RTSP stream (remembering whether it
-        /// was running: Connecting, Live or Lost); returning restarts only such a stream. Repeated calls with the same
-        /// value are ignored, so a second "left" cannot overwrite what was remembered.
-        /// </summary>
-        public void OnVisualRoutingVisibilityChanged(bool visible)
-        {
-            if (_visualRoutingVisible == visible) return;
-            _visualRoutingVisible = visible;
-            var source = _viewOnlySource;
-            if (!visible)
-            {
-                _resumeRtspOnReturn = source != null && source.State is RtspTileState.Connecting or RtspTileState.Live or RtspTileState.Lost;
-                source?.Stop();
-            }
-            else
-            {
-                var resume = _resumeRtspOnReturn;
-                _resumeRtspOnReturn = false;
-                if (resume && source != null && source.State == RtspTileState.Stopped)
-                    source.StartCommand.Execute(null);
-            }
-        }
-
-        /// <summary>Window closing: the RTSP stream is stopped and disposed; later player events change nothing.</summary>
-        public void Dispose()
-        {
-            _resumeRtspOnReturn = false;
-            DisposeViewOnlySource();
-            RaiseViewOnlySource();
-        }
-
-        private void DisposeViewOnlySource()
-        {
-            _resumeRtspOnReturn = false;
-            var old = _viewOnlySource;
-            _viewOnlySource = null;
-            if (old == null) return;
-            old.Stop();
-            old.Dispose();
-        }
-
-        private void RaiseViewOnlySource()
-        {
-            OnPropertyChanged(nameof(ViewOnlySource));
-            OnPropertyChanged(nameof(HasViewOnlySource));
-        }
         public int OnlineDisplaysCount => Displays.Count(d => d.IsActive);
 
         /// <summary>The MultiView Composer that is open (one at a time), or null. It replaces the Displays row while open.</summary>
