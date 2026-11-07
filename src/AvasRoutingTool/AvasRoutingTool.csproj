@@ -25,6 +25,16 @@
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
   </ItemGroup>
 
+  <!-- LibVLC (RTSP preview): 64-bit natives only, and only the plugins an RTSP H.264/H.265 viewer needs.
+       Measured in docs/superpowers/specs/2026-11-05-rtsp-decoder-findings.md: about 205 MB (both archs, all plugins) down to about 80 MB. -->
+  <PropertyGroup>
+    <VlcWindowsX86Enabled>false</VlcWindowsX86Enabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <VlcWindowsX64ExcludeFiles Include="libvlc.lib;libvlccore.lib;hrtfs\%2A%2A;lua\%2A%2A" />
+    <VlcWindowsX64ExcludeFiles Include="plugins\stream_out\%2A%2A;plugins\visualization\%2A%2A;plugins\lua\%2A%2A;plugins\text_renderer\%2A%2A;plugins\access_output\%2A%2A;plugins\services_discovery\%2A%2A;plugins\meta_engine\%2A%2A;plugins\spu\%2A%2A;plugins\audio_filter\%2A%2A;plugins\mux\%2A%2A;plugins\video_splitter\%2A%2A;plugins\audio_mixer\%2A%2A" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- View smoke tests reach a few view internals (picker cap, drop handling, the Tick timer state) -->
     <InternalsVisibleTo Include="AvasRoutingTool.Tests" />
