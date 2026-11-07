@@ -602,10 +602,14 @@
                                             </controls:FractionalLayoutPanel>
                                             <TextBlock Text="{Binding Source.DeviceName, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Name}" />
                                             <TextBlock Text="{Binding Source.LinkMode, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
-                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
                                                 <controls:MaterialIcon Kind="lock" Style="{StaticResource Style.Icon.PickerLock}" />
-                                                <TextBlock Text="{Binding Note, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Note}" />
-                                            </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding Note, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Note}" />
+                                            </Grid>
                                         </StackPanel>
                                     </Button>
                                 </DataTemplate>

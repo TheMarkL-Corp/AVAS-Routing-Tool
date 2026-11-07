@@ -2830,5 +2830,31 @@ namespace AvasRoutingTool.Tests
                     }
                 });
             });
+
+        [Fact]
+        public void Composer_PickerPopup_LockReason_WrapsInsideTheTile_NeverClipped() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                Showing(view, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    var content = (FrameworkElement)popup.Child;
+                    Relayout(content);
+                    var disabled = Named(content, "PickerTile").Cast<Button>().Where(t => !t.IsEnabled).ToList();
+                    Assert.NotEmpty(disabled);
+                    foreach (var tile in disabled)
+                    {
+                        var note = FindAll<TextBlock>(tile).Single(tb => tb.Style == Application.Current.FindResource("Style.Text.Picker.Note"));
+                        Assert.False(string.IsNullOrWhiteSpace(note.Text));
+                        // The whole reason is laid out: its right edge is inside the tile and no line is wider than the space it was given.
+                        var right = note.TranslatePoint(new Point(note.ActualWidth, 0), tile).X;
+                        Assert.True(right <= tile.ActualWidth, $"lock reason runs past the tile: right {right:F1} > {tile.ActualWidth:F1}");
+                        Assert.True(note.DesiredSize.Width <= note.ActualWidth + 0.5, $"lock reason wants {note.DesiredSize.Width:F1} but got {note.ActualWidth:F1}");
+                        Assert.True(note.ActualHeight > 0);
+                    }
+                });
+            });
     }
 }
