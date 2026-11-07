@@ -86,9 +86,12 @@
                 <StackPanel Style="{StaticResource Style.Panel.BusyDisables}">
 
                     <!-- Step 1 -->
-                    <controls:StepHeader x:Name="StepLayoutHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,6"
-                                         Number="1" Title="LAYOUT" IsDone="{Binding StepLayoutDone, Mode=OneWay}"
+                    <!-- Same 48 px slot as the step 2 row, so both markers sit on one line -->
+                    <Grid MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,0,6">
+                        <controls:StepHeader x:Name="StepLayoutHeading" Style="{StaticResource Style.StepHeader}" VerticalAlignment="Center"
+                                         Number="1" Title="LAYOUT" IsDone="{Binding StepLayoutDone, Mode=OneWay}" IsCurrent="{Binding StepLayoutCurrent, Mode=OneWay}"
                                          AutomationProperties.Name="{Binding StepLayoutText, Mode=OneWay}" />
+                    </Grid>
 
                     <ItemsControl ItemsSource="{Binding LayoutOptions, Mode=OneWay}" Focusable="False" Margin="0,0,0,10">
                         <ItemsControl.ItemsPanel>
@@ -161,18 +164,20 @@
                 </Grid.RowDefinitions>
 
                 <!-- Status line: what the frame shows, and Done placing / Cancel move -->
-                <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid Grid.Row="0" Margin="0,0,0,8" MinHeight="{StaticResource Size.Touch.Min}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <!-- Step 2 heads this row. The WrapPanel moves the status under the heading when the canvas is narrow (a 1024 px window) -->
-                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,12,0">
-                        <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,12,0" VerticalAlignment="Center"
-                                             Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}"
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <Grid MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,12,0">
+                            <controls:StepHeader x:Name="StepPlaceHeading" Style="{StaticResource Style.StepHeader}" VerticalAlignment="Center"
+                                             Number="2" Title="PLACE SOURCES" IsDone="{Binding StepPlaceDone, Mode=OneWay}" IsCurrent="{Binding StepPlaceCurrent, Mode=OneWay}"
                                              AutomationProperties.Name="{Binding StepPlaceText, Mode=OneWay}"
                                              AutomationProperties.HelpText="Tap a source in the strip above, then its blocks - or tap an empty block." />
+                        </Grid>
 
                         <StackPanel VerticalAlignment="Center">
                             <!-- A Grid, not a horizontal StackPanel: the word may wrap beside its dot, and a StackPanel would give it unlimited width -->
@@ -194,7 +199,7 @@
                     </WrapPanel>
 
                     <!-- Done placing / Cancel move (Disarm stops both) -->
-                    <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Top" Style="{StaticResource Style.Button.Done}" />
+                    <Button Grid.Column="1" x:Name="DoneButton" Click="Disarm_Click" VerticalAlignment="Center" Style="{StaticResource Style.Button.Done}" />
                 </Grid>
 
                 <!-- The screen: black canvas at the display's real aspect, framed by its state -->
@@ -502,7 +507,7 @@
 
                     <!-- Step 3 heads the pinned cluster: the check and the Save &amp; apply below it -->
                     <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,8"
-                                         Number="3" Title="CHECK, THEN SAVE &amp; APPLY" IsDone="{Binding CanTake, Mode=OneWay}"
+                                         Number="3" Title="CHECK, THEN SAVE &amp; APPLY" IsDone="{Binding CanTake, Mode=OneWay}" IsCurrent="{Binding StepTakeCurrent, Mode=OneWay}"
                                          AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}"
                                          AutomationProperties.HelpText="Nothing changes on screen until you press Save &amp; Apply." />
 

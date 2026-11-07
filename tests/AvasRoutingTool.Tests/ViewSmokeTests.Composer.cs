@@ -1840,11 +1840,11 @@ namespace AvasRoutingTool.Tests
                     Assert.True(take.IsVisible, "Take is not on screen");
 
                     var elevated = ((SolidColorBrush)Application.Current.FindResource("Brush.Surface.Elevated")).Color;
-                    var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.DropTarget")).Color;
+                    var outline = ((SolidColorBrush)Application.Current.FindResource("Brush.Border.Control")).Color;
                     var text = ((SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
                     var takeFill = ((SolidColorBrush)Application.Current.FindResource("Brush.Action.Take")).Color;
 
-                    // Done placing: the secondary look (elevated fill, cyan outline = armed, primary text), never a cyan fill
+                    // Done placing: the secondary look (elevated fill, the neutral outline like Cancel move, primary text), never a cyan fill
                     Assert.Equal(elevated, ((SolidColorBrush)done.Background).Color);
                     Assert.Equal(outline, ((SolidColorBrush)done.BorderBrush).Color);
                     Assert.Equal(text, ((SolidColorBrush)done.Foreground).Color);

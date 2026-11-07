@@ -51,10 +51,15 @@
                                                Height="{StaticResource Size.Icon.Layout}"
                                                Margin="{StaticResource Size.Space.Action.Before}"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource Brush.Text.Accent}"
+                                               Foreground="{DynamicResource Brush.Text.Primary}"
                                                Visibility="Collapsed" />
                     </controls:StepHeaderPanel>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsCurrent" Value="True">
+                            <Setter TargetName="Marker" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                            <Setter TargetName="Marker" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="LabelText" Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+                        </Trigger>
                         <Trigger Property="IsDone" Value="True">
                             <Setter TargetName="Marker" Property="Background" Value="{DynamicResource Brush.Action.Take}" />
                             <Setter TargetName="Marker" Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
@@ -175,7 +180,7 @@
     </Style>
 
     <Style x:Key="Style.Text.RailHeading" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Section}">
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <!-- STAGED and CHANGES: the state is the amber dot plus a neutral word; amber is staged only, never the text -->
@@ -184,7 +189,7 @@
     </Style>
 
     <Style x:Key="Style.Text.Status.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
     </Style>
@@ -204,7 +209,7 @@
     </Style>
 
     <Style x:Key="Style.Text.Status.OnScreen" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
     </Style>
@@ -241,9 +246,10 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
     </Style>
 
+    <!-- Hidden, not Collapsed: the idle row keeps the button's width and height, so arming never moves the canvas -->
     <!-- Done placing / Cancel move (Disarm stops both) -->
     <Style x:Key="Style.Button.Done" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
-        <Setter Property="Visibility" Value="Collapsed" />
+        <Setter Property="Visibility" Value="Hidden" />
         <Setter Property="Content" Value="Done placing" />
         <!-- The Content stays the plain string (it is the automation name); the template adds the icon: check, or close for Cancel move -->
         <Setter Property="ContentTemplate">
@@ -269,7 +275,6 @@
             <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
                 <Setter Property="Visibility" Value="Visible" />
                 <Setter Property="Content" Value="Done placing" />
-                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
             </DataTrigger>
         </Style.Triggers>
     </Style>
@@ -1120,9 +1125,9 @@
         <Setter Property="Margin" Value="-6" />
         <Setter Property="RadiusX" Value="10" />
         <Setter Property="RadiusY" Value="10" />
-        <Setter Property="StrokeThickness" Value="3" />
+        <Setter Property="StrokeThickness" Value="2" />
         <Setter Property="IsHitTestVisible" Value="False" />
-        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Strong}" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
                 <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Routed}" />

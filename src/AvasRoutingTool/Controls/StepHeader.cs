@@ -16,6 +16,9 @@ namespace AvasRoutingTool.Controls
         public static readonly DependencyProperty IsDoneProperty = DependencyProperty.Register(
             nameof(IsDone), typeof(bool), typeof(StepHeader), new FrameworkPropertyMetadata(false));
 
+        public static readonly DependencyProperty IsCurrentProperty = DependencyProperty.Register(
+            nameof(IsCurrent), typeof(bool), typeof(StepHeader), new FrameworkPropertyMetadata(false));
+
         public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(
             nameof(Title), typeof(string), typeof(StepHeader), new FrameworkPropertyMetadata(string.Empty));
 
@@ -35,6 +38,13 @@ namespace AvasRoutingTool.Controls
         {
             get => (bool)GetValue(IsDoneProperty);
             set => SetValue(IsDoneProperty, value);
+        }
+
+        /// <summary>The first step still to do: the marker gets the accent outline and the title the primary text colour.</summary>
+        public bool IsCurrent
+        {
+            get => (bool)GetValue(IsCurrentProperty);
+            set => SetValue(IsCurrentProperty, value);
         }
 
         public string Title

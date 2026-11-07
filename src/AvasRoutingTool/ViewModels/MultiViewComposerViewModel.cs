@@ -194,6 +194,11 @@ namespace AvasRoutingTool.ViewModels
 
         public bool StepPlaceDone => _draft != null && _draft.Placements.Count > 0;
 
+        /// <summary>The first step still to do: layout, then placing, then the check.</summary>
+        public bool StepLayoutCurrent => !StepLayoutDone;
+        public bool StepPlaceCurrent => StepLayoutDone && !StepPlaceDone;
+        public bool StepTakeCurrent => StepPlaceDone && !CanTake;
+
         // The step markers show a number or a check; these say the same in words for a screen reader.
         public string StepLayoutText => $"Step 1, Layout: {(StepLayoutDone ? "done" : "to do")}";
 
@@ -1175,7 +1180,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes), nameof(ChangeLines),
                 nameof(ChangeCount), nameof(IsStaged), nameof(IsOnScreen),
-                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(StepLayoutText), nameof(StepPlaceText), nameof(StepTakeText), nameof(OnScreenSummary), nameof(LiveAspectRatio), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
+                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(StepLayoutCurrent), nameof(StepPlaceCurrent), nameof(StepTakeCurrent), nameof(StepLayoutText), nameof(StepPlaceText), nameof(StepTakeText), nameof(OnScreenSummary), nameof(LiveAspectRatio), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
                 nameof(CanUndo), nameof(UnplacedSources), nameof(OutputText), nameof(RateNote), nameof(HeaderNotice),
             })
                 Raise(name);
