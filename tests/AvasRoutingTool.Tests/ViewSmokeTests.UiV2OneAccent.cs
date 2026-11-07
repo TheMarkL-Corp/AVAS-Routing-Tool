@@ -66,7 +66,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void SourceCard_DualLinkTag_IsNeutral_AndStartIsSecondary() =>
+        public void SourceCard_DualLinkTag_IsNeutral_AndStartIsOutlinedActionBar() =>
             RunSta(() =>
                 SourceCardAt(UiV2Source(link: "Dual Link"), view =>
                 {
@@ -75,7 +75,7 @@ namespace AvasRoutingTool.Tests
 
                     var start = Named(view, "StartStreamButton");
                     Assert.True(start.Count == 1, "no StartStreamButton");
-                    Assert.Same(Res("Style.Button.Secondary"), start[0].Style);
+                    Assert.Same(Res("Style.Button.ActionBar.Outlined"), start[0].Style);
                 }));
 
         /// <summary>Routed or not, the card frame is the neutral border, and the mode tag is neutral; a drag over the card still shows the cyan 2 px target.</summary>

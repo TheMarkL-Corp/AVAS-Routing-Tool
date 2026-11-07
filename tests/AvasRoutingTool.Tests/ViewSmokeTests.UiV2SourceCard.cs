@@ -92,17 +92,17 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void SourceCard_StopStreamButton_IsTheGhostButton_NotTheRedUnrouteStyle() =>
+        public void SourceCard_StopStreamButton_IsTheOutlinedActionBarButton_NotTheRedUnrouteStyle() =>
             RunSta(() =>
             {
-                // Stopping a preview is not an error: the Stop control is the quiet ghost button, red is for errors only (A12-5)
+                // Stopping a preview is not an error: the Stop control is the outlined action bar button (full-contrast text, 2 px outline), red is for errors only (A12-5)
                 var vm = UiV2Source();
                 vm.IsStreaming = true;
                 SourceCardAt(vm, view =>
                 {
                     var stop = (Button)Named(view, "StopStreamButton").Single();
                     Assert.True(stop.IsVisible);
-                    Assert.Same(Application.Current.FindResource("Style.Button.Ghost"), stop.Style);
+                    Assert.Same(Application.Current.FindResource("Style.Button.ActionBar.Outlined"), stop.Style);
                     Assert.NotSame(Application.Current.FindResource("Style.Button.Unroute"), stop.Style);
                     Assert.True(stop.ActualHeight >= 36 && stop.IsTabStop, $"stop {stop.ActualWidth}x{stop.ActualHeight}");
                     Assert.Equal("stop", FindAll<AvasRoutingTool.Controls.MaterialIcon>(stop).Single().Kind);
@@ -114,7 +114,7 @@ namespace AvasRoutingTool.Tests
         [Theory]
         [InlineData(AvasRoutingTool.Services.ThemeMode.Dark)]
         [InlineData(AvasRoutingTool.Services.ThemeMode.Light)]
-        public void SourceCard_StopStreamButton_AtRest_IsTransparent_WithSecondaryText_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
+        public void SourceCard_StopStreamButton_AtRest_IsOutlined_WithPrimaryText_InBothThemes(AvasRoutingTool.Services.ThemeMode mode) =>
             RunSta(() =>
             {
                 var theme = new AvasRoutingTool.Services.ThemeService();
@@ -128,10 +128,10 @@ namespace AvasRoutingTool.Tests
                         var stop = (Button)Named(view, "StopStreamButton").Single();
                         var ring = (Border)stop.Template.FindName("FocusRing", stop);
                         var body = FindAll<Border>(stop).First(b => !ReferenceEquals(b, ring));
-                        Assert.True(body.Background is null || ((System.Windows.Media.SolidColorBrush)body.Background).Color.A == 0, $"{mode}: stop body background {body.Background}");
+                        Assert.Equal(2, body.BorderThickness.Left);
                         Assert.Equal(Visibility.Collapsed, ring.Visibility);
-                        var secondary = ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.Secondary")).Color;
-                        Assert.Equal(secondary, ((System.Windows.Media.SolidColorBrush)stop.Foreground).Color);
+                        var primary = ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Brush.Text.Primary")).Color;
+                        Assert.Equal(primary, ((System.Windows.Media.SolidColorBrush)stop.Foreground).Color);
                     });
                 }
                 finally { theme.SetTheme(AvasRoutingTool.Services.ThemeMode.Dark); }
@@ -210,7 +210,7 @@ namespace AvasRoutingTool.Tests
         // 25.0 since the info icon is Material: a 16 px box, centred in the 50 px header row, instead of the Fluent glyph box (was 25.72).
         private const double InfoBadgeIconCentreY = 25.0;
         // 276.96 since the footer icons are Material (22 px exactly): the Start/Stop row now sits on its 36 px minimum, 1.44 px under the old Fluent glyph height (was 278.4).
-        private const double FullTileHeight = 276.96;
+        private const double FullTileHeight = 288.96;
         private const double CompactTileHeightAt240 = 81.0;
 
         [Fact]

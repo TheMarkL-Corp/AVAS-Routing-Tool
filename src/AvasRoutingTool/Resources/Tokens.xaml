@@ -52,8 +52,8 @@
     <sys:Double x:Key="Size.Strip.Thumb.Height">155</sys:Double>
     <!-- The Sources strip never takes more than this share of the overview height (2/5.4 = 0.37, the old Sources share); beyond it the strip scrolls -->
     <sys:Double x:Key="Size.Strip.Max.Fraction">0.37</sys:Double>
-    <!-- One whole tile row (a 277 px tile + its 10 px bottom margin): the strip's cap never goes below it, so a short window never clips a tile -->
-    <sys:Double x:Key="Size.Strip.Row.Min.Height">287</sys:Double>
+    <!-- One whole tile row (a 289 px tile + its 10 px bottom margin): the strip's cap never goes below it, so a short window never clips a tile -->
+    <sys:Double x:Key="Size.Strip.Row.Min.Height">299</sys:Double>
     <!-- The space around each tile: left and right 5 px (a 10 px gap between tiles, so a centred row is centred on the tiles), bottom 10 px -->
     <Thickness x:Key="Size.Strip.TileMargin">5,0,5,10</Thickness>
 

@@ -88,7 +88,7 @@ namespace AvasRoutingTool.Tests
         private static void AssertCappedAndScrolling(VisualRoutingView view, ScrollViewer scroll, string what)
         {
             var overview = OverviewGrid(view).ActualHeight;
-            var cap = Token("Size.Strip.Max.Fraction") * overview;
+            var cap = Math.Max(Token("Size.Strip.Max.Fraction") * overview, Token("Size.Strip.Row.Min.Height")); // never below one whole tile row
             Assert.True(scroll.ActualHeight <= cap + 0.5, $"{what}: the strip is {scroll.ActualHeight:F1} px, the cap is {cap:F1} px (the fraction of {overview:F0})");
             Assert.True(scroll.ScrollableHeight > 0.5, $"{what}: the strip does not scroll");
         }
@@ -300,7 +300,8 @@ namespace AvasRoutingTool.Tests
                 ShowingAt(view, 1008, 615, () =>
                 {
                     var sources = SourcesScrollOf(view, vm);
-                    AssertCappedAndScrolling(view, sources, "3 sources at the floor");
+                    // At the floor the strip holds one whole tile row (Size.Strip.Row.Min.Height), so 3 tiles in one row need no vertical scroll
+                    Assert.True(sources.ActualHeight >= Token("Size.Strip.Row.Min.Height") - 0.5, "the strip is shorter than one whole tile row");
                     Assert.True(sources.ExtentWidth <= sources.ViewportWidth + 0.5, "the Sources strip scrolls sideways");
 
                     // The tiles are reachable by scrolling: at the top their top edge shows, at the end their bottom edge does.

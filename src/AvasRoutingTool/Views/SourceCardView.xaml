@@ -130,7 +130,6 @@
                         <!-- AVAS Standby placeholder if supported but not streaming: its link mode says what the card is -->
                         <StackPanel VerticalAlignment="Center"
                                     HorizontalAlignment="Center"
-                                    Opacity="0.4"
                                     Visibility="{Binding ShowStandby, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <controls:MaterialIcon Kind="videocam"
                                   Style="{StaticResource Style.Icon.Placeholder}" />
@@ -200,7 +199,7 @@
                 </StackPanel>
 
                 <!-- Footer: stream state on the left; on the right one preview control: Refresh and Stop while streaming, Start while idle -->
-                <Grid Grid.Row="3" Margin="0,6,0,0" MinHeight="{StaticResource Size.Touch.Compact}">
+                <Grid Grid.Row="3" Margin="0,6,0,0" MinHeight="{StaticResource Size.Touch.Min}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -216,24 +215,19 @@
                         <!-- Icon only: a refresh is offered while the stream runs (the name is announced) -->
                         <Button x:Name="RefreshStreamButton"
                                 Command="{Binding RefreshPreviewCommand, Mode=OneWay}"
-                                Style="{StaticResource Style.Button.Secondary}"
+                                Style="{StaticResource Style.Button.ActionBar.Outlined}"
                                 ToolTip="Force preview reset &amp; restart"
                                 AutomationProperties.Name="Refresh preview"
-                                MinWidth="{StaticResource Size.Touch.Compact}"
-                                MinHeight="{StaticResource Size.Touch.Compact}"
-                                Padding="10,4"
+                                MinWidth="{StaticResource Size.Touch.Min}"
                                 IsTabStop="True"
                                 Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <controls:MaterialIcon Kind="sync" Style="{StaticResource Style.Icon.Action}" />
                         </Button>
                         <Button x:Name="StopStreamButton"
                                 Command="{Binding StopPreviewCommand, Mode=OneWay}"
-                                Style="{StaticResource Style.Button.Ghost}"
+                                Style="{StaticResource Style.Button.ActionBar.Outlined}"
                                 ToolTip="Stop Preview Stream"
-                                MinHeight="{StaticResource Size.Touch.Compact}"
-                                Padding="{StaticResource Size.Action.Padding}"
                                 Margin="{StaticResource Size.Space.Action.Before}"
-                                FontWeight="SemiBold"
                                 IsTabStop="True"
                                 Visibility="{Binding ShowStop, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <StackPanel Orientation="Horizontal">
@@ -243,12 +237,9 @@
                         </Button>
                         <Button x:Name="StartStreamButton"
                                 Command="{Binding StartPreviewCommand, Mode=OneWay}"
-                                Style="{StaticResource Style.Button.Secondary}"
+                                Style="{StaticResource Style.Button.ActionBar.Outlined}"
                                 ToolTip="Start Preview Stream"
-                                MinHeight="{StaticResource Size.Touch.Compact}"
-                                Padding="{StaticResource Size.Action.Padding}"
                                 Margin="{StaticResource Size.Space.Action.Before}"
-                                FontWeight="SemiBold"
                                 IsTabStop="True"
                                 Visibility="{Binding ShowStart, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                             <StackPanel Orientation="Horizontal">
