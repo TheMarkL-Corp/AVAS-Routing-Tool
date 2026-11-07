@@ -177,9 +177,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Blocks that differ from the screen. <see cref="DraftChange.SlotIndex"/> is the API window index; see <see cref="ChangeLines"/> for display numbers.</summary>
         public IReadOnlyList<DraftChange> Changes => _changes;
 
-        /// <summary>The change list as the operator reads it, by display number: "Block 2: empty -> TX1", "Block 4: TX2 -> empty", "Block 2: TX1 -> TX2".</summary>
+        /// <summary>The change list as the operator reads it, by display number: "Block 2: empty → TX1", "Block 4: TX2 → empty", "Block 2: TX1 → TX2".</summary>
         public IReadOnlyList<string> ChangeLines =>
-            _changes.Select(c => $"Block {NumberOf(c.SlotIndex)}: {c.From ?? "empty"} -> {c.To ?? "empty"}").ToList();
+            _changes.Select(c => $"Block {NumberOf(c.SlotIndex)}: {c.From ?? "empty"} → {c.To ?? "empty"}").ToList();
 
         /// <summary>How many blocks differ from the screen ("CHANGES (n)").</summary>
         public int ChangeCount => _changes.Count;
@@ -733,7 +733,7 @@ namespace AvasRoutingTool.ViewModels
             catch (Exception ex)
             {
                 AppLogger.Error("COMPOSER", $"Take on '{device.DeviceName}' failed", ex);
-                Banner = new ComposerBanner($"Could not apply: {ex.Message} Check what is on screen.", BannerKind.Error);
+                Banner = new ComposerBanner($"Could not apply: {ex.Message.TrimEnd().TrimEnd('.')}. Check what is on screen.", BannerKind.Error);
             }
             finally
             {

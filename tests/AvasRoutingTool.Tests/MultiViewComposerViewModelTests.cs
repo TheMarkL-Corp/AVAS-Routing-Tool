@@ -157,7 +157,7 @@ namespace AvasRoutingTool.Tests
             vm.TapBlock(0);
 
             Assert.Contains(nameof(MultiViewComposerViewModel.ChangeLines), raised);
-            Assert.Equal(new[] { "Block 1: empty -> TX1" }, vm.ChangeLines);
+            Assert.Equal(new[] { "Block 1: empty → TX1" }, vm.ChangeLines);
         }
 
         [Fact]
@@ -167,15 +167,15 @@ namespace AvasRoutingTool.Tests
             var vm = await rig.Matrix();
             vm.Arm(rig.Tx1);
             vm.TapBlock(0);
-            Assert.Equal(new[] { "Block 1: empty -> TX1" }, vm.ChangeLines);
+            Assert.Equal(new[] { "Block 1: empty → TX1" }, vm.ChangeLines);
 
             await vm.TakeAsync(); // TX1 is now on screen in block 1
             vm.Arm(rig.Tx2);
             vm.TapBlock(0); // replace
-            Assert.Equal(new[] { "Block 1: TX1 -> TX2" }, vm.ChangeLines);
+            Assert.Equal(new[] { "Block 1: TX1 → TX2" }, vm.ChangeLines);
 
             vm.Clear(0); // remove
-            Assert.Equal(new[] { "Block 1: TX1 -> empty" }, vm.ChangeLines);
+            Assert.Equal(new[] { "Block 1: TX1 → empty" }, vm.ChangeLines);
         }
 
         [Fact]
@@ -480,7 +480,7 @@ namespace AvasRoutingTool.Tests
             vm.TapBlock(0);
             rig.Client.DuringCall = _ => throw new InvalidOperationException("boom");
             await vm.TakeAsync();
-            Assert.Equal("Could not apply: boom Check what is on screen.", vm.Banner.Text);
+            Assert.Equal("Could not apply: boom. Check what is on screen.", vm.Banner.Text);
             Assert.Equal(BannerKind.Error, vm.Banner.Kind);
         }
 
@@ -1157,7 +1157,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal(new[] { "1:tx1" }, Placed(vm.Draft));
             Assert.Equal(1, vm.Changes[0].SlotIndex); // raw change keeps the API index
-            Assert.Equal(new[] { "Block 2: empty -> TX1" }, vm.ChangeLines); // the list shows the display number
+            Assert.Equal(new[] { "Block 2: empty → TX1" }, vm.ChangeLines); // the list shows the display number
             rig.Tx1.SetOnlineState(false);
             Assert.Equal("TX1 is offline - clear or replace block 2", vm.TakeBlockedReason);
         }

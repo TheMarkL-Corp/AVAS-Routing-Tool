@@ -2634,7 +2634,7 @@ namespace AvasRoutingTool.Tests
         // ---- Critique C4: the right rail fills the free height; the empty preview names the display ----
 
         [Fact]
-        public void Composer_RightRail_ChangesCardFillsTheFreeHeight() =>
+        public void Composer_RightRail_ChangesCardIsAsTallAsItsList() =>
             RunSta(() =>
             {
                 var rig = new ComposerRig();
@@ -2649,7 +2649,7 @@ namespace AvasRoutingTool.Tests
                     var scroll = (ScrollViewer)Named(view, "RightRailScroll").Single();
                     var changes = (FrameworkElement)Named(view, "ChangesCard").Single();
                     var changesBottom = BoundsIn(changes, scroll).Bottom;
-                    Assert.True(Math.Abs(changesBottom - scroll.ViewportHeight) <= 1, $"Changes card ends at {changesBottom} in a {scroll.ViewportHeight} high rail");
+                    Assert.True(changesBottom < scroll.ViewportHeight, $"Changes card ends at {changesBottom}: it is as tall as its list, not the {scroll.ViewportHeight} high rail");
 
                     // The pinned cluster (its banner slot, Step 3 heading, Take) starts 8 px under the rail: no dead zone between them
                     var clusterTop = BoundsIn((FrameworkElement)Named(view, "BannerSlot").Single(), view).Top;

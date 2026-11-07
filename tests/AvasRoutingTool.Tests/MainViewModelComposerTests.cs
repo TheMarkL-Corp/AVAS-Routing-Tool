@@ -296,7 +296,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("TX2", rig.RxVm.Slots.Single(s => s.Index == 3).SourceName); // and so does the card
             Assert.Equal(BannerKind.Warning, rig.Composer.Banner.Kind);
             Assert.Contains("changed elsewhere", rig.Composer.Banner.Text);
-            Assert.Equal(new[] { "Block 2: empty -> TX2", "Block 4: TX2 -> empty" }, rig.Composer.ChangeLines);
+            Assert.Equal(new[] { "Block 2: empty → TX2", "Block 4: TX2 → empty" }, rig.Composer.ChangeLines);
             Assert.Empty(rig.Client.MultiViewCalls);
 
             // A kept (closed) draft also survives a restore.

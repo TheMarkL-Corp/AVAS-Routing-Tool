@@ -50,7 +50,7 @@
     <Color x:Key="Color.Surface.Overlay">#0A0E16</Color>
     <Color x:Key="Color.Text.OnOverlay">#F1F5F9</Color>
     <Color x:Key="Color.Surface.Popup">#0F1626</Color>
-    <Color x:Key="Color.Border.Control">#334155</Color>
+    <Color x:Key="Color.Border.Control">#64748B</Color> <!-- 3.1:1 on Elevated, 3.6:1 on a card, 4.1:1 on the canvas (non-text minimum) -->
     <Color x:Key="Color.Surface.Selected">#172554</Color>
     <Color x:Key="Color.Surface.Danger">#1A0B0B</Color>
     <Color x:Key="Color.Border.Danger">#7F1D1D</Color>
