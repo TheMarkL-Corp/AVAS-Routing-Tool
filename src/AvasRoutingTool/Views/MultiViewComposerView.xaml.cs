@@ -634,6 +634,10 @@ namespace AvasRoutingTool.Views
             };
         }
 
+        /// <summary>The frame never grows wider than the canvas (less a gap at its edge, and the shadow margin); the tiles wrap to fewer columns.</summary>
+        internal static double PickerMaxWidth(double canvasWidth, double frameMax, Thickness shadow, double gap) =>
+            canvasWidth <= 0 ? frameMax : Math.Min(frameMax, Math.Max(0, canvasWidth - 2 * gap - shadow.Left - shadow.Right));
+
         private CustomPopupPlacement[] PlacePicker(Size popupSize, Size targetSize, Point offset)
         {
             var target = PickerPopup.PlacementTarget as UIElement ?? CanvasHost;
@@ -720,6 +724,7 @@ namespace AvasRoutingTool.Views
             PickerItems.ItemsSource = tiles;
             PickerEmpty.Visibility = tiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             PickerFrame.MaxHeight = PickerMaxHeight;
+            PickerFrame.MaxWidth = PickerMaxWidth(CanvasHost.ActualWidth, (double)FindResource("Size.Composer.Picker.Frame.Max"), PickerFrame.Margin, (double)FindResource("Size.Space.Action"));
             PickerPopup.PlacementTarget = BlocksHost.ItemContainerGenerator.ContainerFromItem(block) as UIElement ?? CanvasHost;
             bool wasOpen = PickerPopup.IsOpen;
             _pickerBlock = block.Index;

@@ -24,6 +24,7 @@ namespace AvasRoutingTool.ViewModels
         private string _sourceMac = string.Empty;
         private BlockState _state = BlockState.Empty;
         private bool _isAvailableForArmed = true;
+        private bool _isPickerTarget;
         private string? _unavailableReason;
         private string _sameAsText = string.Empty;
         private bool _isSelected;
@@ -92,6 +93,9 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>The Replace / Move strip is open on this block.</summary>
         public bool IsSelected { get => _isSelected; internal set => Set(ref _isSelected, value); }
+
+        /// <summary>The source picker is open for this block: it gets the same outline as a selected block.</summary>
+        public bool IsPickerTarget { get => _isPickerTarget; internal set => Set(ref _isPickerTarget, value); }
 
         /// <summary>This block is the one being moved: the next tap on a block is its destination.</summary>
         public bool IsMoveSource { get => _isMoveSource; internal set => Set(ref _isMoveSource, value); }

@@ -1124,6 +1124,7 @@ namespace AvasRoutingTool.ViewModels
 
                 block.SetStatus(state, issueText, sameAs, available, reason, sameAsBlock);
                 block.IsSelected = _selectedBlock == block.Index;
+                block.IsPickerTarget = _pickerBlock == block.Index;
                 block.IsMoveSource = _movingFrom == block.Index;
             }
             ApplyFocus();

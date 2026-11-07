@@ -154,3 +154,85 @@ namespace AvasRoutingTool.Tests
         }
     }
 }
+
+namespace AvasRoutingTool.Tests
+{
+    /// <summary>UI v2 round 3, picker polish: even padding, stays inside the canvas, lifted off the page, target block outlined.</summary>
+    public partial class ViewSmokeTests
+    {
+        [Fact]
+        public void Composer_Picker_BottomPadding_EqualsTheFramePadding_NoSlackUnderTheLastRow() =>
+            WithPicker((_, content) =>
+            {
+                var tiles = Named(content, "PickerTile").Cast<Button>().ToList();
+                double lastBottom = tiles.Max(t => t.TranslatePoint(new Point(0, t.ActualHeight), content).Y);
+                var pad = ((Border)content).Padding;
+                double slack = content.ActualHeight - 1 - pad.Bottom - lastBottom;
+                Assert.True(Math.Abs(slack) <= 0.5, $"last tile ends {slack:F1} px above the bottom padding line");
+            });
+
+        [Fact]
+        public void Composer_Picker_StaysInsideTheCanvas_WhenTheCanvasIsNarrow() =>
+            RunSta(() =>
+            {
+                var (rig, c) = PickerRig();
+                var view = rig.View(c);
+                ShowingAt(view, 1024, 720, () =>
+                {
+                    var popup = (Popup)Named(view, "PickerPopup").Single();
+                    Assert.True(popup.IsOpen);
+                    var frame = (FrameworkElement)popup.Child;
+                    Relayout(frame);
+                    var canvas = Named(view, "CanvasHost").Single();
+                    double gap = (double)Application.Current.FindResource("Size.Space.Action");
+                    double visible = frame.ActualWidth;
+                    Assert.True(visible + 2 * gap <= canvas.ActualWidth + 0.5, $"picker is {visible:F0} wide, canvas {canvas.ActualWidth:F0}");
+                });
+            });
+
+        [Fact]
+        public void Composer_Picker_IsLiftedOffThePage_ByAShadowThatIsNotClipped() =>
+            WithPicker((_, content) =>
+            {
+                var shadow = Assert.IsType<System.Windows.Media.Effects.DropShadowEffect>(content.Effect);
+                Assert.True(content.Margin.Left >= shadow.BlurRadius && content.Margin.Bottom >= shadow.BlurRadius + shadow.ShadowDepth,
+                    $"margin {content.Margin} cannot hold a {shadow.BlurRadius} blur");
+            });
+
+        [Fact]
+        public void Composer_Picker_LockedThumbnail_StaysRecognisable() =>
+            RunSta(() =>
+            {
+                var style = (Style)Application.Current.FindResource("Style.Image.Preview");
+                var dim = style.Triggers.OfType<DataTrigger>().Single(t => string.Equals(t.Value?.ToString(), "False") && ((System.Windows.Data.Binding)t.Binding).Path.Path == "IsEnabled")
+                    .Setters.OfType<Setter>().Single(s => s.Property == UIElement.OpacityProperty);
+                Assert.True((double)dim.Value >= 0.55, $"locked thumbnail opacity {dim.Value}");
+            });
+
+        [Fact]
+        public void Composer_Picker_MutedText_Is4To1_On_ThePickerTile_InBothThemes() =>
+            RunSta(() =>
+            {
+                foreach (var mode in new[] { AvasRoutingTool.Services.ThemeMode.Dark, AvasRoutingTool.Services.ThemeMode.Light })
+                {
+                    new AvasRoutingTool.Services.ThemeService().SetTheme(mode);
+                    var ratio = RatioOf(BrushColour("Brush.Text.Muted"), BrushColour("Brush.Surface.Popup"));
+                    Assert.True(ratio >= 4.5, $"Text.Muted on the picker tile in {mode}: {ratio:F2}:1");
+                }
+            });
+
+        [Fact]
+        public void Composer_Picker_TargetBlock_IsFlagged_ForItsOutline()
+        {
+            RunSta(() =>
+            {
+                var (_, c) = PickerRig();
+                var target = c.Blocks.Where(b => b.IsPickerTarget).ToList();
+                Assert.Single(target);
+                Assert.Equal(c.PickerBlockIndex, target[0].Index);
+                c.Disarm();
+                Assert.DoesNotContain(c.Blocks, b => b.IsPickerTarget);
+            });
+        }
+    }
+}

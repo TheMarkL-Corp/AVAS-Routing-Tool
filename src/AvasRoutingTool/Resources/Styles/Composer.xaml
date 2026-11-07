@@ -690,6 +690,11 @@
                 <Setter Property="Stroke" Value="{DynamicResource Brush.Action.Danger}" />
                 <Setter Property="StrokeThickness" Value="3" />
             </DataTrigger>
+            <DataTrigger Binding="{Binding IsPickerTarget, Mode=OneWay}" Value="True">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
+                <Setter Property="StrokeThickness" Value="3" />
+                <Setter Property="StrokeDashArray" Value="{x:Null}" />
+            </DataTrigger>
             <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
                 <Setter Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
                 <Setter Property="StrokeThickness" Value="3" />
@@ -988,6 +993,8 @@
     <!-- Two lines of the note (Font.Size.Title), so a short note does not make a ragged tile -->
     <sys:Double x:Key="Size.Composer.Picker.Note.MinHeight">38</sys:Double>
 
+    <Thickness x:Key="Thickness.Composer.Picker.Shadow">24,24,24,28</Thickness>
+
     <Style x:Key="Style.Surface.Popup" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
@@ -995,6 +1002,13 @@
         <Setter Property="CornerRadius" Value="12" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Picker.Frame.Max}" />
+        <!-- The transparent margin holds the shadow, so the popup window does not clip it -->
+        <Setter Property="Margin" Value="{StaticResource Thickness.Composer.Picker.Shadow}" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="4" Direction="270" Opacity="0.5" Color="Black" />
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="Style.Button.PickerTile" TargetType="Button">
@@ -1032,7 +1046,7 @@
         <Setter Property="RenderOptions.BitmapScalingMode" Value="LowQuality" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
-                <Setter Property="Opacity" Value="0.4" />
+                <Setter Property="Opacity" Value="0.55" />
             </DataTrigger>
             <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="False">
                 <Setter Property="Visibility" Value="Collapsed" />
