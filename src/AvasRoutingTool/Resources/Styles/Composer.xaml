@@ -19,7 +19,7 @@
     <sys:Double x:Key="Size.Composer.Tile.Min">96</sys:Double>
     <sys:Double x:Key="Size.Composer.Ghost.Opacity">0.85</sys:Double>
 
-    <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN TAKE) ===== -->
+    <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN SAVE &amp; APPLY) ===== -->
     <Style x:Key="Style.StepHeader" TargetType="controls:StepHeader">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="IsTabStop" Value="False" />
@@ -27,7 +27,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="controls:StepHeader">
-                    <StackPanel Orientation="Horizontal">
+                    <controls:StepHeaderPanel>
                         <Border x:Name="Marker"
                                 MinWidth="{StaticResource Size.Composer.StepMarker}"
                                 MinHeight="{StaticResource Size.Composer.StepMarker}"
@@ -44,7 +44,7 @@
                                            Foreground="{DynamicResource Brush.Text.Primary}" />
                             </Grid>
                         </Border>
-                        <TextBlock x:Name="LabelText" Text="{TemplateBinding Title}" Style="{StaticResource Style.Text.Section}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="LabelText" Text="{TemplateBinding Title}" Style="{StaticResource Style.Text.Section}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         <controls:MaterialIcon x:Name="DoneCheck"
                                                Kind="check"
                                                Width="{StaticResource Size.Icon.S}"
@@ -53,7 +53,7 @@
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource Brush.Text.Accent}"
                                                Visibility="Collapsed" />
-                    </StackPanel>
+                    </controls:StepHeaderPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsDone" Value="True">
                             <Setter TargetName="Marker" Property="Background" Value="{DynamicResource Brush.Action.Take}" />

@@ -516,6 +516,13 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal(PanningMode.VerticalOnly, ((ScrollViewer)Named(view, "LeftRailScroll").Single()).PanningMode);
                     Assert.Equal(PanningMode.VerticalOnly, ((ScrollViewer)Named(view, "RightRailScroll").Single()).PanningMode);
 
+                    var step3 = (AvasRoutingTool.Controls.StepHeader)Named(view, "StepTakeHeading").Single();
+                    var step3Parent = (FrameworkElement)VisualTreeHelper.GetParent(step3);
+                    Assert.True(step3.ActualWidth <= step3Parent.ActualWidth + 0.5, "the step 3 header is wider than its rail");
+                    var step3Check = (FrameworkElement)step3.Template.FindName("DoneCheck", step3);
+                    if (step3Check.IsVisible)
+                        Assert.True(BoundsIn(step3Check, step3Parent).Right <= step3Parent.ActualWidth + 0.5, "the step 3 check is outside the rail");
+
                     var take = (FrameworkElement)Named(view, "TakeButton").Single();
                     Assert.True(take.IsVisible);
                     var tr = BoundsIn(take, view);

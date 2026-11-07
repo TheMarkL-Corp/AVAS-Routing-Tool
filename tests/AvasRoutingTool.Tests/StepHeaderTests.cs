@@ -80,7 +80,12 @@ namespace AvasRoutingTool.Tests
             return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
         }
 
-        private static FrameworkElement Part(StepHeader h, string name) => (FrameworkElement)h.Template.FindName(name, h);
+        private static FrameworkElement Part(StepHeader h, string name)
+        {
+            var part = h.Template.FindName(name, h) as FrameworkElement;
+            Assert.NotNull(part);
+            return part!;
+        }
 
         [Fact]
         public void StepHeader_NotDone_ShowsNumberOnly() => RunSta(() =>
@@ -156,8 +161,53 @@ namespace AvasRoutingTool.Tests
             {
                 var peer = UIElementAutomationPeer.CreatePeerForElement(h);
                 Assert.Equal(AutomationControlType.Text, peer.GetAutomationControlType());
-                Assert.Equal("Level2", System.Windows.Automation.AutomationProperties.GetHeadingLevel(h).ToString());
+                Assert.Equal(System.Windows.Automation.AutomationHeadingLevel.Level2, System.Windows.Automation.AutomationProperties.GetHeadingLevel(h));
                 Assert.Contains("PLACE SOURCES", peer.GetName());
+            });
+        });
+
+        private static StepHeader Step3(double? hostWidth, out FrameworkElement host)
+        {
+            var h = new StepHeader { Number = 3, IsDone = true, Title = "CHECK, THEN SAVE & APPLY" };
+            h.SetResourceReference(FrameworkElement.StyleProperty, "Style.StepHeader");
+            var grid = new Grid();
+            if (hostWidth.HasValue) grid.Width = hostWidth.Value;
+            grid.Children.Add(h);
+            host = grid;
+            return h;
+        }
+
+        [Fact]
+        public void StepHeader_Done_InANarrowHost_WrapsTheLabel_AndKeepsTheCheckInside() => RunSta(() =>
+        {
+            var h = Step3(240, out var host);
+            Showing(host, () =>
+            {
+                var check = Part(h, "DoneCheck");
+                var label = Part(h, "LabelText");
+                Assert.True(BoundsIn(check, host).Right <= 240.5, "check right edge " + BoundsIn(check, host).Right);
+                Assert.True(BoundsIn(label, host).Right <= BoundsIn(check, host).Left + 0.5);
+                Assert.True(label.ActualHeight > ((TextBlock)label).FontSize * 1.5, "label did not wrap");
+                Assert.True(h.ActualWidth <= 240.5);
+                var marker = BoundsIn(Part(h, "Marker"), host);
+                Assert.Equal(32, marker.Width, 1);
+                Assert.Equal(16, check.ActualWidth, 1);
+            });
+        });
+
+        [Fact]
+        public void StepHeader_Done_InAWideHost_KeepsTheCheckRightAfterTheLabel_OnOneLine() => RunSta(() =>
+        {
+            var h = Step3(null, out var host);
+            Showing(host, () =>
+            {
+                var check = Part(h, "DoneCheck");
+                var label = Part(h, "LabelText");
+                Assert.Equal(8, BoundsIn(check, host).Left - BoundsIn(label, host).Right, 0);
+                var marker = BoundsIn(Part(h, "Marker"), host);
+                double mid = marker.Top + marker.Height / 2;
+                Assert.Equal(mid, BoundsIn(label, host).Top + label.ActualHeight / 2, 0);
+                Assert.Equal(mid, BoundsIn(check, host).Top + check.ActualHeight / 2, 0);
             });
         });
 
