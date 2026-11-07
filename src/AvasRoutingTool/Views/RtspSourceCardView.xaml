@@ -16,7 +16,7 @@
                 <Grid>
                     <ui:TextBox x:Name="AddressBox"
                                 Style="{StaticResource Style.TextBox.Field}"
-                                Height="48"
+                                MinHeight="{StaticResource Size.Touch.Min}"
                                 AutomationProperties.Name="RTSP address"
                                 TextChanged="AddressBox_TextChanged"
                                 KeyDown="AddressBox_KeyDown" />
@@ -30,7 +30,7 @@
                 <TextBlock x:Name="ReasonText"
                            Style="{StaticResource Style.Text.Caption}"
                            TextWrapping="Wrap"
-                           MinHeight="32"
+                           MinHeight="{StaticResource Size.Touch.Compact}"
                            Margin="0,6,0,0" />
                 <Button x:Name="StartAddButton"
                         Content="Start"
@@ -105,18 +105,8 @@
                         <Image x:Name="LiveImage"
                                Source="{Binding PreviewBitmap, Mode=OneWay}"
                                Stretch="Uniform"
-                               RenderOptions.BitmapScalingMode="LowQuality">
-                            <Image.Style>
-                                <Style TargetType="Image">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding State}" Value="Live">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Image.Style>
-                        </Image>
+                               RenderOptions.BitmapScalingMode="LowQuality"
+                               Visibility="{Binding IsLive, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}" />
                         <TextBlock x:Name="PictureMessage"
                                    Text="{Binding StatusText, Mode=OneWay}"
                                    Foreground="{DynamicResource Brush.Text.OnPreviewMuted}"
@@ -151,12 +141,13 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <TextBlock x:Name="StateWord" Style="{StaticResource Style.Text.Status}" Text="{Binding State, Mode=OneWay}" Margin="0,0,6,0" />
-                        <TextBlock x:Name="StatusLine" Text="{Binding StatusText, Mode=OneWay}" Style="{StaticResource Style.Text.Caption}"
-                                   TextTrimming="CharacterEllipsis" MaxWidth="90" VerticalAlignment="Center"
+                        <TextBlock x:Name="StatusLine" Grid.Column="1" Text="{Binding StatusText, Mode=OneWay}" Style="{StaticResource Style.Text.Caption}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                    ToolTip="{Binding StatusText, Mode=OneWay}" />
-                    </StackPanel>
+                    </Grid>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                         <Button x:Name="StopButton"
                                 Command="{Binding StopCommand, Mode=OneWay}"

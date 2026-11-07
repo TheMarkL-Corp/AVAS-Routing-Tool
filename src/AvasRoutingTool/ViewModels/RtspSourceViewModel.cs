@@ -50,6 +50,7 @@ namespace AvasRoutingTool.ViewModels
 
         public RtspTileState State => _state;
         public string StatusText => _statusText;
+        public bool IsLive => _state == RtspTileState.Live;
         public WriteableBitmap? PreviewBitmap => _player?.Bitmap;
 
         private void Start()
@@ -224,7 +225,7 @@ namespace AvasRoutingTool.ViewModels
             var textChanged = _statusText != text;
             _state = state;
             _statusText = text;
-            if (stateChanged) OnPropertyChanged(nameof(State));
+            if (stateChanged) { OnPropertyChanged(nameof(State)); OnPropertyChanged(nameof(IsLive)); }
             if (textChanged) OnPropertyChanged(nameof(StatusText));
             if (stateChanged) CommandManagerRequery();
         }
