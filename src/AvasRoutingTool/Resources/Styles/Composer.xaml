@@ -967,6 +967,8 @@
     <!-- ===== Block-first picker (a Popup anchored to the block) ===== -->
     <sys:Double x:Key="Size.Composer.Picker.Tile">260</sys:Double>
     <sys:Double x:Key="Size.Composer.Picker.Frame.Max">880</sys:Double>
+    <!-- Two lines of the note (Font.Size.Title), so a short note does not make a ragged tile -->
+    <sys:Double x:Key="Size.Composer.Picker.Note.MinHeight">38</sys:Double>
 
     <Style x:Key="Style.Surface.Popup" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
@@ -1014,15 +1016,23 @@
             <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
                 <Setter Property="Opacity" Value="0.4" />
             </DataTrigger>
+            <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
         </Style.Triggers>
     </Style>
 
-    <Style x:Key="Style.Text.Picker.NoPreview" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Caption}">
+    <!-- An empty black picture for a source that has none: an icon, no caption (the note says it once) -->
+    <Style x:Key="Style.Icon.PickerPlaceholder" TargetType="controls:MaterialIcon">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.L}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.L}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnPreviewMuted}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Margin" Value="0" />
+        <Setter Property="Visibility" Value="Collapsed" />
         <Style.Triggers>
-            <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="True">
-                <Setter Property="Visibility" Value="Collapsed" />
+            <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Visible" />
             </DataTrigger>
         </Style.Triggers>
     </Style>
@@ -1030,6 +1040,19 @@
     <Style x:Key="Style.Text.Picker.Name" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Setter Property="Margin" Value="0,8,0,0" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Picker.LinkMode" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="Style.Text.Picker.Note" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
@@ -1038,16 +1061,46 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
-    <Style x:Key="Style.Icon.PickerLock" TargetType="controls:MaterialIcon">
+    <!-- One status icon per tile, on the first line of the note: lock (cannot go here), videocam (live), info (no preview) -->
+    <Style x:Key="Style.Icon.PickerStatus" TargetType="controls:MaterialIcon">
         <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
         <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Strong}" />
-        <Setter Property="Margin" Value="0,2,6,0" />
+        <Setter Property="Margin" Value="0,1,6,0" />
         <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Visibility" Value="Collapsed" />
+    </Style>
+
+    <Style x:Key="Style.Icon.PickerLock" TargetType="controls:MaterialIcon" BasedOn="{StaticResource Style.Icon.PickerStatus}">
+        <Setter Property="Visibility" Value="Visible" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="True">
                 <Setter Property="Visibility" Value="Collapsed" />
             </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Icon.PickerLive" TargetType="controls:MaterialIcon" BasedOn="{StaticResource Style.Icon.PickerStatus}">
+        <Style.Triggers>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsEnabled, Mode=OneWay}" Value="True" />
+                    <Condition Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Icon.PickerInfo" TargetType="controls:MaterialIcon" BasedOn="{StaticResource Style.Icon.PickerStatus}">
+        <Style.Triggers>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsEnabled, Mode=OneWay}" Value="True" />
+                    <Condition Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
         </Style.Triggers>
     </Style>
 

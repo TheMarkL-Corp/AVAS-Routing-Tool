@@ -563,7 +563,7 @@
 
         <!-- ===== Block-first picker: anchored to the block, source tiles with their live thumbnail; capped and scrollable ===== -->
         <Popup x:Name="PickerPopup"
-               Placement="Center"
+               Placement="Custom"
                StaysOpen="False"
                AllowsTransparency="True"
                PopupAnimation="None"
@@ -574,7 +574,7 @@
                     KeyboardNavigation.DirectionalNavigation="Contained"
                     PreviewKeyDown="PickerFrame_PreviewKeyDown">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -589,8 +589,9 @@
                         </Button>
                     </Grid>
                     <TextBlock x:Name="PickerEmpty" DockPanel.Dock="Top" Text="No sources discovered." Style="{StaticResource Style.Text.ComposerLabel}" Visibility="Collapsed" />
-                    <ScrollViewer x:Name="PickerScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-                        <ItemsControl x:Name="PickerItems" Focusable="False" Margin="0,0,4,0">
+                    <!-- The scroll bar gutter (16 px) sits in the frame's right padding, so the tiles end exactly where Cancel ends. The tiles' 12 px right margin is taken back by the items' -12. -->
+                    <ScrollViewer x:Name="PickerScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly" Margin="0,0,-16,0">
+                        <ItemsControl x:Name="PickerItems" Focusable="False" Margin="0,0,-12,0">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel ItemWidth="{StaticResource Size.Composer.Picker.Tile}" />
@@ -609,18 +610,20 @@
                                                         Background="{DynamicResource Brush.Surface.PreviewBlack}" CornerRadius="6" ClipToBounds="True">
                                                     <Grid>
                                                         <Image Source="{Binding Source.PreviewBitmap, Mode=OneWay}" Style="{StaticResource Style.Image.Preview}" />
-                                                        <TextBlock Text="NO PREVIEW · non-AVAS" Style="{StaticResource Style.Text.Picker.NoPreview}" Foreground="{DynamicResource Brush.Text.OnPreview}" />
+                                                        <controls:MaterialIcon Kind="desktop_windows" Style="{StaticResource Style.Icon.PickerPlaceholder}" />
                                                     </Grid>
                                                 </Border>
                                             </controls:FractionalLayoutPanel>
                                             <TextBlock Text="{Binding Source.DeviceName, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Name}" />
-                                            <TextBlock Text="{Binding Source.LinkMode, Mode=OneWay}" Style="{StaticResource Style.Text.ComposerLabel}" />
-                                            <Grid Margin="0,4,0,0">
+                                            <TextBlock Text="{Binding Source.LinkMode, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.LinkMode}" />
+                                            <Grid Margin="0,4,0,0" MinHeight="{StaticResource Size.Composer.Picker.Note.MinHeight}">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <controls:MaterialIcon Kind="lock" Style="{StaticResource Style.Icon.PickerLock}" />
+                                                <controls:MaterialIcon x:Name="StatusLock" Kind="lock" Style="{StaticResource Style.Icon.PickerLock}" />
+                                                <controls:MaterialIcon x:Name="StatusLive" Kind="videocam" Style="{StaticResource Style.Icon.PickerLive}" />
+                                                <controls:MaterialIcon x:Name="StatusNoPreview" Kind="info" Style="{StaticResource Style.Icon.PickerInfo}" />
                                                 <TextBlock Grid.Column="1" Text="{Binding Note, Mode=OneWay}" Style="{StaticResource Style.Text.Picker.Note}" />
                                             </Grid>
                                         </StackPanel>

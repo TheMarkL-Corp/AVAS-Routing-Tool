@@ -71,7 +71,6 @@ namespace AvasRoutingTool.Tests
         [InlineData("MultiViewComposerView.xaml", "NoPreviewLabel", "name", "Brush.Text.OnPreview")]
         [InlineData("MultiViewComposerView.xaml", "ReasonText", "name", "Brush.Text.OnScrim")]
         [InlineData("MultiViewComposerView.xaml", "EmptyHint", "name", "Brush.Text.OnPreview")]
-        [InlineData("MultiViewComposerView.xaml", "NO PREVIEW · non-AVAS", null, "Brush.Text.OnPreview")]
         [InlineData("MultiViewComposerView.xaml", "PlaceVerbText", "name", "Brush.Text.OnScrimAccent")]
         [InlineData("MultiViewComposerView.xaml", "PlaceNameText", "name", "Brush.Text.OnScrimAccent")]
         [InlineData("MultiViewComposerView.xaml", "NamePlateText", "name", "Brush.Text.OnPreview")]

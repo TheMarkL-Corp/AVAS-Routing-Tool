@@ -451,7 +451,7 @@ namespace AvasRoutingTool.Tests
                     var thumbs = FindAll<Image>(content).Where(i => i.IsVisible && ReferenceEquals(i.Source, bitmap)).ToList();
                     Assert.Single(thumbs);
                     Assert.True(thumbs[0].ActualWidth >= 160 && thumbs[0].ActualHeight >= 90, $"thumbnail {thumbs[0].ActualWidth}x{thumbs[0].ActualHeight}");
-                    AssertVisibleText(content, "NO PREVIEW");
+                    AssertVisibleText(content, "No preview");   // the note says it once; the thumbnail is an empty placeholder
 
                     c.Pick(1, rig.Tx2);
                     Relayout(view);

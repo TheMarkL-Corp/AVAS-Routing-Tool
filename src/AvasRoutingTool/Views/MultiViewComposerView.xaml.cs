@@ -85,6 +85,7 @@ namespace AvasRoutingTool.Views
         public MultiViewComposerView()
         {
             InitializeComponent();
+            PickerPopup.CustomPopupPlacementCallback = PlacePicker;
             DataContextChanged += (_, _) => Watch(DataContext as MultiViewComposerViewModel);
             Loaded += (_, _) => SchedulePicker();
             Unloaded += (_, _) => ClosePicker();
@@ -617,6 +618,29 @@ namespace AvasRoutingTool.Views
 
         /// <summary>The picker never grows past 70 % of the work area (and not below a usable 320 px); its tiles scroll.</summary>
         internal double PickerMaxHeight => Math.Max(320, Math.Round(SystemParameters.WorkArea.Height * 0.7));
+
+        /// <summary>
+        /// Where the picker may sit relative to the block it fills (all in the block's coordinates): below it, then above it, each centred on the
+        /// block and clamped inside the canvas so it never covers the right rail; last resort, centred on the block (nothing else fits).
+        /// </summary>
+        internal static CustomPopupPlacement[] PickerPlacements(Size popup, Size block, Rect canvas, double gap)
+        {
+            double x = Math.Max(canvas.Left, Math.Min((block.Width - popup.Width) / 2, canvas.Right - popup.Width));
+            return new[]
+            {
+                new CustomPopupPlacement(new Point(x, block.Height + gap), PopupPrimaryAxis.Horizontal),
+                new CustomPopupPlacement(new Point(x, -popup.Height - gap), PopupPrimaryAxis.Horizontal),
+                new CustomPopupPlacement(new Point((block.Width - popup.Width) / 2, (block.Height - popup.Height) / 2), PopupPrimaryAxis.None),
+            };
+        }
+
+        private CustomPopupPlacement[] PlacePicker(Size popupSize, Size targetSize, Point offset)
+        {
+            var target = PickerPopup.PlacementTarget as UIElement ?? CanvasHost;
+            var origin = CanvasHost.TranslatePoint(new Point(0, 0), target);
+            var canvas = new Rect(origin, CanvasHost.RenderSize);
+            return PickerPlacements(popupSize, targetSize, canvas, (double)FindResource("Size.Space.Action"));
+        }
 
         private void Watch(MultiViewComposerViewModel? composer)
         {
