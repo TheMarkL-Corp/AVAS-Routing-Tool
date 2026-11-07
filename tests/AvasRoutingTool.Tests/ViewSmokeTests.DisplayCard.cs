@@ -211,7 +211,7 @@ namespace AvasRoutingTool.Tests
                     Relayout(view);
                     var chip = (Button)Named(view, "DraftChip").Single();
                     Assert.True(chip.IsVisible && chip.ActualHeight >= 48, $"draft chip is {chip.ActualHeight} high");
-                    AssertVisibleText(chip, "DRAFT · Resume");
+                    AssertVisibleText(chip, "DRAFT");
                     Assert.Contains("not on screen", chip.ToolTip as string ?? string.Empty);
                     var notice = (FrameworkElement)Named(view, "DraftNoticeLine").Single();
                     Assert.True(notice.IsVisible);
@@ -840,7 +840,7 @@ namespace AvasRoutingTool.Tests
                     Assert.Contains("not on screen", chip.ToolTip as string ?? string.Empty);
                     Assert.Contains("not on screen", System.Windows.Automation.AutomationProperties.GetName(chip));
                     var chipText = FindAll<TextBlock>(chip).Single(t => t.Text.StartsWith("DRAFT", StringComparison.Ordinal));
-                    Assert.Equal("DRAFT \u00B7 Resume", chipText.Text);
+                    Assert.StartsWith("DRAFT", chipText.Text);
                     AssertTextFits(chipText);
 
                     // The chip is touch-friendly and inside the card frame.

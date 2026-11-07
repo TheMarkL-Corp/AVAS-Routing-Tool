@@ -217,11 +217,11 @@
                                                        Width="{StaticResource Size.Icon.Layout}"
                                                        Height="{StaticResource Size.Icon.Layout}"
                                                        VerticalAlignment="Center" />
-                                <TextBlock Text="DRAFT &#183; Resume"
+                                <TextBlock x:Name="DraftChipLabel"
                                            VerticalAlignment="Center"
                                            Margin="{StaticResource Size.Space.Action.Before}"
                                            TextWrapping="NoWrap"
-                                           TextTrimming="CharacterEllipsis" />
+                                           TextTrimming="CharacterEllipsis"><Run Text="DRAFT" /><Run x:Name="DraftChipResume" Text=" &#183; Resume" /></TextBlock>
                             </StackPanel>
                         </Button>
 

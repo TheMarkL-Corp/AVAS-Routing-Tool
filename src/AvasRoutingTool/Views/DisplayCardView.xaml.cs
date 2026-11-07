@@ -107,17 +107,35 @@ namespace AvasRoutingTool.Views
         }
 
         /// <summary>
-        /// The "More layouts" label gives way (icon and chevron stay) only while a draft chip is shown and the full bar, label included, is wider than
-        /// the dock. The need is measured with the label visible, so the answer does not depend on the label's current state and cannot flip-flop.
+        /// While a draft chip is shown and the full bar does not fit the dock, the bar gives way in two steps: the "More layouts" label
+        /// (icon and chevron stay), then the chip's " - Resume" word (icon, "DRAFT" and the tooltip stay). Each need is measured
+        /// with the later steps undone, so the answer does not depend on the current state and cannot flip-flop.
         /// </summary>
         private void UpdateLayoutLabel()
         {
             double available = FloatingActionDock.ActualWidth;
             bool hasDraft = (DataContext as DisplayCardViewModel)?.HasDraft == true;
-            if (!hasDraft) { LayoutLabel.Visibility = Visibility.Visible; return; }
+            if (!hasDraft) { ShowBar(true, true); return; }
             if (available <= 0) return;
 
-            LayoutLabel.Visibility = Visibility.Visible;
+            foreach (var (layoutLabel, resume) in new[] { (true, true), (false, true) })
+            {
+                ShowBar(layoutLabel, resume);
+                if (BarNeed() <= available + 0.5) return;
+            }
+            ShowBar(false, false);
+        }
+
+        private const string DraftResumeText = " · Resume";
+
+        private void ShowBar(bool layoutLabel, bool resume)
+        {
+            LayoutLabel.Visibility = layoutLabel ? Visibility.Visible : Visibility.Collapsed;
+            DraftChipResume.Text = resume ? DraftResumeText : string.Empty;
+        }
+
+        private double BarNeed()
+        {
             var unbounded = new Size(double.PositiveInfinity, double.PositiveInfinity);
             double need = 0;
             foreach (var part in new FrameworkElement[] { LayoutButton, CopyLayoutHandle, DraftChip, TurnOffButton })
@@ -126,7 +144,7 @@ namespace AvasRoutingTool.Views
                 part.Measure(unbounded);
                 need += part.DesiredSize.Width + part.Margin.Left + part.Margin.Right;
             }
-            LayoutLabel.Visibility = need > available + 0.5 ? Visibility.Collapsed : Visibility.Visible;
+            return need;
         }
 
         private void OnCardChanged(object? sender, PropertyChangedEventArgs e)
