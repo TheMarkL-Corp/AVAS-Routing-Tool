@@ -665,7 +665,7 @@
                                Style="{StaticResource Style.Text.Title}"
                                FontWeight="Bold"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="A MultiView layout opens the Composer: nothing changes on screen until Take. Single View and Off apply now."
+                    <TextBlock Text="A MultiView layout opens the Composer: nothing changes on screen until Save &amp; Apply. Single View and Off apply now."
                                Style="{StaticResource Style.Text.Body}"
                                Foreground="{DynamicResource Brush.Text.Secondary}"
                                TextWrapping="Wrap"

@@ -216,7 +216,7 @@
                             Visibility="{Binding Draft, Mode=OneWay, Converter={StaticResource Converter.Visible.Null}}">
                         <StackPanel>
                             <TextBlock Text="Step 1 · Choose a layout on the left" Style="{StaticResource Style.Text.Lead}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-                            <TextBlock Text="The blocks appear here empty. Nothing changes on the surgeon's screen until you press Take."
+                            <TextBlock Text="The blocks appear here empty. Nothing changes on the surgeon's screen until you press Save &amp; Apply."
                                        Style="{StaticResource Style.Text.ComposerLabel}" TextAlignment="Center" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
@@ -471,9 +471,9 @@
                 <StackPanel Grid.Row="1" Margin="0,8,0,0">
                     <!-- Step 3 heads the pinned cluster: the check and the Take below it -->
                     <controls:StepHeader x:Name="StepTakeHeading" Style="{StaticResource Style.StepHeader}" Margin="0,0,0,4"
-                                         Number="3" Title="CHECK, THEN TAKE" IsDone="{Binding CanTake, Mode=OneWay}"
+                                         Number="3" Title="CHECK, THEN SAVE &amp; APPLY" IsDone="{Binding CanTake, Mode=OneWay}"
                                          AutomationProperties.Name="{Binding StepTakeText, Mode=OneWay}"
-                                         AutomationProperties.HelpText="Nothing changes on screen until you press Take." />
+                                         AutomationProperties.HelpText="Nothing changes on screen until you press Save &amp; Apply." />
 
                     <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
                     <Border x:Name="BannerHost" Style="{StaticResource Style.Banner.Composer}">

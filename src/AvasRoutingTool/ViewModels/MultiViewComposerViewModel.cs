@@ -34,7 +34,7 @@ namespace AvasRoutingTool.ViewModels
 
         private const string NothingPlacedText = "Place at least one source (Step 2).";
         private const string NothingToChangeText = "Nothing to change since what is on screen.";
-        private const string DisplayChangedText = "The display changed - review the new layout, then take.";
+        private const string DisplayChangedText = "The display changed - review the new layout, then save and apply.";
 
         /// <summary>How long a Success banner ("On screen") stays; <see cref="Tick"/> clears it after this.</summary>
         public static readonly TimeSpan SuccessBannerLifetime = TimeSpan.FromSeconds(4);
@@ -199,7 +199,7 @@ namespace AvasRoutingTool.ViewModels
 
         public string StepPlaceText => $"Step 2, Place sources: {(StepPlaceDone ? "done" : "to do")}";
 
-        public string StepTakeText => $"Step 3, Check, then take: {(CanTake ? "ready" : "not ready")}";
+        public string StepTakeText => $"Step 3, Check, then save and apply: {(CanTake ? "ready" : "not ready")}";
 
         /// <summary>Width / height of the plan that is on screen now (the ON SCREEN NOW picture follows it); 16:9 when nothing is live.</summary>
         public double LiveAspectRatio =>
@@ -291,10 +291,10 @@ namespace AvasRoutingTool.ViewModels
         {
             get
             {
-                if (_busy) return $"Sending to {_display.DeviceName}...";
+                if (_busy) return $"Applying to {_display.DeviceName}...";
                 int n = _changes.Count;
-                if (n == 0 && LayoutDiffers) return "TAKE NEW LAYOUT TO SCREEN";
-                return $"TAKE {n} CHANGE{(n == 1 ? string.Empty : "S")} TO SCREEN";
+                if (n == 0 && LayoutDiffers) return "SAVE & APPLY NEW LAYOUT";
+                return $"SAVE & APPLY {n} CHANGE{(n == 1 ? string.Empty : "S")}";
             }
         }
 
@@ -703,7 +703,7 @@ namespace AvasRoutingTool.ViewModels
                         _takenAt = _clock();
                         CommitLive();
                         liveChanged = true;
-                        Banner = new ComposerBanner("On screen", BannerKind.Success);
+                        Banner = new ComposerBanner("Saved & applied - on screen now.", BannerKind.Success);
                         break;
 
                     case TakeOutcome.NothingToTake:
@@ -728,7 +728,7 @@ namespace AvasRoutingTool.ViewModels
             catch (Exception ex)
             {
                 AppLogger.Error("COMPOSER", $"Take on '{device.DeviceName}' failed", ex);
-                Banner = new ComposerBanner($"Take failed: {ex.Message} Check what is on screen.", BannerKind.Error);
+                Banner = new ComposerBanner($"Could not apply: {ex.Message} Check what is on screen.", BannerKind.Error);
             }
             finally
             {

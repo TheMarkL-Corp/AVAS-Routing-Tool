@@ -223,6 +223,52 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
+        public void ComposerViews_DoNotShowTheWordTake_ToTheUser() =>
+            RunSta(() =>
+            {
+                var rig = new ComposerRig();
+                var c = rig.Composer("matrix2x2");
+                c.Arm(rig.Tx1);
+                c.TapBlock(0);
+                var composerView = rig.View(c);
+                var copy = new CopyRig();
+                var cardView = copy.View(copy.Rx3, out var cardHost);
+                var word = new System.Text.RegularExpressions.Regex(@"\bTake\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                var offenders = new List<string>();
+                void Scan(DependencyObject root, string where)
+                {
+                    var seen = new HashSet<DependencyObject>();
+                    void Check(string? text, string what)
+                    {
+                        if (!string.IsNullOrEmpty(text) && word.IsMatch(text)) offenders.Add($"{where}: {what} = \"{text}\"");
+                    }
+                    void Walk(DependencyObject d)
+                    {
+                        if (!seen.Add(d)) return;
+                        if (d is TextBlock tb) Check(tb.Text, "TextBlock.Text");
+                        if (d is ContentControl cc && cc.Content is string s) Check(s, "Content");
+                        if (d is FrameworkElement fe)
+                        {
+                            if (fe.ToolTip is string tip) Check(tip, "ToolTip");
+                            else if (fe.ToolTip is ToolTip tt && tt.Content is string tts) Check(tts, "ToolTip");
+                        }
+                        Check(AutomationProperties.GetName(d), "AutomationProperties.Name");
+                        Check(AutomationProperties.GetHelpText(d), "AutomationProperties.HelpText");
+                        if (d is Popup p && p.Child != null) Walk(p.Child);
+                        foreach (var child in LogicalTreeHelper.GetChildren(d).OfType<DependencyObject>()) Walk(child);
+                        if (d is Visual or System.Windows.Media.Media3D.Visual3D)
+                            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++) Walk(VisualTreeHelper.GetChild(d, i));
+                    }
+                    Walk(root);
+                }
+
+                Showing(composerView, () => Scan(composerView, "MultiViewComposerView"));
+                Showing(cardHost, () => Scan(cardView, "DisplayCardView"));
+                Assert.True(offenders.Count == 0, "the word Take is visible to the operator:" + Environment.NewLine + string.Join(Environment.NewLine, offenders));
+            });
+
+        [Fact]
         public void Composer_StepHeadings_AreHeadings_WithTheirStateInWords_AndTheCaptionWraps() =>
             RunSta(() =>
             {
@@ -239,7 +285,7 @@ namespace AvasRoutingTool.Tests
                     var take = Named(view, "StepTakeHeading").Single();
                     Assert.Equal("Step 1, Layout: done", System.Windows.Automation.AutomationProperties.GetName(layout));
                     Assert.Equal("Step 2, Place sources: done", System.Windows.Automation.AutomationProperties.GetName(place));
-                    Assert.Equal("Step 3, Check, then take: ready", System.Windows.Automation.AutomationProperties.GetName(take));
+                    Assert.Equal("Step 3, Check, then save and apply: ready", System.Windows.Automation.AutomationProperties.GetName(take));
                     Assert.All(new[] { layout, place, take }, h =>
                         Assert.Equal("Level2", System.Windows.Automation.AutomationProperties.GetHeadingLevel(h).ToString()));
 
@@ -288,9 +334,9 @@ namespace AvasRoutingTool.Tests
 
                     // The two instruction sentences are gone from the screen; screen readers get them as help text on the headings
                     Assert.Empty(VisibleTexts(view, "Tap a source above"));
-                    Assert.Empty(VisibleTexts(view, "Nothing changes on screen until Take."));
+                    Assert.Empty(VisibleTexts(view, "Nothing changes on screen until Save & Apply."));
                     Assert.Equal("Tap a source in the strip above, then its blocks - or tap an empty block.", System.Windows.Automation.AutomationProperties.GetHelpText(place));
-                    Assert.Equal("Nothing changes on screen until you press Take.", System.Windows.Automation.AutomationProperties.GetHelpText(take));
+                    Assert.Equal("Nothing changes on screen until you press Save & Apply.", System.Windows.Automation.AutomationProperties.GetHelpText(take));
                 });
             });
 
@@ -376,7 +422,7 @@ namespace AvasRoutingTool.Tests
                     Relayout(view);
 
                     Assert.True(take.IsEnabled);
-                    Assert.Equal("TAKE 1 CHANGE TO SCREEN", take.Content as string);
+                    Assert.Equal("SAVE & APPLY 1 CHANGE", take.Content as string);
                     Assert.False(Named(view, "TakeBlockedReasonText").Single().IsVisible);
                 });
             });
@@ -1031,13 +1077,13 @@ namespace AvasRoutingTool.Tests
                     Assert.Equal("PIP, not selected", AutomationProperties.GetName(tiles[1]));
 
                     var take = Named(view, "TakeButton").Single();
-                    Assert.Equal("TAKE 0 CHANGES TO SCREEN. Place at least one source (Step 2).", AutomationProperties.GetName(take));
+                    Assert.Equal("SAVE & APPLY 0 CHANGES. Place at least one source (Step 2).", AutomationProperties.GetName(take));
 
                     c.Arm(rig.Tx1);
                     c.TapBlock(0);
                     Relayout(view);
                     Assert.Equal("Block 1, 960 by 540, TX1, staged", AutomationProperties.GetName(Surfaces(view)[0]));
-                    Assert.Equal("TAKE 1 CHANGE TO SCREEN", AutomationProperties.GetName(take));
+                    Assert.Equal("SAVE & APPLY 1 CHANGE", AutomationProperties.GetName(take));
                     Assert.Equal("Clear block 1", AutomationProperties.GetName(Named(view, "CornerClear").First(e => e.IsVisible)));
                     Assert.Equal("Back to displays", AutomationProperties.GetName(Named(view, "CloseComposerButton").Single()));
 

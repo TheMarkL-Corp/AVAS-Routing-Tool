@@ -71,7 +71,7 @@ namespace AvasRoutingTool.Tests
             var vm = rig.Composer();
             Assert.Equal("Step 1, Layout: to do", vm.StepLayoutText);
             Assert.Equal("Step 2, Place sources: to do", vm.StepPlaceText);
-            Assert.Equal("Step 3, Check, then take: not ready", vm.StepTakeText);
+            Assert.Equal("Step 3, Check, then save and apply: not ready", vm.StepTakeText);
 
             await vm.SelectLayoutAsync("matrix2x2");
             vm.Arm(rig.Tx1);
@@ -79,7 +79,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal("Step 1, Layout: done", vm.StepLayoutText);
             Assert.Equal("Step 2, Place sources: done", vm.StepPlaceText);
-            Assert.Equal("Step 3, Check, then take: ready", vm.StepTakeText);
+            Assert.Equal("Step 3, Check, then save and apply: ready", vm.StepTakeText);
         }
 
         [Fact]
@@ -405,18 +405,98 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task TakeLabel_SaysSaveAndApply_WithTheChangeCount()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            Assert.Equal("SAVE & APPLY 1 CHANGE", vm.TakeLabel);
+            vm.Arm(rig.Tx2);
+            vm.TapBlock(1);
+            vm.Arm(rig.Tx3);
+            vm.TapBlock(2);
+            vm.Disarm();
+            Assert.Equal("SAVE & APPLY 3 CHANGES", vm.TakeLabel);
+        }
+
+        [Fact]
+        public async Task TakeLabel_LayoutOnly_SaysSaveAndApplyNewLayout()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            await vm.SelectLayoutAsync("side_by_side"); // same sources, new layout
+            Assert.Empty(vm.Changes);
+            Assert.Equal("SAVE & APPLY NEW LAYOUT", vm.TakeLabel);
+        }
+
+        [Fact]
+        public async Task TakeLabel_WhileBusy_SaysApplyingToTheDisplay()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            var gate = new TaskCompletionSource();
+            rig.Client.DuringCall = entry => entry.StartsWith("multiview:") ? gate.Task : Task.CompletedTask;
+            var first = vm.TakeAsync();
+            Assert.Equal("Applying to RX1...", vm.TakeLabel);
+            gate.SetResult();
+            await first;
+        }
+
+        [Fact]
+        public async Task StepTakeText_SaysSaveAndApply()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            Assert.Equal("Step 3, Check, then save and apply: not ready", vm.StepTakeText);
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            Assert.Equal("Step 3, Check, then save and apply: ready", vm.StepTakeText);
+        }
+
+        [Fact]
+        public async Task TakeSuccess_BannerSaysSavedAndApplied()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            await vm.TakeAsync();
+            Assert.Equal("Saved & applied - on screen now.", vm.Banner.Text);
+            Assert.Equal(BannerKind.Success, vm.Banner.Kind);
+        }
+
+        [Fact]
+        public async Task TakeFailure_BannerSaysCouldNotApply()
+        {
+            var rig = new Rig();
+            var vm = await rig.Matrix();
+            vm.Arm(rig.Tx1);
+            vm.TapBlock(0);
+            rig.Client.DuringCall = _ => throw new InvalidOperationException("boom");
+            await vm.TakeAsync();
+            Assert.Equal("Could not apply: boom Check what is on screen.", vm.Banner.Text);
+            Assert.Equal(BannerKind.Error, vm.Banner.Kind);
+        }
+
+        [Fact]
         public async Task TakeLabel_CountsChanges_AndCanTakeFollowsIssues()
         {
             var rig = new Rig();
             var vm = await rig.Matrix();
             vm.Arm(rig.Tx1);
             vm.TapBlock(0);
-            Assert.Equal("TAKE 1 CHANGE TO SCREEN", vm.TakeLabel);
+            Assert.Equal("SAVE & APPLY 1 CHANGE", vm.TakeLabel);
             vm.Arm(rig.Tx2);
             vm.TapBlock(1);
             vm.Disarm();
 
-            Assert.Equal("TAKE 2 CHANGES TO SCREEN", vm.TakeLabel);
+            Assert.Equal("SAVE & APPLY 2 CHANGES", vm.TakeLabel);
             Assert.Equal(2, vm.Changes.Count);
             Assert.True(vm.CanTake);
             Assert.Null(vm.TakeBlockedReason);
@@ -478,7 +558,7 @@ namespace AvasRoutingTool.Tests
             await vm.TakeAsync();
 
             Assert.Equal(BlockState.Live, vm.Blocks[0].State);
-            Assert.Equal("On screen", vm.Banner.Text);
+            Assert.Equal("Saved & applied - on screen now.", vm.Banner.Text);
             Assert.Equal(BannerKind.Success, vm.Banner.Kind);
             Assert.Equal(4, vm.LiveBlocks.Count);
             Assert.Equal("TX1", vm.LiveBlocks[0].SourceName);
@@ -675,7 +755,7 @@ namespace AvasRoutingTool.Tests
             var first = vm.TakeAsync();
             Assert.True(vm.IsBusy);
             Assert.False(vm.CanTake);
-            Assert.Equal("Sending to RX1...", vm.TakeLabel);
+            Assert.Equal("Applying to RX1...", vm.TakeLabel);
             var second = vm.TakeAsync();
             vm.TapBlock(1); // the Composer is locked while sending
             vm.Clear(0);
@@ -768,7 +848,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Empty(vm.Changes);
             Assert.True(vm.CanTake);
-            Assert.Equal("TAKE NEW LAYOUT TO SCREEN", vm.TakeLabel);
+            Assert.Equal("SAVE & APPLY NEW LAYOUT", vm.TakeLabel);
         }
 
         [Fact]
@@ -1222,7 +1302,7 @@ namespace AvasRoutingTool.Tests
 
             await vm.TakeAsync();
 
-            Assert.Equal("On screen", vm.Banner.Text);
+            Assert.Equal("Saved & applied - on screen now.", vm.Banner.Text);
             Assert.Equal(BannerKind.Success, vm.Banner.Kind);
             Assert.False(vm.IsBusy);
         }
@@ -1262,7 +1342,7 @@ namespace AvasRoutingTool.Tests
 
             await vm.TakeAsync();
 
-            Assert.StartsWith("Take failed", vm.Banner.Text);
+            Assert.StartsWith("Could not apply", vm.Banner.Text);
             Assert.Contains("boom", vm.Banner.Text);
             Assert.Equal(BannerKind.Error, vm.Banner.Kind);
             Assert.False(vm.IsBusy);
@@ -1628,15 +1708,15 @@ namespace AvasRoutingTool.Tests
         {
             var rig = new Rig();
             var vm = await rig.Matrix();
-            Assert.Equal("TAKE 0 CHANGES TO SCREEN. Place at least one source (Step 2).", vm.TakeAutomationName);
+            Assert.Equal("SAVE & APPLY 0 CHANGES. Place at least one source (Step 2).", vm.TakeAutomationName);
 
             vm.Arm(rig.Tx1);
             vm.TapBlock(0);
-            Assert.Equal("TAKE 1 CHANGE TO SCREEN", vm.TakeAutomationName);
+            Assert.Equal("SAVE & APPLY 1 CHANGE", vm.TakeAutomationName);
 
             vm.Disarm();
             rig.Tx1.SetOnlineState(false);
-            Assert.Equal("TAKE 1 CHANGE TO SCREEN. TX1 is offline - clear or replace block 1", vm.TakeAutomationName);
+            Assert.Equal("SAVE & APPLY 1 CHANGE. TX1 is offline - clear or replace block 1", vm.TakeAutomationName);
 
             var raised = new List<string?>();
             vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
