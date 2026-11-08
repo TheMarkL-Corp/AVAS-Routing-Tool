@@ -1,3 +1,4 @@
+using System.Linq;
 using AvasRoutingTool.Sdvoe.MultiView;
 using Xunit;
 
@@ -86,6 +87,57 @@ namespace AvasRoutingTool.Tests
             Assert.NotNull(text);
             Assert.Contains("Boom", text);
             Assert.Contains("10.2", text);
+        }
+
+        // ---- Divider decision from real sources (spec 11.3, items 2 and 3) ----
+
+        private static SourcePlan Src(SourceVideo video, int w, int h) => new(video, w, h);
+
+        [Fact]
+        public void NeedsFrameDivider_Empty_IsFalse() =>
+            Assert.False(MultiViewBandwidthBudget.NeedsFrameDivider(System.Array.Empty<SourcePlan>()));
+
+        [Fact]
+        public void NeedsFrameDivider_ThirtyHertzSources_AreNotHalvedJustBecauseTheCanvasRunsAtSixty()
+        {
+            // Four full-HD tiles from 30 Hz sources: 4 x 1.67 = 6.7 Gbps. The canvas is 4K60, whose window pixels alone would say 12.8.
+            var sources = Enumerable.Range(0, 4).Select(_ => Src(new SourceVideo(1920, 1080, 30), 1920, 1080)).ToList();
+
+            Assert.False(MultiViewBandwidthBudget.NeedsFrameDivider(sources));
+        }
+
+        [Fact]
+        public void NeedsFrameDivider_ThreeFullHdSixtyStreams_AreOverTheReceiverLimit()
+        {
+            var sources = Enumerable.Range(0, 3).Select(_ => Src(Fhd60, 1920, 1080)).ToList();
+
+            Assert.True(MultiViewBandwidthBudget.NeedsFrameDivider(sources)); // 3 x 3.21 = 9.6
+        }
+
+        [Fact]
+        public void NeedsFrameDivider_UsesTheWireEfficiency()
+        {
+            // 3840x2160 tile from a 43 Hz source: 8.56 Gbps of pixels, 9.2 on the wire. A small source keeps stream 0 out of it.
+            var one = new[] { Src(new SourceVideo(1280, 720, 43), 3840, 2160) };
+
+            Assert.True(MultiViewBandwidthBudget.NeedsFrameDivider(one));
+        }
+
+        [Fact]
+        public void NeedsFrameDivider_BoomCase_StreamZeroPlusAScaledStreamTipsTheTransmitterOver()
+        {
+            // One tile only (3.2 Gbps at the receiver), but a 4K60 source's own compressed stream 0 is 8.56 on the same link.
+            var boom = new[] { Src(Uhd60, 1920, 1080) };
+
+            Assert.True(MultiViewBandwidthBudget.NeedsFrameDivider(boom));
+        }
+
+        [Fact]
+        public void NeedsFrameDivider_SmallSourceWithAScaler_Fits()
+        {
+            var fits = new[] { Src(Fhd60, 1920, 1080), Src(Fhd60, 1920, 1080) };
+
+            Assert.False(MultiViewBandwidthBudget.NeedsFrameDivider(fits)); // 6.4 Gbps at the receiver, 6.4 per transmitter
         }
     }
 }

@@ -7,6 +7,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     /// <summary>A source's incoming video as the transmitter sees it (active pixels, no blanking).</summary>
     public sealed record SourceVideo(int Width, int Height, double Fps, int BitsPerPixel = 24);
 
+    /// <summary>One transmitter in a layout: what it receives and the scaler size its tile(s) need.</summary>
+    public sealed record SourcePlan(SourceVideo Video, int ScalerWidth, int ScalerHeight);
+
     /// <summary>What one transmitter would put on its 10G link: stream 0 (native) plus stream 1 (scaled).</summary>
     /// <param name="Stream0Compressed">Stream 0 exceeds the limit uncompressed, so the TX compresses it; a compressed stream 0 cannot be a multiview tile.</param>
     public sealed record TxLoad(double Stream0Gbps, bool Stream0Compressed, double Stream1Gbps)
@@ -56,6 +59,23 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
         /// <summary>Ingress of a multiview receiver: every distinct subscribed stream arrives once, whatever its window count.</summary>
         public static double RxIngress(IEnumerable<double> distinctStreamGbps) => distinctStreamGbps.Sum();
+
+        /// <summary>
+        /// True when the layout, sent at full frame rate, would put more than the limit on a transmitter (stream 0 plus
+        /// scaled stream 1) or on the receiver (every distinct scaled stream). Uses each source's own frame rate, not the
+        /// canvas rate. Stream 0 is assumed undivided, as the app only divides stream 1.
+        /// </summary>
+        public static bool NeedsFrameDivider(IReadOnlyList<SourcePlan> sources)
+        {
+            double rx = 0;
+            foreach (var s in sources)
+            {
+                var load = TxEgress(s.Video, false, (s.ScalerWidth, s.ScalerHeight), false);
+                if (IsOverLimit(load.TotalGbps)) return true;
+                rx += load.Stream1Gbps;
+            }
+            return IsOverLimit(rx);
+        }
 
         public static bool IsOverLimit(double gbps) => gbps > LimitGbps;
 

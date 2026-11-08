@@ -97,6 +97,37 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public async Task Take_FourKCanvas_WithThirtyHertzSources_DoesNotHalveWhatTheCanvasRateAloneWouldHalve()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+            c.SourceVideos["tx1"] = new SourceVideo(1920, 1080, 30);
+            c.SourceVideos["tx2"] = new SourceVideo(1920, 1080, 30);
+            var rx = Rx();
+            var (plan, _) = await o.PlanForDisplayAsync(rx, "matrix2x2");
+
+            var result = await o.TakeAsync(rx, Draft(plan, (0, "tx1"), (1, "tx1"), (2, "tx2")));
+
+            Assert.Equal(TakeOutcome.Applied, result.Outcome);
+            Assert.DoesNotContain(c.MultiViewCalls, call => call.StartsWith("divider:"));
+        }
+
+        [Fact]
+        public async Task Take_OneFourKSixtySource_IsHalvedBecauseItsOwnStreamPlusTheScaledOneOverloadTheLink()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.Build((1920, 1080, 60, false));
+            c.SourceVideos["tx1"] = new SourceVideo(3840, 2160, 60); // compressed stream 0 is 8.6 Gbps on its own
+            var rx = Rx();
+            var (plan, _) = await o.PlanForDisplayAsync(rx, "side_by_side"); // 3.2 Gbps of tiles: the old estimate says fine
+
+            var result = await o.TakeAsync(rx, Draft(plan, (0, "tx1")));
+
+            Assert.Equal(TakeOutcome.Applied, result.Outcome);
+            Assert.Contains("divider:tx1:half", c.MultiViewCalls);
+        }
+
+        [Fact]
         public async Task Take_Rejected_KeepsTheOldOnScreenState()
         {
             var (o, c) = Create();

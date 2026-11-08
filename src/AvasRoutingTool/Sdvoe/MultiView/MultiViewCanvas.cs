@@ -49,12 +49,13 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
         /// <summary>
         /// Rough stream-1 bandwidth if every window is live: scaler output is RGB 8-bit, so
-        /// total window pixels x frame rate x 24 bit.
+        /// total window pixels x frame rate x 24 bit / wire efficiency. Only an estimate from the canvas rate: when the
+        /// sources' own video can be read, <see cref="MultiViewBandwidthBudget.NeedsFrameDivider"/> decides instead.
         /// </summary>
         public static double EstimateGbps(MultiViewLayoutPlan plan, int fps)
         {
             double pixels = plan.Slots.Sum(s => (double)s.Width * s.Height);
-            return pixels * fps * 24 / 1e9;
+            return pixels * fps * 24 / MultiViewBandwidthBudget.Efficiency / 1e9;
         }
 
         /// <summary>

@@ -98,13 +98,13 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void EstimateGbps_FourFullHdWindowsAtSixtyIsAboutTwelve()
+        public void EstimateGbps_FourFullHdWindowsAtSixtyIsAboutThirteenOnTheWire()
         {
             var plan = MultiViewPresets.Build("matrix2x2", 3840, 2160);
 
             double gbps = MultiViewCanvasPolicy.EstimateGbps(plan, 60);
 
-            Assert.InRange(gbps, 11.9, 12.0); // 3840*2160*60*24 bit
+            Assert.InRange(gbps, 12.7, 12.9); // 3840*2160*60*24 bit / 0.93 wire efficiency
         }
 
         [Fact]
@@ -160,7 +160,7 @@ namespace AvasRoutingTool.Tests
             string text = MultiViewCanvasPolicy.Summarize(canvas, heavy);
 
             Assert.Contains("half frame rate", text);
-            Assert.Contains("~6.0 Gbps", text);
+            Assert.Contains("~6.4 Gbps", text);
             Assert.DoesNotContain("recommended", text);
         }
 

@@ -158,6 +158,12 @@ namespace AvasRoutingTool.Tests
             return ReceiverStates.TryGetValue(rxMac, out var s) ? s : null;
         }
 
+        /// <summary>Incoming video per transmitter MAC for <see cref="ReadSourceVideoAsync"/>; a missing one reads as unknown.</summary>
+        public System.Collections.Generic.Dictionary<string, AvasRoutingTool.Sdvoe.MultiView.SourceVideo> SourceVideos { get; } = new();
+
+        public Task<AvasRoutingTool.Sdvoe.MultiView.SourceVideo?> ReadSourceVideoAsync(string txMac) =>
+            Task.FromResult(SourceVideos.TryGetValue(txMac, out var v) ? v : null);
+
         /// <summary>MACs whose stream-1 divider was already on before the tool touched anything.</summary>
         public System.Collections.Generic.HashSet<string> AlreadyHalved { get; } = new();
 

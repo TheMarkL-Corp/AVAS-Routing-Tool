@@ -857,8 +857,9 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
             // Stream 1 at half frame rate when the layout would otherwise exceed the bandwidth guideline.
             // A source without the divider simply keeps running at full rate; that is not fatal.
-            bool halve = MultiViewCanvasPolicy.NeedsFrameDivider(plan, canvas.Fps);
-            await WarnIfOverBudgetAsync(rx, surfaces, halve);
+            var videos = await ReadSourceVideosAsync(surfaces);
+            bool halve = NeedsHalving(plan, canvas, surfaces, videos);
+            await WarnIfOverBudgetAsync(rx, surfaces, halve, videos);
             var refused = new HashSet<string>();
 
             // Every scaler this attempt resizes: a refused or failed Take must put them back (the live picture would
@@ -906,20 +907,52 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             }
         }
 
+        /// <summary>Incoming video of every source in the plan; unreadable ones are left out. Never throws.</summary>
+        private async Task<IReadOnlyDictionary<string, SourceVideo>> ReadSourceVideosAsync(SurfacePlan surfaces)
+        {
+            var videos = new Dictionary<string, SourceVideo>();
+            foreach (var source in surfaces.Sources)
+            {
+                try
+                {
+                    var video = await _client.ReadSourceVideoAsync(source.Mac);
+                    if (video != null) videos[source.Mac] = video;
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn("MULTIVIEW", $"Could not read the video of '{source.Mac}': {ex.Message}");
+                }
+            }
+            return videos;
+        }
+
+        /// <summary>
+        /// Stream 1 at half rate? Decided from the sources' real video (their own frame rate, stream 0 plus stream 1 per
+        /// transmitter, every stream at the receiver). If any source cannot be read, the canvas-rate estimate counts too,
+        /// so an unreadable source never makes the decision less cautious than before.
+        /// </summary>
+        private static bool NeedsHalving(MultiViewLayoutPlan plan, MultiViewCanvas canvas, SurfacePlan surfaces, IReadOnlyDictionary<string, SourceVideo> videos)
+        {
+            var known = surfaces.Sources.Where(s => videos.ContainsKey(s.Mac))
+                .Select(s => new SourcePlan(videos[s.Mac], s.Width, s.Height)).ToList();
+            bool allKnown = known.Count == surfaces.Sources.Count();
+            return MultiViewBandwidthBudget.NeedsFrameDivider(known)
+                || (!allKnown && MultiViewCanvasPolicy.NeedsFrameDivider(plan, canvas.Fps));
+        }
+
         /// <summary>
         /// Warning only, never blocks a Take and never throws: logs when a source's transmitter or the display's receiver
         /// would be over the 9 Gbps limit (see docs/studies/2026-11-07-multiview-bandwidth-study.md). Stream 0 is
         /// assumed undivided, as the app does not change it. Sources whose video cannot be read are skipped.
         /// </summary>
-        private async Task WarnIfOverBudgetAsync(AvasDevice rx, SurfacePlan surfaces, bool halve)
+        private async Task WarnIfOverBudgetAsync(AvasDevice rx, SurfacePlan surfaces, bool halve, IReadOnlyDictionary<string, SourceVideo> videos)
         {
             try
             {
                 double rxGbps = 0;
                 foreach (var source in surfaces.Sources)
                 {
-                    var video = await _client.ReadSourceVideoAsync(source.Mac);
-                    if (video == null) continue;
+                    if (!videos.TryGetValue(source.Mac, out var video)) continue;
 
                     var load = MultiViewBandwidthBudget.TxEgress(video, false, (source.Width, source.Height), halve);
                     rxGbps += load.Stream1Gbps;
