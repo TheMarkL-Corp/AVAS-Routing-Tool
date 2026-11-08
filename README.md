@@ -70,4 +70,6 @@ dotnet publish src/AvasRoutingTool/AvasRoutingTool.csproj -c Release -o publish/
 
 ## Documentation
 
+* **New here?** Start with the [Quick Start Guide](./docs/QUICKSTART.md).
+
 * Technical architecture and hardware protocol specifications are available in the [`Handover/`](./Handover/) directory.
