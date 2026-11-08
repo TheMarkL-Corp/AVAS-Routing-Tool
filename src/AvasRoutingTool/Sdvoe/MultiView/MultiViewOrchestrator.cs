@@ -858,6 +858,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             // Stream 1 at half frame rate when the layout would otherwise exceed the bandwidth guideline.
             // A source without the divider simply keeps running at full rate; that is not fatal.
             bool halve = MultiViewCanvasPolicy.NeedsFrameDivider(plan, canvas.Fps);
+            await WarnIfOverBudgetAsync(rx, surfaces, halve);
             var refused = new HashSet<string>();
 
             // Every scaler this attempt resizes: a refused or failed Take must put them back (the live picture would
@@ -902,6 +903,38 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             {
                 await RestoreScalersAsync(rx, scalers);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Warning only, never blocks a Take and never throws: logs when a source's transmitter or the display's receiver
+        /// would be over the 9 Gbps limit (see docs/studies/2026-11-07-multiview-bandwidth-study.md). Stream 0 is
+        /// assumed undivided, as the app does not change it. Sources whose video cannot be read are skipped.
+        /// </summary>
+        private async Task WarnIfOverBudgetAsync(AvasDevice rx, SurfacePlan surfaces, bool halve)
+        {
+            try
+            {
+                double rxGbps = 0;
+                foreach (var source in surfaces.Sources)
+                {
+                    var video = await _client.ReadSourceVideoAsync(source.Mac);
+                    if (video == null) continue;
+
+                    var load = MultiViewBandwidthBudget.TxEgress(video, false, (source.Width, source.Height), halve);
+                    rxGbps += load.Stream1Gbps;
+
+                    string? text = MultiViewBandwidthBudget.Describe(source.Mac,"transmitter sends", load.TotalGbps);
+                    if (text != null)
+                        AppLogger.Warn("MULTIVIEW", text + (load.Stream0Compressed ? " Its original stream is compressed 4K and cannot be a multiview tile." : ""));
+                }
+
+                string? rxText = MultiViewBandwidthBudget.Describe(rx.DeviceName, "receiver takes in", rxGbps);
+                if (rxText != null) AppLogger.Warn("MULTIVIEW", rxText);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn("MULTIVIEW", $"Bandwidth check skipped: {ex.Message}");
             }
         }
 

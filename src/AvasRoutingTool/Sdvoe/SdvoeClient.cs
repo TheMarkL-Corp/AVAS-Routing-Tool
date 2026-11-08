@@ -437,6 +437,12 @@ namespace AvasRoutingTool.Sdvoe
             return null;
         }
 
+        public async Task<MultiView.SourceVideo?> ReadSourceVideoAsync(string txMac)
+        {
+            var result = await RequestAsync("POST", $"/api/device/{NormalizeMac(txMac)}", new { op = "get", subset = "settings" });
+            return result.Ok ? MultiView.SourceVideoReader.Parse(result.Body) : null;
+        }
+
         public Task<bool> SetStream1FrameDividerAsync(string txMac, bool halve)
         {
             AppLogger.Info("MULTIVIEW", $"{NormalizeMac(txMac)} stream 1 frame divider {(halve ? "ON (half rate)" : "OFF (full rate)")}");
