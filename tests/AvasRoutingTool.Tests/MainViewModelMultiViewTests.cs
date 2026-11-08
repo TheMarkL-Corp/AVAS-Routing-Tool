@@ -468,14 +468,14 @@ namespace AvasRoutingTool.Tests
             Assert.Empty(rig.RxVm.CanvasInfo); // the multiview's output format is gone with it
         }
 
-        /// <summary>A PIP on a 4K display: TX1 in the big Main block reads surface 0, TX2 in the Inset reads surface 1.</summary>
+        /// <summary>A 1+3 Quad on a 4K display: TX1 in the 2560x1440 Focus block reads surface 0, TX2 in block "2" reads surface 1.</summary>
         private static async Task TakePipWithSurfaceZeroAsync(Rig rig)
         {
             rig.Client.DisplayEdid = TestEdids.ViewSonic4k;
-            await rig.Compose("pip");
+            await rig.Compose("quad_1_3");
             var plan = rig.Composer.Draft!.Plan;
-            rig.Place(plan.Slots.Single(s => s.Label == "Main").Index, rig.Tx1Vm);
-            rig.Place(plan.Slots.Single(s => s.Label == "Inset").Index, rig.Tx2Vm);
+            rig.Place(plan.Slots.Single(s => s.Label == "Focus").Index, rig.Tx1Vm);
+            rig.Place(plan.Slots.Single(s => s.Label == "2").Index, rig.Tx2Vm);
             await rig.Composer.TakeAsync();
             rig.Vm.CloseComposer();
             Assert.Contains(0, rig.Client.LastSubscriptions!.Select(s => s.SubscriptionIndex));

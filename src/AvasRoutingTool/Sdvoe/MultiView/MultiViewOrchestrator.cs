@@ -251,7 +251,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         /// </summary>
         public async Task<(MultiViewLayoutPlan Plan, MultiViewCanvas Canvas)> PlanForDisplayAsync(AvasDevice rx, string layoutId)
         {
-            var canvas = await ResolveCanvasAsync(rx);
+            var canvas = MultiViewCanvasPolicy.ForLayout(await ResolveCanvasAsync(rx), layoutId);
             return (MultiViewPresets.Build(layoutId, canvas.Width, canvas.Height), canvas);
         }
 
@@ -813,6 +813,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             bool drawnForCopy = copied != null && plan.Width == copied.Width && plan.Height == copied.Height;
             bool keepCopy = drawnForCopy && edid != null && edid.Supports(copied!.Width, copied.Height, copied.Fps);
             if (keepCopy) canvas = copied!;
+            else canvas = MultiViewCanvasPolicy.ForLayout(canvas, plan.Id);
             AppLogger.Info("MULTIVIEW", $"'{rx.DeviceName}' output: {canvas.Description}");
 
             // An unreadable EDID is not a 1920x1080 display: a layout drawn for another size must not be redrawn

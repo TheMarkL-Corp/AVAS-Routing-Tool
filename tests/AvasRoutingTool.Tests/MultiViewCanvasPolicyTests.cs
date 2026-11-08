@@ -18,6 +18,38 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void ForLayout_Pip_StepsAFourKDisplayDownTo1080pAndSaysSo()
+        {
+            var four = MultiViewCanvasPolicy.Choose(EdidInfo.Parse(TestEdids.ViewSonic4k));
+
+            var canvas = MultiViewCanvasPolicy.ForLayout(four, "pip");
+
+            Assert.Equal((1920, 1080, 60), (canvas.Width, canvas.Height, canvas.Fps));
+            Assert.True(canvas.FromDisplay);
+            Assert.Contains("1920x1080@60", canvas.Description);
+            Assert.Contains("VP3268-4K", canvas.Description);
+        }
+
+        [Theory]
+        [InlineData("matrix2x2")]
+        [InlineData("side_by_side")]
+        [InlineData("quad_1_3")]
+        public void ForLayout_OtherLayouts_KeepTheDisplayCanvas(string id)
+        {
+            var four = MultiViewCanvasPolicy.Choose(EdidInfo.Parse(TestEdids.ViewSonic4k));
+
+            Assert.Same(four, MultiViewCanvasPolicy.ForLayout(four, id));
+        }
+
+        [Fact]
+        public void ForLayout_Pip_LeavesA1080pDisplayAlone()
+        {
+            var hd = MultiViewCanvasPolicy.Choose(EdidInfo.Parse(TestEdids.Build((1920, 1080, 60, false))));
+
+            Assert.Same(hd, MultiViewCanvasPolicy.ForLayout(hd, "pip"));
+        }
+
+        [Fact]
         public void Choose_FullHdDisplay_UsesFullHd()
         {
             var canvas = MultiViewCanvasPolicy.Choose(EdidInfo.Parse(TestEdids.Build((1920, 1080, 60, false))));

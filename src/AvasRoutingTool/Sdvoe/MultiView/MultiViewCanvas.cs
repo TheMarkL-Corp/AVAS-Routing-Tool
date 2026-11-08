@@ -48,6 +48,25 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         }
 
         /// <summary>
+        /// The canvas a layout runs at on this display. PiP always runs a 1920x1080 canvas (main 1920x1080, inset
+        /// 640x360): the same scaler size the side-by-side and 2x2 tiles use on a 4K canvas, so one encoder can feed
+        /// PiP on one screen and a tile on another, and the receiver takes about 3 Gbps instead of 8+. The decoder
+        /// scales the 1080p canvas up to a 4K panel. Other layouts keep the display's own canvas.
+        /// </summary>
+        public static MultiViewCanvas ForLayout(MultiViewCanvas canvas, string? layoutId)
+        {
+            if (!string.Equals(layoutId, "pip", StringComparison.OrdinalIgnoreCase)) return canvas;
+            if (canvas.Width <= PipWidth && canvas.Height <= PipHeight) return canvas;
+
+            string name = canvas.Description;
+            return new MultiViewCanvas(PipWidth, PipHeight, canvas.Fps, canvas.FromDisplay,
+                $"{PipWidth}x{PipHeight}@{canvas.Fps} (PiP on {name})");
+        }
+
+        public const int PipWidth = 1920;
+        public const int PipHeight = 1080;
+
+        /// <summary>
         /// Rough stream-1 bandwidth if every window is live: scaler output is RGB 8-bit, so
         /// total window pixels x frame rate x 24 bit / wire efficiency. Only an estimate from the canvas rate: when the
         /// sources' own video can be read, <see cref="MultiViewBandwidthBudget.NeedsFrameDivider"/> decides instead.

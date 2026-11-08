@@ -49,8 +49,7 @@ namespace AvasRoutingTool.ViewModels
             new LayoutItemViewModel { Id = "off", Title = "Off", Subtitle = "Mute video", IsAvailable = true },
             new LayoutItemViewModel { Id = "single", Title = "Single View", Subtitle = "Full screen (1:1)", IsAvailable = true },
             new LayoutItemViewModel { Id = "matrix2x2", Title = "Matrix 2x2", Subtitle = "4-quad grid", IsAvailable = true },
-            new LayoutItemViewModel { Id = "pip", Title = "PIP", Subtitle = "Small inset", IsAvailable = true },
-            new LayoutItemViewModel { Id = "pip_large", Title = "PIP Large", Subtitle = "Large inset", IsAvailable = true },
+            new LayoutItemViewModel { Id = "pip", Title = "PIP", Subtitle = "1080p + inset", IsAvailable = true },
             new LayoutItemViewModel { Id = "side_by_side", Title = "Side-by-Side", Subtitle = "Split dual view", IsAvailable = true },
             new LayoutItemViewModel { Id = "quad_1_3", Title = "1+3 Quad", Subtitle = "Master + 3 sub", IsAvailable = true },
         };

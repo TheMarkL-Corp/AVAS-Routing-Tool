@@ -132,7 +132,7 @@ namespace AvasRoutingTool.Tests
             });
 
         [Fact]
-        public void DisplayCard_LayoutMenu_OpensWithSevenSchematicTiles_AndHeaderButtonIsAtLeast48High() =>
+        public void DisplayCard_LayoutMenu_OpensWithSixSchematicTiles_AndHeaderButtonIsAtLeast48High() =>
             RunSta(() =>
             {
                 var rig = new CopyRig();
@@ -151,11 +151,11 @@ namespace AvasRoutingTool.Tests
                     Relayout(menu);
 
                     var tiles = Named(menu, "LayoutMenuTile").Cast<Button>().ToList();
-                    Assert.Equal(new[] { "single", "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3", "off" },
+                    Assert.Equal(new[] { "single", "matrix2x2", "pip", "side_by_side", "quad_1_3", "off" },
                         tiles.Select(t => ((LayoutItemViewModel)t.DataContext).Id));
                     Assert.All(tiles, t => Assert.True(t.IsVisible && t.ActualHeight >= 56 && t.ActualWidth >= 56, $"tile {t.ActualWidth}x{t.ActualHeight}"));
-                    Assert.Equal(new[] { 1, 4, 2, 2, 2, 4, 0 }, tiles.Select(t => FindAll<LayoutSchematic>(t).Single().CellCount));
-                    Assert.Equal(new[] { "Single View", "Matrix 2x2", "PIP", "PIP Large", "Side-by-Side", "1+3 Quad", "Off" },
+                    Assert.Equal(new[] { 1, 4, 2, 2, 4, 0 }, tiles.Select(t => FindAll<LayoutSchematic>(t).Single().CellCount));
+                    Assert.Equal(new[] { "Single View", "Matrix 2x2", "PIP", "Side-by-Side", "1+3 Quad", "Off" },
                         tiles.Select(t => FindAll<TextBlock>(t).First(tb => tb.Name == "LayoutMenuTitle").Text));
 
                     // The layout on screen is marked, in words (never colour only).

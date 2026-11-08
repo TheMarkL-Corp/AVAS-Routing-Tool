@@ -77,6 +77,37 @@ namespace AvasRoutingTool.Tests
             Assert.Contains("EDID unavailable", canvas.Description);
         }
 
+        [Fact]
+        public async Task PlanForDisplay_Pip_OnAFourKDisplay_IsA1080pCanvasWithA640x360Inset()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+
+            var (plan, canvas) = await o.PlanForDisplayAsync(Rx(), "pip");
+
+            Assert.Equal("avas_pip_1920x1080", plan.Name);
+            Assert.Equal((1920, 1080), (canvas.Width, canvas.Height));
+            var inset = plan.Slots.Single(s => s.Label == "Inset");
+            var main = plan.Slots.Single(s => s.Label == "Main");
+            Assert.Equal((640, 360), (inset.Width, inset.Height));
+            Assert.Equal((1920, 1080), (main.Width, main.Height));
+        }
+
+        [Fact]
+        public async Task Take_Pip_OnAFourKDisplay_IsAppliedAt1080pAndNotRedrawn()
+        {
+            var (o, c) = Create();
+            c.DisplayEdid = TestEdids.ViewSonic4k;
+            var rx = Rx();
+            var draft = await DraftFor(o, rx, "pip");
+            draft.Place(draft.Plan.Slots.Single(s => s.Label == "Main").Index, "tx1", "TX1");
+
+            var result = await o.TakeAsync(rx, draft);
+
+            Assert.Equal(TakeOutcome.Applied, result.Outcome);
+            Assert.Contains("scaler:tx1:1920x1080", c.MultiViewCalls);
+        }
+
         // ---- the EDID at Take -----------------------------------------------------------------------
 
         [Fact]
@@ -398,7 +429,7 @@ namespace AvasRoutingTool.Tests
 
         // ---- a Take that fails after resizing scalers puts them back ------------------------------
 
-        /// <summary>RX1 shows a Matrix on a 4K display with TX1 in block 1 (a 1920x1080 window); the staged PIP puts TX1 in the small inset and TX2 in the 4K main block.</summary>
+        /// <summary>RX1 shows a Matrix on a 4K display with TX1 in block 1 (a 1920x1080 window); the staged PIP (a 1080p canvas) puts TX1 in the small inset and TX2 in the 1920x1080 main block.</summary>
         private static async Task<(MultiViewOrchestrator o, MockSdvoeClient c, AvasDevice rx, MultiViewDraft pip, WindowSlot inset)> LiveMatrixAndStagedPipAsync()
         {
             var (o, c) = Create();
@@ -428,7 +459,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(new[]
             {
                 $"scaler:tx1:{inset.Width}x{inset.Height}", // the staged size
-                "scaler:tx2:3840x2160",                       // refused
+                "scaler:tx2:1920x1080",                       // refused
                 "scaler:tx1:1920x1080",                       // TX1 back at what the live Matrix needs; TX2 is not live: left alone
             }, ScalerCalls(c));
             Assert.DoesNotContain(c.MultiViewCalls, x => x.StartsWith("layout:") || x.StartsWith("multiview:"));
@@ -448,7 +479,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(new[]
             {
                 $"scaler:tx1:{inset.Width}x{inset.Height}",
-                "scaler:tx2:3840x2160",
+                "scaler:tx2:1920x1080",
                 "scaler:tx1:1920x1080",
             }, ScalerCalls(c));
         }

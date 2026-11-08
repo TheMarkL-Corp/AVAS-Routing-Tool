@@ -15,7 +15,7 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         private const int MinWindowSize = 8;
         private static readonly int[] ForbiddenWidths = { 1366, 1368, 2732, 2734, 4098, 4100 };
 
-        public static readonly IReadOnlyList<string> Ids = new[] { "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3" };
+        public static readonly IReadOnlyList<string> Ids = new[] { "matrix2x2", "pip", "side_by_side", "quad_1_3" };
 
         public static bool IsMultiView(string? id) =>
             id != null && Ids.Contains(id, StringComparer.OrdinalIgnoreCase);
@@ -96,7 +96,6 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 "matrix2x2" => Matrix(canvasWidth, canvasHeight),
                 "side_by_side" => SideBySide(canvasWidth, canvasHeight),
                 "pip" => Pip(canvasWidth, canvasHeight, insetWidth),
-                "pip_large" => Pip(canvasWidth, canvasHeight, insetWidth ?? Even(Fit(canvasWidth, canvasHeight, 1, 1).cw / 3.0)),
                 _ => Quad(canvasWidth, canvasHeight),
             };
 
@@ -152,11 +151,10 @@ namespace AvasRoutingTool.Sdvoe.MultiView
         private static Rect[] Pip(int w, int h, int? insetWidth)
         {
             var (cw, ch, ox, oy) = Fit(w, h, 1, 1);
-            // A 4K canvas gets a fixed 1280x720 inset (a standard-surface size); other canvases keep a quarter of the width.
-            // An explicit insetWidth overrides both.
-            bool fixedInset = w == 3840 && h == 2160;
-            int iw = insetWidth.HasValue ? Even(insetWidth.Value) : fixedInset ? 1280 : Even(cw / 4.0);
-            int ih = insetWidth.HasValue || !fixedInset ? Even(iw * 9.0 / 16.0) : 720;
+            // The inset is a third of the main width: 640x360 on the 1920x1080 canvas PiP runs at (1280x720 at 4K).
+            // An explicit insetWidth overrides it.
+            int iw = insetWidth.HasValue ? Even(insetWidth.Value) : Even(cw / 3.0);
+            int ih = Even(iw * 9.0 / 16.0);
             int margin = Even(cw / 48.0);
             // Reference PiP: background is window 1, inset is window 0 (lower index paints on top).
             return new[]

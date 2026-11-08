@@ -77,11 +77,20 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void Pip_At1080p_InsetStaysAQuarterOfTheCanvasWidth()
+        public void Pip_At1080p_IsA1920x1080MainWithA640x360InsetAtTheBottomRightMargin()
         {
             var plan = MultiViewPresets.Build("pip", 1920, 1080);
 
-            Assert.Equal((1400, 770, 480, 270), Rect(plan.Slots.Single(s => s.Index == 0)));
+            Assert.Equal((1920 - 640 - 40, 1080 - 360 - 40, 640, 360), Rect(plan.Slots.Single(s => s.Index == 0)));
+            Assert.Equal((0, 0, 1920, 1080), Rect(plan.Slots.Single(s => s.Index == 1)));
+        }
+
+        [Fact]
+        public void PipLarge_IsGone_ThePipPresetIsTheOnlyPip()
+        {
+            Assert.False(MultiViewPresets.IsMultiView("pip_large"));
+            Assert.DoesNotContain("pip_large", MultiViewPresets.Ids);
+            Assert.False(MultiViewPresets.TryParseName("avas_pip_large_1920x1080", out _, out _, out _));
         }
 
         [Fact]
@@ -95,7 +104,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void Pip_WithInsetWidth_OverridesTheFourKFixedInset()
+        public void Pip_WithInsetWidth_OverridesTheDefaultInset()
         {
             var plan = MultiViewPresets.Build("pip", 3840, 2160, insetWidth: 960);
 
@@ -104,28 +113,10 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void PipLarge_At1080p_InsetIsAThirdOfTheWidthInFrontOfTheMain()
+        public void Pip_NameRoundTrips()
         {
-            Assert.True(MultiViewPresets.IsMultiView("pip_large"));
-
-            var plan = MultiViewPresets.Build("pip_large", 1920, 1080);
-
-            var inset = plan.Slots.Single(s => s.Index == 0);
-            Assert.Equal("Inset", inset.Label);
-            Assert.Equal((640, 360), (inset.Width, inset.Height));
-            Assert.Equal((0, 0, 1920, 1080), Rect(plan.Slots.Single(s => s.Index == 1)));
-            Assert.Equal(0, plan.PaintOrder.Last().Index);
-            Assert.Equal("avas_pip_large_1920x1080", plan.Name);
-        }
-
-        [Fact]
-        public void PipLarge_NameRoundTripsAndPipStaysPip()
-        {
-            Assert.True(MultiViewPresets.TryParseName(MultiViewPresets.LayoutName("pip_large", 1920, 1080, "74:FE:48:3C:05:9E"), out var large, out int w, out int h));
-            Assert.Equal(("pip_large", 1920, 1080), (large, w, h));
-
-            Assert.True(MultiViewPresets.TryParseName("avas_pip_1920x1080", out var small, out _, out _));
-            Assert.Equal("pip", small);
+            Assert.True(MultiViewPresets.TryParseName(MultiViewPresets.LayoutName("pip", 1920, 1080, "74:FE:48:3C:05:9E"), out var id, out int w, out int h));
+            Assert.Equal(("pip", 1920, 1080), (id, w, h));
         }
 
         [Fact]
@@ -135,7 +126,7 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void Pip_AtFourK_InsetIsAFixed1280x720AtTheBottomRightMargin()
+        public void Pip_AtFourK_InsetIsAThirdOfTheWidth1280x720AtTheBottomRightMargin()
         {
             var plan = MultiViewPresets.Build("pip", 3840, 2160);
 

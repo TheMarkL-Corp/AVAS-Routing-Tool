@@ -77,7 +77,6 @@ namespace AvasRoutingTool.Sdvoe.MultiView
             {
                 "matrix2x2" => "Matrix 2x2",
                 "pip" => "PIP",
-                "pip_large" => "PIP Large",
                 "side_by_side" => "Side-by-Side",
                 "quad_1_3" => "1+3 Quad",
                 _ => plan.Name,
