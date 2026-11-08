@@ -1,0 +1,78 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Text roles (D8): Lead 16, Title 14, Section 14, Body 13, Caption 12, Mono 12. Sizes come from Tokens.xaml, so nothing is below 12.
+        A role sets size, weight and the default text colour; text over video or a scrim still sets an explicit On* Foreground on the element.
+        WPF text has no text-transform or letter-spacing: Section text is written in capitals where the design wants them.
+    -->
+
+    <Style x:Key="Style.Text.Lead" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Title" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <!-- A heading of a group of controls; screen readers announce it as a level 2 heading (a view may set another level) -->
+    <Style x:Key="Style.Text.Section" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="AutomationProperties.HeadingLevel" Value="Level2" />
+    </Style>
+
+    <Style x:Key="Style.Text.Body" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Caption" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    </Style>
+
+    <!-- The word beside a status dot ("Online"). Status = dot + word, never a coloured pill. -->
+    <Style x:Key="Style.Text.Status" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Style.Text.Mono" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Consolas, Cascadia Code, Courier New" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <!-- Log level in the Logs list: Tag="{Binding Level}"; Info is the accent, Warn / Error / Debug follow the palette -->
+    <Style x:Key="Style.Text.LogLevel" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Mono}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Warn">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Staged}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Action.Danger}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Debug">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- MultiView Composer: body and label text (14 px, >= 4.5:1 on the card and background colours) -->
+    <Style x:Key="Style.Text.ComposerLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+</ResourceDictionary>

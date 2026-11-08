@@ -29,6 +29,8 @@ namespace AvasRoutingTool.Views
         private readonly TapGesture _copyGesture = new();
         private bool _tapPending;
         private ToolTip? _copyTip;
+        private ToolTip? _copyReasonTip;
+        private DispatcherTimer? _copyReasonTimer;
         private CopyGhostAdorner? _ghost;
         private AdornerLayer? _ghostLayer;
         private UIElement? _ghostRoot;
@@ -59,11 +61,13 @@ namespace AvasRoutingTool.Views
                 new CustomPopupPlacement(new Point(target.Width - popup.Width, -popup.Height - 6), PopupPrimaryAxis.Horizontal),
             };
             DataContextChanged += (_, _) => Watch(IsLoaded ? DataContext as DisplayCardViewModel : null);
-            Loaded += (_, _) => Watch(DataContext as DisplayCardViewModel);
+            Loaded += (_, _) => { Watch(DataContext as DisplayCardViewModel); UpdateLayoutLabel(); };
+            FloatingActionDock.SizeChanged += (_, _) => UpdateLayoutLabel();
             Unloaded += (_, _) =>
             {
                 Watch(null);
                 HideCopyTip();
+                HideCopyReason();
                 HideGhost();
             };
         }
@@ -99,16 +103,69 @@ namespace AvasRoutingTool.Views
             if (_watched != null) _watched.PropertyChanged -= OnCardChanged;
             _watched = card;
             if (_watched != null) _watched.PropertyChanged += OnCardChanged;
+            HideCopyReason(); // a reason belongs to the display it was asked about
+        }
+
+        /// <summary>
+        /// While a draft chip is shown and the full bar does not fit the dock, the bar gives way in two steps: the "More layouts" label
+        /// (icon and chevron stay), then the chip's " - Resume" word (icon, "DRAFT" and the tooltip stay). Each need is measured
+        /// with the later steps undone, so the answer does not depend on the current state and cannot flip-flop.
+        /// </summary>
+        private void UpdateLayoutLabel()
+        {
+            double available = FloatingActionDock.ActualWidth;
+            bool hasDraft = (DataContext as DisplayCardViewModel)?.HasDraft == true;
+            if (!hasDraft) { ShowBar(true, true); return; }
+            if (available <= 0) return;
+
+            foreach (var (layoutLabel, resume) in new[] { (true, true), (false, true) })
+            {
+                ShowBar(layoutLabel, resume);
+                if (BarNeed() <= available + 0.5) return;
+            }
+            ShowBar(false, false);
+        }
+
+        private const string DraftResumeText = " · Resume";
+
+        private void ShowBar(bool layoutLabel, bool resume)
+        {
+            LayoutLabel.Visibility = layoutLabel ? Visibility.Visible : Visibility.Collapsed;
+            DraftChipResume.Text = resume ? DraftResumeText : string.Empty;
+        }
+
+        private double BarNeed()
+        {
+            var unbounded = new Size(double.PositiveInfinity, double.PositiveInfinity);
+            double need = 0;
+            foreach (var part in new FrameworkElement[] { LayoutButton, CopyLayoutHandle, DraftChip, TurnOffButton })
+            {
+                if (part.Visibility != Visibility.Visible) continue;
+                part.Measure(unbounded);
+                need += part.DesiredSize.Width + part.Margin.Left + part.Margin.Right;
+            }
+            return need;
         }
 
         private void OnCardChanged(object? sender, PropertyChangedEventArgs e)
         {
+
+            // The draft chip or the power button came or went: the label may need to give way (or come back) once their bindings have settled.
+            if (e.PropertyName is nameof(DisplayCardViewModel.HasDraft) or nameof(DisplayCardViewModel.IsRouted))
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(UpdateLayoutLabel));
             if (sender is not DisplayCardViewModel vm) return;
 
             // The menu closed (StaysOpen=False pushes it through the TwoWay binding at once; Popup.Closed comes later).
             if (e.PropertyName == nameof(DisplayCardViewModel.IsLayoutMenuOpen) && !vm.IsLayoutMenuOpen)
             {
                 RecordMenuClosed();
+                return;
+            }
+
+            // The display can be copied now: the reason it said why not is no longer true.
+            if (e.PropertyName == nameof(DisplayCardViewModel.CanCopyFrom) && vm.CanCopyFrom)
+            {
+                HideCopyReason();
                 return;
             }
 
@@ -209,6 +266,15 @@ namespace AvasRoutingTool.Views
         private void Card_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.IsRepeat && e.Key is Key.Enter or Key.Space) e.Handled = true;
+        }
+
+        /// <summary>
+        /// Keyboard focus inside the card brings the whole card into the sideways row (not only the focused control,
+        /// which the scroller would reveal alone). A press or touch that focuses a control never scrolls: it would fight a pan.
+        /// </summary>
+        private void Card_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            if (InputModality.IsKeyboard && IsLoaded) BringIntoView();
         }
 
         /// <summary>Esc anywhere on the card stops what is armed (a copy first), as the arm banner's Stop does.</summary>
@@ -334,7 +400,8 @@ namespace AvasRoutingTool.Views
         /// <summary>When the menu last closed (tests).</summary>
         internal int MenuClosedTick => _menuClosedTick;
 
-        private async void LayoutMenuTile_Click(object sender, RoutedEventArgs e)
+        /// <summary>One layout choice for the popup tiles and the inline presets (the DataContext is the layout).</summary>
+        private async void LayoutChoice_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not FrameworkElement { DataContext: LayoutItemViewModel item } || Card is not { } vm) return;
             if (Main is { } main)
@@ -370,7 +437,44 @@ namespace AvasRoutingTool.Views
 
         private async void CopyHandle_Click(object sender, RoutedEventArgs e)
         {
-            if (Card is { CanCopyFrom: true } vm && Main is { } main) await Run(() => main.ToggleCopyArmAsync(vm), "Copy layout");
+            if (Card is not { } vm) return;
+            if (!vm.CanCopyFrom)
+            {
+                // Nothing to copy: the handle takes the press but does not arm; the reason is said next to it for a while.
+                if (sender is UIElement anchor) ShowCopyReason(vm.CopyFromBlockedText, anchor);
+                return;
+            }
+            if (Main is { } main) await Run(() => main.ToggleCopyArmAsync(vm), "Copy layout");
+        }
+
+        /// <summary>The reason shown by the last press on a Copy layout handle with nothing to copy (tests); null before the first one.</summary>
+        internal ToolTip? CopyReasonTip => _copyReasonTip;
+
+        /// <summary>How long the reason for a blocked Copy layout press stays open (tests shorten it).</summary>
+        internal TimeSpan CopyReasonShownFor { get; set; } = TimeSpan.FromSeconds(3);
+
+        private void ShowCopyReason(string text, UIElement anchor)
+        {
+            HideCopyReason();
+            _copyReasonTip = new ToolTip
+            {
+                PlacementTarget = anchor,
+                Placement = PlacementMode.Bottom,
+                StaysOpen = false,
+                MaxWidth = 360,
+                Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 13 },
+            };
+            _copyReasonTip.IsOpen = true;
+            _copyReasonTimer = new DispatcherTimer { Interval = CopyReasonShownFor };
+            _copyReasonTimer.Tick += (_, _) => HideCopyReason();
+            _copyReasonTimer.Start();
+        }
+
+        private void HideCopyReason()
+        {
+            _copyReasonTimer?.Stop();
+            _copyReasonTimer = null;
+            if (_copyReasonTip != null) _copyReasonTip.IsOpen = false;
         }
 
         private void CopyHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => _copyGesture.Press(e.GetPosition(this));

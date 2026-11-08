@@ -1,0 +1,24 @@
+{
+  // The ONE allowlist of the UI v2 guards (UiV2Guards.cs). Paths are relative to src/AvasRoutingTool.
+  // Sessions only ADD entries: a migration task removes its file from "pending" first (the suite goes red), then migrates until green.
+
+  // Every view file that breaks a rule today -> owner and task (plan task ids). A file is enforced as soon as it leaves this list.
+  "pending": {
+  },
+
+  // An element with a literal Width/Height that is a vector icon host (brand mark canvas, geometry placeholders).
+  // { "file": "MainWindow.xaml", "contains": "<text of the element's opening tag>", "reason": "why a token cannot do" }
+  "staticIcons": [
+    { "file": "Views/BrandMark.xaml", "contains": "<Canvas Width=\"64\" Height=\"64\"", "reason": "Design canvas of the brand mark; a Viewbox scales it to the host (Size.Icon.Brand)." },
+    { "file": "Views/BrandMark.xaml", "contains": "Width=\"4\" Height=\"4\"", "reason": "Dots of the brand mark, in the 64 x 64 design canvas." },
+    { "file": "Views/BrandMark.xaml", "contains": "Width=\"12\" Height=\"12\"", "reason": "Core node of the brand mark, in the 64 x 64 design canvas." },
+    { "file": "Views/MultiViewComposerView.xaml", "contains": "<Canvas Width=\"0\" Height=\"0\" HorizontalAlignment=\"Center\" VerticalAlignment=\"Center\">", "reason": "Zero-size layout anchor that centres the Replace/Move strip on its block (NegativeHalfConverter), so the strip may overhang a small block unclipped. An anchor, not a size." }
+  ],
+
+  // A ListBox / ListView / DataGrid that is NOT virtualized. The card grids are ItemsControls (not covered by the rule) and stay
+  // unvirtualized on purpose: each card owns a live RTP preview, so a card must stay realized (D11, zero socket leaks).
+  "unvirtualizedLists": [],
+
+  // An inline Style without BasedOn that cannot be a central style (for example RowDefinition.Style, an ItemContainerStyle).
+  "inlineStyleExceptions": []
+}

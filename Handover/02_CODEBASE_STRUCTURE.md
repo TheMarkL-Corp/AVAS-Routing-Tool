@@ -42,7 +42,7 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
   * Merges resource dictionaries (`Theme.xaml`, `Icons.xaml`).
 * **[`MainWindow.xaml`](../src/AvasRoutingTool/MainWindow.xaml) / [`MainWindow.xaml.cs`](../src/AvasRoutingTool/MainWindow.xaml.cs)**:
   * Top navigation bar with status pill (Connected / Offline), Refresh button, and Settings button.
-  * Tab control switching between `VisualRoutingView`, `BavmConsoleView`, and `DiagnosticsView`.
+  * Tab control switching between `VisualRoutingView`, `RoomCamerasView` (tab "Room Cameras", second), `BavmConsoleView`, and `DiagnosticsView`. Leaving the Room Cameras tab stops its motion; closing the window disposes `RoomCamerasViewModel`.
 
 ### 2.2 Configuration (`Configuration/`)
 * **[`AppConfig.cs`](../src/AvasRoutingTool/Configuration/AppConfig.cs)**:
@@ -62,6 +62,8 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
   * Centers cards horizontally and vertically when viewport exceeds grid size.
 
 ### 2.4 Logging (`Logging/`)
+* **[`FractionalLayoutPanel.cs`](../src/AvasRoutingTool/Controls/FractionalLayoutPanel.cs)**: Places children at fractional rectangles of a letterboxed canvas (MultiView blocks, schematics, thumbnails). With exactly one unbounded axis and an `AspectRatio`, it derives that axis from the ratio.
+* **[`StepHeader.cs`](../src/AvasRoutingTool/Controls/StepHeader.cs)**: Numbered Composer step heading (number, then a check icon when done); look in `Resources/Styles/Composer.xaml` (`Style.StepHeader`); never a tab stop.
 * **[`LogEntry.cs`](../src/AvasRoutingTool/Logging/LogEntry.cs)**: Formatted log structure (`Timestamp`, `Level`, `Category`, `Message`).
 * **[`LogLevel.cs`](../src/AvasRoutingTool/Logging/LogLevel.cs)**: `DEBUG`, `INFO`, `WARN`, `ERROR`, `CRASH`.
 * **[`LogService.cs`](../src/AvasRoutingTool/Logging/LogService.cs)**: Thread-safe ring buffer (max 1000 items in memory for live UI) + continuous append to disk (`app.log`).
@@ -94,13 +96,14 @@ c:\Users\POC-615\Documents\GitHub\AVAS-Routing-Tool\
 * **[`RelayCommand.cs`](../src/AvasRoutingTool/ViewModels/RelayCommand.cs)**: `ICommand` implementation for clean MVVM binding.
 
 ### 2.9 Views (`Views/`)
-* **[`VisualRoutingView.xaml`](../src/AvasRoutingTool/Views/VisualRoutingView.xaml)**: The primary visual routing canvas with top TX row, middle RX row, and bottom Layouts bar.
+* **[`VisualRoutingView.xaml`](../src/AvasRoutingTool/Views/VisualRoutingView.xaml)**: The primary visual routing canvas with top TX row and middle RX row (layouts are chosen in each display card's Layout menu).
 * **[`SourceCardView.xaml`](../src/AvasRoutingTool/Views/SourceCardView.xaml)**: Transmitter card rendering live video preview, telemetry badges, and initiating drag operations.
 * **[`DisplayCardView.xaml`](../src/AvasRoutingTool/Views/DisplayCardView.xaml)**: Receiver card handling drop events, showing mirrored video or non-AVAS fallback banners, and unroute button.
-* **[`LayoutsBarView.xaml`](../src/AvasRoutingTool/Views/LayoutsBarView.xaml)**: Bottom bar with layout presets and drag-to-unroute from the "Off" tile.
+* **[`RoomCamerasView.xaml`](../src/AvasRoutingTool/Views/RoomCamerasView.xaml)** (+ `.xaml.cs`): the Room Cameras tab. PTZ control of room cameras over VISCA IP, with the bound TX picture. Its view model is `RoomCamerasViewModel`, created by `MainWindow` on `_viewModel.Sources`.
 * **[`BavmConsoleView.xaml`](../src/AvasRoutingTool/Views/BavmConsoleView.xaml)**: WebView2 browser control hosting official BAVM web UI.
 * **[`DiagnosticsView.xaml`](../src/AvasRoutingTool/Views/DiagnosticsView.xaml)**: Real-time searchable log table.
 * **[`SettingsDialog.xaml`](../src/AvasRoutingTool/Views/SettingsDialog.xaml)**: Connection settings configuration modal.
+* **[`MultiViewComposerView.xaml`](../src/AvasRoutingTool/Views/MultiViewComposerView.xaml)** (+ `LayoutSchematic`, `CompactSourceCardView`): the MultiView Composer. Views hold layout and bindings only; every style, template and Composer size token lives in `Resources/Styles/Composer.xaml`. `BlockDensity.IsCompact` (inherited, set on a block narrower than 240 px) switches the overlays to compact styles.
 
 ---
 

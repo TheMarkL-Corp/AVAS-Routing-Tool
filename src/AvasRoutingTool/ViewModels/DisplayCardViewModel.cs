@@ -78,7 +78,7 @@ namespace AvasRoutingTool.ViewModels
         /// </summary>
         public string ModeBadge => IsMultiView
             ? $"{_layoutTitle.ToUpperInvariant()} · {Slots.Count(s => s.IsAssigned)}/{Slots.Count}"
-            : _isExternalLayout ? "EXTERNAL LAYOUT" : IsRouted ? "SINGLE VIEW" : "UNROUTED";
+            : _isExternalLayout ? "EXTERNAL LAYOUT" : IsRouted ? "SINGLE VIEW" : "No source";
 
         /// <summary>The header "Layout" menu: Single View, the four MultiView presets, Off. The layout on screen is selected.</summary>
         public IReadOnlyList<LayoutItemViewModel> LayoutMenu { get; }
@@ -106,6 +106,7 @@ namespace AvasRoutingTool.ViewModels
         public void OpenDropChoice(SourceCardViewModel source)
         {
             _dropChoiceSource = source ?? throw new ArgumentNullException(nameof(source));
+            OnPropertyChanged(nameof(ShowUndoToast));
             OnPropertyChanged(nameof(DropChoiceSource));
             OnPropertyChanged(nameof(FullScreenAutomationName));
             OnPropertyChanged(nameof(IntoBlockAutomationName));
@@ -116,6 +117,7 @@ namespace AvasRoutingTool.ViewModels
         {
             if (_dropChoiceSource == null) return;
             _dropChoiceSource = null;
+            OnPropertyChanged(nameof(ShowUndoToast));
             OnPropertyChanged(nameof(DropChoiceSource));
             OnPropertyChanged(nameof(FullScreenAutomationName));
             OnPropertyChanged(nameof(IntoBlockAutomationName));
@@ -182,6 +184,9 @@ namespace AvasRoutingTool.ViewModels
                 ? $"{_externalSourceCount} IN LAYOUT"
                 : IsRouted && !string.IsNullOrEmpty(ActiveSourceName) ? ActiveSourceName : "NONE";
 
+        /// <summary>Footer line 1: "SOURCE: N" once something is routed; empty while idle (the empty tile says "Ready to route a source" once).</summary>
+        public string SourceFooterText => IsRouted || IsMultiView || IsExternalLayout ? $"SOURCE: {SourceLabel}" : string.Empty;
+
         public WriteableBitmap? PreviewBitmap
         {
             get => _previewBitmap;
@@ -191,7 +196,12 @@ namespace AvasRoutingTool.ViewModels
         public bool IsPreviewSupported
         {
             get => _isPreviewSupported;
-            set { _isPreviewSupported = value; OnPropertyChanged(); }
+            set
+            {
+                _isPreviewSupported = value;
+                OnPropertyChanged();
+                NotifyPictureStateChanged();
+            }
         }
 
         public bool IsDragOver
@@ -209,6 +219,9 @@ namespace AvasRoutingTool.ViewModels
 
         /// <summary>Why the Copy layout handle is disabled ("RX1 shows nothing to copy"); empty when it is enabled.</summary>
         public string CopyFromBlockedText => CanCopyFrom ? string.Empty : $"{DeviceName} shows nothing to copy";
+
+        /// <summary>The Copy layout handle's tooltip: what it does while it is on, and that there is nothing to copy while it is off (the reason is its help text).</summary>
+        public string CopyHandleToolTip => CanCopyFrom ? "Copy this layout to another display" : "No layout to copy yet";
 
         /// <summary>This display's Copy layout is armed (or being dragged): it is the copy source.</summary>
         public bool IsCopySource => _isCopySource;
@@ -264,11 +277,34 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>The toast's Undo is offered (10 s after a copy onto this display).</summary>
         public bool CanUndoScreen => _undoToastText != null;
 
+        // ---- View state: read-only, derived from the flags above; the card view binds these instead of stacking XAML triggers. ----
+
+        /// <summary>The Single View picture (mirrored video, notices, placeholder) shows; a multiview layout replaces it with its windows.</summary>
+        public bool ShowSingleViewPicture => !IsMultiView;
+
+        /// <summary>The active-source tag lies on a playing Single View picture.</summary>
+        public bool ShowActiveSourceTag => IsRouted && IsPreviewSupported;
+
+        /// <summary>Routed to a source that has no preview stream (non-AVAS); not shown for a layout set elsewhere, which has its own notice.</summary>
+        public bool ShowRoutedNonAvasNotice => IsRouted && !IsPreviewSupported && !IsExternalLayout;
+
+        /// <summary>The empty tile ("Ready to route a source"): nothing is routed.</summary>
+        public bool ShowUnroutedPlaceholder => !IsRouted;
+
+        /// <summary>
+        /// The Undo toast takes the dock. The drop choice and the copy target states win over it (the toast's Undo never lies
+        /// over a choice button); it comes back when they go, while its 10 s last.
+        /// </summary>
+        public bool ShowUndoToast => CanUndoScreen && !IsDropChoiceOpen && !IsCopyTargetAllowed && !IsCopyTargetBlocked;
+
+        /// <summary>The stale-draft notice line; the copy tag takes its place while this display is the copy source.</summary>
+        public bool ShowDraftNotice => _draftNotice != null && !_isCopySource;
+
         /// <summary>The kept draft is based on a picture that is no longer on screen (a copy replaced it); null otherwise.</summary>
         public string? DraftNotice
         {
             get => _draftNotice;
-            set { if (_draftNotice == value) return; _draftNotice = value; OnPropertyChanged(); }
+            set { if (_draftNotice == value) return; _draftNotice = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowDraftNotice)); }
         }
 
         /// <summary>The toast's Undo: puts back what this display showed before the copy.</summary>
@@ -292,6 +328,7 @@ namespace AvasRoutingTool.ViewModels
             _copyTarget = decision;
             OnPropertyChanged(nameof(IsCopyTargetAllowed));
             OnPropertyChanged(nameof(IsCopyTargetBlocked));
+            OnPropertyChanged(nameof(ShowUndoToast));
             OnPropertyChanged(nameof(CopyTargetText));
             OnPropertyChanged(nameof(PictureAutomationName));
         }
@@ -301,6 +338,7 @@ namespace AvasRoutingTool.ViewModels
             if (_isCopySource == isSource) return;
             _isCopySource = isSource;
             OnPropertyChanged(nameof(IsCopySource));
+            OnPropertyChanged(nameof(ShowDraftNotice));
             OnPropertyChanged(nameof(PictureAutomationName));
             OnPropertyChanged(nameof(CopyHandleAutomationName));
         }
@@ -310,6 +348,7 @@ namespace AvasRoutingTool.ViewModels
             _undoToastText = text;
             OnPropertyChanged(nameof(UndoToastText));
             OnPropertyChanged(nameof(CanUndoScreen));
+            OnPropertyChanged(nameof(ShowUndoToast));
         }
 
         public void ClearUndoScreen()
@@ -318,21 +357,47 @@ namespace AvasRoutingTool.ViewModels
             _undoToastText = null;
             OnPropertyChanged(nameof(UndoToastText));
             OnPropertyChanged(nameof(CanUndoScreen));
+            OnPropertyChanged(nameof(ShowUndoToast));
         }
 
         private void NotifyCopySourceChanged()
         {
             OnPropertyChanged(nameof(CanCopyFrom));
             OnPropertyChanged(nameof(CopyFromBlockedText));
+            OnPropertyChanged(nameof(CopyHandleToolTip));
             OnPropertyChanged(nameof(CopyHandleAutomationName));
             OnPropertyChanged(nameof(PictureAutomationName));
         }
+
+        /// <summary>The pencil: opens the rename dialog for this device (runs <see cref="RenameHandler"/>).</summary>
+        public ICommand RenameCommand { get; }
+
+        /// <summary>Set by <see cref="MainViewModel"/> when discovery builds the card; without it the command is disabled.</summary>
+        public Func<System.Threading.Tasks.Task>? RenameHandler { get; set; }
+
+        /// <summary>What a screen reader says for the pencil button ("Rename RX1").</summary>
+        public string RenameAutomationName => $"Rename {DeviceName}";
+
+        public string RenameToolTip => "Rename";
 
         public DisplayCardViewModel(AvasDevice device, Func<AvasDevice, System.Threading.Tasks.Task>? unrouteAction = null)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
             _unrouteAction = unrouteAction;
 
+            RenameCommand = new RelayCommand(async _ =>
+            {
+                var handler = RenameHandler;
+                if (handler == null) return;
+                try
+                {
+                    await handler();
+                }
+                catch (Exception ex)
+                {
+                    AvasRoutingTool.Logging.AppLogger.Error("RENAME", $"Renaming {DeviceName} failed", ex);
+                }
+            }, _ => RenameHandler != null);
             CopyLayoutCommand = new RelayCommand(async _ =>
             {
                 if (_copyLayoutAction != null) await _copyLayoutAction(this);
@@ -365,6 +430,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 bool selected = !_isExternalLayout && item.Id == _layoutId;
                 if (item.IsSelected != selected) item.IsSelected = selected;
+                item.IsOnScreen = selected && IsRouted;
             }
         }
 
@@ -483,9 +549,21 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(CanvasInfoShort));
             OnPropertyChanged(nameof(CanvasAspect));
             OnPropertyChanged(nameof(SourceLabel));
+            OnPropertyChanged(nameof(SourceFooterText));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(FirstEmptySlotIndex));
+            NotifyPictureStateChanged();
             NotifyCopySourceChanged();
+        }
+
+        /// <summary>The routed / layout / preview flags changed: re-derive the picture state and the Layout menu's on-screen mark.</summary>
+        private void NotifyPictureStateChanged()
+        {
+            SyncLayoutMenu();
+            OnPropertyChanged(nameof(ShowSingleViewPicture));
+            OnPropertyChanged(nameof(ShowActiveSourceTag));
+            OnPropertyChanged(nameof(ShowRoutedNonAvasNotice));
+            OnPropertyChanged(nameof(ShowUnroutedPlaceholder));
         }
 
         public void SetPreviewSource(SourceCardViewModel? sourceVm)
@@ -539,9 +617,11 @@ namespace AvasRoutingTool.ViewModels
             OnPropertyChanged(nameof(ActiveSourceName));
             OnPropertyChanged(nameof(IsRouted));
             OnPropertyChanged(nameof(SourceLabel));
+            OnPropertyChanged(nameof(SourceFooterText));
             OnPropertyChanged(nameof(ModeBadge));
             OnPropertyChanged(nameof(PreviewBitmap));
             OnPropertyChanged(nameof(IsPreviewSupported));
+            NotifyPictureStateChanged();
             NotifyCopySourceChanged();
         }
 

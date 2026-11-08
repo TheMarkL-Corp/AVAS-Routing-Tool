@@ -197,7 +197,7 @@ namespace AvasRoutingTool.Tests
         {
             var rig = new Rig();
             await rig.Vm.RouteVideoAsync(rig.Tx1Vm.Device, rig.Rx);
-            Assert.Equal(new[] { "single", "matrix2x2", "pip", "side_by_side", "quad_1_3", "off" },
+            Assert.Equal(new[] { "single", "matrix2x2", "pip", "pip_large", "side_by_side", "quad_1_3", "off" },
                 rig.RxVm.LayoutMenu.Select(l => l.Id));
             Assert.Equal("Matrix 2x2", rig.RxVm.LayoutMenu[1].Title);
             rig.RxVm.IsLayoutMenuOpen = true;
@@ -237,7 +237,7 @@ namespace AvasRoutingTool.Tests
 
             Assert.Equal("rx1", rig.Client.LastUnroutedRx);
             Assert.False(rig.RxVm.IsRouted);
-            Assert.Equal("UNROUTED", rig.RxVm.ModeBadge);
+            Assert.Equal("No source", rig.RxVm.ModeBadge);
             Assert.False(rig.RxVm.IsLayoutMenuOpen);
         }
 
@@ -296,7 +296,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal("TX2", rig.RxVm.Slots.Single(s => s.Index == 3).SourceName); // and so does the card
             Assert.Equal(BannerKind.Warning, rig.Composer.Banner.Kind);
             Assert.Contains("changed elsewhere", rig.Composer.Banner.Text);
-            Assert.Equal(new[] { "2: - -> TX2", "4: TX2 -> -" }, rig.Composer.ChangeLines);
+            Assert.Equal(new[] { "Block 2: empty → TX2", "Block 4: TX2 → empty" }, rig.Composer.ChangeLines);
             Assert.Empty(rig.Client.MultiViewCalls);
 
             // A kept (closed) draft also survives a restore.

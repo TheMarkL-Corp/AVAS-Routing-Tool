@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+             xmlns:views="clr-namespace:AvasRoutingTool.Views"
              Focusable="False"
              IsHitTestVisible="False">
 
@@ -15,16 +16,11 @@
             <ItemsControl x:Name="CellsHost" Focusable="False">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <controls:FractionalLayoutPanel AspectRatio="1.7777777777777777" />
+                        <controls:FractionalLayoutPanel AspectRatio="{x:Static views:AspectRatioConverter.Default}" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemContainerStyle>
-                    <Style TargetType="ContentPresenter">
-                        <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding X, Mode=OneWay}" />
-                        <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding Y, Mode=OneWay}" />
-                        <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding W, Mode=OneWay}" />
-                        <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding H, Mode=OneWay}" />
-                    </Style>
+                    <StaticResource ResourceKey="Style.Item.Fractional.Cell" />
                 </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -33,12 +29,7 @@
                                 BorderBrush="{DynamicResource Brush.Accent.Primary}"
                                 BorderThickness="1"
                                 CornerRadius="2">
-                            <TextBlock Text="{Binding Number, Mode=OneWay}"
-                                       FontSize="11"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource Brush.Text.OnSchematicActive}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Number, Mode=OneWay}" Style="{StaticResource Style.Text.Schematic.Cell}" />
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -47,12 +38,8 @@
             <!-- Off: a dark screen with the word, never colour alone -->
             <TextBlock x:Name="OffGlyph"
                        Text="OFF"
-                       Visibility="Collapsed"
-                       FontSize="13"
-                       FontWeight="Bold"
-                       Foreground="{DynamicResource Brush.Text.Secondary}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center" />
+                       Style="{StaticResource Style.Text.Schematic.Off}"
+                       Visibility="Collapsed" />
         </Grid>
     </Border>
 </UserControl>

@@ -1,0 +1,1201 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+                    xmlns:views="clr-namespace:AvasRoutingTool.Views">
+
+    <!--
+        MultiView Composer styles and Size.Composer.* tokens (owner: Composer session). Merged last among Styles/* so it can use BasedOn with any shared key.
+        Content-specific sizes live here, not in Tokens.xaml: they belong to the Composer's own content, not to the app's touch/icon scale.
+    -->
+
+    <!-- ===== Tokens (content-specific) ===== -->
+    <sys:Double x:Key="Size.Composer.StepMarker">32</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Left.Min">240</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Left.Max">320</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Right.Min">264</sys:Double>
+    <sys:Double x:Key="Size.Composer.Rail.Right.Max">360</sys:Double>
+    <sys:Double x:Key="Size.Composer.Tile.Min">96</sys:Double>
+    <Thickness x:Key="Size.Composer.Canvas.Margin">8,0</Thickness>
+    <sys:Double x:Key="Size.Composer.Ghost.Opacity">0.85</sys:Double>
+
+    <!-- ===== Step header (1 LAYOUT / 2 PLACE SOURCES / 3 CHECK, THEN SAVE &amp; APPLY) ===== -->
+    <Style x:Key="Style.StepHeader" TargetType="controls:StepHeader">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="AutomationProperties.HeadingLevel" Value="Level2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:StepHeader">
+                    <controls:StepHeaderPanel>
+                        <Border x:Name="Marker"
+                                MinWidth="{StaticResource Size.Composer.StepMarker}"
+                                MinHeight="{StaticResource Size.Composer.StepMarker}"
+                                CornerRadius="16"
+                                Margin="0,0,10,0"
+                                Background="{DynamicResource Brush.Surface.Elevated}"
+                                BorderBrush="{DynamicResource Brush.Border.Control}"
+                                BorderThickness="1">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock x:Name="StepNumberText"
+                                           Text="{Binding Number, RelativeSource={RelativeSource TemplatedParent}}"
+                                           FontSize="{StaticResource Font.Size.Title}"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource Brush.Text.Primary}" />
+                            </Grid>
+                        </Border>
+                        <TextBlock x:Name="LabelText" Text="{TemplateBinding Title}" Style="{StaticResource Style.Text.Section}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <controls:MaterialIcon x:Name="DoneCheck"
+                                               Kind="check"
+                                               Width="{StaticResource Size.Icon.Layout}"
+                                               Height="{StaticResource Size.Icon.Layout}"
+                                               Margin="{StaticResource Size.Space.Action.Before}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.Text.Primary}"
+                                               Visibility="Collapsed" />
+                    </controls:StepHeaderPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsCurrent" Value="True">
+                            <Setter TargetName="Marker" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                            <Setter TargetName="Marker" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="LabelText" Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+                        </Trigger>
+                        <Trigger Property="IsDone" Value="True">
+                            <Setter TargetName="Marker" Property="Background" Value="{DynamicResource Brush.Action.Take}" />
+                            <Setter TargetName="Marker" Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
+                            <Setter TargetName="StepNumberText" Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
+                            <Setter TargetName="DoneCheck" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== Step 1: layout options (one tile per preset) ===== -->
+    <Style x:Key="Style.Button.ComposerLayoutOption" TargetType="Button">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Composer.Tile.Min}" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="bd"
+                                Background="{DynamicResource Brush.Surface.Card}"
+                                BorderBrush="{DynamicResource Brush.Border.Control}"
+                                BorderThickness="2"
+                                CornerRadius="10"
+                                Padding="10">
+                            <ContentPresenter />
+                        </Border>
+                        <!-- Keyboard focus: a ring of its own inside the tile, in the text colour, so it differs from the selected accent border -->
+                        <Border x:Name="FocusRing"
+                                Margin="4"
+                                BorderBrush="{DynamicResource Brush.Text.Primary}"
+                                BorderThickness="2"
+                                CornerRadius="6"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsPending, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+                        </DataTrigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Style.Text.Selected" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Style.Text.Pending" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.CopyAccent}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- ===== Layout schematic (also used by the display card's layout menu) ===== -->
+    <Style x:Key="Style.Item.Fractional.Cell" TargetType="ContentPresenter">
+        <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding X, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding Y, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding W, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding H, Mode=OneWay}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Schematic.Cell" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnSchematicActive}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Style.Text.Schematic.Off" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- ===== Converter instances owned by the Composer (the shared ones live in Converters.xaml) ===== -->
+    <views:IsNullConverter x:Key="Converter.Composer.IsNull" />
+
+    <!-- ===== Header, rail cards, status line ===== -->
+    <Style x:Key="Style.Card.Rail" TargetType="{x:Type ui:Card}" BasedOn="{StaticResource {x:Type ui:Card}}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Border.CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Focusable" Value="False" />
+    </Style>
+
+    <!-- The last card of the rail is as tall as its list; leftover height stays plain background, and the rail scrolls only when it must -->
+    <Style x:Key="Style.Card.Rail.Fill" TargetType="{x:Type ui:Card}" BasedOn="{StaticResource Style.Card.Rail}">
+        <Setter Property="Margin" Value="0,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+
+    <Style x:Key="Style.Text.RailHeading" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Section}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <!-- STAGED and CHANGES: the state is the amber dot plus a neutral word; amber is staged only, never the text -->
+    <Style x:Key="Style.Text.RailHeading.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.RailHeading}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Status.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <Style x:Key="Style.Shape.StagedDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Staged}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <!-- Header facts (output, rate): plain Caption text, not pills; the Info badge stays for the shared badges -->
+    <Style x:Key="Style.Text.Meta" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Caption}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,12,0" />
+    </Style>
+
+    <Style x:Key="Style.Text.Status.OnScreen" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Notice.Staged" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedText}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="Style.Text.Change" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Strong}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,2" />
+    </Style>
+
+    <!-- A panel whose children stop taking input while the view model is busy (a layout change or a Take is in flight) -->
+    <Style x:Key="Style.Panel.BusyDisables" TargetType="FrameworkElement">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- A source a layout change left without a block: the shared staged chip, 48 px high -->
+    <Style x:Key="Style.Button.UnplacedChip" TargetType="Button" BasedOn="{StaticResource Style.Button.Chip.Staged}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="Margin" Value="0,0,8,8" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+    </Style>
+
+    <!-- Hidden, not Collapsed: the idle row keeps the button's width and height, so arming never moves the canvas -->
+    <!-- Done placing / Cancel move (Disarm stops both) -->
+    <Style x:Key="Style.Button.Done" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
+        <Setter Property="Visibility" Value="Hidden" />
+        <Setter Property="Content" Value="Done placing" />
+        <!-- The Content stays the plain string (it is the automation name); the template adds the icon: check, or close for Cancel move -->
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <controls:MaterialIcon x:Name="DoneIcon" Kind="check" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding}" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                    </StackPanel>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding}" Value="Cancel move">
+                            <Setter TargetName="DoneIcon" Property="Kind" Value="close" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding MovingFromIndex, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Visible" />
+                <Setter Property="Content" Value="Cancel move" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Visible" />
+                <Setter Property="Content" Value="Done placing" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ===== Blocks on the staged canvas (overlays sit on video: the view keeps the Foreground/Background token attributes) ===== -->
+    <sys:Double x:Key="Font.Size.Composer.BlockNumber">28</sys:Double>
+    <sys:Double x:Key="Size.Composer.Badge.Round">32</sys:Double>
+    <sys:Double x:Key="Size.Composer.Overlay.Text.Max">380</sys:Double>
+    <sys:Double x:Key="Size.Composer.Text.Measure.Max">560</sys:Double>
+
+    <views:PaintOrderConverter x:Key="Converter.Composer.PaintOrder" />
+    <views:SameTextConverter x:Key="Converter.Composer.SameText" />
+    <views:NegativeHalfConverter x:Key="Converter.Composer.NegativeHalf" />
+
+    <!-- A block's container in a FractionalLayoutPanel; the lowest API window index is painted on top (PIP inset = window 0) -->
+    <Style x:Key="Style.Item.Fractional.Block" TargetType="ContentPresenter">
+        <Setter Property="controls:FractionalLayoutPanel.X" Value="{Binding NormalizedX, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.Y" Value="{Binding NormalizedY, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.W" Value="{Binding NormalizedWidth, Mode=OneWay}" />
+        <Setter Property="controls:FractionalLayoutPanel.H" Value="{Binding NormalizedHeight, Mode=OneWay}" />
+        <Setter Property="Panel.ZIndex" Value="{Binding Index, Mode=OneWay, Converter={StaticResource Converter.Composer.PaintOrder}}" />
+    </Style>
+
+    <!-- Step 1 placeholder: a card on the canvas, so its text reads over the ghost schematic. Top of the canvas: every layout leaves that band empty, so the card never covers the PIP inset or the lower cells -->
+    <Style x:Key="Style.Panel.Placeholder" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Elevated}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Text.Measure.Max}" />
+        <Setter Property="Margin" Value="16" />
+    </Style>
+
+    <!-- Step 1 ghost: a dimmed schematic of the layout the operator hovers or focuses on the empty canvas. Not a tab stop, no name; shown only while no layout is staged -->
+    <Style x:Key="Style.Panel.Ghost" TargetType="views:LayoutSchematic">
+        <Setter Property="Opacity" Value="{StaticResource Size.Composer.Ghost.Opacity}" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Draft, Mode=OneWay}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Small dark chip over a preview (legible on any picture) -->
+    <Style x:Key="Style.Chip.Scrim" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Scrim}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Scrim}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Padding" Value="5,1" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Chip.Number" TargetType="Border" BasedOn="{StaticResource Style.Chip.Scrim}">
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="6" />
+        <Setter Property="Padding" Value="10,0" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Margin" Value="4" />
+                <Setter Property="Padding" Value="6,0" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Chip.SameAs" TargetType="Border" BasedOn="{StaticResource Style.Chip.Scrim}">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Staged}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding SameAsText, Mode=OneWay}" Value="">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The output size is dropped on compact blocks (no room next to the source name) -->
+    <Style x:Key="Style.Chip.Size" TargetType="Border" BasedOn="{StaticResource Style.Chip.Scrim}">
+        <Setter Property="Padding" Value="6,2" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Panel.BlockPills" TargetType="Grid">
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="Margin" Value="8" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Margin" Value="4" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Number" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Composer.BlockNumber}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Pill" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Chip" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The display's name on the empty ON SCREEN NOW mat: one bold Lead line, truncated with an ellipsis, never wrapped -->
+    <Style x:Key="Style.Text.Block.NamePlate" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Overlay.Text.Max}" />
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Title" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Caption" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Margin" Value="0,4,0,0" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- What a tap does on an empty block; on a compact block the "+ Place" pill and the tap say it -->
+    <Style x:Key="Style.Text.Block.Hint" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="Margin" Value="8" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DataContext.ArmedSource, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DataContext.MovingFromIndex, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Action" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Lead}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Reason" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="0,4,0,0" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Pill.Action" TargetType="Border">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Padding" Value="8,4" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The block's content dims while an armed source cannot go here -->
+    <Style x:Key="Style.Panel.BlockContent" TargetType="Grid">
+        <Setter Property="ClipToBounds" Value="True" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- A placed non-AVAS source: no preview, say so with its name -->
+    <!-- The block picture: a placed source without a preview (non-AVAS) never shows a stale frame behind its "no preview" text -->
+    <Style x:Key="Style.Image.BlockPreview" TargetType="Image">
+        <Setter Property="Stretch" Value="Uniform" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- An empty compact block has no room for the hint sentence: a plus says it can be tapped. Same show rules as the hint. -->
+    <Style x:Key="Style.Icon.BlockAdd" TargetType="controls:MaterialIcon">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.Brand}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.Brand}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </Trigger>
+            <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DataContext.ArmedSource, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DataContext.MovingFromIndex, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}, Converter={StaticResource Converter.Composer.IsNull}}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Panel.NoPreview" TargetType="StackPanel">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="8" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsPlaced, Mode=OneWay}" Value="True" />
+                    <Condition Binding="{Binding IsPreviewSupported, Mode=OneWay}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Armed and this block can take it: cyan ring + "+ Place TX2" -->
+    <Style x:Key="Style.Panel.PlaceOverlay" TargetType="Grid">
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding DataContext.ArmedSource, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <!-- Already shows the armed source: nothing to offer -->
+            <DataTrigger Value="True">
+                <DataTrigger.Binding>
+                    <MultiBinding Converter="{StaticResource Converter.Composer.SameText}" Mode="OneWay">
+                        <Binding Path="SourceMac" Mode="OneWay" />
+                        <Binding Path="DataContext.ArmedSource.MacAddress" Mode="OneWay" RelativeSource="{RelativeSource AncestorType=views:MultiViewComposerView}" />
+                    </MultiBinding>
+                </DataTrigger.Binding>
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The pill's first line: the verb. Line two is the name, trimmed (the full name is in the block's tooltip) -->
+    <Style x:Key="Style.Text.Block.PlaceVerb" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
+        <Setter Property="Text" Value="+ Place" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                <Setter Property="Text" Value="Replace" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The pill's second line: the armed source's name, one line, ellipsis at the overlay text width; a compact block shows the verb only -->
+    <Style x:Key="Style.Text.Block.PlaceName" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Title}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Overlay.Text.Max}" />
+        <Setter Property="Text" Value="{Binding DataContext.ArmedSource.DeviceName, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Pill.Move" TargetType="Border" BasedOn="{StaticResource Style.Pill.Action}">
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding DataContext.MovingFromIndex, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:MultiViewComposerView}}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsMoveSource, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.MoveAction" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Block.Action}">
+        <Setter Property="Text" Value="Move here" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsPlaced, Mode=OneWay}" Value="True">
+                <Setter Property="Text" Value="Swap here" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Armed and this block cannot take it: lock + the reason, in words -->
+    <Style x:Key="Style.Panel.UnavailableOverlay" TargetType="Border">
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsAvailableForArmed, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The top margin clears the block number; the reason trims (full text in the tooltip and the banner on tap) -->
+    <Style x:Key="Style.Panel.UnavailableStack" TargetType="DockPanel">
+        <Setter Property="Margin" Value="12,48,12,6" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Overlay.Text.Max}" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Margin" Value="6,30,6,4" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Icon.BlockLock" TargetType="controls:MaterialIcon">
+        <Setter Property="DockPanel.Dock" Value="Top" />
+        <Setter Property="Width" Value="{StaticResource Size.Icon.L}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.L}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
+                <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- What blocks Take on this block (offline, size conflict) -->
+    <Style x:Key="Style.Panel.IssueBand" TargetType="Border">
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="56,8,56,0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IssueText, Mode=OneWay}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Margin" Value="4,30,4,0" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The state line: staged = dashed neutral (the amber is the canvas frame's alone), on screen = solid blue, problem = red, selected = light blue -->
+    <Style x:Key="Style.Shape.BlockState" TargetType="Rectangle">
+        <Setter Property="RadiusX" Value="6" />
+        <Setter Property="RadiusY" Value="6" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="StrokeThickness" Value="2" />
+        <Style.Triggers>
+            <!-- Neutral staged outline, measured on Surface.PreviewMat (black), need 3:1: Border.Strong 2.77 dark (fails) / 8.19 light;
+                 Text.Secondary 8.19 dark / 2.77 light (fails); Text.Muted 4.41 dark / 4.41 light (chosen) -->
+            <DataTrigger Binding="{Binding State, Mode=OneWay}" Value="Staged">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Text.Muted}" />
+                <Setter Property="StrokeThickness" Value="2" />
+                <Setter Property="StrokeDashArray" Value="4 2" />
+            </DataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding State, Mode=OneWay}" Value="Live" />
+                    <Condition Binding="{Binding IsPlaced, Mode=OneWay}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Routed}" />
+            </MultiDataTrigger>
+            <DataTrigger Binding="{Binding State, Mode=OneWay}" Value="Issue">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Action.Danger}" />
+                <Setter Property="StrokeThickness" Value="3" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsPickerTarget, Mode=OneWay}" Value="True">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
+                <Setter Property="StrokeThickness" Value="3" />
+                <Setter Property="StrokeDashArray" Value="{x:Null}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
+                <Setter Property="StrokeThickness" Value="3" />
+                <Setter Property="StrokeDashArray" Value="{x:Null}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsMoveSource, Mode=OneWay}" Value="True">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Border.DropTarget}" />
+                <Setter Property="StrokeThickness" Value="3" />
+                <Setter Property="StrokeDashArray" Value="2 2" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The armed ring on a block that can take the source: a plain 2 px cyan outline, no tint (the place pill sits on the scrim) -->
+    <Style x:Key="Style.Shape.PlaceRing" TargetType="Rectangle">
+        <Setter Property="RadiusX" Value="6" />
+        <Setter Property="RadiusY" Value="6" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.DropTarget}" />
+        <Setter Property="StrokeThickness" Value="2" />
+    </Style>
+
+    <!-- Keyboard focus: a 2 px ring in the block's margin (drawn, not an adorner, so it also renders); shown by a DataTemplate trigger -->
+    <Style x:Key="Style.Shape.BlockFocusRing" TargetType="Rectangle">
+        <Setter Property="Margin" Value="-3" />
+        <Setter Property="RadiusX" Value="8" />
+        <Setter Property="RadiusY" Value="8" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Focus.Ring}" />
+        <Setter Property="StrokeThickness" Value="2" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+    </Style>
+
+    <!-- The block itself is one big button; a tap places, opens the picker or the strip, or is a move target -->
+    <Style x:Key="Style.Button.BlockSurface" TargetType="Button">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{DynamicResource Brush.Surface.PreviewBackdrop}" CornerRadius="6" ClipToBounds="True">
+                        <ContentPresenter />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Corner clear: a 32 px glyph in a 48 px hit area. Staged only, so one tap is safe. Never a tab stop (Delete / Discard clear by keyboard). -->
+    <Style x:Key="Style.Button.CornerClear" TargetType="Button">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="0,2,2,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <Border x:Name="CornerClearGlyph"
+                                MinWidth="{StaticResource Size.Composer.Badge.Round}"
+                                MinHeight="{StaticResource Size.Composer.Badge.Round}"
+                                CornerRadius="16"
+                                Background="{DynamicResource Brush.Surface.ScrimDanger}"
+                                BorderBrush="{DynamicResource Brush.Text.OnScrimDanger}"
+                                BorderThickness="1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                            <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}"
+                                           Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="CornerClearGlyph" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                            <Setter TargetName="CornerClearGlyph" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Compact}" />
+                <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Compact}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Replace / Move strip: centred on its block from a zero-size Canvas, so on a small block it may overhang unclipped -->
+    <Style x:Key="Style.Surface.FloatingStrip" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.FloatingStrip}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="6" />
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="Padding" Value="4" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Button.Strip" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
+        <Style.Triggers>
+            <Trigger Property="views:BlockDensity.IsCompact" Value="True">
+                <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Compact}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ===== Right rail: ON SCREEN NOW, banner, Take and the actions ===== -->
+    <sys:Double x:Key="Size.Composer.Take.Min">56</sys:Double>
+
+    <!--
+        MultiView Composer: Save &amp; apply (primary). The action bar button (6 px radius, Body SemiBold, own keyboard ring, icon, label) filled with
+        the action colour; the one content-specific exception is its height, Size.Composer.Take.Min (56), because it is the only action that
+        changes what the surgeon sees. Hover and press are the filled colours; disabled is the action bar's.
+    -->
+    <Style x:Key="Style.Button.Take" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar}">
+        <Setter Property="MinHeight" Value="{StaticResource Size.Composer.Take.Min}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAction}" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Action.Take}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Take}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Action.TakeHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Action.TakePressed}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Surface.LiveTile" TargetType="Border">
+        <Setter Property="Margin" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.PreviewTile}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
+    <Style x:Key="Style.Text.Tile.Name" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Margin" Value="4" />
+    </Style>
+
+    <Style x:Key="Style.Text.Tile.Label" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="4,2" />
+    </Style>
+
+    <!-- The Composer's banner: placing / moving hint, refusals, Take result -->
+    <Style x:Key="Style.Banner.Composer" TargetType="Border">
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Info}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent.Primary}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="None">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.UndoToast}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.Staged}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Staged}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.DangerStrong}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Action.Danger}" />
+            </DataTrigger>
+            <!-- An armed source draws the cyan of the blocks it can fill -->
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Info" />
+                    <Condition Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- A severity icon (shape, not colour alone): info, success, warning, error -->
+    <Style x:Key="Style.Icon.Banner" TargetType="controls:MaterialIcon">
+        <Setter Property="Kind" Value="info" />
+        <Setter Property="Width" Value="{StaticResource Size.Icon.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.M}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Accent}" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                <Setter Property="Kind" Value="check_circle" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.UndoToast}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                <Setter Property="Kind" Value="warning" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                <Setter Property="Kind" Value="error" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Danger}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Banner" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="AutomationProperties.LiveSetting" Value="Polite" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Success">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.UndoToast}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Warning">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Status.StagedChipText}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Error">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Danger}" />
+                <Setter Property="AutomationProperties.LiveSetting" Value="Assertive" />
+            </DataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding Banner.Kind, Mode=OneWay}" Value="Info" />
+                    <Condition Binding="{Binding ArmedSource, Mode=OneWay, Converter={StaticResource Converter.Composer.IsNull}}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnCopyTarget}" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Reason" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Soft}" />
+        <Setter Property="Margin" Value="0,8,0,0" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding TakeBlockedReason, Mode=OneWay}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Button.Undo" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <!-- Collapsed when not offered: it heads a cluster anchored to the rail's foot, so nothing below it moves -->
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding CanUndo, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Button.Discard" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Draft, Mode=OneWay}" Value="{x:Null}">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Button.ClearAll" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar.Outlined}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding StepPlaceDone, Mode=OneWay}" Value="False">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsBusy, Mode=OneWay}" Value="True">
+                <Setter Property="IsEnabled" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ===== Block-first picker (a Popup anchored to the block) ===== -->
+    <sys:Double x:Key="Size.Composer.Picker.Tile">260</sys:Double>
+    <sys:Double x:Key="Size.Composer.Picker.Frame.Max">880</sys:Double>
+    <!-- Two lines of the note (Font.Size.Title), so a short note does not make a ragged tile -->
+    <sys:Double x:Key="Size.Composer.Picker.Note.MinHeight">38</sys:Double>
+
+    <Thickness x:Key="Thickness.Composer.Picker.Shadow">24,24,24,28</Thickness>
+
+    <Style x:Key="Style.Surface.Popup" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="MaxWidth" Value="{StaticResource Size.Composer.Picker.Frame.Max}" />
+        <!-- The transparent margin holds the shadow, so the popup window does not clip it -->
+        <Setter Property="Margin" Value="{StaticResource Thickness.Composer.Picker.Shadow}" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="4" Direction="270" Opacity="0.5" Color="Black" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Style.Button.PickerTile" TargetType="Button">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Margin" Value="0,0,12,12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" Background="{DynamicResource Brush.Surface.Popup}" BorderBrush="{DynamicResource Brush.Border.Control}" BorderThickness="2" CornerRadius="10" Padding="10">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+                        </Trigger>
+                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Border.Control}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A source's live picture, fitted uniformly; dimmed when the source cannot go here -->
+    <Style x:Key="Style.Image.Preview" TargetType="Image">
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="RenderOptions.BitmapScalingMode" Value="LowQuality" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
+                <Setter Property="Opacity" Value="0.55" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- An empty black picture for a source that has none: an icon, no caption (the note says it once) -->
+    <Style x:Key="Style.Icon.PickerPlaceholder" TargetType="controls:MaterialIcon">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.L}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.L}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnPreviewMuted}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="False">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Picker.Name" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Lead}">
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Margin" Value="0,8,0,0" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Picker.LinkMode" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.ComposerLabel}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Muted}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Picker.Note" TargetType="TextBlock" BasedOn="{StaticResource Style.Text.Title}">
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Strong}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- One status icon per tile, on the first line of the note: lock (cannot go here), videocam (live), info (no preview) -->
+    <Style x:Key="Style.Icon.PickerStatus" TargetType="controls:MaterialIcon">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Strong}" />
+        <Setter Property="Margin" Value="0,1,6,0" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Visibility" Value="Collapsed" />
+    </Style>
+
+    <Style x:Key="Style.Icon.PickerLock" TargetType="controls:MaterialIcon" BasedOn="{StaticResource Style.Icon.PickerStatus}">
+        <Setter Property="Visibility" Value="Visible" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Icon.PickerLive" TargetType="controls:MaterialIcon" BasedOn="{StaticResource Style.Icon.PickerStatus}">
+        <Style.Triggers>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsEnabled, Mode=OneWay}" Value="True" />
+                    <Condition Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Icon.PickerInfo" TargetType="controls:MaterialIcon" BasedOn="{StaticResource Style.Icon.PickerStatus}">
+        <Style.Triggers>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsEnabled, Mode=OneWay}" Value="True" />
+                    <Condition Binding="{Binding Source.IsPreviewSupported, Mode=OneWay}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The frame around the staged canvas: dashed amber staged, solid blue when it is what is on screen -->
+    <Style x:Key="Style.Shape.CanvasFrame" TargetType="Rectangle">
+        <Setter Property="Margin" Value="-6" />
+        <Setter Property="RadiusX" Value="10" />
+        <Setter Property="RadiusY" Value="10" />
+        <Setter Property="StrokeThickness" Value="2" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Border.Strong}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsOnScreen, Mode=OneWay}" Value="True">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Routed}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsStaged, Mode=OneWay}" Value="True">
+                <Setter Property="Stroke" Value="{DynamicResource Brush.Status.Staged}" />
+                <Setter Property="StrokeDashArray" Value="4 2" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.Text.Block.Tiny" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Font.Size.Caption}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+</ResourceDictionary>

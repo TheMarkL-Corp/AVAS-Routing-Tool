@@ -3,49 +3,25 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:AvasRoutingTool.Views"
              xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              Background="{DynamicResource Brush.Background.Dark}"
              KeyDown="Root_KeyDown">
 
-    <UserControl.Resources>
-        <views:IsNullConverter x:Key="IsNull" />
-    </UserControl.Resources>
-
-    <Grid>
+    <Grid x:Name="OverviewGrid">
         <Grid.RowDefinitions>
             <!--
-                Sources: half the screen in the overview; a compact palette strip while the Composer is open (Ruling R21).
-                No minimum heights: on the real window sizes (1264x755, 1008x615 content) two 330 px minimums pushed
-                the layout off the window; each row scrolls its cards instead. Arming a source or a copy never changes
-                the layout: the full source cards stay put. Only the Composer swaps in the compact palette.
+                Sources: as tall as the strip needs (Auto), so the displays get the rest of the height (critique M2). The strip is
+                a dense wrap of tiles, capped at a share of the overview height (Size.Strip.Max.Fraction) before it scrolls; every tile stays realized.
+                While the Composer is open its compact palette sits in the same row. Arming a source or a copy never changes the
+                layout: the tiles stay put.
             -->
-            <RowDefinition>
-                <RowDefinition.Style>
-                    <Style TargetType="RowDefinition">
-                        <Setter Property="Height" Value="2*" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                <Setter Property="Height" Value="Auto" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </RowDefinition.Style>
-            </RowDefinition>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="3.4*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- TOP ROW: Sources (TX) Section (the Composer's palette while it is open) -->
-        <Border Grid.Row="0">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Margin" Value="16,12,16,6" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                            <Setter Property="Margin" Value="16,8,16,2" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
+        <Border Grid.Row="0" Margin="16,10,16,4">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -61,45 +37,32 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Video}"
-                              Fill="{DynamicResource Brush.Accent.Primary}"
-                              Width="16" Height="16"
-                              Stretch="Uniform"
-                              VerticalAlignment="Center"
-                              Margin="0,0,8,0" />
-                        <TextBlock Text="VIDEO SOURCES (TX)"
-                                   FontSize="13"
-                                   FontWeight="Bold"
-                                   Foreground="{DynamicResource Brush.Text.Primary}"
+                        <controls:MaterialIcon Kind="videocam" Style="{StaticResource Style.Icon.Section}" />
+                        <TextBlock Text="Video sources (TX)"
+                                   Style="{StaticResource Style.Text.Title}"
+                                   AutomationProperties.HeadingLevel="Level2"
                                    VerticalAlignment="Center" />
                     </StackPanel>
 
                     <TextBlock Grid.Column="1"
-                               FontSize="11"
-                               Foreground="{DynamicResource Brush.Text.Muted}"
+                               Text="Tap a source, then tap a display - or drag the source onto the display"
+                               Style="{StaticResource Style.Text.Caption}"
+                               Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}"
                                VerticalAlignment="Center"
-                               Margin="12,0,0,0">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="Tap a source, then tap a display - or drag the source onto the display" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                        <Setter Property="Text" Value="Tap a source, then tap the blocks it should fill" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                               Margin="12,0,0,0" />
+                    <TextBlock Grid.Column="1"
+                               Text="Tap a source, then tap the blocks it should fill"
+                               Style="{StaticResource Style.Text.Caption}"
+                               Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0" />
 
-                    <Border Grid.Column="2"
-                            Background="{DynamicResource Brush.Surface.Elevated}"
-                            CornerRadius="12"
-                            Padding="8,3">
-                        <TextBlock FontSize="11" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}">
-                            <Run Text="DISCOVERED: " />
-                            <Run Text="{Binding Sources.Count, Mode=OneWay}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Primary}" />
-                        </TextBlock>
-                    </Border>
+                    <TextBlock Grid.Column="2"
+                               Style="{StaticResource Style.Text.Caption}"
+                               VerticalAlignment="Center">
+                        <Run Text="{Binding Sources.Count, Mode=OneWay}" FontWeight="Bold" />
+                        <Run Text=" discovered" />
+                    </TextBlock>
                 </Grid>
 
                 <!--
@@ -108,55 +71,40 @@
                 -->
                 <ScrollViewer Grid.Row="1"
                               x:Name="CompactSourcePalette"
+                              Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled"
                               PanningMode="HorizontalOnly">
-                    <ScrollViewer.Style>
-                        <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ScrollViewer.Style>
                     <ItemsControl ItemsSource="{Binding Sources}" Focusable="False" Margin="0,0,0,4">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <views:CompactSourceCardView Margin="0,0,10,0" />
+                                <views:SourceCardView IsCompact="True" Margin="{StaticResource Size.Strip.TileMargin}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
 
                 <!-- Sources Carousel / Horizontal List -->
+                <!-- The overview strip: a plain CenteredWrapPanel (rows centred; not virtualized: every tile owns a live preview). It never takes more than Size.Strip.Max.Fraction of the overview height; beyond that it scrolls -->
                 <ScrollViewer Grid.Row="1"
+                              Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}"
+                              MaxHeight="{Binding ActualHeight, ElementName=OverviewGrid, Converter={StaticResource Converter.FractionOf.StripCap}, ConverterParameter={StaticResource Size.Strip.Max.Fraction}}"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
-                    <ScrollViewer.Style>
-                        <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ScrollViewer.Style>
                     <ItemsControl ItemsSource="{Binding Sources}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.SourceCard}" />
+                                <controls:CenteredWrapPanel />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <views:SourceCardView />
+                                <views:SourceCardView Margin="{StaticResource Size.Strip.TileMargin}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -165,23 +113,18 @@
         </Border>
 
         <!-- Subtle Divider -->
-        <Border Grid.Row="1" Height="1" Background="{DynamicResource Brush.Border.Default}" Margin="12,2" />
+        <Border x:Name="SectionDivider" Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource Brush.Border.Default}" Margin="12,2" />
 
         <!-- MIDDLE ROW: Displays (RX) Section - replaced by the Composer while one is open -->
-        <Border Grid.Row="2" Margin="16,6,16,12">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding ActiveComposer, Mode=OneWay, Converter={StaticResource IsNull}}" Value="False">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
+        <Border Grid.Row="2" Margin="16,6,16,12"
+                Visibility="{Binding IsComposing, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
             <Grid>
+                <!--
+                    Row 0 is the section header, and the arm banner takes its place in the same cell (critique M1: arming
+                    must never move a card). The row's minimum is the banner's height, so the row is the same height idle or armed.
+                -->
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" MinHeight="{StaticResource Size.Section.Header.Height}" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -191,80 +134,60 @@
                 -->
                 <Border Grid.Row="0"
                         x:Name="ArmBanner"
-                        Background="{DynamicResource Brush.Surface.CopyTarget}"
-                        BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-                        BorderThickness="2"
-                        CornerRadius="10"
-                        Padding="14,6"
-                        Margin="0,0,0,10">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Style.Triggers>
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding ArmBannerText, Mode=OneWay}" Value="{x:Null}" />
-                                        <Condition Binding="{Binding CopyArmBanner, Mode=OneWay}" Value="{x:Null}" />
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </MultiDataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
+                        VerticalAlignment="Center"
+                        MinHeight="{StaticResource Size.Section.Header.Height}"
+                        Style="{StaticResource Style.Banner.Arm}"
+                        Visibility="{Binding HasArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock x:Name="ArmBannerLabel"
-                                       Text="{Binding ArmBannerText, Mode=OneWay}"
-                                       AutomationProperties.LiveSetting="Polite"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
-                                       TextWrapping="Wrap">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ArmBannerText, Mode=OneWay}" Value="{x:Null}">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBlock x:Name="CopyArmBannerLabel"
-                                       Text="{Binding CopyArmBanner, Mode=OneWay}"
-                                       AutomationProperties.LiveSetting="Polite"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
-                                       TextWrapping="Wrap">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CopyArmBanner, Mode=OneWay}" Value="{x:Null}">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                        <Button Grid.Column="1"
-                                x:Name="StopPlacingButton"
-                                Style="{StaticResource Style.Button.Composer}"
-                                Background="{DynamicResource Brush.Border.DropTarget}"
-                                BorderBrush="{DynamicResource Brush.Border.DropTarget}"
-                                Foreground="{DynamicResource Brush.Text.OnDropTarget}"
-                                Content="Stop"
-                                Margin="12,0,0,0"
-                                Click="StopPlacing_Click" />
+                        <!--
+                            The 2 px ring, drawn beneath the content and over the banner's full size: the Stop button's own keyboard focus ring sits
+                            on its outer 2 px and must draw over it. The content sits 14 px in (the 2 px ring + 12 px, as before) and the 48 px Stop sits 4 px clear of the ring above and below (the banner is Size.Section.Header.Height).
+                        -->
+                        <Border x:Name="ArmBannerRing"
+                                Style="{StaticResource Style.Banner.Arm.Ring}" />
+                        <Grid Margin="14,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="ArmBannerLabel"
+                                           Text="{Binding ArmBannerText, Mode=OneWay}"
+                                           Visibility="{Binding ArmBannerText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Style="{StaticResource Style.Text.Title}"
+                                           Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="CopyArmBannerLabel"
+                                           Text="{Binding CopyArmBanner, Mode=OneWay}"
+                                           Visibility="{Binding CopyArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Style="{StaticResource Style.Text.Title}"
+                                           Foreground="{DynamicResource Brush.Text.OnCopyTarget}"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    x:Name="StopPlacingButton"
+                                    Style="{StaticResource Style.Button.ActionBar.OnBanner}"
+                                    Margin="{StaticResource Size.Space.Action.Before}"
+                                    Click="StopPlacing_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <controls:MaterialIcon Kind="stop"
+                                                           Width="{StaticResource Size.Icon.Layout}"
+                                                           Height="{StaticResource Size.Icon.Layout}"
+                                                           VerticalAlignment="Center" />
+                                    <TextBlock Text="Stop" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </Grid>
                 </Border>
 
-                <!-- Section Header -->
-                <Grid Grid.Row="1" Margin="4,0,4,8">
+                <!-- Section Header (hidden while the arm banner takes its row) -->
+                <Grid Grid.Row="0" Margin="4,0" VerticalAlignment="Center"
+                      Visibility="{Binding HasArmBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.False}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -272,48 +195,53 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Monitor}"
-                              Fill="{DynamicResource Brush.Accent.Primary}"
-                              Width="16" Height="16"
-                              Stretch="Uniform"
-                              VerticalAlignment="Center"
-                              Margin="0,0,8,0" />
-                        <TextBlock Text="TARGET DISPLAYS (RX)"
-                                   FontSize="13"
-                                   FontWeight="Bold"
-                                   Foreground="{DynamicResource Brush.Text.Primary}"
+                        <controls:MaterialIcon Kind="desktop_windows" Style="{StaticResource Style.Icon.Section}" />
+                        <TextBlock Text="Target displays (RX)"
+                                   Style="{StaticResource Style.Text.Title}"
+                                   AutomationProperties.HeadingLevel="Level2"
                                    VerticalAlignment="Center" />
                     </StackPanel>
 
                     <TextBlock Grid.Column="1"
-                               Text="Layout ▾ picks a layout - Copy layout copies a display's picture onto another display"
-                               FontSize="11"
-                               Foreground="{DynamicResource Brush.Text.Muted}"
+                               Text="Tap a layout to change a display, or copy one display's picture onto another."
+                               Style="{StaticResource Style.Text.Caption}"
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center"
                                Margin="12,0,8,0" />
 
-                    <Border Grid.Column="2"
-                            Background="{DynamicResource Brush.Surface.Elevated}"
-                            CornerRadius="12"
-                            Padding="8,3">
-                        <TextBlock FontSize="11" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}">
-                            <Run Text="DISCOVERED: " />
-                            <Run Text="{Binding Displays.Count, Mode=OneWay}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.Primary}" />
-                        </TextBlock>
-                    </Border>
+                    <!-- Which displays the sideways row shows ("Showing 1-3 of 12"): set in code while the row scrolls, and then it replaces the plain count -->
+                    <TextBlock Grid.Column="2"
+                               x:Name="DisplaysRange"
+                               Style="{StaticResource Style.Text.Caption}"
+                               VerticalAlignment="Center"
+                               Visibility="Collapsed" />
+                    <TextBlock Grid.Column="2"
+                               x:Name="DisplaysCount"
+                               Style="{StaticResource Style.Text.Caption}"
+                               VerticalAlignment="Center">
+                        <Run Text="{Binding Displays.Count, Mode=OneWay}" FontWeight="Bold" />
+                        <Run Text=" discovered" />
+                    </TextBlock>
                 </Grid>
 
                 <!-- Displays Carousel / Horizontal List -->
-                <ScrollViewer Grid.Row="2"
+                <ScrollViewer Grid.Row="1"
                               x:Name="DisplaysScroll"
-                              HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Auto">
+                              Margin="0,8,0,0"
+                              VerticalAlignment="Top"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              Style="{StaticResource Style.ScrollViewer.VerticalOverlay}"
+                              PanningMode="Both"
+                              Focusable="False"
+                              PreviewMouseWheel="DisplaysScroll_PreviewMouseWheel"
+                              ScrollChanged="DisplaysScroll_ScrollChanged"
+                              SizeChanged="DisplaysScroll_SizeChanged">
                     <ItemsControl ItemsSource="{Binding Displays}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <!-- The display card's chrome (56 px Layout header, Copy layout row) is taller than the source card's -->
-                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.DisplayCard}" />
+                                <controls:AdaptiveCardPanel Spec="{x:Static controls:GridSpec.DisplayCard}" CenterVertically="False" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
@@ -323,6 +251,33 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+
+                <!-- Sideways arrows over the row's edges, centred on the card pictures (the margin is set in code); shown only when the row scrolls -->
+                <Button Grid.Row="1"
+                        x:Name="DisplaysScrollLeft"
+                        Style="{StaticResource Style.Button.CarouselArrow}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Margin="8,0,0,0"
+                        Visibility="Collapsed"
+                        IsEnabled="False"
+                        ToolTip="Scroll displays left"
+                        AutomationProperties.Name="Scroll displays left"
+                        Click="DisplaysScrollLeft_Click">
+                    <controls:MaterialIcon Kind="chevron_left" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" />
+                </Button>
+                <Button Grid.Row="1"
+                        x:Name="DisplaysScrollRight"
+                        Style="{StaticResource Style.Button.CarouselArrow}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,0,8,0"
+                        Visibility="Collapsed"
+                        ToolTip="Scroll displays right"
+                        AutomationProperties.Name="Scroll displays right"
+                        Click="DisplaysScrollRight_Click">
+                    <controls:MaterialIcon Kind="chevron_right" Width="{StaticResource Size.Icon.M}" Height="{StaticResource Size.Icon.M}" />
+                </Button>
             </Grid>
         </Border>
 
@@ -331,16 +286,65 @@
                                      x:Name="ComposerView"
                                      Margin="16,6,16,12"
                                      DataContext="{Binding ActiveComposer, Mode=OneWay}"
-                                     Sources="{Binding DataContext.Sources, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:VisualRoutingView}}">
-            <views:MultiViewComposerView.Style>
-                <Style TargetType="views:MultiViewComposerView">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding}" Value="{x:Null}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </views:MultiViewComposerView.Style>
-        </views:MultiViewComposerView>
+                                     Visibility="{Binding Mode=OneWay, Converter={StaticResource Converter.Visible.NotNull}}"
+                                     Sources="{Binding DataContext.Sources, Mode=OneWay, RelativeSource={RelativeSource AncestorType=views:VisualRoutingView}}" />
+
+        <!--
+            Rename error (DataContext = MainViewModel): why the last rename failed, over the bottom of the overview. An overlay in the outermost
+            Grid across all rows, so showing or dismissing it moves nothing. An error, so the danger surface, border and text of the display
+            card's error banner; the warning icon and the words carry it, not the colour. Dismiss is a 48 px icon button.
+        -->
+        <Border x:Name="RenameBanner"
+                Grid.RowSpan="3"
+                VerticalAlignment="Bottom"
+                Margin="16,0,16,16"
+                Padding="14,0,0,0"
+                Background="{DynamicResource Brush.Surface.ScrimDanger}"
+                BorderBrush="{DynamicResource Brush.Border.Danger}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Visibility="{Binding HasRenameBanner, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <controls:MaterialIcon Grid.Column="0"
+                                       Kind="warning"
+                                       Width="{StaticResource Size.Icon.M}"
+                                       Height="{StaticResource Size.Icon.M}"
+                                       Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,10,0" />
+
+                <TextBlock x:Name="RenameBannerText"
+                           Grid.Column="1"
+                           Text="{Binding RenameBanner, Mode=OneWay}"
+                           AutomationProperties.LiveSetting="Assertive"
+                           Style="{StaticResource Style.Text.Title}"
+                           Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           Margin="0,10" />
+
+                <Button x:Name="RenameBannerDismiss"
+                        Grid.Column="2"
+                        Style="{StaticResource Style.Button.Ghost}"
+                        Command="{Binding DismissRenameBannerCommand, Mode=OneWay}"
+                        AutomationProperties.Name="Dismiss rename error"
+                        ToolTip="Dismiss"
+                        Foreground="{DynamicResource Brush.Text.OnScrimDanger}"
+                        MinWidth="{StaticResource Size.Touch.Min}"
+                        MinHeight="{StaticResource Size.Touch.Min}"
+                        Padding="0"
+                        Margin="6,0,0,0"
+                        IsTabStop="True"
+                        VerticalAlignment="Center">
+                    <controls:MaterialIcon Kind="close" Width="{StaticResource Size.Icon.S}" Height="{StaticResource Size.Icon.S}" />
+                </Button>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

@@ -8,7 +8,8 @@ namespace AvasRoutingTool.Controls
     /// Places each child at a fractional rectangle (0..1) of a canvas, so overlapping multiview windows
     /// (PiP) and gaps (letterboxing) are exact. Children later in the collection are painted on top.
     /// When <see cref="AspectRatio"/> is set the canvas is the largest rectangle of that ratio that fits,
-    /// centred - matching how the decoder letterboxes its output.
+    /// centred - matching how the decoder letterboxes its output. With exactly one unbounded axis the free
+    /// axis is derived from the ratio (height = width / ratio, width = height * ratio).
     /// </summary>
     public class FractionalLayoutPanel : Panel
     {
@@ -20,6 +21,17 @@ namespace AvasRoutingTool.Controls
         public static readonly DependencyProperty AspectRatioProperty = DependencyProperty.Register(
             nameof(AspectRatio), typeof(double), typeof(FractionalLayoutPanel),
             new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        /// <summary>Where the canvas sits in leftover height: Center (default) or Top, which keeps it attached to what sits above it.</summary>
+        public static readonly DependencyProperty CanvasVerticalAlignmentProperty = DependencyProperty.Register(
+            nameof(CanvasVerticalAlignment), typeof(VerticalAlignment), typeof(FractionalLayoutPanel),
+            new FrameworkPropertyMetadata(VerticalAlignment.Center, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        public VerticalAlignment CanvasVerticalAlignment
+        {
+            get => (VerticalAlignment)GetValue(CanvasVerticalAlignmentProperty);
+            set => SetValue(CanvasVerticalAlignmentProperty, value);
+        }
 
         public double AspectRatio
         {
@@ -44,8 +56,20 @@ namespace AvasRoutingTool.Controls
         {
             if (double.IsInfinity(availableSize.Width) || double.IsInfinity(availableSize.Height))
             {
-                foreach (UIElement child in InternalChildren) child.Measure(new Size(0, 0));
-                return new Size(0, 0);
+                // One free axis plus an aspect ratio: the other axis follows from it, so a thumbnail needs no fixed size.
+                bool widthFree = double.IsInfinity(availableSize.Width);
+                bool heightFree = double.IsInfinity(availableSize.Height);
+                if (AspectRatio > 0 && widthFree != heightFree)
+                {
+                    availableSize = widthFree
+                        ? new Size(availableSize.Height * AspectRatio, availableSize.Height)
+                        : new Size(availableSize.Width, availableSize.Width / AspectRatio);
+                }
+                else
+                {
+                    foreach (UIElement child in InternalChildren) child.Measure(new Size(0, 0));
+                    return new Size(0, 0);
+                }
             }
 
             var canvas = CanvasRect(availableSize);
@@ -77,7 +101,7 @@ namespace AvasRoutingTool.Controls
 
             double width = Math.Min(space.Width, space.Height * AspectRatio);
             double height = width / AspectRatio;
-            return new Rect((space.Width - width) / 2, (space.Height - height) / 2, width, height);
+            return new Rect((space.Width - width) / 2, CanvasVerticalAlignment == VerticalAlignment.Top ? 0 : (space.Height - height) / 2, width, height);
         }
     }
 }

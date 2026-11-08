@@ -12,6 +12,15 @@ namespace AvasRoutingTool.Controls
         double VideoAspect)
     {
         /// <summary>
+        /// 0 (default) = fit-all grid. Greater than 0 = one-row carousel showing this many cards across
+        /// the viewport (the half card peeks to signal sideways scrolling).
+        /// </summary>
+        public double CarouselVisibleCards { get; init; }
+
+        /// <summary>The carousel never makes a card narrower than this (0 = not used, <see cref="MinCardWidth"/> applies).</summary>
+        public double CarouselMinCardWidth { get; init; }
+
+        /// <summary>
         /// Tuned for the surgical-touch card: 20px of horizontal padding, ~96px of non-video chrome
         /// (header, 36px stream-control footer, paddings) and a 16:9 video surface.
         /// </summary>
@@ -28,10 +37,7 @@ namespace AvasRoutingTool.Controls
         /// Chrome = frame 2 + padding 24 + 24 + 56 + 64 = 170, so the picture keeps 16:9 in every state (a smoke test
         /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
         /// </summary>
-        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 760, ChromeHeight = 170, HorizontalPadding = 26 };
-
-        /// <summary>Source cards are passive drag/tap handles: capped narrower so the displays get the room.</summary>
-        public static GridSpec SourceCard { get; } = Default with { MaxCardWidth = 420 };
+        public static GridSpec DisplayCard { get; } = Default with { MinCardWidth = 400, MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5, CarouselMinCardWidth = 400 };
     }
 
     /// <summary>The chosen arrangement for N cards in a viewport.</summary>
@@ -51,6 +57,11 @@ namespace AvasRoutingTool.Controls
             if (count <= 0 || availableWidth <= 0)
             {
                 return new GridPlan(0, 0, 0, 0, false);
+            }
+
+            if (spec.CarouselVisibleCards > 0)
+            {
+                return ComputeCarousel(count, availableWidth, spec);
             }
 
             GridPlan? best = null;
@@ -100,6 +111,21 @@ namespace AvasRoutingTool.Controls
             bool needsScroll = double.IsInfinity(availableHeight) ? false : totalHeight > availableHeight + Epsilon;
 
             return new GridPlan(fitCols, fitRows, fallbackWidth, fallbackHeight, needsScroll);
+        }
+
+        // One row, ignores height. 4 cards share the viewport exactly; otherwise cards are sized so
+        // CarouselVisibleCards fit, which makes 5+ overflow and scroll sideways.
+        private static GridPlan ComputeCarousel(int count, double availableWidth, GridSpec spec)
+        {
+            double visible = count == 4 ? 4 : spec.CarouselVisibleCards;
+            double width = (availableWidth - 3 * spec.Gap) / visible;
+            double min = spec.CarouselMinCardWidth > 0 ? Math.Max(spec.MinCardWidth, spec.CarouselMinCardWidth) : spec.MinCardWidth;
+            width = Math.Min(Math.Max(width, min), spec.MaxCardWidth);
+
+            double rowWidth = count * width + spec.Gap * (count - 1);
+            bool needsScroll = rowWidth > availableWidth + Epsilon;
+
+            return new GridPlan(count, 1, width, CardHeightFor(width, spec), needsScroll);
         }
 
         public static double CardHeightFor(double cardWidth, GridSpec spec)

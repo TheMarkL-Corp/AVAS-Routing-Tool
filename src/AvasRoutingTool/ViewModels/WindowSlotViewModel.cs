@@ -36,6 +36,9 @@ namespace AvasRoutingTool.ViewModels
         public double NormalizedHeight { get; }
 
         public bool IsAssigned => _source != null;
+
+        /// <summary>An assigned source without a preview stream (non-AVAS): the window says so instead of showing a picture.</summary>
+        public bool ShowPreviewUnavailable => IsAssigned && !_isPreviewSupported;
         public string SourceName => _source?.DeviceName ?? string.Empty;
         public string SourceMac => _source?.MacAddress ?? string.Empty;
 
@@ -48,7 +51,7 @@ namespace AvasRoutingTool.ViewModels
         public bool IsPreviewSupported
         {
             get => _isPreviewSupported;
-            private set { _isPreviewSupported = value; OnPropertyChanged(); }
+            private set { _isPreviewSupported = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowPreviewUnavailable)); }
         }
 
         public bool IsDragOver
@@ -76,6 +79,7 @@ namespace AvasRoutingTool.ViewModels
             }
 
             OnPropertyChanged(nameof(IsAssigned));
+            OnPropertyChanged(nameof(ShowPreviewUnavailable));
             OnPropertyChanged(nameof(SourceName));
             OnPropertyChanged(nameof(SourceMac));
         }

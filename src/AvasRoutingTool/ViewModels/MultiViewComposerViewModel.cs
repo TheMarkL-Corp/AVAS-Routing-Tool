@@ -34,7 +34,7 @@ namespace AvasRoutingTool.ViewModels
 
         private const string NothingPlacedText = "Place at least one source (Step 2).";
         private const string NothingToChangeText = "Nothing to change since what is on screen.";
-        private const string DisplayChangedText = "The display changed - review the new layout, then take.";
+        private const string DisplayChangedText = "The display changed - review the new layout, then save and apply.";
 
         /// <summary>How long a Success banner ("On screen") stays; <see cref="Tick"/> clears it after this.</summary>
         public static readonly TimeSpan SuccessBannerLifetime = TimeSpan.FromSeconds(4);
@@ -177,9 +177,9 @@ namespace AvasRoutingTool.ViewModels
         /// <summary>Blocks that differ from the screen. <see cref="DraftChange.SlotIndex"/> is the API window index; see <see cref="ChangeLines"/> for display numbers.</summary>
         public IReadOnlyList<DraftChange> Changes => _changes;
 
-        /// <summary>The change list as the operator reads it, by display number: "2: - -> TX1" ("-" = empty).</summary>
+        /// <summary>The change list as the operator reads it, by display number: "Block 2: empty → TX1", "Block 4: TX2 → empty", "Block 2: TX1 → TX2".</summary>
         public IReadOnlyList<string> ChangeLines =>
-            _changes.Select(c => $"{NumberOf(c.SlotIndex)}: {c.From ?? "-"} -> {c.To ?? "-"}").ToList();
+            _changes.Select(c => $"Block {NumberOf(c.SlotIndex)}: {c.From ?? "empty"} → {c.To ?? "empty"}").ToList();
 
         /// <summary>How many blocks differ from the screen ("CHANGES (n)").</summary>
         public int ChangeCount => _changes.Count;
@@ -194,12 +194,24 @@ namespace AvasRoutingTool.ViewModels
 
         public bool StepPlaceDone => _draft != null && _draft.Placements.Count > 0;
 
+        /// <summary>The first step still to do: layout, then placing, then the check.</summary>
+        public bool StepLayoutCurrent => !StepLayoutDone;
+        public bool StepPlaceCurrent => StepLayoutDone && !StepPlaceDone;
+        public bool StepTakeCurrent => StepPlaceDone && !CanTake;
+
         // The step markers show a number or a check; these say the same in words for a screen reader.
         public string StepLayoutText => $"Step 1, Layout: {(StepLayoutDone ? "done" : "to do")}";
 
         public string StepPlaceText => $"Step 2, Place sources: {(StepPlaceDone ? "done" : "to do")}";
 
-        public string StepTakeText => $"Step 3, Check, then take: {(CanTake ? "ready" : "not ready")}";
+        public string StepTakeText => $"Step 3, Check, then save and apply: {(CanTake ? "ready" : "not ready")}";
+
+        /// <summary>Width / height of the plan that is on screen now (the ON SCREEN NOW picture follows it); 16:9 when nothing is live.</summary>
+        public double LiveAspectRatio =>
+            _live is { Plan: { Width: > 0, Height: > 0 } plan } ? (double)plan.Width / plan.Height : 16.0 / 9.0;
+
+        /// <summary>The display's name: the name plate on the empty ON SCREEN NOW picture (it never changes).</summary>
+        public string DisplayName => _display.DeviceName;
 
         /// <summary>What the ON SCREEN NOW picture shows, in words (the thumbnail itself has no text for a screen reader).</summary>
         public string OnScreenSummary
@@ -284,10 +296,10 @@ namespace AvasRoutingTool.ViewModels
         {
             get
             {
-                if (_busy) return $"Sending to {_display.DeviceName}...";
+                if (_busy) return $"Applying to {_display.DeviceName}...";
                 int n = _changes.Count;
-                if (n == 0 && LayoutDiffers) return "TAKE NEW LAYOUT TO SCREEN";
-                return $"TAKE {n} CHANGE{(n == 1 ? string.Empty : "S")} TO SCREEN";
+                if (n == 0 && LayoutDiffers) return "Save & apply new layout";
+                return $"Save & apply {n} change{(n == 1 ? string.Empty : "s")}";
             }
         }
 
@@ -696,7 +708,7 @@ namespace AvasRoutingTool.ViewModels
                         _takenAt = _clock();
                         CommitLive();
                         liveChanged = true;
-                        Banner = new ComposerBanner("On screen", BannerKind.Success);
+                        Banner = new ComposerBanner("Saved & applied - on screen now.", BannerKind.Success);
                         break;
 
                     case TakeOutcome.NothingToTake:
@@ -721,7 +733,7 @@ namespace AvasRoutingTool.ViewModels
             catch (Exception ex)
             {
                 AppLogger.Error("COMPOSER", $"Take on '{device.DeviceName}' failed", ex);
-                Banner = new ComposerBanner($"Take failed: {ex.Message} Check what is on screen.", BannerKind.Error);
+                Banner = new ComposerBanner($"Could not apply: {ex.Message.TrimEnd().TrimEnd('.')}. Check what is on screen.", BannerKind.Error);
             }
             finally
             {
@@ -1112,6 +1124,7 @@ namespace AvasRoutingTool.ViewModels
 
                 block.SetStatus(state, issueText, sameAs, available, reason, sameAsBlock);
                 block.IsSelected = _selectedBlock == block.Index;
+                block.IsPickerTarget = _pickerBlock == block.Index;
                 block.IsMoveSource = _movingFrom == block.Index;
             }
             ApplyFocus();
@@ -1168,7 +1181,7 @@ namespace AvasRoutingTool.ViewModels
             {
                 nameof(Draft), nameof(ArmedSource), nameof(PickerBlockIndex), nameof(MovingFromIndex), nameof(Changes), nameof(ChangeLines),
                 nameof(ChangeCount), nameof(IsStaged), nameof(IsOnScreen),
-                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(StepLayoutText), nameof(StepPlaceText), nameof(StepTakeText), nameof(OnScreenSummary), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
+                nameof(StepLayoutDone), nameof(StepPlaceDone), nameof(StepLayoutCurrent), nameof(StepPlaceCurrent), nameof(StepTakeCurrent), nameof(StepLayoutText), nameof(StepPlaceText), nameof(StepTakeText), nameof(OnScreenSummary), nameof(LiveAspectRatio), nameof(CanTake), nameof(TakeLabel), nameof(TakeBlockedReason), nameof(TakeAutomationName),
                 nameof(CanUndo), nameof(UnplacedSources), nameof(OutputText), nameof(RateNote), nameof(HeaderNotice),
             })
                 Raise(name);

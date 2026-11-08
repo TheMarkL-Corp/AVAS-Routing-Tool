@@ -26,7 +26,28 @@ namespace AvasRoutingTool.Controls
             set => SetValue(SpecProperty, value);
         }
 
+        /// <summary>
+        /// Whether a grid shorter than the viewport is centred vertically (the default). The Displays panel turns it off,
+        /// so its cards start right under the section header.
+        /// </summary>
+        public static readonly DependencyProperty CenterVerticallyProperty =
+            DependencyProperty.Register(
+                nameof(CenterVertically),
+                typeof(bool),
+                typeof(AdaptiveCardPanel),
+                new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        public bool CenterVertically
+        {
+            get => (bool)GetValue(CenterVerticallyProperty);
+            set => SetValue(CenterVerticallyProperty, value);
+        }
         private ScrollViewer? _parentScrollViewer;
+        private GridPlan? _carouselPlan;
+        private double _carouselViewport;
+        private int _carouselCount;
+
+        private bool IsCarousel => Spec.CarouselVisibleCards > 0;
 
         public AdaptiveCardPanel()
         {
@@ -50,7 +71,7 @@ namespace AvasRoutingTool.Controls
             _parentScrollViewer = FindAncestor<ScrollViewer>(this);
             if (_parentScrollViewer != null)
             {
-                _parentScrollViewer.SizeChanged += OnScrollViewerSizeChanged;
+                HookScrollViewer(_parentScrollViewer);
             }
         }
 
@@ -59,8 +80,21 @@ namespace AvasRoutingTool.Controls
             if (_parentScrollViewer != null)
             {
                 _parentScrollViewer.SizeChanged -= OnScrollViewerSizeChanged;
+                _parentScrollViewer.ScrollChanged -= OnScrollViewerScrollChanged;
                 _parentScrollViewer = null;
             }
+        }
+
+        private void HookScrollViewer(ScrollViewer sv)
+        {
+            sv.SizeChanged += OnScrollViewerSizeChanged;
+            sv.ScrollChanged += OnScrollViewerScrollChanged;
+        }
+
+        // The viewport width settles after the scroller's SizeChanged: a carousel row must be re-planned when it changes.
+        private void OnScrollViewerScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (IsCarousel && e.ViewportWidthChange != 0) InvalidateMeasure();
         }
 
         private void OnScrollViewerSizeChanged(object sender, SizeChangedEventArgs e)
@@ -115,7 +149,7 @@ namespace AvasRoutingTool.Controls
                 _parentScrollViewer = FindAncestor<ScrollViewer>(this);
                 if (_parentScrollViewer != null)
                 {
-                    _parentScrollViewer.SizeChanged += OnScrollViewerSizeChanged;
+                    HookScrollViewer(_parentScrollViewer);
                 }
             }
         }
@@ -137,6 +171,12 @@ namespace AvasRoutingTool.Controls
             double height = ResolveEffectiveHeight(availableSize.Height);
 
             var plan = AdaptiveGridLayout.Compute(count, width, height, Spec);
+            if (IsCarousel)
+            {
+                _carouselPlan = plan;
+                _carouselViewport = width;
+                _carouselCount = count;
+            }
 
             var childConstraint = new Size(plan.CardWidth, plan.CardHeight);
             foreach (var child in visibleChildren)
@@ -147,7 +187,10 @@ namespace AvasRoutingTool.Controls
             double totalWidth = plan.Columns * plan.CardWidth + Math.Max(0, plan.Columns - 1) * Spec.Gap;
             double totalHeight = plan.Rows * plan.CardHeight + Math.Max(0, plan.Rows - 1) * Spec.Gap;
 
-            double resultWidth = double.IsInfinity(availableSize.Width) ? totalWidth : Math.Min(totalWidth, availableSize.Width);
+            // Carousel rows report their full width so a horizontal ScrollViewer can scroll them.
+            double resultWidth = IsCarousel || double.IsInfinity(availableSize.Width)
+                ? totalWidth
+                : Math.Min(totalWidth, availableSize.Width);
             double resultHeight = totalHeight;
 
             return new Size(resultWidth, resultHeight);
@@ -169,17 +212,39 @@ namespace AvasRoutingTool.Controls
             double width = finalSize.Width;
             double height = ResolveEffectiveHeight(finalSize.Height);
 
-            var plan = AdaptiveGridLayout.Compute(count, width, height, Spec);
+            double viewport = width;
+            GridPlan plan;
+            if (IsCarousel)
+            {
+                // finalSize is the (wider) row, so the plan must come from the viewport, not from it.
+                double v = ResolveEffectiveWidth(double.PositiveInfinity);
+                viewport = double.IsInfinity(v) || v <= 0 ? finalSize.Width : v;
+                if (_carouselPlan is { } stored && _carouselCount == count && Math.Abs(_carouselViewport - viewport) < 0.01)
+                {
+                    plan = stored;
+                }
+                else
+                {
+                    plan = AdaptiveGridLayout.Compute(count, viewport, height, Spec);
+                    _carouselPlan = plan;
+                    _carouselViewport = viewport;
+                    _carouselCount = count;
+                }
+            }
+            else
+            {
+                plan = AdaptiveGridLayout.Compute(count, width, height, Spec);
+            }
             if (plan.Columns <= 0 || plan.Rows <= 0)
             {
                 return finalSize;
             }
 
             double totalGridWidth = plan.Columns * plan.CardWidth + Math.Max(0, plan.Columns - 1) * Spec.Gap;
-            double startX = Math.Max(0, (finalSize.Width - totalGridWidth) / 2.0);
+            double startX = Math.Max(0, (viewport - totalGridWidth) / 2.0);
 
             double totalGridHeight = plan.Rows * plan.CardHeight + Math.Max(0, plan.Rows - 1) * Spec.Gap;
-            double startY = Math.Max(0, (height - totalGridHeight) / 2.0);
+            double startY = CenterVertically ? Math.Max(0, (height - totalGridHeight) / 2.0) : 0;
 
             for (int i = 0; i < count; i++)
             {

@@ -15,15 +15,15 @@
     <Color x:Key="Color.Accent.Primary">#2563EB</Color> <!-- Cobalt Blue 600 -->
     <Color x:Key="Color.Accent.PrimaryHover">#1D4ED8</Color> <!-- Cobalt Blue 700 -->
     <Color x:Key="Color.Status.Online">#047857</Color> <!-- Emerald 700 -->
-    <Color x:Key="Color.Status.Offline">#94A3B8</Color> <!-- Slate 400 -->
+    <Color x:Key="Color.Status.Offline">#5B6B82</Color> <!-- Same grey as Text.Muted: 3:1 as a dot on every surface -->
     <Color x:Key="Color.Status.Routed">#2563EB</Color> <!-- Cobalt Blue 600 -->
     <Color x:Key="Color.Text.Primary">#0F172A</Color> <!-- Slate 900 (15.8:1 AAA contrast) -->
     <Color x:Key="Color.Text.Secondary">#475569</Color> <!-- Slate 600 (7.0:1 AAA contrast) -->
-    <Color x:Key="Color.Text.Muted">#64748B</Color> <!-- Slate 500 (4.6:1 AA contrast) -->
+    <Color x:Key="Color.Text.Muted">#5B6B82</Color> <!-- Slate 500 darkened (5.19:1 on Background, 5.43:1 on Card, 4.95:1 on Elevated) -->
     <Color x:Key="Color.Action.Danger">#DC2626</Color> <!-- Red 600 -->
 
     <!-- MultiView Composer: Staged Status -->
-    <Color x:Key="Color.Status.Staged">#D97706</Color> <!-- Amber 600 -->
+    <Color x:Key="Color.Status.Staged">#B45309</Color> <!-- Amber 700 (5.0:1 with white, 4.5:1 on its Amber 100 fill) -->
     <Color x:Key="Color.Status.StagedText">#92400E</Color> <!-- Amber 800 -->
     <Color x:Key="Color.Status.StagedChipText">#78350F</Color> <!-- Amber 900 -->
 
@@ -50,7 +50,7 @@
     <Color x:Key="Color.Surface.Overlay">#FFFFFF</Color> <!-- White Overlay -->
     <Color x:Key="Color.Text.OnOverlay">#0F172A</Color>
     <Color x:Key="Color.Surface.Popup">#FFFFFF</Color>
-    <Color x:Key="Color.Border.Control">#CBD5E1</Color>
+    <Color x:Key="Color.Border.Control">#7B8CA4</Color> <!-- 3.3:1 on the canvas, 3.4:1 on a card, 3.1:1 on Elevated (non-text minimum) -->
     <Color x:Key="Color.Surface.Selected">#DBEAFE</Color> <!-- Blue 100 -->
     <Color x:Key="Color.Surface.Danger">#FEF2F2</Color> <!-- Red 50 -->
     <Color x:Key="Color.Border.Danger">#F87171</Color> <!-- Red 400 -->

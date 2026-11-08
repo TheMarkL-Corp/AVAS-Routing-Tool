@@ -176,7 +176,8 @@ namespace AvasRoutingTool.Sdvoe.MultiView
                 .SelectMany(pair => pair.Value.Live.Plan.Slots
                     .Where(slot => pair.Value.Live.Placements.ContainsKey(slot.Index))
                     .Select(slot => new OtherDisplayUse(
-                        pair.Value.DisplayName, pair.Value.Live.Placements[slot.Index].SourceMac, slot.Width, slot.Height)));
+                        pair.Value.DisplayName, pair.Value.Live.Placements[slot.Index].SourceMac, slot.Width, slot.Height,
+                        slot.Label == MultiViewPresets.InsetLabel)));
             var externalUses = _externalUses
                 .Where(pair => pair.Key != key)
                 .SelectMany(pair => pair.Value);

@@ -15,11 +15,11 @@
     <Color x:Key="Color.Accent.Primary">#2563EB</Color>
     <Color x:Key="Color.Accent.PrimaryHover">#1D4ED8</Color>
     <Color x:Key="Color.Status.Online">#10B981</Color>
-    <Color x:Key="Color.Status.Offline">#64748B</Color>
+    <Color x:Key="Color.Status.Offline">#8190A6</Color>
     <Color x:Key="Color.Status.Routed">#3B82F6</Color>
     <Color x:Key="Color.Text.Primary">#F8FAFC</Color>
     <Color x:Key="Color.Text.Secondary">#94A3B8</Color>
-    <Color x:Key="Color.Text.Muted">#64748B</Color>
+    <Color x:Key="Color.Text.Muted">#8190A6</Color>
     <Color x:Key="Color.Action.Danger">#EF4444</Color>
 
     <!-- MultiView Composer: Staged Status -->
@@ -50,7 +50,7 @@
     <Color x:Key="Color.Surface.Overlay">#0A0E16</Color>
     <Color x:Key="Color.Text.OnOverlay">#F1F5F9</Color>
     <Color x:Key="Color.Surface.Popup">#0F1626</Color>
-    <Color x:Key="Color.Border.Control">#334155</Color>
+    <Color x:Key="Color.Border.Control">#64748B</Color> <!-- 3.1:1 on Elevated, 3.6:1 on a card, 4.1:1 on the canvas (non-text minimum) -->
     <Color x:Key="Color.Surface.Selected">#172554</Color>
     <Color x:Key="Color.Surface.Danger">#1A0B0B</Color>
     <Color x:Key="Color.Border.Danger">#7F1D1D</Color>

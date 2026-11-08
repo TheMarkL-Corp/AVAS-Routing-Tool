@@ -1,0 +1,172 @@
+using System;
+using System.IO;
+using System.Windows;
+using AvasRoutingTool.Configuration;
+using AvasRoutingTool.Services;
+using AvasRoutingTool.Services.Visca;
+using AvasRoutingTool.ViewModels;
+using Xunit;
+
+namespace AvasRoutingTool.Tests
+{
+    /// <summary>
+    /// Screenshots of the Room Cameras view (on demand): set UIV2_SHOTS (AVAS_UIV2_SHOTS also works) to the output folder and run
+    /// <c>--filter FullyQualifiedName~UiV2_RoomCamerasScreenshots</c>. Without the variable the test does nothing.
+    /// States: picture live with the camera moving, standby, no source bound, source offline, locked, Stop not confirmed, empty config;
+    /// each at 1920x1080 and 1024x720 in Dark and Light.
+    /// </summary>
+    public partial class ViewSmokeTests
+    {
+        [Fact]
+        public void UiV2_RoomCamerasScreenshots()
+        {
+            var folder = Environment.GetEnvironmentVariable("UIV2_SHOTS") ?? Environment.GetEnvironmentVariable("AVAS_UIV2_SHOTS");
+            if (string.IsNullOrWhiteSpace(folder)) return;
+            Directory.CreateDirectory(folder);
+
+            RunSta(() =>
+            {
+                var themeService = new ThemeService();
+                try
+                {
+                    foreach (var light in new[] { false, true })
+                    foreach (var (w, h) in new[] { (1920.0, 1080.0), (1024.0, 720.0) })
+                    {
+                        themeService.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark);
+                        var suffix = $"{(int)w}x{(int)h}-{(light ? "light" : "dark")}";
+
+                        void Scene(string name, Action<RoomCamerasRig> arrange, bool empty = false)
+                        {
+                            var cameras = empty
+                                ? Array.Empty<RoomCameraConfig>()
+                                : new[] { RoomCamerasRig.Cam("a", "ROOM-CAM", RoomCamerasRig.Mac), RoomCamerasRig.Cam("b", "OR-2 ceiling"), RoomCamerasRig.Cam("c", "Anaesthesia corner", "aa:bb:cc:00:00:99") };
+                            using var rig = new RoomCamerasRig(w, h, cameras, new[] { RoomCamerasRig.Card() });
+                            themeService.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark);
+                            arrange(rig);
+                            rig.Relayout();
+                            SavePng(ClientRoot(rig.Window), Path.Combine(folder, $"{name}-{suffix}.png"));
+                        }
+
+                        Scene("rc-01-live-moving", rig =>
+                        {
+                            var card = rig.Sources[0];
+                            card.PreviewBitmap = new System.Windows.Media.Imaging.WriteableBitmap(64, 36, 96, 96, System.Windows.Media.PixelFormats.Bgr24, null);
+                            card.IsStreaming = true;
+                            card.Fps = 29.9;
+                            rig.Vm.Selected!.BeginMove(PanTiltDirection.UpLeft);
+                        });
+                        Scene("rc-02-standby", rig => { });
+                        Scene("rc-03-no-source", rig => rig.Vm.Selected = rig.Vm.Cameras[1]);
+                        Scene("rc-04-source-offline", rig => rig.Vm.Selected = rig.Vm.Cameras[2]);
+                        Scene("rc-05-locked", rig => rig.Vm.Selected!.IsLocked = true);
+                        Scene("rc-06-stop-not-confirmed", rig =>
+                        {
+                            var camera = rig.Vm.Selected!;
+                            rig.Fake().FailNextStops(20);
+                            camera.BeginMove(PanTiltDirection.Up);
+                            camera.EndMove();
+                            for (var i = 0; i < 12 && camera.MotionState != MotionState.StopNotConfirmed; i++)
+                            {
+                                rig.Clock = rig.Clock.AddSeconds(3);
+                                camera.Tick();
+                                RoomCamerasRig.Idle();
+                            }
+                        });
+                        Scene("rc-07-empty", rig => { }, empty: true);
+
+                        // Camera editor dialog states (RC12): new camera, existing camera, several detect answers, remove confirmation.
+                        void Editor(string name, Action<Views.CameraEditorDialog> arrange, bool existing, bool hits = false)
+                        {
+                            var cards = new[] { RoomCamerasRig.Card("TX1_c07bb"), RoomCamerasRig.Card("TX2_e1a90", mac: "aa:bb:cc:00:00:02") };
+                            var config = RoomCamerasRig.Cam("a", "ROOM-CAM", RoomCamerasRig.Mac);
+                            CameraEditorViewModel.DetectFunc? detect = hits
+                                ? (_, _, _, _) => System.Threading.Tasks.Task.FromResult<System.Collections.Generic.IReadOnlyList<ProbeHit>>(new[]
+                                {
+                                    new ProbeHit(ViscaTransportKind.Tcp, 5678, CameraPower.On),
+                                    new ProbeHit(ViscaTransportKind.Udp, 3001, CameraPower.On),
+                                })
+                                : null;
+                            var vm = new CameraEditorViewModel(existing ? config : null, cards, new Fakes.FakePtzCameraFactory(), detect, new[] { "OR-2 ceiling" });
+                            if (!existing) { vm.Name = "OR-2 ceiling"; vm.Host = "192.168.1.170"; }
+                            themeService.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark);
+                            var dialog = new Views.CameraEditorDialog(vm, existing ? config.Id : null)
+                            {
+                                ShowInTaskbar = false,
+                                WindowStartupLocation = WindowStartupLocation.Manual,
+                                Left = -10000,
+                                Top = 0,
+                                MaxHeight = h,
+                            };
+                            try
+                            {
+                                dialog.Show();
+                                arrange(dialog);
+                                dialog.UpdateLayout();
+                                RoomCamerasRig.Idle();
+                                SavePng(ClientRoot(dialog), Path.Combine(folder, $"{name}-{suffix}.png"));
+                            }
+                            finally { dialog.Close(); }
+                        }
+
+                        Editor("rc-08-editor-new", d => { }, existing: false);
+                        Editor("rc-09-editor-existing", d => { }, existing: true);
+                        Editor("rc-10-editor-detect-hits", d =>
+                        {
+                            ((System.Windows.Controls.Button)d.FindName("DetectButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                            RoomCamerasRig.Idle();
+                        }, existing: false, hits: true);
+                        Editor("rc-11-editor-remove-confirm", d =>
+                        {
+                            ((System.Windows.Controls.Button)d.FindName("RemoveButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                            RoomCamerasRig.Idle();
+                        }, existing: true);
+                    }
+                }
+                finally
+                {
+                    themeService.SetTheme(ThemeMode.Dark);
+                }
+            });
+        }
+
+        /// <summary>
+        /// The Room Cameras tab inside the real main window (RC14). No camera is added: AddCamera persists to the app's
+        /// appsettings.json, so the shots show whatever the window loads from its config (normally the empty state).
+        /// Same gate as above: without UIV2_SHOTS the test does nothing.
+        /// </summary>
+        [Fact]
+        public void UiV2_RoomCamerasTabInMainWindowScreenshots()
+        {
+            var folder = Environment.GetEnvironmentVariable("UIV2_SHOTS") ?? Environment.GetEnvironmentVariable("AVAS_UIV2_SHOTS");
+            if (string.IsNullOrWhiteSpace(folder)) return;
+            Directory.CreateDirectory(folder);
+
+            RunSta(() =>
+            {
+                var themeService = new ThemeService();
+                try
+                {
+                    foreach (var light in new[] { false, true })
+                    foreach (var (w, h) in new[] { (1920.0, 1080.0), (1024.0, 720.0) })
+                    {
+                        var suffix = $"{(int)w}x{(int)h}-{(light ? "light" : "dark")}";
+                        var window = new MainWindow { WindowState = WindowState.Normal, Width = w, Height = h, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000 };
+                        window.Show();
+                        try
+                        {
+                            themeService.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark); // the window's own view model resets the theme when it is built
+                            ((System.Windows.Controls.RadioButton)window.FindName("TabRoomCameras")).IsChecked = true;
+                            Relayout(window);
+                            SavePng(ClientRoot(window), Path.Combine(folder, $"rc-w-tab-{suffix}.png"));
+                        }
+                        finally { window.Close(); }
+                    }
+                }
+                finally
+                {
+                    themeService.SetTheme(ThemeMode.Dark);
+                }
+            });
+        }
+    }
+}

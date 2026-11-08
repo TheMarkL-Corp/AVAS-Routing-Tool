@@ -1,140 +1,79 @@
 using System;
+using System.Runtime.CompilerServices;
 
 namespace AvasRoutingTool.Rtp
 {
     /// <summary>
-    /// High-performance YUV 4:2:2 to RGB24 / BGR24 color space rasterizer.
-    /// Implements fast Q10 fixed-point integer arithmetic and a 1024-byte branchless clamp LUT.
-    /// Supports zero-allocation span-based and unsafe pointer-based blitting directly into WriteableBitmap.
+    /// YUV 4:2:2 to RGB24 / BGR24 rasterizer for the RFC 4175 "YCbCr-4:2:2" 8-bit pixel group
+    /// (byte order Cb Y0 Cr Y1, a.k.a. UYVY), limited range (Y 16-235, C 16-240), BT.709 matrix.
+    /// Q8 fixed-point integer arithmetic; all converters share one pixel routine so they cannot drift apart.
+    /// Verified byte order and range against a raw AVAS-223 preview frame (see Handover/03_PROTOCOLS_AND_HARDWARE.md section 5.3).
     /// </summary>
     public static class Yuv422Rasterizer
     {
-        // 1024-byte clamp LUT centered at offset 384 (covers index range [-384, +639])
-        private static readonly byte[] ClampTable = new byte[1024];
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static byte Clamp(int val) => (byte)(val < 0 ? 0 : (val > 255 ? 255 : val));
 
-        static Yuv422Rasterizer()
+        /// <summary>Converts one luma sample with the pair's chroma (already offset by -128) to R, G, B.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void Pixel(int y, int d, int e, out byte r, out byte g, out byte b)
         {
-            for (int i = 0; i < 1024; i++)
-            {
-                int val = i - 384;
-                ClampTable[i] = (byte)(val < 0 ? 0 : (val > 255 ? 255 : val));
-            }
-        }
-
-        public static byte Clamp(int val)
-        {
-            int idx = val + 384;
-            if ((uint)idx < 1024) return ClampTable[idx];
-            return val < 0 ? (byte)0 : (byte)255;
+            int c = 298 * (y - 16) + 128;
+            r = Clamp((c + 459 * e) >> 8);
+            g = Clamp((c - 55 * d - 136 * e) >> 8);
+            b = Clamp((c + 541 * d) >> 8);
         }
 
         public static byte[] ConvertYuv422ToRgb24(ReadOnlySpan<byte> yuv, int width, int height)
         {
-            int pixelCount = width * height;
-            byte[] rgb = new byte[pixelCount * 3];
+            byte[] rgb = new byte[width * height * 3];
             ConvertYuv422ToRgb24(yuv, rgb.AsSpan(), width, height);
             return rgb;
         }
 
         public static void ConvertYuv422ToRgb24(ReadOnlySpan<byte> yuv, Span<byte> rgb, int width, int height)
         {
-            int yuvIdx = 0;
-            int rgbIdx = 0;
-
-            while (yuvIdx <= yuv.Length - 4 && rgbIdx <= rgb.Length - 6)
+            int s = 0, o = 0;
+            while (s <= yuv.Length - 4 && o <= rgb.Length - 6)
             {
-                byte u = yuv[yuvIdx];
-                byte y0 = yuv[yuvIdx + 1];
-                byte v = yuv[yuvIdx + 2];
-                byte y1 = yuv[yuvIdx + 3];
-
-                int dU = u - 128;
-                int dV = v - 128;
-
-                int deltaR = (1440 * dU) >> 10;
-                int deltaG = (-354 * dV - 734 * dU) >> 10;
-                int deltaB = (1822 * dV) >> 10;
-
-                rgb[rgbIdx] = Clamp(y0 + deltaR);
-                rgb[rgbIdx + 1] = Clamp(y0 + deltaG);
-                rgb[rgbIdx + 2] = Clamp(y0 + deltaB);
-
-                rgb[rgbIdx + 3] = Clamp(y1 + deltaR);
-                rgb[rgbIdx + 4] = Clamp(y1 + deltaG);
-                rgb[rgbIdx + 5] = Clamp(y1 + deltaB);
-
-                yuvIdx += 4;
-                rgbIdx += 6;
+                int d = yuv[s] - 128, e = yuv[s + 2] - 128;
+                Pixel(yuv[s + 1], d, e, out rgb[o], out rgb[o + 1], out rgb[o + 2]);
+                Pixel(yuv[s + 3], d, e, out rgb[o + 3], out rgb[o + 4], out rgb[o + 5]);
+                s += 4;
+                o += 6;
             }
         }
 
         public static byte[] ConvertYuv422ToBgr24(ReadOnlySpan<byte> yuv, int width, int height)
         {
-            int pixelCount = width * height;
-            byte[] bgr = new byte[pixelCount * 3];
+            byte[] bgr = new byte[width * height * 3];
             ConvertYuv422ToBgr24(yuv, bgr.AsSpan(), width, height);
             return bgr;
         }
 
         public static void ConvertYuv422ToBgr24(ReadOnlySpan<byte> yuv, Span<byte> bgr, int width, int height)
         {
-            int yuvIdx = 0;
-            int bgrIdx = 0;
-
-            while (yuvIdx <= yuv.Length - 4 && bgrIdx <= bgr.Length - 6)
+            int s = 0, o = 0;
+            while (s <= yuv.Length - 4 && o <= bgr.Length - 6)
             {
-                byte u = yuv[yuvIdx];
-                byte y0 = yuv[yuvIdx + 1];
-                byte v = yuv[yuvIdx + 2];
-                byte y1 = yuv[yuvIdx + 3];
-
-                int dU = u - 128;
-                int dV = v - 128;
-
-                int deltaR = (1440 * dU) >> 10;
-                int deltaG = (-354 * dV - 734 * dU) >> 10;
-                int deltaB = (1822 * dV) >> 10;
-
-                bgr[bgrIdx] = Clamp(y0 + deltaB);
-                bgr[bgrIdx + 1] = Clamp(y0 + deltaG);
-                bgr[bgrIdx + 2] = Clamp(y0 + deltaR);
-
-                bgr[bgrIdx + 3] = Clamp(y1 + deltaB);
-                bgr[bgrIdx + 4] = Clamp(y1 + deltaG);
-                bgr[bgrIdx + 5] = Clamp(y1 + deltaR);
-
-                yuvIdx += 4;
-                bgrIdx += 6;
+                int d = yuv[s] - 128, e = yuv[s + 2] - 128;
+                Pixel(yuv[s + 1], d, e, out bgr[o + 2], out bgr[o + 1], out bgr[o]);
+                Pixel(yuv[s + 3], d, e, out bgr[o + 5], out bgr[o + 4], out bgr[o + 3]);
+                s += 4;
+                o += 6;
             }
         }
 
         public static unsafe void ConvertYuv422ToBgr24(byte* pYuv, byte* pBgr, int pixelCount)
         {
-            fixed (byte* pClamp = &ClampTable[384])
+            int pairs = pixelCount >> 1;
+            for (int i = 0; i < pairs; i++)
             {
-                int quadCount = pixelCount >> 1;
-                for (int i = 0; i < quadCount; i++)
-                {
-                    int u = pYuv[0] - 128;
-                    int y0 = pYuv[1];
-                    int v = pYuv[2] - 128;
-                    int y1 = pYuv[3];
-                    pYuv += 4;
-
-                    int deltaR = (1440 * u) >> 10;
-                    int deltaG = (-354 * v - 734 * u) >> 10;
-                    int deltaB = (1822 * v) >> 10;
-
-                    pBgr[0] = pClamp[y0 + deltaB];
-                    pBgr[1] = pClamp[y0 + deltaG];
-                    pBgr[2] = pClamp[y0 + deltaR];
-
-                    pBgr[3] = pClamp[y1 + deltaB];
-                    pBgr[4] = pClamp[y1 + deltaG];
-                    pBgr[5] = pClamp[y1 + deltaR];
-
-                    pBgr += 6;
-                }
+                int d = pYuv[0] - 128, e = pYuv[2] - 128;
+                Pixel(pYuv[1], d, e, out pBgr[2], out pBgr[1], out pBgr[0]);
+                Pixel(pYuv[3], d, e, out pBgr[5], out pBgr[4], out pBgr[3]);
+                pYuv += 4;
+                pBgr += 6;
             }
         }
 
@@ -143,47 +82,7 @@ namespace AvasRoutingTool.Rtp
             int yuvLineBytes = width * 2;
             for (int line = 0; line < height; line++)
             {
-                byte* pSrcLine = pYuv + (line * yuvLineBytes);
-                byte* pDstLine = pBackBuffer + (line * stride);
-                ConvertYuv422ToBgr24(pSrcLine, pDstLine, width);
-            }
-        }
-
-        public static void ConvertYuv422SliceToBgra(byte[] src, int srcOffset, int srcLength, byte[] dest, int destOffset)
-        {
-            for (int i = 0; i <= srcLength - 4; i += 4)
-            {
-                byte y0 = src[srcOffset + i];
-                byte u  = src[srcOffset + i + 1];
-                byte y1 = src[srcOffset + i + 2];
-                byte v  = src[srcOffset + i + 3];
-
-                int c0 = y0 - 16;
-                int d  = u - 128;
-                int c1 = y1 - 16;
-                int e  = v - 128;
-
-                int r0 = Math.Clamp((298 * c0 + 409 * e + 128) >> 8, 0, 255);
-                int g0 = Math.Clamp((298 * c0 - 100 * d - 208 * e + 128) >> 8, 0, 255);
-                int b0 = Math.Clamp((298 * c0 + 516 * d + 128) >> 8, 0, 255);
-
-                int p0 = destOffset + (i * 2);
-                if (p0 + 7 < dest.Length)
-                {
-                    dest[p0]     = (byte)b0;
-                    dest[p0 + 1] = (byte)g0;
-                    dest[p0 + 2] = (byte)r0;
-                    dest[p0 + 3] = 255;
-
-                    int r1 = Math.Clamp((298 * c1 + 409 * e + 128) >> 8, 0, 255);
-                    int g1 = Math.Clamp((298 * c1 - 100 * d - 208 * e + 128) >> 8, 0, 255);
-                    int b1 = Math.Clamp((298 * c1 + 516 * d + 128) >> 8, 0, 255);
-
-                    dest[p0 + 4] = (byte)b1;
-                    dest[p0 + 5] = (byte)g1;
-                    dest[p0 + 6] = (byte)r1;
-                    dest[p0 + 7] = 255;
-                }
+                ConvertYuv422ToBgr24(pYuv + (line * yuvLineBytes), pBackBuffer + (line * stride), width);
             }
         }
     }

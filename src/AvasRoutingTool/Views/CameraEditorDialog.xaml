@@ -1,0 +1,247 @@
+<Window x:Class="AvasRoutingTool.Views.CameraEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:conv="clr-namespace:AvasRoutingTool.Converters"
+        xmlns:views="clr-namespace:AvasRoutingTool.Views"
+        Title="Room camera"
+        SizeToContent="Height"
+        Width="{StaticResource Size.Camera.Dialog.Width}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource Brush.Background.Dark}"
+        Foreground="{DynamicResource Brush.Text.Primary}"
+        FontFamily="Segoe UI">
+
+    <!--
+        Camera editor (RC12). DataContext: CameraEditorViewModel. A modal dialog with normal chrome; it never writes config,
+        the caller reads Outcome / Result. Escape cancels (it first closes an open Remove confirmation).
+    -->
+    <Window.Resources>
+        <conv:ValueEqualsConverter x:Key="Converter.ValueEquals" />
+        <views:HitTextConverter x:Key="Converter.HitText" />
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock x:Name="HeaderText" Text="Room camera" Style="{StaticResource Style.Text.Lead}" />
+            <TextBlock Text="Where the camera is on the network, and which source shows its picture."
+                       Style="{StaticResource Style.Text.Caption}" Margin="0,4,0,0" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- Name -->
+                <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="Name" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <ui:TextBox x:Name="NameBox"
+                                Style="{StaticResource Style.TextBox.Field}"
+                                Margin="0,6,0,0"
+                                Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                AutomationProperties.Name="Camera name" />
+                    <TextBlock x:Name="DuplicateWarning"
+                               Text="{Binding DuplicateNameWarning, Mode=OneWay}"
+                               Visibility="{Binding DuplicateNameWarning, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}"
+                               Style="{StaticResource Style.Text.Caption}"
+                               Foreground="{DynamicResource Brush.Text.Secondary}"
+                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <!-- Address -->
+                <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="Camera address" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <ui:TextBox x:Name="HostBox"
+                                Style="{StaticResource Style.TextBox.Field}"
+                                Margin="0,6,0,0"
+                                Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}"
+                                AutomationProperties.Name="Camera address" />
+                </StackPanel>
+
+                <!-- Port + Detect -->
+                <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="Port" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <ui:TextBox x:Name="PortBox"
+                                    Style="{StaticResource Style.TextBox.Field}"
+                                    Width="{StaticResource Size.Camera.Dialog.Port}"
+                                    Text="{Binding PortText, UpdateSourceTrigger=PropertyChanged}"
+                                    AutomationProperties.Name="Camera port" />
+                        <Button x:Name="DetectButton"
+                                Content="Detect"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="10,0,0,0"
+                                IsEnabled="{Binding IsDetecting, Converter={StaticResource Converter.Visible.False}}"
+                                AutomationProperties.Name="Detect the camera port"
+                                Click="DetectButton_Click" />
+                    </StackPanel>
+                    <TextBlock x:Name="DetectText"
+                               Text="{Binding DetectText, Mode=OneWay}"
+                               Visibility="{Binding DetectText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}"
+                               Style="{StaticResource Style.Text.Caption}"
+                               Foreground="{DynamicResource Brush.Text.Secondary}"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <ItemsControl x:Name="HitList"
+                                  ItemsSource="{Binding Hits, Mode=OneWay}"
+                                  Focusable="False"
+                                  Margin="0,6,0,0"
+                                  AutomationProperties.Name="Other answers">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Content="{Binding Converter={StaticResource Converter.HitText}}"
+                                        Style="{StaticResource Style.Button.Secondary}"
+                                        MinHeight="{StaticResource Size.Touch.Min}"
+                                        Margin="0,0,8,8"
+                                        Click="HitButton_Click" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Transport -->
+                <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="Transport" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <RadioButton x:Name="UdpChoice"
+                                     GroupName="CameraTransport"
+                                     Content="UDP"
+                                     Style="{StaticResource Style.ToggleButton.Segment}"
+                                     MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                                     Margin="0,0,8,0"
+                                     IsChecked="{Binding Transport, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Udp}"
+                                     AutomationProperties.Name="UDP" />
+                        <RadioButton x:Name="TcpChoice"
+                                     GroupName="CameraTransport"
+                                     Content="TCP"
+                                     Style="{StaticResource Style.ToggleButton.Segment}"
+                                     MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                                     IsChecked="{Binding Transport, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Tcp}"
+                                     AutomationProperties.Name="TCP" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Bound TX -->
+                <StackPanel Margin="0,0,0,16">
+                    <TextBlock Text="Picture source (TX)" Style="{StaticResource Style.Text.Body}" FontWeight="Medium" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                    <ComboBox x:Name="TxBox"
+                              Margin="0,6,0,0"
+                              MinHeight="{StaticResource Size.Touch.Min}"
+                              HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding TxChoices}"
+                              SelectedItem="{Binding SelectedTx, Mode=TwoWay}"
+                              AutomationProperties.Name="Picture source">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Mac}" Style="{StaticResource Style.Text.Caption}" Foreground="{DynamicResource Brush.Text.Muted}"
+                                               VerticalAlignment="Center" Margin="10,0,0,0" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Test connection -->
+                <StackPanel Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="TestButton"
+                                Content="Test connection"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                IsEnabled="{Binding IsTesting, Converter={StaticResource Converter.Visible.False}}"
+                                AutomationProperties.Name="Test connection"
+                                Click="TestButton_Click" />
+                        <StackPanel x:Name="TestResult" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center"
+                                    Visibility="{Binding TestText, Mode=OneWay, Converter={StaticResource Converter.Visible.NotEmpty}}">
+                            <Ellipse x:Name="TestDot" Style="{StaticResource Style.StatusDot}" Margin="0,0,8,0" />
+                            <TextBlock x:Name="TestWords" Text="{Binding TestText, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Actions -->
+        <StackPanel Grid.Row="2" Margin="0,16,0,0">
+            <!-- Inline Remove confirmation (not a modal) -->
+            <Border x:Name="RemoveConfirm"
+                    Visibility="{Binding IsRemovePending, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
+                    Background="{DynamicResource Brush.Surface.Danger}"
+                    BorderBrush="{DynamicResource Brush.Border.Danger}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12"
+                    Margin="0,0,0,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" x:Name="RemoveText" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                        <Button x:Name="KeepButton" Content="Keep" Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}" Margin="0,0,8,0" Click="KeepButton_Click" />
+                        <Button x:Name="ConfirmRemoveButton" Content="Remove" Style="{StaticResource Style.Button.Unroute}"
+                                MinHeight="{StaticResource Size.Touch.Min}" Click="ConfirmRemoveButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="RemoveButton"
+                        Grid.Column="0"
+                        Content="Remove"
+                        Style="{StaticResource Style.Button.Ghost}"
+                        MinHeight="{StaticResource Size.Touch.Min}"
+                        VerticalAlignment="Center"
+                        Margin="0,0,12,0"
+                        Click="RemoveButton_Click" />
+                <TextBlock x:Name="ReasonText"
+                           Grid.Column="1"
+                           Text="{Binding SaveDisabledReason, Mode=OneWay}"
+                           Style="{StaticResource Style.Text.Caption}"
+                           Foreground="{DynamicResource Brush.Text.Secondary}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           Margin="0,0,12,0" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="CancelButton"
+                            Content="Cancel"
+                            Style="{StaticResource Style.Button.Secondary}"
+                            MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                            MinHeight="{StaticResource Size.Touch.Min}"
+                            Margin="0,0,10,0"
+                            Click="CancelButton_Click" />
+                    <Button x:Name="SaveButton"
+                            Content="Save"
+                            Style="{StaticResource Style.Button.Primary}"
+                            MinWidth="{StaticResource Size.Button.Dialog.Min}"
+                            MinHeight="{StaticResource Size.Touch.Min}"
+                            IsEnabled="{Binding IsValid, Mode=OneWay}"
+                            Click="SaveButton_Click" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Window>

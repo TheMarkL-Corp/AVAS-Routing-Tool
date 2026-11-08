@@ -1,0 +1,478 @@
+# Review package: 7abd3f5..453abcb
+
+## Commits
+453abcb feat(layout): card panel lays out a carousel row
+71bc15c docs: plan width figure 526 (formula (viewport-3g)/3.5)
+6b2f1b3 feat(layout): display cards use a one-row carousel rule
+
+## Files changed
+ .../2026-11-05-main-window-display-cards-scroll.md |  2 +-
+ src/AvasRoutingTool/Controls/AdaptiveCardPanel.cs  | 42 ++++++++++++-
+ src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs | 27 +++++++-
+ .../AdaptiveCardPanelTests.cs                      | 73 ++++++++++++++++++++++
+ .../AdaptiveGridLayoutTests.cs                     | 64 ++++++++++++++++++-
+ 5 files changed, 201 insertions(+), 7 deletions(-)
+
+## Diff
+diff --git a/docs/superpowers/plans/2026-11-05-main-window-display-cards-scroll.md b/docs/superpowers/plans/2026-11-05-main-window-display-cards-scroll.md
+index e1ad588..1049791 100644
+--- a/docs/superpowers/plans/2026-11-05-main-window-display-cards-scroll.md
++++ b/docs/superpowers/plans/2026-11-05-main-window-display-cards-scroll.md
+@@ -43,21 +43,21 @@ Merge `ui-v2/rename`, `claude/advanced-page-3a0947` and `ui-v2/room-cameras` int
+ 
+ ### Task 1: Carousel rule in the layout policy
+ 
+ **Files:**
+ - Modify: `src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs` (`GridSpec.Carousel`, `Compute`)
+ - Test: `tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs`
+ 
+ **Interfaces:**
+ - Produces: `GridSpec.CarouselVisibleCards` (`double`, default `0` = today's fit-all behaviour, so the source strip is untouched; `DisplayCard` sets `3.5`). `Compute` signature unchanged; in carousel mode it returns `Rows == 1`, `Columns == count`, and `NeedsScroll == true` when the row is wider than `availableWidth`.
+ 
+-- [ ] **Step 1: Write the failing tests** (names and values from the rule above, viewport 1888): `Carousel_OneCard_Is539Wide`, `Carousel_FourCards_FitWithoutScroll`, `Carousel_FiveCards_Scrolls`, `Carousel_At992_UsesMinWidth`, `Carousel_Twelve_OneRow`; the existing fit-all tests stay green.
++- [ ] **Step 1: Write the failing tests** (names and values from the rule above, viewport 1888): `Carousel_OneCard_Is526Wide`, `Carousel_FourCards_FitWithoutScroll`, `Carousel_FiveCards_Scrolls`, `Carousel_At992_UsesMinWidth`, `Carousel_Twelve_OneRow`; the existing fit-all tests stay green.
+ - [ ] **Step 2: Run to verify fail:** `dotnet test tests/AvasRoutingTool.Tests/AvasRoutingTool.Tests.csproj -p:BaseOutputPath=bin/r3/ --filter "FullyQualifiedName~AdaptiveGridLayoutTests" -- RunConfiguration.DisableParallelization=true`. Expected: new tests FAIL.
+ - [ ] **Step 3: Implement** the rule in `Compute` behind `CarouselVisibleCards > 0`.
+ - [ ] **Step 4: Run to verify pass.**
+ - [ ] **Step 5: Commit** `feat(layout): display cards use a one-row carousel rule`.
+ 
+ ### Task 2: Panel lays out one row and exposes its extent
+ 
+ **Files:**
+ - Modify: `src/AvasRoutingTool/Controls/AdaptiveCardPanel.cs` (measure returns the full row width; arrange reuses the measured plan)
+ - Test: `tests/AvasRoutingTool.Tests/AdaptiveCardPanelTests.cs`
+diff --git a/src/AvasRoutingTool/Controls/AdaptiveCardPanel.cs b/src/AvasRoutingTool/Controls/AdaptiveCardPanel.cs
+index 7423fdf..795e44c 100644
+--- a/src/AvasRoutingTool/Controls/AdaptiveCardPanel.cs
++++ b/src/AvasRoutingTool/Controls/AdaptiveCardPanel.cs
+@@ -36,20 +36,25 @@ namespace AvasRoutingTool.Controls
+                 typeof(bool),
+                 typeof(AdaptiveCardPanel),
+                 new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsArrange));
+ 
+         public bool CenterVertically
+         {
+             get => (bool)GetValue(CenterVerticallyProperty);
+             set => SetValue(CenterVerticallyProperty, value);
+         }
+         private ScrollViewer? _parentScrollViewer;
++        private GridPlan? _carouselPlan;
++        private double _carouselViewport;
++        private int _carouselCount;
++
++        private bool IsCarousel => Spec.CarouselVisibleCards > 0;
+ 
+         public AdaptiveCardPanel()
+         {
+             Loaded += OnLoaded;
+             Unloaded += OnUnloaded;
+         }
+ 
+         private void OnLoaded(object sender, RoutedEventArgs e)
+         {
+             AttachScrollViewer();
+@@ -146,31 +151,40 @@ namespace AvasRoutingTool.Controls
+             int count = visibleChildren.Count;
+             if (count == 0)
+             {
+                 return new Size(0, 0);
+             }
+ 
+             double width = ResolveEffectiveWidth(availableSize.Width);
+             double height = ResolveEffectiveHeight(availableSize.Height);
+ 
+             var plan = AdaptiveGridLayout.Compute(count, width, height, Spec);
++            if (IsCarousel)
++            {
++                _carouselPlan = plan;
++                _carouselViewport = width;
++                _carouselCount = count;
++            }
+ 
+             var childConstraint = new Size(plan.CardWidth, plan.CardHeight);
+             foreach (var child in visibleChildren)
+             {
+                 child.Measure(childConstraint);
+             }
+ 
+             double totalWidth = plan.Columns * plan.CardWidth + Math.Max(0, plan.Columns - 1) * Spec.Gap;
+             double totalHeight = plan.Rows * plan.CardHeight + Math.Max(0, plan.Rows - 1) * Spec.Gap;
+ 
+-            double resultWidth = double.IsInfinity(availableSize.Width) ? totalWidth : Math.Min(totalWidth, availableSize.Width);
++            // Carousel rows report their full width so a horizontal ScrollViewer can scroll them.
++            double resultWidth = IsCarousel || double.IsInfinity(availableSize.Width)
++                ? totalWidth
++                : Math.Min(totalWidth, availableSize.Width);
+             double resultHeight = totalHeight;
+ 
+             return new Size(resultWidth, resultHeight);
+         }
+ 
+         protected override Size ArrangeOverride(Size finalSize)
+         {
+             var visibleChildren = InternalChildren
+                 .OfType<UIElement>()
+                 .Where(c => c.Visibility != Visibility.Collapsed)
+@@ -178,28 +192,50 @@ namespace AvasRoutingTool.Controls
+ 
+             int count = visibleChildren.Count;
+             if (count == 0)
+             {
+                 return finalSize;
+             }
+ 
+             double width = finalSize.Width;
+             double height = ResolveEffectiveHeight(finalSize.Height);
+ 
+-            var plan = AdaptiveGridLayout.Compute(count, width, height, Spec);
++            double viewport = width;
++            GridPlan plan;
++            if (IsCarousel)
++            {
++                // finalSize is the (wider) row, so the plan must come from the viewport, not from it.
++                double v = ResolveEffectiveWidth(double.PositiveInfinity);
++                viewport = double.IsInfinity(v) || v <= 0 ? finalSize.Width : v;
++                if (_carouselPlan is { } stored && _carouselCount == count && Math.Abs(_carouselViewport - viewport) < 0.01)
++                {
++                    plan = stored;
++                }
++                else
++                {
++                    plan = AdaptiveGridLayout.Compute(count, viewport, height, Spec);
++                    _carouselPlan = plan;
++                    _carouselViewport = viewport;
++                    _carouselCount = count;
++                }
++            }
++            else
++            {
++                plan = AdaptiveGridLayout.Compute(count, width, height, Spec);
++            }
+             if (plan.Columns <= 0 || plan.Rows <= 0)
+             {
+                 return finalSize;
+             }
+ 
+             double totalGridWidth = plan.Columns * plan.CardWidth + Math.Max(0, plan.Columns - 1) * Spec.Gap;
+-            double startX = Math.Max(0, (finalSize.Width - totalGridWidth) / 2.0);
++            double startX = Math.Max(0, (viewport - totalGridWidth) / 2.0);
+ 
+             double totalGridHeight = plan.Rows * plan.CardHeight + Math.Max(0, plan.Rows - 1) * Spec.Gap;
+             double startY = CenterVertically ? Math.Max(0, (height - totalGridHeight) / 2.0) : 0;
+ 
+             for (int i = 0; i < count; i++)
+             {
+                 int col = i % plan.Columns;
+                 int row = i / plan.Columns;
+ 
+                 double x = startX + col * (plan.CardWidth + Spec.Gap);
+diff --git a/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs b/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs
+index 830260b..5d5adfb 100644
+--- a/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs
++++ b/src/AvasRoutingTool/Controls/AdaptiveGridLayout.cs
+@@ -4,38 +4,44 @@ namespace AvasRoutingTool.Controls
+ {
+     /// <summary>Sizing rules for a grid of video cards.</summary>
+     public sealed record GridSpec(
+         double MinCardWidth,
+         double MaxCardWidth,
+         double Gap,
+         double HorizontalPadding,
+         double ChromeHeight,
+         double VideoAspect)
+     {
++        /// <summary>
++        /// 0 (default) = fit-all grid. Greater than 0 = one-row carousel showing this many cards across
++        /// the viewport (the half card peeks to signal sideways scrolling).
++        /// </summary>
++        public double CarouselVisibleCards { get; init; }
++
+         /// <summary>
+         /// Tuned for the surgical-touch card: 20px of horizontal padding, ~96px of non-video chrome
+         /// (header, 36px stream-control footer, paddings) and a 16:9 video surface.
+         /// </summary>
+         public static GridSpec Default { get; } = new(
+             MinCardWidth: 320,
+             MaxCardWidth: 600,
+             Gap: 16,
+             HorizontalPadding: 20,
+             ChromeHeight: 96,
+             VideoAspect: 16.0 / 9.0);
+ 
+         /// <summary>
+         /// The display card: a 24 px header, a 56 px action bar (48 px buttons), the 16:9 picture and a 64 px status dock.
+         /// Chrome = frame 2 + padding 24 + 24 + 56 + 64 = 170, so the picture keeps 16:9 in every state (a smoke test
+         /// measures the real card: Single View, MultiView, a draft chip, the Undo toast).
+         /// </summary>
+-        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26 };
++        public static GridSpec DisplayCard { get; } = Default with { MaxCardWidth = 960, ChromeHeight = 170, HorizontalPadding = 26, CarouselVisibleCards = 3.5 };
+     }
+ 
+     /// <summary>The chosen arrangement for N cards in a viewport.</summary>
+     public readonly record struct GridPlan(int Columns, int Rows, double CardWidth, double CardHeight, bool NeedsScroll);
+ 
+     /// <summary>
+     /// Picks the column count and card size that makes the cards as large as the viewport allows
+     /// while keeping a 16:9 video surface and never exceeding the viewport width.
+     /// Pure and WPF-free so the whole policy is testable at its interface.
+     /// </summary>
+@@ -43,20 +49,25 @@ namespace AvasRoutingTool.Controls
+     {
+         private const double Epsilon = 0.001;
+ 
+         public static GridPlan Compute(int count, double availableWidth, double availableHeight, GridSpec spec)
+         {
+             if (count <= 0 || availableWidth <= 0)
+             {
+                 return new GridPlan(0, 0, 0, 0, false);
+             }
+ 
++            if (spec.CarouselVisibleCards > 0)
++            {
++                return ComputeCarousel(count, availableWidth, spec);
++            }
++
+             GridPlan? best = null;
+ 
+             for (int cols = 1; cols <= count; cols++)
+             {
+                 int rows = (int)Math.Ceiling(count / (double)cols);
+ 
+                 double byWidth = (availableWidth - spec.Gap * (cols - 1)) / cols;
+                 double width = Math.Min(byWidth, spec.MaxCardWidth);
+ 
+                 if (!double.IsInfinity(availableHeight))
+@@ -92,17 +103,31 @@ namespace AvasRoutingTool.Controls
+             fitCols = Math.Min(fitCols, count);
+             int fitRows = (int)Math.Ceiling(count / (double)fitCols);
+             double fallbackWidth = Math.Min(spec.MinCardWidth, availableWidth);
+             double fallbackHeight = CardHeightFor(fallbackWidth, spec);
+             double totalHeight = fitRows * fallbackHeight + spec.Gap * (fitRows - 1);
+             bool needsScroll = double.IsInfinity(availableHeight) ? false : totalHeight > availableHeight + Epsilon;
+ 
+             return new GridPlan(fitCols, fitRows, fallbackWidth, fallbackHeight, needsScroll);
+         }
+ 
++        // One row, ignores height. 4 cards share the viewport exactly; otherwise cards are sized so
++        // CarouselVisibleCards fit, which makes 5+ overflow and scroll sideways.
++        private static GridPlan ComputeCarousel(int count, double availableWidth, GridSpec spec)
++        {
++            double visible = count == 4 ? 4 : spec.CarouselVisibleCards;
++            double width = (availableWidth - 3 * spec.Gap) / visible;
++            width = Math.Min(Math.Max(width, spec.MinCardWidth), spec.MaxCardWidth);
++
++            double rowWidth = count * width + spec.Gap * (count - 1);
++            bool needsScroll = rowWidth > availableWidth + Epsilon;
++
++            return new GridPlan(count, 1, width, CardHeightFor(width, spec), needsScroll);
++        }
++
+         public static double CardHeightFor(double cardWidth, GridSpec spec)
+         {
+             double videoWidth = Math.Max(0, cardWidth - spec.HorizontalPadding);
+             return videoWidth / spec.VideoAspect + spec.ChromeHeight;
+         }
+     }
+ }
+diff --git a/tests/AvasRoutingTool.Tests/AdaptiveCardPanelTests.cs b/tests/AvasRoutingTool.Tests/AdaptiveCardPanelTests.cs
+index 26614d0..8631fb2 100644
+--- a/tests/AvasRoutingTool.Tests/AdaptiveCardPanelTests.cs
++++ b/tests/AvasRoutingTool.Tests/AdaptiveCardPanelTests.cs
+@@ -149,20 +149,93 @@ namespace AvasRoutingTool.Tests
+ 
+                 var container1 = (FrameworkElement)itemsControl.ItemContainerGenerator.ContainerFromIndex(0);
+                 Assert.NotNull(container1);
+                 Assert.Equal(GridSpec.Default.MinCardWidth, container1.ActualWidth, 1);
+                 Assert.True(scrollViewer.ScrollableHeight > 0);
+ 
+                 window.Close();
+             });
+         }
+ 
++        private static (Window window, ScrollViewer scroll, AdaptiveCardPanel panel, Border[] cards) BuildDisplayHost(int count)
++        {
++            var panel = new AdaptiveCardPanel { Spec = GridSpec.DisplayCard, CenterVertically = false };
++            var cards = new Border[count];
++            for (int i = 0; i < count; i++)
++            {
++                cards[i] = new Border();
++                panel.Children.Add(cards[i]);
++            }
++            var scroll = new ScrollViewer
++            {
++                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
++                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
++                Width = 1888,
++                Height = 590,
++                Content = panel
++            };
++            var window = new Window
++            {
++                Content = scroll,
++                Width = 1920,
++                Height = 1080,
++                ShowInTaskbar = false,
++                WindowStyle = WindowStyle.None,
++                Left = -10000
++            };
++            window.Show();
++            scroll.UpdateLayout();
++            return (window, scroll, panel, cards);
++        }
++
++        [Fact]
++        public void DisplayPanel_FiveCards_RowIsWiderThanViewport_ArrangeMatchesMeasure()
++        {
++            RunSta(() =>
++            {
++                var (window, scroll, panel, cards) = BuildDisplayHost(5);
++
++                Assert.True(panel.DesiredSize.Width > 1888, "desired " + panel.DesiredSize.Width);
++                double gap = GridSpec.DisplayCard.Gap;
++                double y0 = cards[0].TransformToAncestor(panel).Transform(new Point(0, 0)).Y;
++                for (int i = 0; i < 5; i++)
++                {
++                    Assert.Equal(525.71, cards[i].ActualWidth, 0.5);
++                    var p = cards[i].TransformToAncestor(panel).Transform(new Point(0, 0));
++                    Assert.Equal(y0, p.Y, 3);
++                    Assert.Equal(i * (cards[0].ActualWidth + gap), p.X, 0.5);
++                }
++                Assert.True(scroll.ScrollableWidth > 0);
++
++                window.Close();
++            });
++        }
++
++        [Fact]
++        public void DisplayPanel_ThreeCards_AreCentredAndDoNotScroll()
++        {
++            RunSta(() =>
++            {
++                var (window, scroll, panel, cards) = BuildDisplayHost(3);
++
++                Assert.Equal(0, scroll.ScrollableWidth, 3);
++                var first = cards[0].TransformToAncestor(scroll).Transform(new Point(0, 0));
++                var last = cards[2].TransformToAncestor(scroll).Transform(new Point(0, 0));
++                Assert.True(first.X > 0);
++                double left = first.X;
++                double right = scroll.ViewportWidth - (last.X + cards[2].ActualWidth);
++                Assert.Equal(left, right, 1);
++
++                window.Close();
++            });
++        }
++
+         private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+         {
+             for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+             {
+                 var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                 if (child is T typed) return typed;
+                 var nested = FindVisualChild<T>(child);
+                 if (nested != null) return nested;
+             }
+             return null;
+diff --git a/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs b/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs
+index 553755c..f66b368 100644
+--- a/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs
++++ b/tests/AvasRoutingTool.Tests/AdaptiveGridLayoutTests.cs
+@@ -10,24 +10,24 @@ namespace AvasRoutingTool.Tests
+         [Fact]
+         public void TheCardCaps_LeaveRoomForATallerOrBiggerWindow()
+         {
+             // Full HD is height-bound, so the caps do not change what 1080p shows; they only stop capping a taller window (UI v2, D9).
+             Assert.Equal(960, GridSpec.DisplayCard.MaxCardWidth);
+             Assert.Equal(170, GridSpec.DisplayCard.ChromeHeight);
+             Assert.Equal(26, GridSpec.DisplayCard.HorizontalPadding);
+         }
+ 
+         [Fact]
+-        public void ADisplayCard_OnATallWindow_GrowsPastTheOldCap()
++        public void ADisplayCard_OnATallWindow_IgnoresHeight_AndUsesTheCarouselWidth()
+         {
+             var plan = AdaptiveGridLayout.Compute(1, 1888, 1200, GridSpec.DisplayCard);
+-            Assert.Equal(960, plan.CardWidth, 3);
++            Assert.InRange(plan.CardWidth, 525.71 - 0.5, 525.71 + 0.5);
+         }
+ 
+         [Fact]
+         public void Compute_NoCards_ReturnsEmptyPlan()
+         {
+             var plan = AdaptiveGridLayout.Compute(0, 1888, 435, Spec);
+ 
+             Assert.Equal(0, plan.Columns);
+             Assert.Equal(0, plan.Rows);
+             Assert.False(plan.NeedsScroll);
+@@ -123,12 +123,72 @@ namespace AvasRoutingTool.Tests
+         {
+             // Frame 2 + padding 24 + header 24 + action bar 56 (48 px buttons) + status dock 64: nothing lies on the 16:9 picture.
+             Assert.Equal(170, GridSpec.DisplayCard.ChromeHeight);
+             Assert.Equal(26, GridSpec.DisplayCard.HorizontalPadding);
+ 
+             var plan = AdaptiveGridLayout.Compute(2, 1888, 435, GridSpec.DisplayCard);
+             double videoHeight = plan.CardHeight - GridSpec.DisplayCard.ChromeHeight;
+             double videoWidth = plan.CardWidth - GridSpec.DisplayCard.HorizontalPadding;
+             Assert.InRange(videoWidth / videoHeight, 16.0 / 9 * 0.96, 16.0 / 9 * 1.04);
+         }
++
++        [Fact]
++        public void Carousel_OneCard_Is526Wide()
++        {
++            var plan = AdaptiveGridLayout.Compute(1, 1888, 435, GridSpec.DisplayCard);
++
++            Assert.InRange(plan.CardWidth, 525.71 - 0.5, 525.71 + 0.5);
++            Assert.Equal(1, plan.Rows);
++            Assert.Equal(1, plan.Columns);
++            Assert.False(plan.NeedsScroll);
++        }
++
++        [Fact]
++        public void Carousel_FourCards_FitWithoutScroll()
++        {
++            var plan = AdaptiveGridLayout.Compute(4, 1888, 435, GridSpec.DisplayCard);
++
++            Assert.InRange(plan.CardWidth, 459.5, 460.5);
++            Assert.Equal(1, plan.Rows);
++            Assert.Equal(4, plan.Columns);
++            Assert.False(plan.NeedsScroll);
++        }
++
++        [Fact]
++        public void Carousel_FiveCards_Scrolls()
++        {
++            var plan = AdaptiveGridLayout.Compute(5, 1888, 435, GridSpec.DisplayCard);
++
++            Assert.InRange(plan.CardWidth, 525.71 - 0.5, 525.71 + 0.5);
++            Assert.Equal(1, plan.Rows);
++            Assert.Equal(5, plan.Columns);
++            Assert.True(plan.NeedsScroll);
++        }
++
++        [Fact]
++        public void Carousel_At992_UsesMinWidth()
++        {
++            var plan = AdaptiveGridLayout.Compute(5, 992, 435, GridSpec.DisplayCard);
++
++            Assert.Equal(320, plan.CardWidth, 3);
++            Assert.True(plan.NeedsScroll);
++        }
++
++        [Fact]
++        public void Carousel_Twelve_OneRow()
++        {
++            var plan = AdaptiveGridLayout.Compute(12, 1888, double.PositiveInfinity, GridSpec.DisplayCard);
++
++            Assert.Equal(1, plan.Rows);
++            Assert.Equal(12, plan.Columns);
++            Assert.True(plan.NeedsScroll);
++            Assert.Equal(AdaptiveGridLayout.CardHeightFor(plan.CardWidth, GridSpec.DisplayCard), plan.CardHeight, 3);
++        }
++
++        [Fact]
++        public void FitAll_Default_HasNoCarousel()
++        {
++            Assert.Equal(0, GridSpec.Default.CarouselVisibleCards);
++            Assert.Equal(3.5, GridSpec.DisplayCard.CarouselVisibleCards);
++        }
+     }
+ }

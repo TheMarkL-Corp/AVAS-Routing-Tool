@@ -45,15 +45,11 @@ namespace AvasRoutingTool.Views
             nameof(Sources), typeof(IEnumerable<SourceCardViewModel>), typeof(MultiViewComposerView),
             new PropertyMetadata(null, (d, _) => ((MultiViewComposerView)d).SchedulePicker()));
 
-        /// <summary>Width of the layout tiles' schematics (narrower with the rails on a small window).</summary>
-        public static readonly DependencyProperty SchematicWidthProperty = DependencyProperty.Register(
-            nameof(SchematicWidth), typeof(double), typeof(MultiViewComposerView), new PropertyMetadata(120.0));
+        /// <summary>The layout the empty Step 1 canvas draws as a ghost: the tile under the pointer or the keyboard, else the default.</summary>
+        public static readonly DependencyProperty PreviewLayoutIdProperty = DependencyProperty.Register(
+            nameof(PreviewLayoutId), typeof(string), typeof(MultiViewComposerView), new PropertyMetadata(DefaultPreviewLayoutId));
 
-        public static readonly DependencyProperty SchematicHeightProperty = DependencyProperty.Register(
-            nameof(SchematicHeight), typeof(double), typeof(MultiViewComposerView), new PropertyMetadata(70.0));
-
-        /// <summary>Below this width the rails narrow (280 -> 240, 320 -> 264) so the canvas keeps usable blocks.</summary>
-        internal const double NarrowWidth = 1200;
+        private const string DefaultPreviewLayoutId = "matrix2x2";
 
         private MultiViewComposerViewModel? _watched;
         private bool _closingPicker;
@@ -89,7 +85,7 @@ namespace AvasRoutingTool.Views
         public MultiViewComposerView()
         {
             InitializeComponent();
-            SizeChanged += (_, e) => FitRails(e.NewSize.Width);
+            PickerPopup.CustomPopupPlacementCallback = PlacePicker;
             DataContextChanged += (_, _) => Watch(DataContext as MultiViewComposerViewModel);
             Loaded += (_, _) => SchedulePicker();
             Unloaded += (_, _) => ClosePicker();
@@ -112,29 +108,14 @@ namespace AvasRoutingTool.Views
             set => SetValue(SourcesProperty, value);
         }
 
-        public double SchematicWidth
+        /// <summary>The layout the ghost on the empty canvas draws (view only: nothing is staged by previewing).</summary>
+        public string PreviewLayoutId
         {
-            get => (double)GetValue(SchematicWidthProperty);
-            set => SetValue(SchematicWidthProperty, value);
-        }
-
-        public double SchematicHeight
-        {
-            get => (double)GetValue(SchematicHeightProperty);
-            set => SetValue(SchematicHeightProperty, value);
+            get => (string)GetValue(PreviewLayoutIdProperty);
+            set => SetValue(PreviewLayoutIdProperty, value);
         }
 
         private MultiViewComposerViewModel? Composer => DataContext as MultiViewComposerViewModel;
-
-        /// <summary>Layout only: on a small window (MainWindow minimum 1024 px) the rails give the canvas room.</summary>
-        private void FitRails(double width)
-        {
-            bool narrow = width > 0 && width < NarrowWidth;
-            LeftRailColumn.Width = new GridLength(narrow ? 240 : 280);
-            RightRailColumn.Width = new GridLength(narrow ? 264 : 320);
-            SchematicWidth = narrow ? 96 : 120;
-            SchematicHeight = narrow ? 56 : 70;
-        }
 
         // ---- taps -> view model ----
 
@@ -142,6 +123,20 @@ namespace AvasRoutingTool.Views
         {
             if (sender is FrameworkElement { DataContext: ComposerLayoutOptionViewModel option } && Composer is { } c)
                 await Run(() => c.SelectLayoutAsync(option.Id), "Layout selection");
+        }
+
+        // ---- hover or keyboard focus on a tile: the ghost on the empty canvas previews that layout (view only) ----
+
+        private void LayoutTile_Preview(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { DataContext: ComposerLayoutOptionViewModel option }) PreviewLayoutId = option.Id;
+        }
+
+        // Hover or focus ends: the ghost goes back to the keyboard-focused tile's layout, else to the default.
+        private void LayoutTile_PreviewEnd(object sender, RoutedEventArgs e)
+        {
+            var focused = e is KeyboardFocusChangedEventArgs focus ? focus.NewFocus : Keyboard.FocusedElement;
+            PreviewLayoutId = focused is FrameworkElement { Name: "LayoutTile", DataContext: ComposerLayoutOptionViewModel option } ? option.Id : DefaultPreviewLayoutId;
         }
 
         private void Block_Click(object sender, RoutedEventArgs e)
@@ -624,6 +619,33 @@ namespace AvasRoutingTool.Views
         /// <summary>The picker never grows past 70 % of the work area (and not below a usable 320 px); its tiles scroll.</summary>
         internal double PickerMaxHeight => Math.Max(320, Math.Round(SystemParameters.WorkArea.Height * 0.7));
 
+        /// <summary>
+        /// Where the picker may sit relative to the block it fills (all in the block's coordinates): below it, then above it, each centred on the
+        /// block and clamped inside the canvas so it never covers the right rail; last resort, centred on the block (nothing else fits).
+        /// </summary>
+        internal static CustomPopupPlacement[] PickerPlacements(Size popup, Size block, Rect canvas, double gap)
+        {
+            double x = Math.Max(canvas.Left, Math.Min((block.Width - popup.Width) / 2, canvas.Right - popup.Width));
+            return new[]
+            {
+                new CustomPopupPlacement(new Point(x, block.Height + gap), PopupPrimaryAxis.Horizontal),
+                new CustomPopupPlacement(new Point(x, -popup.Height - gap), PopupPrimaryAxis.Horizontal),
+                new CustomPopupPlacement(new Point((block.Width - popup.Width) / 2, (block.Height - popup.Height) / 2), PopupPrimaryAxis.None),
+            };
+        }
+
+        /// <summary>The frame never grows wider than the canvas (less a gap at its edge, and the shadow margin); the tiles wrap to fewer columns.</summary>
+        internal static double PickerMaxWidth(double canvasWidth, double frameMax, Thickness shadow, double gap) =>
+            canvasWidth <= 0 ? frameMax : Math.Min(frameMax, Math.Max(0, canvasWidth - 2 * gap - shadow.Left - shadow.Right));
+
+        private CustomPopupPlacement[] PlacePicker(Size popupSize, Size targetSize, Point offset)
+        {
+            var target = PickerPopup.PlacementTarget as UIElement ?? CanvasHost;
+            var origin = CanvasHost.TranslatePoint(new Point(0, 0), target);
+            var canvas = new Rect(origin, CanvasHost.RenderSize);
+            return PickerPlacements(popupSize, targetSize, canvas, (double)FindResource("Size.Space.Action"));
+        }
+
         private void Watch(MultiViewComposerViewModel? composer)
         {
             if (_watched != null)
@@ -702,6 +724,7 @@ namespace AvasRoutingTool.Views
             PickerItems.ItemsSource = tiles;
             PickerEmpty.Visibility = tiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             PickerFrame.MaxHeight = PickerMaxHeight;
+            PickerFrame.MaxWidth = PickerMaxWidth(CanvasHost.ActualWidth, (double)FindResource("Size.Composer.Picker.Frame.Max"), PickerFrame.Margin, (double)FindResource("Size.Space.Action"));
             PickerPopup.PlacementTarget = BlocksHost.ItemContainerGenerator.ContainerFromItem(block) as UIElement ?? CanvasHost;
             bool wasOpen = PickerPopup.IsOpen;
             _pickerBlock = block.Index;

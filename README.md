@@ -28,7 +28,7 @@ The **AVAS Routing Tool** is a high-performance Windows desktop application desi
   * SDVoE REST API (port 8090) & Telnet/TCP CLI (port 6970)
   * RFC 4175 raw video RTP multicast (UDP ports 5000 / 5004)
   * Dynamic multicast IP management (`225.0.0.1`–`225.0.1.254`)
-* **Color Processing**: Q10 fixed-point BT.601 YUV422 to RGB24/ARGB32 rasterization
+* **Color Processing**: Q8 fixed-point BT.709 limited-range UYVY to RGB24/BGR24 rasterization
 * **Web Integration**: Microsoft WebView2 with isolated user data directory
 
 ---

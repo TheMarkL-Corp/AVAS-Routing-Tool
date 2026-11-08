@@ -1,6 +1,10 @@
 using System;
+using System.Linq;
 using System.Windows;
+using System.Windows.Media;
 using AvasRoutingTool.Configuration;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Markup;
 
 namespace AvasRoutingTool.Services
 {
@@ -88,6 +92,25 @@ namespace AvasRoutingTool.Services
             // No dispatcher hop: the STA view tests drive the service from their own thread while the app dispatcher
             // is blocked, so a synchronous Invoke deadlocks. Callers (the toggle command) already run on the UI thread.
             Swap(app, palette);
+            ApplyWpfUi(app, effective, palette);
+        }
+
+        /// <summary>
+        /// WPF-UI (theme and control styles only, D1) follows the app theme: its <see cref="ThemesDictionary"/> is swapped directly and
+        /// the accent comes from the app token. <c>ApplicationThemeManager.Apply</c> is deliberately never called: it restyles
+        /// <c>Application.MainWindow</c> as a WPF-UI window, which strips the native caption text, icon and system menu from our plain <c>Window</c>.
+        /// </summary>
+        private static void ApplyWpfUi(Application app, ThemeMode effective, ResourceDictionary palette)
+        {
+            var themes = app.Resources.MergedDictionaries.OfType<ThemesDictionary>().ToList();
+            if (themes.Count == 0) return;
+
+            var theme = effective == ThemeMode.Light ? ApplicationTheme.Light : ApplicationTheme.Dark;
+            foreach (var dictionary in themes) dictionary.Theme = theme;
+            if (palette["Color.Accent.Primary"] is Color accent)
+            {
+                ApplicationAccentColorManager.Apply(accent, theme);
+            }
         }
 
         /// <summary>Replaces the palette dictionary in place, so it keeps its slot ahead of the shared styles.</summary>

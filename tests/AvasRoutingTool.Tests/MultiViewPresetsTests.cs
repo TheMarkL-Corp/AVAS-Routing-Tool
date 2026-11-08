@@ -85,6 +85,56 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
+        public void Pip_WithInsetWidth_At1080p_InsetIs640x360AtTheBottomRightMargin()
+        {
+            var plan = MultiViewPresets.Build("pip", 1920, 1080, insetWidth: 640);
+
+            Assert.Equal((1920 - 640 - 40, 1080 - 360 - 40, 640, 360), Rect(plan.Slots.Single(s => s.Index == 0)));
+            Assert.Equal((0, 0, 1920, 1080), Rect(plan.Slots.Single(s => s.Index == 1)));
+            Assert.Equal(1, plan.PaintOrder.First().Index);
+        }
+
+        [Fact]
+        public void Pip_WithInsetWidth_OverridesTheFourKFixedInset()
+        {
+            var plan = MultiViewPresets.Build("pip", 3840, 2160, insetWidth: 960);
+
+            var inset = plan.Slots.Single(s => s.Index == 0);
+            Assert.Equal((960, 540), (inset.Width, inset.Height));
+        }
+
+        [Fact]
+        public void PipLarge_At1080p_InsetIsAThirdOfTheWidthInFrontOfTheMain()
+        {
+            Assert.True(MultiViewPresets.IsMultiView("pip_large"));
+
+            var plan = MultiViewPresets.Build("pip_large", 1920, 1080);
+
+            var inset = plan.Slots.Single(s => s.Index == 0);
+            Assert.Equal("Inset", inset.Label);
+            Assert.Equal((640, 360), (inset.Width, inset.Height));
+            Assert.Equal((0, 0, 1920, 1080), Rect(plan.Slots.Single(s => s.Index == 1)));
+            Assert.Equal(0, plan.PaintOrder.Last().Index);
+            Assert.Equal("avas_pip_large_1920x1080", plan.Name);
+        }
+
+        [Fact]
+        public void PipLarge_NameRoundTripsAndPipStaysPip()
+        {
+            Assert.True(MultiViewPresets.TryParseName(MultiViewPresets.LayoutName("pip_large", 1920, 1080, "74:FE:48:3C:05:9E"), out var large, out int w, out int h));
+            Assert.Equal(("pip_large", 1920, 1080), (large, w, h));
+
+            Assert.True(MultiViewPresets.TryParseName("avas_pip_1920x1080", out var small, out _, out _));
+            Assert.Equal("pip", small);
+        }
+
+        [Fact]
+        public void Pip_WithInsetWidthLargerThanTheCanvas_IsRefused()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => MultiViewPresets.Build("pip", 1920, 1080, insetWidth: 2000));
+        }
+
+        [Fact]
         public void Pip_AtFourK_InsetIsAFixed1280x720AtTheBottomRightMargin()
         {
             var plan = MultiViewPresets.Build("pip", 3840, 2160);

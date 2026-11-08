@@ -1,0 +1,1375 @@
+# Review package: 3cbfe49..402fd2e
+
+## Commits
+402fd2e feat(display-card): More layouts and Copy layout share one ghost action-bar style
+
+## Files changed
+ src/AvasRoutingTool/Resources/Styles/Buttons.xaml  |  59 +++++++-
+ .../Resources/Styles/DisplayCard.xaml              | 129 +++-------------
+ src/AvasRoutingTool/Resources/Tokens.xaml          |   6 +
+ src/AvasRoutingTool/Views/DisplayCardView.xaml     |  85 +++++------
+ .../ViewSmokeTests.DisplayCard.cs                  |   8 +-
+ .../ViewSmokeTests.UiV2ActionBar.cs                | 162 +++++++++++++++++++++
+ .../ViewSmokeTests.UiV2DisplayCard.cs              |  10 +-
+ .../ViewSmokeTests.UiV2LayoutButton.cs             | 108 +++++++-------
+ .../ViewSmokeTests.UiV2NoInlinePresets.cs          |  12 +-
+ .../ViewSmokeTests.UiV2SegmentedPresets.cs         |  90 +++---------
+ 10 files changed, 380 insertions(+), 289 deletions(-)
+
+## Diff
+diff --git a/src/AvasRoutingTool/Resources/Styles/Buttons.xaml b/src/AvasRoutingTool/Resources/Styles/Buttons.xaml
+index 46857a1..4026b4b 100644
+--- a/src/AvasRoutingTool/Resources/Styles/Buttons.xaml
++++ b/src/AvasRoutingTool/Resources/Styles/Buttons.xaml
+@@ -103,21 +103,21 @@
+                             <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDangerHover}" />
+                         </Trigger>
+                     </ControlTemplate.Triggers>
+                 </ControlTemplate>
+             </Setter.Value>
+         </Setter>
+     </Style>
+ 
+     <!--
+         Ghost button (the quiet look of Turn Off and Stop): no fill or border at rest, a neutral hover (the row hover, as
+-        Style.Button.CopyLayout), and the 2 px keyboard ring through InputModality.ShowsFocus. Red is for errors only, so nothing here
++        Style.Button.ActionBar), and the 2 px keyboard ring through InputModality.ShowsFocus. Red is for errors only, so nothing here
+         is red. Own template, not based on WPF-UI.
+     -->
+     <Style x:Key="Style.Button.Ghost" TargetType="Button">
+         <Setter Property="Background" Value="Transparent" />
+         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+         <Setter Property="FontWeight" Value="Medium" />
+         <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+         <Setter Property="Padding" Value="8,4" />
+         <Setter Property="BorderThickness" Value="1" />
+         <Setter Property="BorderBrush" Value="Transparent" />
+@@ -152,20 +152,77 @@
+                         <Trigger Property="IsEnabled" Value="False">
+                             <Setter Property="Opacity" Value="0.5" />
+                             <Setter Property="Cursor" Value="Arrow" />
+                         </Trigger>
+                     </ControlTemplate.Triggers>
+                 </ControlTemplate>
+             </Setter.Value>
+         </Setter>
+     </Style>
+ 
++    <!--
++        Action bar button (the display card's "More layouts" and "Copy layout"): one ghost look. No fill and no border at rest, the neutral row
++        hover (and pressed), Size.Touch.Min high, Size.Action.PadX each side, the content (icon, Size.Space.Action, label) in the primary text
++        colour and SemiBold, and the 2 px keyboard ring through InputModality.ShowsFocus. Red is for errors only, so nothing here is red.
++        Part bd is read by the tests. Own template, not based on WPF-UI. Fill and text colour are set through the button's own properties, so
++        a style (Style.Button.ActionBar.Copy) can override them from its triggers.
++    -->
++    <Style x:Key="Style.Button.ActionBar" TargetType="Button">
++        <Setter Property="Background" Value="Transparent" />
++        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
++        <Setter Property="FontWeight" Value="SemiBold" />
++        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
++        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
++        <Setter Property="Padding" Value="{StaticResource Size.Action.Padding}" />
++        <Setter Property="BorderThickness" Value="0" />
++        <Setter Property="VerticalAlignment" Value="Center" />
++        <Setter Property="Cursor" Value="Hand" />
++        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
++        <Setter Property="Template">
++            <Setter.Value>
++                <ControlTemplate TargetType="Button">
++                    <Grid x:Name="Root" Background="Transparent">
++                        <Border x:Name="bd"
++                                Background="{TemplateBinding Background}"
++                                BorderThickness="0"
++                                CornerRadius="6"
++                                Padding="{TemplateBinding Padding}">
++                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
++                        </Border>
++                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
++                        <Border x:Name="FocusRing"
++                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
++                                BorderThickness="2"
++                                CornerRadius="6"
++                                IsHitTestVisible="False"
++                                Visibility="Collapsed" />
++                    </Grid>
++                    <ControlTemplate.Triggers>
++                        <Trigger Property="IsMouseOver" Value="True">
++                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
++                        </Trigger>
++                        <Trigger Property="IsPressed" Value="True">
++                            <Setter Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
++                        </Trigger>
++                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
++                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
++                        </Trigger>
++                        <Trigger Property="IsEnabled" Value="False">
++                            <Setter TargetName="Root" Property="Opacity" Value="0.5" />
++                            <Setter Property="Cursor" Value="Arrow" />
++                        </Trigger>
++                    </ControlTemplate.Triggers>
++                </ControlTemplate>
++            </Setter.Value>
++        </Setter>
++    </Style>
++
+     <!--
+         Pencil (rename): an icon-only button for a card header. 48 x 48 hit box (Size.Touch.Min) whose whole box takes the press (transparent
+         root Grid); the icon is the secondary text colour at rest and the accent (blue) under the mouse and on keyboard focus; the fill is
+         the neutral row hover, under the mouse only; a 2 px ring through InputModality.ShowsFocus. Red is for errors only, so nothing here is red.
+         The view lays it out with negative vertical margins, so the 48 px box does not change its row's height.
+     -->
+     <Style x:Key="Style.Button.IconPencil" TargetType="Button">
+         <Setter Property="Background" Value="Transparent" />
+         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+         <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+diff --git a/src/AvasRoutingTool/Resources/Styles/DisplayCard.xaml b/src/AvasRoutingTool/Resources/Styles/DisplayCard.xaml
+index 10d3656..1b7e01a 100644
+--- a/src/AvasRoutingTool/Resources/Styles/DisplayCard.xaml
++++ b/src/AvasRoutingTool/Resources/Styles/DisplayCard.xaml
+@@ -81,82 +81,52 @@
+         <Setter Property="StrokeDashArray" Value="4 3" />
+         <Setter Property="RadiusX" Value="6" />
+         <Setter Property="RadiusY" Value="6" />
+         <Setter Property="Fill" Value="Transparent" />
+         <Setter Property="Stretch" Value="Fill" />
+         <Setter Property="Margin" Value="8" />
+         <Setter Property="IsHitTestVisible" Value="False" />
+     </Style>
+ 
+     <!--
+-        Copy layout: a ghost button beside the layout segments (the same quiet look as Style.Button.Ghost, with a neutral hover).
+-        While this display is the copy source it is solid drop-target cyan, so the armed state is a colour and the words.
++        Copy layout: the action-bar button (Style.Button.ActionBar, shared with More layouts) plus its two states, which are the display's:
++        while this display is the copy source it is solid drop-target cyan with its own text colour (a style trigger, so the hover fill does not
++        replace it), and with nothing to copy it stays enabled (focus, tap, the reason on press) but looks off; the reason is its name and help text.
+     -->
+-    <Style x:Key="Style.Button.CopyLayout" TargetType="Button">
+-        <Setter Property="Background" Value="Transparent" />
+-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+-        <Setter Property="FontWeight" Value="SemiBold" />
+-        <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
+-        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+-        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+-        <Setter Property="Padding" Value="8,0" />
+-        <Setter Property="BorderThickness" Value="0" />
+-        <Setter Property="Cursor" Value="Hand" />
+-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+-        <Setter Property="Template">
+-            <Setter.Value>
+-                <ControlTemplate TargetType="Button">
+-                    <Grid x:Name="Root">
+-                        <Border x:Name="bd"
+-                                Background="{TemplateBinding Background}"
+-                                CornerRadius="6"
+-                                Padding="{TemplateBinding Padding}">
+-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+-                        </Border>
+-                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
+-                        <Border x:Name="FocusRing"
+-                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+-                                BorderThickness="2"
+-                                CornerRadius="6"
+-                                IsHitTestVisible="False"
+-                                Visibility="Collapsed" />
+-                    </Grid>
+-                    <ControlTemplate.Triggers>
+-                        <Trigger Property="IsMouseOver" Value="True">
+-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+-                        </Trigger>
+-                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+-                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+-                        </Trigger>
+-                        <!-- Armed: the hover fill above is set on bd, which the style's trigger cannot reach; this one comes after it and keeps the cyan and its text -->
+-                        <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
+-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+-                        </DataTrigger>
+-                        <!-- Nothing to copy: the handle stays enabled (focus, tap, the reason on press) but looks off; the reason is its name and help text -->
+-                        <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
+-                            <Setter TargetName="Root" Property="Opacity" Value="0.5" />
+-                            <Setter TargetName="Root" Property="Cursor" Value="Arrow" />
+-                        </DataTrigger>
+-                    </ControlTemplate.Triggers>
+-                </ControlTemplate>
+-            </Setter.Value>
+-        </Setter>
++    <Style x:Key="Style.Button.ActionBar.Copy" TargetType="Button" BasedOn="{StaticResource Style.Button.ActionBar}">
+         <Style.Triggers>
++            <DataTrigger Binding="{Binding CanCopyFrom, Mode=OneWay}" Value="False">
++                <Setter Property="Opacity" Value="0.5" />
++                <Setter Property="Cursor" Value="Arrow" />
++            </DataTrigger>
+             <DataTrigger Binding="{Binding IsCopySource, Mode=OneWay}" Value="True">
+                 <Setter Property="Background" Value="{DynamicResource Brush.Border.DropTarget}" />
+                 <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnDropTarget}" />
+             </DataTrigger>
+         </Style.Triggers>
+     </Style>
+ 
++    <!--
++        The "More layouts" label in the action bar. While the display has a draft, the draft chip needs the row's space (a 400 px card has 374 px
++        for the bar: More layouts + Copy layout + the chip + power only fit with the label gone), so the button shows its icon and chevron;
++        the name, tooltip and menu stay.
++    -->
++    <Style x:Key="Style.Text.ActionBar.LayoutLabel" TargetType="TextBlock">
++        <Setter Property="VerticalAlignment" Value="Center" />
++        <Setter Property="Margin" Value="{StaticResource Size.Space.Action.Before}" />
++        <Style.Triggers>
++            <DataTrigger Binding="{Binding HasDraft, Mode=OneWay}" Value="True">
++                <Setter Property="Visibility" Value="Collapsed" />
++            </DataTrigger>
++        </Style.Triggers>
++    </Style>
++
+     <!-- A multiview window on the card: border follows assigned / drag-over -->
+     <Style x:Key="Style.Slot.Tile" TargetType="Border">
+         <Setter Property="Margin" Value="1" />
+         <Setter Property="Background" Value="{DynamicResource Brush.Surface.PreviewTile}" />
+         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+         <Setter Property="BorderThickness" Value="1" />
+         <Setter Property="CornerRadius" Value="3" />
+         <Setter Property="ClipToBounds" Value="True" />
+         <Style.Triggers>
+             <DataTrigger Binding="{Binding IsAssigned, Mode=OneWay}" Value="True">
+@@ -208,64 +178,11 @@
+                         </DataTrigger>
+                         <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+                             <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+                         </Trigger>
+                     </ControlTemplate.Triggers>
+                 </ControlTemplate>
+             </Setter.Value>
+         </Setter>
+     </Style>
+ 
+-    <!--
+-        The Layout dropdown's segment on the display card's layout control: the view draws its fill and outline (LayoutSegments), so the
+-        segment has no border of its own. Touch size; own template, not based on WPF-UI.
+-        Hover lifts the fill; the 2 px keyboard ring shows through InputModality.ShowsFocus. Part bd is read by the tests.
+-    -->
+-    <Style x:Key="Style.Button.LayoutSegment" TargetType="Button">
+-        <Setter Property="MinWidth" Value="{StaticResource Size.Touch.Min}" />
+-        <Setter Property="MinHeight" Value="{StaticResource Size.Touch.Min}" />
+-        <Setter Property="Background" Value="Transparent" />
+-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+-        <Setter Property="BorderThickness" Value="0" />
+-        <Setter Property="Cursor" Value="Hand" />
+-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+-        <Setter Property="Template">
+-            <Setter.Value>
+-                <ControlTemplate TargetType="Button">
+-                    <Grid Background="Transparent">
+-                        <Border x:Name="bd"
+-                                Background="{TemplateBinding Background}"
+-                                BorderThickness="0"
+-                                CornerRadius="6"
+-                                Margin="3">
+-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+-                        </Border>
+-                        <!-- Keyboard focus: a 2 px ring of its own, shown only when the keyboard moved focus here -->
+-                        <Border x:Name="FocusRing"
+-                                Margin="3"
+-                                BorderBrush="{DynamicResource Brush.Focus.Ring}"
+-                                BorderThickness="2"
+-                                CornerRadius="6"
+-                                IsHitTestVisible="False"
+-                                Visibility="Collapsed" />
+-                    </Grid>
+-                    <ControlTemplate.Triggers>
+-                        <Trigger Property="IsMouseOver" Value="True">
+-                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Brush.Surface.Hover}" />
+-                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+-                        </Trigger>
+-                        <Trigger Property="views:InputModality.ShowsFocus" Value="True">
+-                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+-                        </Trigger>
+-                    </ControlTemplate.Triggers>
+-                </ControlTemplate>
+-            </Setter.Value>
+-        </Setter>
+-    </Style>
+-
+-    <!-- The Layout dropdown (A14): the segment at its own size, Size.Layout.Button. Style.Button.LayoutSegment stays generic. -->
+-    <Style x:Key="Style.Button.LayoutDropdown" TargetType="Button" BasedOn="{StaticResource Style.Button.LayoutSegment}">
+-        <Setter Property="Width" Value="{StaticResource Size.Layout.Button.Width}" />
+-        <Setter Property="Height" Value="{StaticResource Size.Layout.Button.Height}" />
+-    </Style>
+-
+ </ResourceDictionary>
+diff --git a/src/AvasRoutingTool/Resources/Tokens.xaml b/src/AvasRoutingTool/Resources/Tokens.xaml
+index 6b612de..f47f355 100644
+--- a/src/AvasRoutingTool/Resources/Tokens.xaml
++++ b/src/AvasRoutingTool/Resources/Tokens.xaml
+@@ -17,20 +17,26 @@
+     <sys:Double x:Key="Size.Icon.S">16</sys:Double>
+     <sys:Double x:Key="Size.Icon.M">22</sys:Double>
+     <sys:Double x:Key="Size.Icon.L">28</sys:Double>
+     <sys:Double x:Key="Size.Icon.Brand">28</sys:Double>
+     <!-- The Layout dropdown on the display card (A14): its button (both >= Size.Touch.Min; the card action bar row is 56 high) and its
+          grid icon and chevron (the grid icon is 1.25 x Size.Icon.S; Style.Icon.Button keeps Size.Icon.S for the other buttons) -->
+     <sys:Double x:Key="Size.Layout.Button.Width">64</sys:Double>
+     <sys:Double x:Key="Size.Layout.Button.Height">56</sys:Double>
+     <sys:Double x:Key="Size.Icon.Layout">20</sys:Double>
+     <sys:Double x:Key="Size.Icon.Layout.Chevron">20</sys:Double>
++    <!-- Action bar (More layouts, Copy layout, power): the gap between an icon and its label, and between two buttons (8); the horizontal padding
++         inside a button (12 each side). The Thickness forms are for Margin and Padding, which cannot take a Double. -->
++    <sys:Double x:Key="Size.Space.Action">8</sys:Double>
++    <sys:Double x:Key="Size.Action.PadX">12</sys:Double>
++    <Thickness x:Key="Size.Action.Padding">12,0</Thickness>
++    <Thickness x:Key="Size.Space.Action.Before">8,0,0,0</Thickness>
+     <!-- The brand mark on an unrouted display's empty tile (the tile's one picture) -->
+     <sys:Double x:Key="Size.Brand.Empty">64</sys:Double>
+ 
+     <!-- Status dots -->
+     <sys:Double x:Key="Size.Dot.S">8</sys:Double>
+     <sys:Double x:Key="Size.Dot.M">10</sys:Double>
+ 
+     <!-- Cards: minimum width (= GridSpec.MinCardWidth) and the fixed rows of the display card around the 16:9 picture -->
+     <sys:Double x:Key="Size.Card.Min">320</sys:Double>
+     <sys:Double x:Key="Size.Card.Row.Header">24</sys:Double>
+diff --git a/src/AvasRoutingTool/Views/DisplayCardView.xaml b/src/AvasRoutingTool/Views/DisplayCardView.xaml
+index 5b986fb..2f3a154 100644
+--- a/src/AvasRoutingTool/Views/DisplayCardView.xaml
++++ b/src/AvasRoutingTool/Views/DisplayCardView.xaml
+@@ -56,21 +56,21 @@
+ 
+                     <!--
+                         The name's cell: the copy-source tag (when this display is the copy source) and the name, which takes what is left.
+                         On the narrowest card (Size.Card.Min) the pencil, the info badge and the mode badge leave little room: the tag, then the name,
+                         give way (both ellipsize; the name's tooltip has the full name) so that the mode badge is never pushed out of the card.
+                     -->
+                     <DockPanel Grid.Column="1">
+                         <!-- This display is the copy source (armed by a tap, or being dragged): the tag lies outside the picture -->
+                         <Border x:Name="CopySourceChip"
+                                 DockPanel.Dock="Right"
+-                                Margin="0,0,6,0"
++                                Margin="{StaticResource Size.Space.Action.Before}"
+                                 VerticalAlignment="Center"
+                                 Background="{DynamicResource Brush.Border.DropTarget}"
+                                 CornerRadius="4"
+                                 Padding="8,2"
+                                 IsHitTestVisible="False"
+                                 Visibility="{Binding IsCopySource, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+                             <TextBlock Text="COPYING FROM HERE" Style="{StaticResource Style.Text.Caption}" FontWeight="Bold" Foreground="{DynamicResource Brush.Text.OnDropTarget}" TextTrimming="WordEllipsis" />
+                         </Border>
+ 
+                         <!-- Strict BAVM Device Name -->
+@@ -142,84 +142,78 @@
+                     <Grid>
+                         <Grid.ColumnDefinitions>
+                             <ColumnDefinition Width="Auto" />
+                             <ColumnDefinition Width="Auto" />
+                             <ColumnDefinition Width="Auto" />
+                             <ColumnDefinition Width="*" />
+                             <ColumnDefinition Width="Auto" />
+                         </Grid.ColumnDefinitions>
+ 
+                         <!--
+-                            The layout control: the Layout dropdown, one segment in column 0 with its fill and outline (the look it has on a
+-                            narrow card). Its menu holds every layout and marks the one on screen. Copy layout and the draft chip stand apart.
+-                            The segment is Size.Layout.Button (64 x 56): the full height of the action bar row, so the fill and outline wrap it exactly.
++                            More layouts: a ghost action-bar button (Style.Button.ActionBar) in column 0: [grid icon] label [chevron]. No fill and no outline;
++                            it looks like Copy layout beside it. Its menu holds every layout and marks the one on screen.
+                         -->
+-                        <Grid x:Name="LayoutSegments" Grid.Column="0">
+-                            <!-- The segment's fill, behind it -->
+-                            <Border Background="{DynamicResource Brush.Surface.Card}" CornerRadius="8" />
+-
+-                            <!-- Layout menu button (the full dropdown): an icon and a chevron; its name and tooltip say what it is -->
+-                            <Button x:Name="LayoutButton"
+-                                    Style="{StaticResource Style.Button.LayoutDropdown}"
+-                                    AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Layout for {0}'}"
+-                                    ToolTip="More layouts"
+-                                    PreviewKeyDown="LayoutButton_PreviewKeyDown"
+-                                    PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
+-                                    PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
+-                                    Click="LayoutButton_Click">
+-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+-                                    <Path x:Name="LayoutIcon"
+-                                          Data="{StaticResource Icon.Grid}"
+-                                          Style="{StaticResource Style.Icon.Button}"
+-                                          Width="{StaticResource Size.Icon.Layout}"
+-                                          Height="{StaticResource Size.Icon.Layout}" />
+-                                    <ui:SymbolIcon Symbol="ChevronDown24" FontSize="{StaticResource Size.Icon.Layout.Chevron}" VerticalAlignment="Center" Margin="2,0,0,0" />
+-                                </StackPanel>
+-                            </Button>
+-
+-                            <!-- The segment's outline, over it; it takes no hits (the segment under it is the target) -->
+-                            <Border x:Name="LayoutSegmentsOutline"
+-                                    BorderBrush="{DynamicResource Brush.Border.Control}"
+-                                    BorderThickness="1"
+-                                    CornerRadius="8"
+-                                    IsHitTestVisible="False" />
+-                        </Grid>
++                        <Button x:Name="LayoutButton"
++                                Grid.Column="0"
++                                Style="{StaticResource Style.Button.ActionBar}"
++                                AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='More layouts for {0}'}"
++                                ToolTip="More layouts"
++                                PreviewKeyDown="LayoutButton_PreviewKeyDown"
++                                PreviewMouseLeftButtonDown="LayoutButton_PreviewMouseLeftButtonDown"
++                                PreviewMouseLeftButtonUp="LayoutButton_PreviewMouseLeftButtonUp"
++                                Click="LayoutButton_Click">
++                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
++                                <controls:MaterialIcon x:Name="LayoutIcon"
++                                                       Kind="grid_view"
++                                                       Width="{StaticResource Size.Icon.Layout}"
++                                                       Height="{StaticResource Size.Icon.Layout}"
++                                                       VerticalAlignment="Center" />
++                                <TextBlock x:Name="LayoutLabel" Text="More layouts" Style="{StaticResource Style.Text.ActionBar.LayoutLabel}" />
++                                <controls:MaterialIcon x:Name="LayoutChevron"
++                                                       Kind="expand_more"
++                                                       Width="{StaticResource Size.Icon.Layout}"
++                                                       Height="{StaticResource Size.Icon.Layout}"
++                                                       VerticalAlignment="Center"
++                                                       Margin="{StaticResource Size.Space.Action.Before}" />
++                            </StackPanel>
++                        </Button>
+ 
+-                        <!-- Copy layout: a ghost button of its own, outside the segments; its full label always shows (no trimming) -->
++                        <!-- Copy layout: the same ghost style as More layouts, Size.Space.Action to its right; its full label always shows (no trimming) -->
+                         <Button x:Name="CopyLayoutHandle"
+                                 Grid.Column="1"
+-                                Style="{StaticResource Style.Button.CopyLayout}"
+-                                Margin="12,0,6,0"
+-                                VerticalAlignment="Center"
++                                Style="{StaticResource Style.Button.ActionBar.Copy}"
++                                Margin="{StaticResource Size.Space.Action.Before}"
+                                 AutomationProperties.Name="{Binding CopyHandleAutomationName, Mode=OneWay}"
+                                 AutomationProperties.HelpText="{Binding CopyFromBlockedText, Mode=OneWay}"
+                                 ToolTip="{Binding CopyHandleToolTip, Mode=OneWay}"
+                                 Click="CopyHandle_Click"
+                                 PreviewMouseLeftButtonDown="CopyHandle_PreviewMouseLeftButtonDown"
+                                 PreviewMouseMove="CopyHandle_PreviewMouseMove"
+                                 PreviewMouseLeftButtonUp="CopyHandle_PreviewMouseLeftButtonUp">
+-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+-                                <Path x:Name="CopyIcon"
+-                                      Data="{StaticResource Icon.Copy}"
+-                                      Style="{StaticResource Style.Icon.Button.Stroke}" />
+-                                <TextBlock Text="Copy layout" VerticalAlignment="Center" FontWeight="SemiBold" Margin="6,0,0,0" />
++                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
++                                <controls:MaterialIcon x:Name="CopyIcon"
++                                                       Kind="content_copy"
++                                                       Width="{StaticResource Size.Icon.Layout}"
++                                                       Height="{StaticResource Size.Icon.Layout}"
++                                                       VerticalAlignment="Center" />
++                                <TextBlock Text="Copy layout" VerticalAlignment="Center" Margin="{StaticResource Size.Space.Action.Before}" />
+                             </StackPanel>
+                         </Button>
+ 
+                         <!--
+                             Draft chip: Composer changes that are not on screen; a tap resumes them (spec 5.1, 15).
+                             Placed in the action bar, keeps touch height >= 48.
+                         -->
+                         <Button x:Name="DraftChip"
+                                 Grid.Column="2"
+                                 Style="{StaticResource Style.Button.Chip.Staged}"
+-                                Margin="0,0,6,0"
++                                Margin="{StaticResource Size.Space.Action.Before}"
+                                 VerticalAlignment="Center"
+                                 MinHeight="{StaticResource Size.Touch.Min}"
+                                 Padding="10,4"
+                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Resume draft for {0}, not on screen'}"
+                                 ToolTip="DRAFT - not on screen. Tap to resume it in the Composer."
+                                 Visibility="{Binding HasDraft, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}"
+                                 Click="DraftChip_Click">
+                             <TextBlock Text="DRAFT &#183; Resume"
+                                        Style="{StaticResource Style.Text.Body}"
+                                        FontWeight="Bold"
+@@ -229,26 +223,27 @@
+                         </Button>
+ 
+                         <!-- Quick Power / Turn Off Button: a vector power icon, a ghost button (no red at rest) -->
+                         <Button x:Name="TurnOffButton"
+                                 Grid.Column="4"
+                                 Style="{StaticResource Style.Button.Ghost}"
+                                 VerticalAlignment="Center"
+                                 MinWidth="{StaticResource Size.Touch.Min}"
+                                 MinHeight="{StaticResource Size.Touch.Min}"
+                                 Padding="0"
++                                Foreground="{DynamicResource Brush.Text.Primary}"
+                                 Command="{Binding UnrouteCommand, Mode=OneWay}"
+                                 ToolTip="Turn off display feed / Unroute video"
+                                 FocusVisualStyle="{StaticResource Style.FocusVisual.Ring}"
+                                 AutomationProperties.Name="{Binding DeviceName, Mode=OneWay, StringFormat='Turn off {0}'}"
+                                 Visibility="{Binding IsRouted, Mode=OneWay, Converter={StaticResource Converter.Visible.True}}">
+-                            <Path Data="{StaticResource Icon.Power}" Style="{StaticResource Style.Icon.Power}" />
++                            <controls:MaterialIcon Kind="power_settings_new" Width="{StaticResource Size.Icon.Layout}" Height="{StaticResource Size.Icon.Layout}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                         </Button>
+                     </Grid>
+                 </Border>
+ 
+                 <!--
+                     Live Video Preview Surface (Row 2).
+                     Takes all remaining vertical height.
+                     On a MultiView card a tap (or Enter when focused) opens the Composer on
+                     what is on screen (MainViewModel.TapPictureAsync, spec 5.1); otherwise it is a tap on the card.
+                 -->
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs
+index dfbe79e..5cab078 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.DisplayCard.cs
+@@ -507,36 +507,36 @@ namespace AvasRoutingTool.Tests
+                         var frame = (FrameworkElement)Named(card, "CardFrame").Single();
+                         // The name may ellipsize (full text is its tooltip) but must stay in the card, as must the mode badge.
+                         AssertInside((FrameworkElement)Named(card, "DeviceNameText").Single(), frame);
+                         AssertInside((FrameworkElement)Named(card, "ModeBadge").Single(), frame);
+                         AssertTextFits((TextBlock)Named(card, "ModeBadgeText").Single());
+                         foreach (var name in new[] { "LayoutButton", "CopyLayoutHandle" })
+                         {
+                             var b = (Button)Named(card, name).Single();
+                             Assert.True(b.ActualHeight >= 48, $"{name} is {b.ActualHeight} high");
+                             AssertInside(b, frame);
+-                            foreach (var t in FindAll<TextBlock>(b)) AssertTextFits(t);
++                            foreach (var t in FindAll<TextBlock>(b).Where(x => x.IsVisible)) AssertTextFits(t);
+                         }
+                     }
+ 
+                     // RX1: the copy source, with a draft and the drop choice open over the card body.
+                     var rx1 = cards.Single(c => c.DataContext == rig.Rx1);
+                     var rx1Frame = (FrameworkElement)Named(rx1, "CardFrame").Single();
+                     var choice = (FrameworkElement)Named(rx1, "DropChoicePanel").Single();
+                     Assert.True(choice.IsVisible);
+                     AssertInside(choice, rx1Frame);
+                     foreach (var name in new[] { "FullScreenButton", "IntoBlockButton" })
+                     {
+                         var b = (Button)Named(rx1, name).Single();
+                         Assert.True(b.IsVisible && b.ActualHeight >= 48);
+                         AssertInside(b, choice);
+-                        foreach (var t in FindAll<TextBlock>(b)) AssertTextFits(t);
++                        foreach (var t in FindAll<TextBlock>(b).Where(x => x.IsVisible)) AssertTextFits(t);
+                     }
+                     AssertTextFits((TextBlock)Named(rx1, "DropChoiceTitle").Single());
+                     var chip = (FrameworkElement)Named(rx1, "DraftChip").Single();
+                     Assert.True(chip.IsVisible && chip.ActualHeight >= 48);
+                     AssertInside(chip, rx1Frame);
+                     AssertVisibleText(rx1, "COPYING FROM HERE");
+ 
+                     // PAX: an allowed target; the Undo toast of the copy before steps aside while it is a target.
+                     var pax = cards.Single(c => c.DataContext == rig.Pax);
+                     var paxPreview = (FrameworkElement)Named(pax, "PreviewSurface").Single();
+@@ -1181,22 +1181,22 @@ namespace AvasRoutingTool.Tests
+                 var rig = new CopyRig();
+                 var rx1 = rig.View(rig.Rx1, out var h1);
+                 var pax = rig.View(rig.Pax, out var h2);
+                 rig.Rx1.HasDraft = true;
+                 rig.Pax.HasDraft = true;
+                 rig.Rx1.OpenDropChoice(rig.Tx2);
+                 Showing(new StackPanel { Children = { h1, h2 } }, () =>
+                 {
+                     string Name(DisplayCardView card, string part) => AutomationProperties.GetName(Named(card, part).Single());
+ 
+-                    Assert.Equal("Layout for RX1_c059e_SFPA", Name(rx1, "LayoutButton"));
+-                    Assert.Equal("Layout for PAX355S_SFP A", Name(pax, "LayoutButton"));
++                    Assert.Equal("More layouts for RX1_c059e_SFPA", Name(rx1, "LayoutButton"));
++                    Assert.Equal("More layouts for PAX355S_SFP A", Name(pax, "LayoutButton"));
+                     Assert.Equal("Resume draft for RX1_c059e_SFPA, not on screen", Name(rx1, "DraftChip"));
+                     Assert.Equal("Resume draft for PAX355S_SFP A, not on screen", Name(pax, "DraftChip"));
+ 
+                     // The drop choice is about one source: its buttons say which.
+                     Assert.Contains("TX2_DUAL LINK_SFPA", Name(rx1, "FullScreenButton"));
+                     Assert.Contains("TX2_DUAL LINK_SFPA", Name(rx1, "IntoBlockButton"));
+                     Assert.Contains("goes on screen now", Name(rx1, "FullScreenButton"));
+                     Assert.Contains("opens the Composer", Name(rx1, "IntoBlockButton"));
+ 
+                     // An unrouted display has no picture on screen.
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2ActionBar.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2ActionBar.cs
+new file mode 100644
+index 0000000..f46193e
+--- /dev/null
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2ActionBar.cs
+@@ -0,0 +1,162 @@
++using System;
++using System.Linq;
++using System.Windows;
++using System.Windows.Controls;
++using System.Windows.Controls.Primitives;
++using System.Windows.Input;
++using System.Windows.Media;
++using AvasRoutingTool.Controls;
++using Xunit;
++using Button = System.Windows.Controls.Button;
++using TextBlock = System.Windows.Controls.TextBlock;
++
++namespace AvasRoutingTool.Tests
++{
++    /// <summary>
++    /// Round 3 action bar: "More layouts" and "Copy layout" are two ghost buttons of one style (Style.Button.ActionBar): the same height
++    /// (Size.Touch.Min), the same horizontal padding (Size.Action.PadX), an icon + Size.Space.Action + label, and Size.Space.Action between them.
++    /// The Layout button reads "More layouts" with the chevron after the label; the power button is a Material icon in the same colour.
++    /// </summary>
++    public partial class ViewSmokeTests
++    {
++        /// <summary>The carousel never makes a card narrower than this (DIPs): the action bar has to fit it.</summary>
++        private const double CarouselCardWidth = 400;
++
++        [Fact]
++        public void ActionBar_LayoutAndCopy_ShareHeightAndPadding() =>
++            RunSta(() =>
++            {
++                var rig = new CopyRig();
++                var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
++                Showing(host, () =>
++                {
++                    var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
++                    var layout = LayoutOf(view);
++                    var copy = (Button)Named(view, "CopyLayoutHandle").Single();
++
++                    var style = Application.Current.FindResource("Style.Button.ActionBar");
++                    Assert.Same(style, layout.Style);
++                    Assert.True(ReferenceEquals(style, copy.Style) || ((Style)copy.Style).BasedOn == style, "Copy layout does not use Style.Button.ActionBar");
++
++                    Assert.Equal(Token("Size.Touch.Min"), layout.ActualHeight);
++                    Assert.Equal(Token("Size.Touch.Min"), copy.ActualHeight);
++                    Assert.Equal(Token("Size.Action.PadX"), layout.Padding.Left);
++                    Assert.Equal(layout.Padding, copy.Padding);
++                    Assert.Equal(layout.Padding.Left, layout.Padding.Right);
++
++                    double gap = BoundsIn(copy, dock).Left - BoundsIn(layout, dock).Right;
++                    Assert.True(Math.Abs(gap - Token("Size.Space.Action")) <= 0.5, $"the gap is {gap:F1}, not Size.Space.Action {Token("Size.Space.Action")}");
++
++                    // No fill, no outline at rest.
++                    foreach (var button in new[] { layout, copy })
++                    {
++                        Assert.True(button.Background is null || (button.Background is SolidColorBrush b && b.Color.A == 0), $"{button.Name} has a fill at rest");
++                        Assert.Equal(new Thickness(0), button.BorderThickness);
++                    }
++                    Assert.Empty(Named(view, "LayoutSegments"));
++                    Assert.Empty(Named(view, "LayoutSegmentsOutline"));
++                });
++            });
++
++        [Fact]
++        public void ActionBar_LayoutButton_SaysMoreLayouts() =>
++            RunSta(() =>
++            {
++                var rig = new CopyRig();
++                var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
++                Showing(host, () =>
++                {
++                    var layout = LayoutOf(view);
++                    var label = FindAll<TextBlock>(layout).Single(t => t.IsVisible && !string.IsNullOrEmpty(t.Text));
++                    Assert.Equal("More layouts", label.Text);
++
++                    var icons = FindAll<MaterialIcon>(layout);
++                    var grid = icons.Single(i => i.Kind == "grid_view");
++                    var chevron = icons.Single(i => i.Kind == "expand_more");
++                    Assert.True(BoundsIn(grid, layout).Right <= BoundsIn(label, layout).Left + 0.5, "the grid icon is not before the label");
++                    Assert.True(BoundsIn(chevron, layout).Left >= BoundsIn(label, layout).Right - 0.5, "the chevron is not after the label");
++                    Assert.Equal(Token("Size.Icon.Layout"), grid.ActualWidth);
++                    Assert.Equal(Token("Size.Icon.Layout"), chevron.ActualWidth);
++
++                    Assert.Equal("More layouts for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
++                    Assert.Equal("More layouts", layout.ToolTip as string);
++                });
++            });
++
++        [Theory]
++        [InlineData(1.0)]
++        [InlineData(1.5)]
++        public void ActionBar_FitsA400pxCard_AtEveryDpi(double dpiScale) =>
++            RunSta(() =>
++            {
++                foreach (bool draft in new[] { false, true })
++                {
++                    var rig = new CopyRig();
++                    rig.Rx1.HasDraft = draft;
++                    var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
++                    // 150 % DPI: the same 400 DIP card drawn 1.5 x larger, so text is laid out and rounded at the larger device scale.
++                    host.LayoutTransform = new ScaleTransform(dpiScale, dpiScale);
++                    Showing(host, () =>
++                    {
++                        string at = $"at {dpiScale * 100:F0} % DPI{(draft ? " with a draft" : "")}";
++                        var frame = (FrameworkElement)Named(view, "CardFrame").Single();
++                        var layout = LayoutOf(view);
++                        var copy = (Button)Named(view, "CopyLayoutHandle").Single();
++                        var turnOff = (Button)Named(view, "TurnOffButton").Single();
++                        var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
++
++                        foreach (var label in new[] { layout, copy }.SelectMany(b => FindAll<TextBlock>(b)).Where(t => t.IsVisible && !string.IsNullOrEmpty(t.Text)))
++                        {
++                            Assert.Equal(TextTrimming.None, label.TextTrimming);
++                            AssertTextFits(label);
++                        }
++                        Assert.True(turnOff.IsVisible, $"the power button is hidden {at}");
++                        AssertInside(turnOff, frame);
++                        AssertInside(layout, dock);
++                        AssertInside(copy, dock);
++                        Assert.True(BoundsIn(turnOff, dock).Left >= BoundsIn(copy, dock).Right - 0.5, $"the power button overlaps Copy layout {at}");
++                        if (draft)
++                        {
++                            // With a draft the chip needs the room of the More layouts label (a 400 px card has 374 px for the row): the Layout
++                            // button keeps its icon and chevron, and nothing overlaps.
++                            var chip = (FrameworkElement)Named(view, "DraftChip").Single();
++                            Assert.True(chip.IsVisible, $"the draft chip is hidden {at}");
++                            AssertInside(chip, dock);
++                            Assert.True(BoundsIn(chip, dock).Left >= BoundsIn(copy, dock).Right - 0.5, $"the draft chip overlaps Copy layout {at}");
++                            Assert.True(BoundsIn(turnOff, dock).Left >= BoundsIn(chip, dock).Right - 0.5, $"the power button overlaps the draft chip {at}");
++                        }
++                        else
++                        {
++                            Assert.Equal("More layouts", FindAll<TextBlock>(layout).Single(t => t.IsVisible).Text);
++                        }
++                    });
++                }
++            });
++
++        [Fact]
++        public void ActionBar_LayoutMenuStillOpens_OnTapAndKeyboard() =>
++            RunSta(() =>
++            {
++                var rig = new CopyRig();
++                var view = rig.View(rig.Rx1, out var host, CarouselCardWidth);
++                Showing(host, () =>
++                {
++                    var button = LayoutOf(view);
++                    var popup = (Popup)Named(view, "LayoutMenuPopup").Single();
++                    Assert.False(popup.IsOpen);
++
++                    Click(button);
++                    Assert.True(popup.IsOpen, "a tap on More layouts did not open the menu");
++                    popup.IsOpen = false;
++                    Idle();
++
++                    Assert.True(button.Focus());
++                    RaiseKey(button, Key.Enter);
++                    Until(() => popup.IsOpen, "Enter on More layouts did not open the menu");
++                    var tile = (Button)Named((FrameworkElement)popup.Child, "LayoutMenuTile").First();
++                    RaiseKey(tile, Key.Escape);
++                    Until(() => !popup.IsOpen, "Esc did not close the menu");
++                });
++            });
++    }
++}
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2DisplayCard.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2DisplayCard.cs
+index 6457017..7d6fac1 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2DisplayCard.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2DisplayCard.cs
+@@ -70,27 +70,27 @@ namespace AvasRoutingTool.Tests
+                 var view = rig.View(rig.Rx1, out var host);
+                 Showing(host, () =>
+                 {
+                     foreach (var name in new[] { "LayoutButton", "CopyLayoutHandle", "DraftChip", "TurnOffButton" })
+                     {
+                         var b = (Button)Named(view, name).Single();
+                         Assert.True(b.IsVisible && b.ActualHeight >= 48 && b.ActualWidth >= 48, $"{name} {b.ActualWidth}x{b.ActualHeight}");
+                     }
+                     var turnOff = (Button)Named(view, "TurnOffButton").Single();
+                     Assert.Equal(Token("Size.Touch.Min"), turnOff.MinWidth);
+-                    Assert.Equal(Token("Size.Icon.S"), FindAll<System.Windows.Shapes.Path>(turnOff).Single().Width);
++                    Assert.Equal("power_settings_new", FindAll<AvasRoutingTool.Controls.MaterialIcon>(turnOff).Single().Kind);
++                    Assert.Equal(Token("Size.Icon.Layout"), FindAll<AvasRoutingTool.Controls.MaterialIcon>(turnOff).Single().Width);
+ 
+-                    // The chevron after "Layout" is a vector icon, not a character.
++                    // The chevron after "More layouts" is a vector icon (Material expand_more), not a character; the grid icon is another.
+                     var layout = Named(view, "LayoutButton").Single();
+-                    Assert.Contains(FindAll<SymbolIcon>(layout), i => i.Symbol == SymbolRegular.ChevronDown24);
+-                    // Icon and chevron only: the words are the SymbolIcon's own glyph text, nothing else.
+-                    Assert.DoesNotContain(FindAll<TextBlock>(layout), t => !string.IsNullOrEmpty(t.Text) && !FindAll<SymbolIcon>(layout).Any(i => i.IsAncestorOf(t)));
++                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout), i => i.Kind == "expand_more");
++                    Assert.Contains(FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout), i => i.Kind == "grid_view");
+ 
+                     // The draft chip keeps the shared staged-chip template (part DraftFrame).
+                     var chip = (Button)Named(view, "DraftChip").Single();
+                     Assert.NotNull(chip.Template.FindName("DraftFrame", chip));
+ 
+                     foreach (var tb in FindAll<TextBlock>(view).Where(t => t.IsVisible && !string.IsNullOrEmpty(t.Text) && FindAll<SymbolIcon>(view).All(i => i.Glyph != t.Text)))
+                     {
+                         Assert.DoesNotContain(tb.Text, ch => ch >= '←' && ch <= '➿' && ch != '✓');
+                         Assert.True(tb.FontSize >= 12, $"'{tb.Text}' is {tb.FontSize}px");
+                     }
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2LayoutButton.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2LayoutButton.cs
+index 0c977e8..7173ed6 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2LayoutButton.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2LayoutButton.cs
+@@ -1,75 +1,67 @@
+ using System;
+ using System.Linq;
+ using System.Windows;
+ using System.Windows.Controls;
+ using System.Windows.Media;
++using AvasRoutingTool.Controls;
+ using AvasRoutingTool.Services;
+ using AvasRoutingTool.Views;
+-using Wpf.Ui.Controls;
+ using Xunit;
+ using Button = System.Windows.Controls.Button;
+-using Path = System.Windows.Shapes.Path;
++using TextBlock = System.Windows.Controls.TextBlock;
+ 
+ namespace AvasRoutingTool.Tests
+ {
+     /// <summary>
+-    /// UI v2 Layout button size (task A14): the Layout dropdown on a display card is Size.Layout.Button.Width x Height (64 x 56), its
+-    /// icon and chevron are the Size.Icon.Layout tokens, and its fill and outline wrap it exactly. The action bar row is still
+-    /// Size.Card.Row.ActionBar (56), so the card does not get taller.
++    /// The "More layouts" button on a display card (round 3, replacing the 64 x 56 segment of task A14): a ghost action-bar button, Size.Touch.Min
++    /// high, [grid_view icon] label [expand_more chevron], icon and chevron the Size.Icon.Layout token, drawn in the primary text colour, with no
++    /// fill or outline of its own. The action bar row is still Size.Card.Row.ActionBar (56), so the card does not get taller.
+     /// </summary>
+     public partial class ViewSmokeTests
+     {
+         private static Button LayoutOf(DisplayCardView card) => (Button)Named(card, "LayoutButton").Single();
+ 
+-        /// <summary>Two rectangles agree within <paramref name="tolerance"/> on each edge.</summary>
+-        private static bool SameBounds(Rect a, Rect b, double tolerance = 1.0) =>
+-            Math.Abs(a.Left - b.Left) <= tolerance && Math.Abs(a.Top - b.Top) <= tolerance &&
+-            Math.Abs(a.Right - b.Right) <= tolerance && Math.Abs(a.Bottom - b.Bottom) <= tolerance;
+-
+         [Fact]
+-        public void LayoutButton_IsTheTokenSize_64x56_AndBothAreAtLeastTheTouchFloor() =>
++        public void LayoutButton_IsAtLeastTheTouchFloor_AndAsHighAsTheActionBarButtons() =>
+             RunSta(() =>
+             {
+-                Assert.True(Token("Size.Layout.Button.Width") >= Token("Size.Touch.Min"), "the Layout width is under the touch floor");
+-                Assert.True(Token("Size.Layout.Button.Height") >= Token("Size.Touch.Min"), "the Layout height is under the touch floor");
+                 foreach (double width in ActionBarWidths())
+                 {
+                     var rig = new CopyRig();
+                     var view = rig.View(rig.Rx1, out var host, width);
+                     Showing(host, () =>
+                     {
+                         var layout = LayoutOf(view);
+-                        Assert.True(Math.Abs(layout.ActualWidth - Token("Size.Layout.Button.Width")) <= 0.5,
+-                            $"Layout is {layout.ActualWidth:F1} wide at a {width} px card, not {Token("Size.Layout.Button.Width")}");
+-                        Assert.True(Math.Abs(layout.ActualHeight - Token("Size.Layout.Button.Height")) <= 0.5,
+-                            $"Layout is {layout.ActualHeight:F1} high at a {width} px card, not {Token("Size.Layout.Button.Height")}");
++                        Assert.True(layout.ActualWidth >= Token("Size.Touch.Min"), $"Layout is {layout.ActualWidth:F1} wide at a {width} px card");
++                        Assert.Equal(Token("Size.Touch.Min"), layout.ActualHeight);
++                        Assert.Equal(Token("Size.Touch.Min"), layout.MinHeight);
+                     });
+                 }
+             });
+ 
+         [Fact]
+-        public void LayoutFill_AndOutline_WrapTheLayoutButtonExactly() =>
++        public void LayoutButton_HasNoFillOrOutline_AtRest_AndNoSegmentGroup() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var view = rig.View(rig.Rx1, out var host, 613);
+                 Showing(host, () =>
+                 {
+-                    var group = (Grid)Named(view, "LayoutSegments").Single();
+                     var layout = LayoutOf(view);
+-                    var outline = (System.Windows.Controls.Border)Named(view, "LayoutSegmentsOutline").Single();
+-                    var fill = (System.Windows.Controls.Border)group.Children[0];
+-                    var button = BoundsIn(layout, view);
+-                    Assert.True(SameBounds(BoundsIn(outline, view), button), $"the outline {BoundsIn(outline, view)} is not the button {button}");
+-                    Assert.True(SameBounds(BoundsIn(fill, view), button), $"the fill {BoundsIn(fill, view)} is not the button {button}");
+-                    Assert.True(SameBounds(BoundsIn(group, view), button), $"the group {BoundsIn(group, view)} is not the button {button}");
++                    Assert.Empty(Named(view, "LayoutSegments"));
++                    Assert.Empty(Named(view, "LayoutSegmentsOutline"));
++                    var bd = (Border)layout.Template.FindName("bd", layout);
++                    Assert.Equal(0, ColorOf(bd.Background).A);
++                    Assert.Equal(0.0, bd.BorderThickness.Left);
++                    // No Border in the button draws a visible edge (the keyboard ring is collapsed until the keyboard moves focus here).
++                    Assert.Empty(FindAll<Border>(layout).Where(b => b.IsVisible && b.BorderThickness.Left > 0));
+                 });
+             });
+ 
+         [Fact]
+         public void LayoutButton_TakesAPressAtItsCornersAndCentre_OnTheButton() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var view = rig.View(rig.Rx1, out var host, 613);
+                 Showing(host, () =>
+@@ -80,52 +72,55 @@ namespace AvasRoutingTool.Tests
+                     foreach (var spot in spots)
+                     {
+                         var hit = PressTarget(view, layout.TranslatePoint(spot, view));
+                         Assert.True(hit != null && Within(hit, layout),
+                             $"a press at ({spot.X:F1},{spot.Y:F1}) of the {w:F0}x{h:F0} Layout button lands on {(hit == null ? "nothing" : hit.GetType().Name)}, not on it");
+                     }
+                 });
+             });
+ 
+         [Fact]
+-        public void LayoutIconAndChevron_AreTheIconTokens_InsideTheButton_AndCentred() =>
++        public void LayoutIconAndChevron_AreTheIconToken_InsideTheButton_OnOneLineWithTheLabel() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var view = rig.View(rig.Rx1, out var host, 613);
+                 Showing(host, () =>
+                 {
+                     var layout = LayoutOf(view);
+-                    var icon = (Path)Named(view, "LayoutIcon").Single();
+-                    var chevron = FindAll<SymbolIcon>(layout).Single(i => i.Symbol == SymbolRegular.ChevronDown24);
++                    var icon = (MaterialIcon)Named(view, "LayoutIcon").Single();
++                    var chevron = (MaterialIcon)Named(view, "LayoutChevron").Single();
++                    var label = FindAll<TextBlock>(layout).Single(t => t.IsVisible && t.Text == "More layouts");
+ 
+-                    Assert.True(Math.Abs(icon.ActualWidth - Token("Size.Icon.Layout")) <= 0.5 && Math.Abs(icon.ActualHeight - Token("Size.Icon.Layout")) <= 0.5,
+-                        $"the grid icon is {icon.ActualWidth:F1}x{icon.ActualHeight:F1}, not {Token("Size.Icon.Layout")}");
+-                    Assert.Equal(Token("Size.Icon.Layout.Chevron"), chevron.FontSize);
+-                    Assert.True(Math.Abs(chevron.ActualWidth - Token("Size.Icon.Layout.Chevron")) <= 0.5,
+-                        $"the chevron is {chevron.ActualWidth:F1} wide, not {Token("Size.Icon.Layout.Chevron")}");
++                    foreach (var glyph in new[] { icon, chevron })
++                        Assert.True(Math.Abs(glyph.ActualWidth - Token("Size.Icon.Layout")) <= 0.5 && Math.Abs(glyph.ActualHeight - Token("Size.Icon.Layout")) <= 0.5,
++                            $"the {glyph.Kind} icon is {glyph.ActualWidth:F1}x{glyph.ActualHeight:F1}, not {Token("Size.Icon.Layout")}");
+ 
+                     var ib = BoundsIn(icon, layout);
++                    var lb = BoundsIn(label, layout);
+                     var cb = BoundsIn(chevron, layout);
+                     double w = layout.ActualWidth, h = layout.ActualHeight;
+-                    foreach (var (name, box) in new[] { ("icon", ib), ("chevron", cb) })
++                    foreach (var (name, box) in new[] { ("icon", ib), ("label", lb), ("chevron", cb) })
+                         Assert.True(box.Left >= 0 && box.Top >= 0 && box.Right <= w && box.Bottom <= h, $"the {name} {box} is outside the {w:F0}x{h:F0} button");
+ 
+-                    double centreX = (Math.Min(ib.Left, cb.Left) + Math.Max(ib.Right, cb.Right)) / 2;
+-                    double centreY = (Math.Min(ib.Top, cb.Top) + Math.Max(ib.Bottom, cb.Bottom)) / 2;
+-                    Assert.True(Math.Abs(centreX - w / 2) <= 1, $"the icon and chevron are centred at x {centreX:F1}, the button's centre is {w / 2:F1}");
+-                    Assert.True(Math.Abs(centreY - h / 2) <= 1, $"the icon and chevron are centred at y {centreY:F1}, the button's centre is {h / 2:F1}");
++                    // Icon, label, chevron in a row with Size.Space.Action between them, and the same padding at both ends.
++                    Assert.True(Math.Abs(lb.Left - ib.Right - Token("Size.Space.Action")) <= 0.5, $"the icon-to-label gap is {lb.Left - ib.Right:F1}");
++                    Assert.True(Math.Abs(cb.Left - lb.Right - Token("Size.Space.Action")) <= 0.5, $"the label-to-chevron gap is {cb.Left - lb.Right:F1}");
++                    Assert.True(Math.Abs(ib.Left - Token("Size.Action.PadX")) <= 0.5 && Math.Abs(w - cb.Right - Token("Size.Action.PadX")) <= 0.5,
++                        $"the padding is {ib.Left:F1} left and {w - cb.Right:F1} right");
++                    foreach (var box in new[] { ib, lb, cb })
++                        Assert.True(Math.Abs((box.Top + box.Bottom) / 2 - h / 2) <= 1.5, $"{box} is not centred on the button's {h / 2:F1}");
+                 });
+             });
+ 
+         [Fact]
+-        public void ActionBar_WithTheTallerLayoutButton_FitsAtBothWidths_WithAnEightPixelGap() =>
++        public void ActionBar_Buttons_FitAtBothWidths_WithTheActionGap() =>
+             RunSta(() =>
+             {
+                 foreach (double width in ActionBarWidths())
+                 {
+                     var rig = new CopyRig();
+                     var view = rig.View(rig.Rx1, out var host, width);
+                     Showing(host, () =>
+                     {
+                         string at = $"at a {width} px card";
+                         var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
+@@ -133,82 +128,87 @@ namespace AvasRoutingTool.Tests
+                         var copy = (Button)Named(view, "CopyLayoutHandle").Single();
+                         var turnOff = (Button)Named(view, "TurnOffButton").Single();
+ 
+                         foreach (var button in new[] { layout, copy, turnOff })
+                         {
+                             Assert.True(button.IsVisible, $"{button.Name} is not shown {at}");
+                             Assert.True(button.ActualHeight >= Token("Size.Touch.Min"), $"{button.Name} is {button.ActualHeight:F1} high {at}");
+                         }
+                         AssertTheActionBarFits(view);
+ 
+-                        // The row keeps its height, and the Layout button is the row's full height: the card is not taller.
++                        // The row keeps its height: the 48 px buttons sit in the 56 px bar and the card is not taller.
+                         Assert.Equal(Token("Size.Card.Row.ActionBar"), dock.ActualHeight);
+                         Assert.True(layout.ActualHeight <= dock.ActualHeight + 0.5, $"Layout is taller than the action bar {at}");
+ 
+                         double gap = BoundsIn(copy, dock).Left - BoundsIn(layout, dock).Right;
+-                        Assert.True(gap >= 8, $"the gap between Layout and Copy layout is {gap:F1} px {at}");
++                        Assert.True(Math.Abs(gap - Token("Size.Space.Action")) <= 0.5, $"the gap between Layout and Copy layout is {gap:F1} px {at}");
+                         Assert.True(BoundsIn(turnOff, dock).Left >= BoundsIn(copy, dock).Right, $"Turn Off overlaps Copy layout {at}");
+                     });
+                 }
+             });
+ 
+         [Fact]
+-        public void ActionBar_WithADraft_KeepsTheEightPixelGap_FromLayoutToCopyLayout_AtTheNarrowWidth() =>
++        public void ActionBar_WithADraft_KeepsTheActionGap_FromLayoutToCopyLayout_AtTheCarouselWidth() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 rig.Rx1.HasDraft = true;
+-                var view = rig.View(rig.Rx1, out var host, Token("Size.Card.Min"));
++                var view = rig.View(rig.Rx1, out var host, 400);
+                 Showing(host, () =>
+                 {
+                     var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
+                     var layout = LayoutOf(view);
+                     var copy = (Button)Named(view, "CopyLayoutHandle").Single();
+                     Assert.True(Named(view, "DraftChip").Single().IsVisible, "the draft chip is not shown");
+                     double gap = BoundsIn(copy, dock).Left - BoundsIn(layout, dock).Right;
+-                    Assert.True(gap >= 8, $"the gap between Layout and Copy layout is {gap:F1} px with a draft at the narrow width");
++                    Assert.True(Math.Abs(gap - Token("Size.Space.Action")) <= 0.5, $"the gap between Layout and Copy layout is {gap:F1} px with a draft");
+                 });
+             });
+ 
+         [Theory]
+         [InlineData(ThemeMode.Dark)]
+         [InlineData(ThemeMode.Light)]
+-        public void LayoutIcon_AndOutline_DrawInThePaletteOfTheTheme(ThemeMode mode) =>
++        public void LayoutIconAndChevron_DrawInThePrimaryTextColourOfTheTheme(ThemeMode mode) =>
+             RunSta(() =>
+             {
+                 var theme = new ThemeService();
+                 try
+                 {
+                     // The rig first: its MainViewModel builds a ThemeService that re-applies the saved (Dark) theme on construction.
+                     var rig = new CopyRig();
+                     theme.SetTheme(mode);
+                     var view = rig.View(rig.Rx1, out var host, 613);
+                     Showing(host, () =>
+                     {
+                         var layout = LayoutOf(view);
+-                        var icon = (Path)Named(view, "LayoutIcon").Single();
+-                        var chevron = FindAll<SymbolIcon>(layout).Single(i => i.Symbol == SymbolRegular.ChevronDown24);
+-                        var outline = (System.Windows.Controls.Border)Named(view, "LayoutSegmentsOutline").Single();
+-                        Assert.Equal(PaletteColor("Brush.Text.Secondary"), ColorOf(icon.Fill));
+-                        Assert.Equal(PaletteColor("Brush.Text.Secondary"), ColorOf(chevron.Foreground));
+-                        Assert.Equal(PaletteColor("Brush.Border.Control"), ColorOf(outline.BorderBrush));
++                        var icon = (MaterialIcon)Named(view, "LayoutIcon").Single();
++                        var chevron = (MaterialIcon)Named(view, "LayoutChevron").Single();
++                        var label = FindAll<TextBlock>(layout).Single(t => t.IsVisible && t.Text == "More layouts");
++                        var power = FindAll<MaterialIcon>((Button)Named(view, "TurnOffButton").Single()).Single();
++                        var expected = PaletteColor("Brush.Text.Primary");
++                        Assert.Equal(expected, ColorOf(icon.Foreground));
++                        Assert.Equal(expected, ColorOf(chevron.Foreground));
++                        Assert.Equal(expected, ColorOf(label.Foreground));
++                        Assert.Equal(expected, ColorOf(power.Foreground));
+                     });
+                 }
+                 finally { theme.SetTheme(ThemeMode.Dark); }
+             });
+ 
+         [Fact]
+-        public void LayoutGroup_FillsTheActionBarRow_AndTheRowIsStillTheActionBarToken() =>
++        public void ActionBarRow_IsStillTheActionBarToken_AndTheLayoutButtonIsCentredInIt() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var view = rig.View(rig.Rx1, out var host, 613);
+                 Showing(host, () =>
+                 {
+                     var rows = ((Grid)Named(view, "CardGrid").Single()).RowDefinitions;
+                     Assert.Equal(Token("Size.Card.Row.ActionBar"), rows[1].Height.Value);
+-                    var group = (Grid)Named(view, "LayoutSegments").Single();
+-                    Assert.Equal(Token("Size.Card.Row.ActionBar"), group.ActualHeight);
++                    var dock = (FrameworkElement)Named(view, "FloatingActionDock").Single();
++                    Assert.Equal(Token("Size.Card.Row.ActionBar"), dock.ActualHeight);
++                    var box = BoundsIn(LayoutOf(view), dock);
++                    Assert.True(Math.Abs((box.Top + box.Bottom) / 2 - dock.ActualHeight / 2) <= 0.5, $"Layout {box} is not centred in the {dock.ActualHeight} px bar");
+                 });
+             });
+     }
+ }
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2NoInlinePresets.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2NoInlinePresets.cs
+index a06e81e..803a0d3 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2NoInlinePresets.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2NoInlinePresets.cs
+@@ -8,41 +8,41 @@ using Button = System.Windows.Controls.Button;
+ 
+ namespace AvasRoutingTool.Tests
+ {
+     /// <summary>
+     /// UI v2 display card action bar without the inline layout presets (task A13): the Layout dropdown starts the row, then
+     /// Copy layout, the draft chip and Turn Off. No preset row and no layout glyph is drawn at any card width.
+     /// </summary>
+     public partial class ViewSmokeTests
+     {
+         /// <summary>The card widths the action bar is checked at: a wide card and the narrowest card (Size.Card.Min).</summary>
+-        private static double[] ActionBarWidths() => new[] { 613.0, Token("Size.Card.Min") };
++        private static double[] ActionBarWidths() => new[] { 613.0, 400.0 };
+ 
+         /// <summary>Two action-bar parts lie side by side or one above the other (touching is not overlapping).</summary>
+         private static bool ActionBarSeparated(Rect a, Rect b) =>
+             a.Right <= b.Left + 0.5 || b.Right <= a.Left + 0.5 || a.Bottom <= b.Top + 0.5 || b.Bottom <= a.Top + 0.5;
+ 
+         /// <summary>The visible parts of a card's action bar are inside the bar and the card, none overlaps another, and every label is whole.</summary>
+         private static void AssertTheActionBarFits(DisplayCardView card)
+         {
+             var frame = (FrameworkElement)Named(card, "CardFrame").Single();
+             var dock = (FrameworkElement)Named(card, "FloatingActionDock").Single();
+             AssertInside(dock, frame);
+             var parts = new[] { "LayoutButton", "CopyLayoutHandle", "DraftChip", "TurnOffButton" }
+                 .SelectMany(name => Named(card, name))
+                 .Where(part => part.IsVisible)
+                 .ToList();
+             Assert.True(parts.Count >= 2, $"only {parts.Count} action-bar parts are shown on {card.DataContext}");
+             foreach (var part in parts)
+             {
+                 AssertInside(part, dock);
+-                foreach (var label in FindAll<TextBlock>(part)) AssertTextFits(label);
++                foreach (var label in FindAll<TextBlock>(part).Where(t => t.IsVisible)) AssertTextFits(label); // a collapsed label (More layouts, while a draft shows) takes no room
+             }
+             for (int i = 0; i < parts.Count; i++)
+                 for (int j = i + 1; j < parts.Count; j++)
+                     Assert.True(ActionBarSeparated(BoundsIn(parts[i], dock), BoundsIn(parts[j], dock)),
+                         $"{parts[i].Name} {BoundsIn(parts[i], dock)} overlaps {parts[j].Name} {BoundsIn(parts[j], dock)}");
+         }
+ 
+         [Fact]
+         public void DisplayCard_HasNoInlinePresetRow_AndNoLayoutGlyph_AtAnyWidth() =>
+             RunSta(() =>
+@@ -76,23 +76,23 @@ namespace AvasRoutingTool.Tests
+                         var copy = (Button)Named(view, "CopyLayoutHandle").Single();
+                         var turnOff = (Button)Named(view, "TurnOffButton").Single();
+                         string at = $"at a {width} px card";
+ 
+                         foreach (var button in new[] { layout, copy, turnOff })
+                         {
+                             Assert.True(button.IsVisible, $"{button.Name} is not shown {at}");
+                             Assert.True(button.ActualWidth >= Token("Size.Touch.Min") && button.ActualHeight >= Token("Size.Touch.Min"),
+                                 $"{button.Name} is {button.ActualWidth:F1}x{button.ActualHeight:F1} {at}");
+                         }
+-                        // Layout is the dropdown's own size (Size.Layout.Button, A14), not just the touch floor.
+-                        Assert.True(layout.ActualWidth == Token("Size.Layout.Button.Width") && layout.ActualHeight == Token("Size.Layout.Button.Height"),
+-                            $"Layout is {layout.ActualWidth:F1}x{layout.ActualHeight:F1} {at}");
++                        // Layout and Copy layout are the same ghost action-bar height (Size.Touch.Min).
++                        Assert.True(layout.ActualHeight == Token("Size.Touch.Min") && copy.ActualHeight == Token("Size.Touch.Min"),
++                            $"Layout is {layout.ActualHeight:F1} and Copy layout {copy.ActualHeight:F1} high {at}");
+                         Assert.True(layout.Focusable && layout.IsTabStop, $"Layout is not a tab stop {at}");
+                         Assert.True(copy.Focusable && copy.IsTabStop, $"Copy layout is not a tab stop {at}");
+ 
+                         // The tab order (document order of the row) and the left-to-right order are the same: Layout, Copy layout, Turn Off.
+                         var buttons = FindAll<Button>(dock).Where(b => b.IsVisible).ToList();
+                         Assert.True(buttons.IndexOf(layout) < buttons.IndexOf(copy) && buttons.IndexOf(copy) < buttons.IndexOf(turnOff),
+                             $"the tab order is {string.Join(", ", buttons.Select(b => b.Name))} {at}");
+ 
+                         var layoutBox = BoundsIn(layout, dock);
+                         var copyBox = BoundsIn(copy, dock);
+@@ -100,21 +100,21 @@ namespace AvasRoutingTool.Tests
+                         Assert.True(layoutBox.Right <= copyBox.Left && copyBox.Right <= offBox.Left,
+                             $"the row is out of order: Layout {layoutBox}, Copy layout {copyBox}, Turn Off {offBox} {at}");
+                         Assert.True(copyBox.Left - layoutBox.Right >= 8, $"the gap between Layout and Copy layout is {copyBox.Left - layoutBox.Right:F1} px {at}");
+ 
+                         // Layout starts the row: no interactive control of the bar lies left of it.
+                         Assert.True(layoutBox.Left <= 0.5, $"Layout starts at {layoutBox.Left:F1} {at}");
+                         foreach (var button in buttons)
+                             Assert.True(BoundsIn(button, dock).Left >= layoutBox.Left - 0.5, $"{button.Name} lies left of Layout {at}");
+ 
+                         // Spoken names: the Layout dropdown names its device; Copy layout has a name of its own.
+-                        Assert.Equal("Layout for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
++                        Assert.Equal("More layouts for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
+                         Assert.False(string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(copy)), $"Copy layout has no spoken name {at}");
+                     });
+                 }
+             });
+ 
+         [Fact]
+         public void DisplayCard_ActionBar_AtTheFloor_1024x720_EverythingFits() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+diff --git a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SegmentedPresets.cs b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SegmentedPresets.cs
+index da4a5f6..66e85b5 100644
+--- a/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SegmentedPresets.cs
++++ b/tests/AvasRoutingTool.Tests/ViewSmokeTests.UiV2SegmentedPresets.cs
+@@ -6,174 +6,129 @@ using System.Windows.Controls;
+ using System.Windows.Media;
+ using AvasRoutingTool.Services;
+ using Wpf.Ui.Controls;
+ using Xunit;
+ using Button = System.Windows.Controls.Button;
+ using TextBlock = System.Windows.Controls.TextBlock;
+ 
+ namespace AvasRoutingTool.Tests
+ {
+     /// <summary>
+-    /// UI v2 layout control on the display card's action bar (plan task A10, then A13): the Layout dropdown is one segment with its
+-    /// fill and outline (LayoutSegments), and Copy layout stands apart at its right. The one-tap presets were removed (A13).
++    /// UI v2 layout control on the display card's action bar (plan task A10, A13; round 3): More layouts and Copy layout are two ghost buttons of
++    /// one style (Style.Button.ActionBar); the one-tap presets were removed (A13).
+     /// </summary>
+     public partial class ViewSmokeTests
+     {
+         private static Color PaletteColor(string key) => ((SolidColorBrush)Application.Current.FindResource(key)).Color;
+ 
+         private static Color ColorOf(Brush? brush) => ((SolidColorBrush)brush!).Color;
+ 
+         /// <summary>True when <paramref name="el"/> is <paramref name="ancestor"/> or lies inside it in the visual tree.</summary>
+         private static bool Within(DependencyObject el, DependencyObject ancestor)
+         {
+             for (DependencyObject? d = el; d != null; d = System.Windows.Media.VisualTreeHelper.GetParent(d))
+             {
+                 if (d == ancestor) return true;
+             }
+             return false;
+         }
+ 
+-        [Fact]
+-        public void LayoutSegments_HoldTheLayoutDropdown_AsOneSegment_OfTheLayoutButtonSize_FilledByIt() =>
+-            RunSta(() =>
+-            {
+-                var rig = new CopyRig();
+-                var view = rig.View(rig.Rx1, out var host, 613);
+-                Showing(host, () =>
+-                {
+-                    var group = (Grid)Named(view, "LayoutSegments").Single();
+-                    var layout = (Button)Named(view, "LayoutButton").Single();
+-                    Assert.True(Within(layout, group), "Layout is not inside LayoutSegments");
+-                    // Size.Layout.Button (64 x 56, A14): the segment is the dropdown's size, not the touch floor.
+-                    Assert.True(Math.Abs(layout.ActualWidth - Token("Size.Layout.Button.Width")) <= 0.5 && Math.Abs(layout.ActualHeight - Token("Size.Layout.Button.Height")) <= 0.5,
+-                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight}, not the Size.Layout.Button tokens");
+-
+-                    // The segment is the whole group: its fill and outline are its edge.
+-                    var box = BoundsIn(layout, group);
+-                    Assert.True(Math.Abs(box.Width - group.ActualWidth) <= 0.5 && Math.Abs(box.Height - group.ActualHeight) <= 0.5,
+-                        $"Layout {box} does not fill LayoutSegments {group.ActualWidth:F1}x{group.ActualHeight:F1}");
+-                });
+-            });
+-
+-        [Fact]
+-        public void LayoutSegments_HaveOneOutline_AndNoSegmentBorder() =>
+-            RunSta(() =>
+-            {
+-                var rig = new CopyRig();
+-                var view = rig.View(rig.Rx1, out var host, 613);
+-                Showing(host, () =>
+-                {
+-                    var group = (Grid)Named(view, "LayoutSegments").Single();
+-                    var outline = (System.Windows.Controls.Border)Named(view, "LayoutSegmentsOutline").Single();
+-                    Assert.Equal(1.0, outline.BorderThickness.Left);
+-                    Assert.Null(outline.Background);
+-                    Assert.False(outline.IsHitTestVisible);
+-                    Assert.True(Within(outline, group), "the outline does not overlay the segment");
+-
+-                    // The outline is the only border with a width in the group: the segment's own border part is 0 (its focus ring is collapsed).
+-                    var drawn = FindAll<System.Windows.Controls.Border>(group).Where(b => b.IsVisible && b.BorderThickness.Left > 0).ToList();
+-                    Assert.Same(outline, Assert.Single(drawn));
+-                    var layout = (Button)Named(view, "LayoutButton").Single();
+-                    var bd = (System.Windows.Controls.Border)layout.Template.FindName("bd", layout);
+-                    Assert.Equal(0.0, bd.BorderThickness.Left);
+-                });
+-            });
+-
+         /// <summary>
+         /// The topmost element a press at <paramref name="point"/> (in <paramref name="view"/>'s coordinates) reaches, as pointer input
+         /// finds it: elements that are not hit-test visible (the group's outline) or not shown are skipped with their children.
+         /// </summary>
+         private static DependencyObject? PressTarget(Visual view, Point point)
+         {
+             DependencyObject? target = null;
+             System.Windows.Media.VisualTreeHelper.HitTest(view,
+                 d => d is UIElement u && (!u.IsHitTestVisible || !u.IsVisible)
+                     ? HitTestFilterBehavior.ContinueSkipSelfAndChildren
+                     : HitTestFilterBehavior.Continue,
+                 r => { target = ((PointHitTestResult)r).VisualHit; return HitTestResultBehavior.Stop; },
+                 new PointHitTestParameters(point));
+             return target;
+         }
+ 
+         [Fact]
+-        public void LayoutSegments_TheLayoutButton_TakesAPressOnItsWholeArea_IncludingTheOuterRing() =>
++        public void LayoutButton_TakesAPressOnItsWholeArea_IncludingTheEdges() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var view = rig.View(rig.Rx1, out var host, 613);
+                 Showing(host, () =>
+                 {
+-                    // A press anywhere in the Layout segment (Size.Layout.Button, 64x56) must land on the segment, not only in its inset block.
++                    // A press anywhere in the More layouts button must land on it, not only on its icon or label.
+                     var segment = (Button)Named(view, "LayoutButton").Single();
+                     double w = segment.ActualWidth, h = segment.ActualHeight;
+                     var spots = new[]
+                     {
+                         new Point(1, 1), new Point(w - 1, 1), new Point(1, h - 1), new Point(w - 1, h - 1),
+                         new Point(w / 2, 1), new Point(1, h / 2), new Point(w / 2, h / 2),
+                     };
+                     foreach (var spot in spots)
+                     {
+                         var atView = segment.TranslatePoint(spot, view);
+                         var hit = PressTarget(view, atView);
+                         string landsOn = hit == null ? "nothing" : $"{hit.GetType().Name} '{(hit as FrameworkElement)?.Name}' at {(hit is FrameworkElement hf ? BoundsIn(hf, view).ToString() : "")} (segment at {BoundsIn(segment, view)})";
+                         Assert.True(hit != null && Within(hit, segment),
+                             $"Layout {w:F0}x{h:F0}: a press at ({spot.X:F1},{spot.Y:F1}) lands on {landsOn}, not on the segment");
+                     }
+                 });
+             });
+ 
+         [Fact]
+-        public void LayoutButton_IsAnIconAndAChevron_NoText_WithTheMoreLayoutsTooltip() =>
++        public void LayoutButton_ShowsIconLabelAndChevron_WithTheMoreLayoutsTooltipAndName() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var view = rig.View(rig.Rx1, out var host, 613);
+                 Showing(host, () =>
+                 {
+                     var layout = (Button)Named(view, "LayoutButton").Single();
+-                    // Icon and chevron only: the SymbolIcon's own glyph text is the chevron, no words.
+-                    Assert.Empty(FindAll<TextBlock>(layout).Where(t => !string.IsNullOrEmpty(t.Text) && !FindAll<SymbolIcon>(layout).Any(i => i.IsAncestorOf(t))));
+-                    var icon = (System.Windows.Shapes.Path)Named(view, "LayoutIcon").Single();
+-                    Assert.Same(Application.Current.FindResource("Icon.Grid"), icon.Data);
+-                    Assert.Contains(FindAll<SymbolIcon>(layout), i => i.Symbol == SymbolRegular.ChevronDown24);
++                    Assert.Equal("More layouts", Assert.Single(FindAll<TextBlock>(layout).Where(t => !string.IsNullOrEmpty(t.Text))).Text);
++                    var icons = FindAll<AvasRoutingTool.Controls.MaterialIcon>(layout);
++                    Assert.Contains(icons, i => i.Kind == "grid_view");
++                    Assert.Contains(icons, i => i.Kind == "expand_more");
+                     Assert.Equal("More layouts", layout.ToolTip as string);
+-                    Assert.Equal("Layout for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
++                    Assert.Equal("More layouts for RX1_c059e_SFPA", System.Windows.Automation.AutomationProperties.GetName(layout));
+                 });
+ 
+-                // At the minimum card width Layout is still a touch target.
++                // At the carousel's card width Layout is still a touch target.
+                 var narrow = new CopyRig();
+-                var narrowView = narrow.View(narrow.Rx1, out var narrowHost, Token("Size.Card.Min"));
++                var narrowView = narrow.View(narrow.Rx1, out var narrowHost, 400);
+                 Showing(narrowHost, () =>
+                 {
+                     var layout = (Button)Named(narrowView, "LayoutButton").Single();
+                     Assert.True(layout.IsVisible && layout.ActualWidth >= Token("Size.Touch.Min") && layout.ActualHeight >= Token("Size.Touch.Min"),
+-                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight} at the minimum width");
++                        $"Layout is {layout.ActualWidth}x{layout.ActualHeight} at the carousel width");
+                 });
+             });
+ 
+         [Fact]
+-        public void CopyLayout_IsAGhostButtonOutsideTheSegments_WithIconAndLabelSideBySide() =>
++        public void CopyLayout_IsAnActionBarGhostButton_WithIconAndLabelSideBySide() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var rx1 = rig.View(rig.Rx1, out var h1);
+                 var rx3 = rig.View(rig.Rx3, out var h3);
+                 Showing(new StackPanel { Children = { h1, h3 } }, () =>
+                 {
+                     var handle = (Button)Named(rx1, "CopyLayoutHandle").Single();
+-                    Assert.Same(Application.Current.FindResource("Style.Button.CopyLayout"), handle.Style);
++                    // The action-bar style, with Copy layout's own armed and nothing-to-copy states on top of it.
++                    Assert.Same(Application.Current.FindResource("Style.Button.ActionBar"), handle.Style.BasedOn);
++                    Assert.Same(Application.Current.FindResource("Style.Button.ActionBar.Copy"), handle.Style);
+                     Assert.Equal(Token("Size.Touch.Min"), handle.MinHeight);
+                     Assert.True(handle.ActualHeight >= Token("Size.Touch.Min"), $"Copy layout is {handle.ActualHeight} high");
+-                    Assert.False(Within(handle, Named(rx1, "LayoutSegments").Single()), "Copy layout is inside the segmented control");
+ 
+                     var label = FindAll<TextBlock>(handle).Single(t => t.Text == "Copy layout");
+-                    var icon = FindAll<System.Windows.Shapes.Path>(handle).Single(p => p.Name == "CopyIcon");
++                    var icon = (AvasRoutingTool.Controls.MaterialIcon)Named(rx1, "CopyIcon").Single();
++                    Assert.Equal("content_copy", icon.Kind);
+                     var iconBounds = BoundsIn(icon, handle);
+                     var labelBounds = BoundsIn(label, handle);
+                     Assert.True(iconBounds.Right <= labelBounds.Left + 0.5, "the icon is not before the label");
+                     Assert.True(iconBounds.Top < labelBounds.Bottom && labelBounds.Top < iconBounds.Bottom, "the icon and the label are not in one row");
+                     Assert.True(label.FontSize >= 12, $"the label is {label.FontSize} px");
+ 
+                     Assert.Equal("Copy this layout to another display", handle.ToolTip as string);
+                     var blocked = (Button)Named(rx3, "CopyLayoutHandle").Single();
+                     Assert.Equal("No layout to copy yet", blocked.ToolTip as string);
+                     Assert.True(blocked.ActualHeight >= Token("Size.Touch.Min"));
+@@ -203,24 +158,23 @@ namespace AvasRoutingTool.Tests
+                 var rig = new CopyRig();
+                 var rx3 = rig.View(rig.Rx3, out var host);
+                 Showing(host, () =>
+                 {
+                     var handle = (Button)Named(rx3, "CopyLayoutHandle").Single();
+                     Assert.False(rig.Rx3.CanCopyFrom);
+                     Assert.True(handle.IsEnabled, "the handle is disabled: it cannot take keyboard focus or a tap");
+                     Assert.True(handle.Focusable && handle.IsTabStop, "the handle is not a tab stop");
+                     Assert.True(handle.ActualWidth >= 48 && handle.ActualHeight >= 48, $"the handle is {handle.ActualWidth}x{handle.ActualHeight}");
+ 
+-                    // Off is drawn by the template root (its first visual child): dimmed, with the arrow cursor.
+-                    var root = (FrameworkElement)System.Windows.Media.VisualTreeHelper.GetChild(handle, 0);
+-                    Assert.Equal(0.5, root.Opacity);
+-                    Assert.Equal(System.Windows.Input.Cursors.Arrow, root.Cursor);
++                    // Off is drawn by the style: the whole button is dimmed, with the arrow cursor.
++                    Assert.Equal(0.5, handle.Opacity);
++                    Assert.Equal(System.Windows.Input.Cursors.Arrow, handle.Cursor);
+                 });
+             });
+ 
+         [Fact]
+         public void CopyLayout_PressedWithNothingToCopy_SaysWhyNextToTheButton_AndNothingArms() =>
+             RunSta(() =>
+             {
+                 var rig = new CopyRig();
+                 var rx3 = rig.View(rig.Rx3, out var host);
+                 Showing(host, () =>

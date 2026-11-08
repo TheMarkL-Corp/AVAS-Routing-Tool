@@ -1,0 +1,193 @@
+<UserControl x:Class="AvasRoutingTool.Views.AdvancedView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AvasRoutingTool.ViewModels"
+             Background="{DynamicResource Brush.Background.Dark}">
+
+    <Grid Margin="16,12,16,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Advanced" Style="{StaticResource Style.Text.Lead}" />
+                <TextBlock Text="Link mode and temperature of every discovered device."
+                           Style="{StaticResource Style.Text.Caption}" Margin="0,2,0,0" />
+            </StackPanel>
+            <Button x:Name="RefreshStatusButton"
+                    Grid.Column="1"
+                    Content="Refresh status"
+                    Command="{Binding RefreshCommand}"
+                    Style="{StaticResource Style.Button.Secondary}"
+                    MinHeight="{StaticResource Size.Touch.Min}"
+                    AutomationProperties.Name="Refresh status" />
+        </Grid>
+
+        <!-- One line about the last link switch: applied or failed -->
+        <Border x:Name="SwitchBanner"
+                Grid.Row="1"
+                Visibility="{Binding Banner, Converter={StaticResource Converter.Visible.NotEmpty}}"
+                Background="{DynamicResource Brush.Surface.Info}"
+                BorderBrush="{DynamicResource Brush.Border.Default}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,10"
+                Margin="0,0,0,10"
+                AutomationProperties.LiveSetting="Polite">
+            <TextBlock Text="{Binding Banner}" Style="{StaticResource Style.Text.Body}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Column headings -->
+        <Grid Grid.Row="2" Margin="14,0,14,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="1.2*" />
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="6*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Device" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="Role" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="2" Text="Chips" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="3" Text="Link mode" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="4" Text="Temperature" Style="{StaticResource Style.Text.Caption}" FontWeight="SemiBold" />
+        </Grid>
+
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="DeviceRows" ItemsSource="{Binding Rows}" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{DynamicResource Brush.Surface.Card}"
+                                BorderBrush="{DynamicResource Brush.Border.Default}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="14,0"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="0,0,0,6"
+                                AutomationProperties.Name="{Binding Name}">
+                            <Grid VerticalAlignment="Center" Margin="0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="3*" />
+                                    <ColumnDefinition Width="5*" />
+                                    <ColumnDefinition Width="6*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Style.Text.Body}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Mac}" Style="{StaticResource Style.Text.Caption}" FontFamily="Consolas" />
+                                    <TextBlock Text="{Binding CompanionMac}" Style="{StaticResource Style.Text.Caption}" FontFamily="Consolas"
+                                               Visibility="{Binding CompanionMac, Converter={StaticResource Converter.Visible.NotEmpty}}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding Role}" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Style="{StaticResource Style.Dot.ChipStatus}" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding ChipStatusState}" Style="{StaticResource Style.Text.Body}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ChipStatusText}" Style="{StaticResource Style.Text.Caption}" TextWrapping="Wrap"
+                                               Visibility="{Binding HasChipDetail, Converter={StaticResource Converter.Visible.True}}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="3" Text="{Binding LinkMode}" Style="{StaticResource Style.Text.Body}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Style="{StaticResource Style.Dot.Temperature}" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding TemperatureText}" Style="{StaticResource Style.Text.Body}" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding TemperatureState}" Style="{StaticResource Style.Text.Caption}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Button Grid.Column="5"
+                                        Content="{Binding SwitchLinkLabel}"
+                                        Visibility="{Binding CanSwitchLink, Converter={StaticResource Converter.Visible.True}}"
+                                        Command="{Binding DataContext.SwitchLinkCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource Style.Button.Secondary}"
+                                        MinHeight="{StaticResource Size.Touch.Min}"
+                                        HorizontalAlignment="Right"
+                                        AutomationProperties.Name="{Binding SwitchLinkLabel}" />
+                                <TextBlock Grid.Column="5"
+                                           Text="{Binding SwitchBlockedReason}"
+                                           Visibility="{Binding SwitchBlockedReason, Converter={StaticResource Converter.Visible.NotEmpty}}"
+                                           Style="{StaticResource Style.Text.Caption}"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Danger zone: reboots and factory resets. AVAS devices only; every action asks first and none is the primary button. -->
+        <Border x:Name="DangerZone"
+                Grid.Row="4"
+                Background="{DynamicResource Brush.Surface.Card}"
+                BorderBrush="{DynamicResource Brush.Border.Strong}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="14,12"
+                Margin="0,10,0,0">
+            <StackPanel>
+                <TextBlock Text="Danger zone" Style="{StaticResource Style.Text.Lead}" />
+                <TextBlock Text="Reboots and factory resets of one AVAS device. Each one asks first."
+                           Style="{StaticResource Style.Text.Caption}" Margin="0,2,0,10" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="3*" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="DangerDevicePicker"
+                              ItemsSource="{Binding DangerRows}"
+                              SelectedItem="{Binding SelectedDangerRow}"
+                              DisplayMemberPath="Name"
+                              MinHeight="{StaticResource Size.Touch.Min}"
+                              Margin="0,0,12,0"
+                              AutomationProperties.Name="Device for reboots and resets" />
+                    <WrapPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="RebootChipButton"
+                                Content="Reboot chip"
+                                Command="{Binding DangerCommand}"
+                                CommandParameter="{x:Static vm:DangerAction.RebootChip}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="0,0,8,0"
+                                AutomationProperties.Name="Reboot chip" />
+                        <Button x:Name="RebootMcuButton"
+                                Content="Reboot MCU"
+                                Command="{Binding DangerCommand}"
+                                CommandParameter="{x:Static vm:DangerAction.RebootMcu}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="0,0,8,0"
+                                AutomationProperties.Name="Reboot MCU" />
+                        <Button x:Name="FactoryResetMcuButton"
+                                Content="Factory reset MCU"
+                                Command="{Binding DangerCommand}"
+                                CommandParameter="{x:Static vm:DangerAction.FactoryResetMcu}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="0,0,8,0"
+                                AutomationProperties.Name="Factory reset MCU" />
+                        <Button x:Name="FactoryResetChipButton"
+                                Content="Factory reset chip"
+                                Command="{Binding DangerCommand}"
+                                CommandParameter="{x:Static vm:DangerAction.FactoryResetChip}"
+                                Style="{StaticResource Style.Button.Secondary}"
+                                MinHeight="{StaticResource Size.Touch.Min}"
+                                Margin="0,0,8,0"
+                                AutomationProperties.Name="Factory reset chip" />
+                    </WrapPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

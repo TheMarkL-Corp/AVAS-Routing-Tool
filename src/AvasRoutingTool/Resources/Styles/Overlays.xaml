@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Overlay styles (owner: Main Window session): the arm banner here; Style.Overlay.Body, toast and popup frame follow with the display card.
+    -->
+
+    <!-- A dark panel over the card body that states a choice or a copy target state in words; the view shows it with a Visibility binding -->
+    <Style x:Key="Style.Overlay.Body" TargetType="Border">
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <!-- One line above the displays while a source or a display is armed (tapped, waiting for a target): words, never colour alone.
+         No border or padding of its own: the 2 px ring is Style.Banner.Arm.Ring, a layer over the whole surface (the view insets the
+         content 14 px = the ring + 12 px), so the content gets the full 48 px. -->
+    <Style x:Key="Style.Banner.Arm" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.CopyTarget}" />
+        <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <!-- The arm banner's 2 px ring: a layer with no presses of its own (Stop and the banner take them). Same colour as the Stop button -->
+    <Style x:Key="Style.Banner.Arm.Ring" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+</ResourceDictionary>

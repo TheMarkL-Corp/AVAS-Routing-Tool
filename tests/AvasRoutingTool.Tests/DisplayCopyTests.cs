@@ -65,6 +65,9 @@ namespace AvasRoutingTool.Tests
                 }
                 Vm.Sources.Add(Tx2Vm);
                 Vm.Sources.Add(VegaVm);
+                // Discovered cards get a rename handler from MainViewModel; the hand-built ones get a no-op so their pencils look as in the app.
+                foreach (var display in new[] { Rx1Vm, PaxVm, Rx3Vm, Rx4Vm }) display.RenameHandler ??= () => Task.CompletedTask;
+                foreach (var source in new[] { Tx2Vm, VegaVm }) source.RenameHandler ??= () => Task.CompletedTask;
                 Client.DisplayEdids[Rx1Mac] = TestEdids.ViewSonic4k;
                 Client.DisplayEdids[PaxMac] = TestEdids.ViewSonic4k;
                 Client.DisplayEdids[Rx3Mac] = FullHd;
@@ -538,7 +541,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal(new[] { $"fastswitch:{PaxMac}:3840x2160@60" }, rig.Client.MultiViewCalls);
             Assert.False(rig.MultiView.IsMultiView(rig.Pax));
             Assert.False(rig.PaxVm.IsMultiView);
-            Assert.Equal("UNROUTED", rig.PaxVm.ModeBadge);
+            Assert.Equal("No source", rig.PaxVm.ModeBadge);
             Assert.False(rig.PaxVm.CanUndoScreen);
         }
 
@@ -896,7 +899,7 @@ namespace AvasRoutingTool.Tests
             Assert.Equal($"'{PaxName}' did not accept the route to '{Tx2Name}'. {PaxName} could not be put back.", rig.PaxVm.LastError);
             Assert.Contains(PaxMac, rig.Client.ReceiverReads); // re-read: the card shows the truth
             Assert.False(rig.PaxVm.IsMultiView);
-            Assert.Equal("UNROUTED", rig.PaxVm.ModeBadge);
+            Assert.Equal("No source", rig.PaxVm.ModeBadge);
         }
 
         [Fact]

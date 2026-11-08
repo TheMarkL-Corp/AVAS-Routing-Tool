@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using AvasRoutingTool.ViewModels;
 using Xunit;
 
 namespace AvasRoutingTool.Tests
@@ -20,14 +21,7 @@ namespace AvasRoutingTool.Tests
             {
                 try
                 {
-                    var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                    foreach (var path in new[] { "Themes/Theme.Dark", "Theme", "Icons" })
-                    {
-                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
-                        {
-                            Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/{path}.xaml")
-                        });
-                    }
+                    TestResources.Ensure();
                     var window = new MainWindow { WindowState = WindowState.Normal, Width = width, Height = height, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000 };
                     window.Show();
                     window.UpdateLayout();
@@ -45,7 +39,7 @@ namespace AvasRoutingTool.Tests
             new[] { "ThemeToggleButton", "RefreshButton", "SettingsButton" }.Select(n => (Button)w.FindName(n)).ToArray();
 
         private static RadioButton[] Tabs(MainWindow w) =>
-            new[] { "TabVisualRouting", "TabBavmConsole", "TabLogs" }.Select(n => (RadioButton)w.FindName(n)).Where(t => t.Visibility == Visibility.Visible).ToArray();
+            new[] { "TabVisualRouting", "TabRoomCameras", "TabBavmConsole", "TabLogs" }.Select(n => (RadioButton)w.FindName(n)).Where(t => t.Visibility == Visibility.Visible).ToArray();
 
         [Fact]
         public void Tabs_And_Actions_AreTouchSized() => RunSta(w =>
@@ -83,6 +77,11 @@ namespace AvasRoutingTool.Tests
         [Fact]
         public void AppBar_FitsAtMinimumWindowWidth() => RunSta(w =>
         {
+            // The longest connected readout (dot + host:port) must still fit beside the tabs at the floor.
+            var vm = (MainViewModel)w.DataContext;
+            vm.ConnectionStatus = "Connected: 192.168.100.100:6970";
+            vm.ConnectionHealth = ConnectionHealth.Connected;
+            w.UpdateLayout();
             var right = ActionButtons(w).Max(b => b.TranslatePoint(new Point(b.ActualWidth, 0), w).X);
             var tabsLeft = Tabs(w).Min(b => b.TranslatePoint(new Point(0, 0), w).X);
             var brandRight = ((FrameworkElement)w.FindName("BrandBlock")).TranslatePoint(new Point(((FrameworkElement)w.FindName("BrandBlock")).ActualWidth, 0), w).X;
@@ -134,7 +133,7 @@ namespace AvasRoutingTool.Tests
             {
                 Assert.True(IsTransparent(b.Background), $"{b.Name} has a filled background at rest");
                 Assert.Equal(0, b.BorderThickness.Left + b.BorderThickness.Top + b.BorderThickness.Right + b.BorderThickness.Bottom);
-                Assert.NotEmpty(Descendants<System.Windows.Shapes.Path>(b));
+                Assert.True(Descendants<System.Windows.Shapes.Path>(b).Any() || Descendants<AvasRoutingTool.Controls.MaterialIcon>(b).Any(), $"{b.Name} has no vector icon");
                 Assert.DoesNotContain(Descendants<TextBlock>(b), t => t.Text.Any(char.IsSurrogate) || t.Text.Any(c => c >= '☀' && c <= '➿'));
             }
         });

@@ -1,0 +1,159 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:controls="clr-namespace:AvasRoutingTool.Controls"
+                    xmlns:views="clr-namespace:AvasRoutingTool.Views">
+
+    <!--
+        Shared card and chrome pieces (owner: Main Window session): status dots and icon sizes.
+        Card frames (Style.Card.*) follow with the card views. State is passed in through Tag, colours stay DynamicResource palette keys.
+    -->
+
+    <!-- Online / offline dot: Tag="{Binding IsActive}" (true = online). Two sizes. -->
+    <Style x:Key="Style.StatusDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Advanced page temperature dot: Tag-less, bound to TemperatureState (Normal / Warm / Hot / Unknown). Status = dot plus a word.
+         Normal is the online green; Warm is neutral; Hot is the one red (a fault); Unknown is the offline grey. -->
+    <Style x:Key="Style.Dot.Temperature" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding TemperatureState}" Value="Normal">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding TemperatureState}" Value="Warm">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Text.Secondary}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding TemperatureState}" Value="Hot">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Text.Danger}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Advanced page chip status dot, bound to ChipStatusState (Online / Partly online / Offline): the word beside it says the same. -->
+    <Style x:Key="Style.Dot.ChipStatus" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
+        <Setter Property="Fill" Value="{DynamicResource Brush.Status.Offline}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding ChipStatusState}" Value="Online">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding ChipStatusState}" Value="Partly online">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Text.Secondary}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Material icon beside a section heading (Size.Icon.S, accent) -->
+    <Style x:Key="Style.Icon.Section" TargetType="controls:MaterialIcon">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.S}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent.Primary}" />
+    </Style>
+
+    <!-- Placeholder glyph on a picture surface (no preview, standby): Material icon, Size.Icon.M, the muted colour made for the always-dark preview tile (4.5:1 in both themes); never thinned by Opacity -->
+    <Style x:Key="Style.Icon.Placeholder" TargetType="controls:MaterialIcon">
+        <Setter Property="Width" Value="{StaticResource Size.Icon.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Icon.M}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnPreviewMuted}" />
+    </Style>
+
+    <!--
+        Source card frame (ui:Card with its own plain template so WPF-UI cannot change the 4-row layout inside):
+        card surface, 1 px border that lights up on hover, content stretched.
+    -->
+    <Style x:Key="Style.Card.Source" TargetType="{x:Type ui:Card}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Card}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ui:Card}">
+                    <Border x:Name="Frame"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Brush.Border.Highlight}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <!-- The compact tile (SourceCardView.IsCompact) has 8 px of padding instead of 12, and no focus stop of its own: the tile is the target -->
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsCompact, RelativeSource={RelativeSource AncestorType=views:SourceCardView}}" Value="True">
+                <Setter Property="Padding" Value="{StaticResource Size.Strip.Compact.Padding}" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="IsTabStop" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Ring just over the card edge (armed: cyan, 3 px) and just inside it (keyboard focus: 2 px). Visibility is set by the view; neither takes the mouse. -->
+    <Style x:Key="Style.Ring.Armed" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.DropTarget}" />
+        <Setter Property="BorderThickness" Value="3" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <Style x:Key="Style.Ring.Focus" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Focus.Ring}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Margin" Value="3" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <!--
+        App-bar connection dot (M8): Tag="{Binding ConnectionHealth}". Connecting is a hollow neutral ring (neither online nor offline);
+        Connected is a solid online dot; Offline a solid danger dot. The words are shown by the view only while not connected.
+    -->
+    <Style x:Key="Style.StatusDot.Connection" TargetType="Ellipse">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.M}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Fill" Value="Transparent" />
+        <Setter Property="Stroke" Value="{DynamicResource Brush.Text.Muted}" />
+        <Setter Property="StrokeThickness" Value="2" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Connected">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Status.Online}" />
+                <Setter Property="Stroke" Value="Transparent" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Offline">
+                <Setter Property="Fill" Value="{DynamicResource Brush.Action.Danger}" />
+                <Setter Property="Stroke" Value="Transparent" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Style.StatusDot.Small" TargetType="Ellipse" BasedOn="{StaticResource Style.StatusDot}">
+        <Setter Property="Width" Value="{StaticResource Size.Dot.S}" />
+        <Setter Property="Height" Value="{StaticResource Size.Dot.S}" />
+    </Style>
+
+</ResourceDictionary>

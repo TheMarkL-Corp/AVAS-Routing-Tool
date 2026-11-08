@@ -10,11 +10,14 @@ namespace AvasRoutingTool.Sdvoe.MultiView
     public sealed record BlockIssue(int SlotIndex, BlockIssueKind Kind, string Message);
 
     /// <summary>A source as another display's layout (live or staged) uses it: which encoder, at what scaler size.</summary>
-    public sealed record OtherDisplayUse(string DisplayName, string SourceMac, int Width, int Height);
+    public sealed record OtherDisplayUse(string DisplayName, string SourceMac, int Width, int Height, bool IsInset = false);
 
     /// <summary>
     /// Checks a staged draft against what the rest of the system is doing. One encoder has one scaler size,
     /// so it cannot feed a differently sized block here while another display uses it at another size.
+    /// A PiP inset (on either side) is exempt: lab-observed (2026-10-30) that an inset at 640x360 runs on one display
+    /// while the same encoder feeds a 1920x1080 block on another; the decoder scales the surface into the window.
+    /// The scaler readback behind that is still unconfirmed.
     /// </summary>
     public static class DraftValidator
     {
@@ -55,9 +58,11 @@ namespace AvasRoutingTool.Sdvoe.MultiView
 
         private static string? OtherDisplayConflict(WindowSlot block, string mac, string name, IEnumerable<OtherDisplayUse> others)
         {
+            if (block.Label == MultiViewPresets.InsetLabel) return null;
+
             string norm = SdvoeClient.NormalizeMac(mac);
             var use = others.FirstOrDefault(o =>
-                SdvoeClient.NormalizeMac(o.SourceMac) == norm && (o.Width != block.Width || o.Height != block.Height));
+                SdvoeClient.NormalizeMac(o.SourceMac) == norm && !o.IsInset && (o.Width != block.Width || o.Height != block.Height));
 
             return use == null
                 ? null

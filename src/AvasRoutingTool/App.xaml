@@ -2,12 +2,31 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:AvasRoutingTool"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Dark" />
+                <ui:ControlsDictionary />
                 <ResourceDictionary Source="Resources/Themes/Theme.Dark.xaml" />
+                <ResourceDictionary Source="Resources/Tokens.xaml" />
+                <ResourceDictionary Source="Resources/Converters.xaml" />
+                <ResourceDictionary Source="Resources/Styles/WpfUiOverrides.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Buttons.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Tabs.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Text.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Badges.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Lists.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Cards.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Inputs.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Overlays.xaml" />
+                <ResourceDictionary Source="Resources/Styles/SourceCard.xaml" />
+                <ResourceDictionary Source="Resources/Styles/DisplayCard.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Composer.xaml" />
+                <ResourceDictionary Source="Resources/Styles/RoomCameras.xaml" />
                 <ResourceDictionary Source="Resources/Theme.xaml" />
+                <ResourceDictionary Source="Resources/MaterialIcons.xaml" />
                 <ResourceDictionary Source="Resources/Icons.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

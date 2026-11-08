@@ -29,14 +29,7 @@ namespace AvasRoutingTool.Tests
             {
                 try
                 {
-                    var app = Application.Current ?? new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                    foreach (var path in new[] { "Themes/Theme.Dark", "Theme", "Icons" })
-                    {
-                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
-                        {
-                            Source = new Uri($"pack://application:,,,/AvasRoutingTool;component/Resources/{path}.xaml")
-                        });
-                    }
+                    TestResources.Ensure();
                     body();
                 }
                 catch (Exception ex) { failure = ex; }
@@ -131,7 +124,7 @@ namespace AvasRoutingTool.Tests
             var d = new SettingsDialog(cfg);
             try
             {
-                var box = (CheckBox)d.FindName("ChkShowLogs");
+                var box = (System.Windows.Controls.Primitives.ToggleButton)d.FindName("ChkShowLogs");
                 Assert.NotNull(box);
                 Assert.NotEqual(true, box.IsChecked);
                 Assert.False(string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(box)));
