@@ -67,6 +67,8 @@ The tabs along the top are:
 | **Logs** | Diagnostics. Shown only if enabled in Settings. |
 | **Advanced** | Device status and maintenance actions. Shown only if enabled in Settings. |
 
+![Visual Routing tab](screenshots/01-visual-routing.png)
+
 ---
 
 ## 5. Route a video source to a display
@@ -79,6 +81,8 @@ On **Visual Routing**, sources (TX) are at the top and target displays (RX) are 
 
 **Option B: drag and drop**
 1. Drag the source card onto the display card.
+
+![Placing a source on a display](screenshots/02-routing-a-source.png)
 
 The display switches to the new source. Its card shows the live picture so you can see what is being sent.
 
@@ -110,6 +114,8 @@ To build a layout in the Composer:
 3. Use **Replace** or **Move** to rearrange. Use **Undo**, **Discard** or **Clear all** if you change your mind.
 4. Press **Save & Apply**.
 
+![MultiView Composer](screenshots/03-multiview-composer.png)
+
 **Important:** the Composer shows **STAGED** changes. Nothing changes on the surgeon's screen until you press **Save & Apply**. The panel labelled **ON SCREEN** shows what is displayed right now.
 
 The pictures in the Composer are low-rate monitoring previews. They are for planning only and are not the surgical feed.
@@ -130,6 +136,8 @@ Open the **Room Cameras** tab.
    - **RTSP stream**: enter the camera's `rtsp://...` address.
 4. Press **Test connection**, then **Save**.
 
+![Add or edit a room camera](screenshots/05-room-camera-editor.png)
+
 **Control a camera**
 - Use the pad to pan and tilt. Movement lasts only while you hold the button.
 - **Speed**: Slow, Medium or Fast.
@@ -138,11 +146,15 @@ Open the **Room Cameras** tab.
 - **Lock** disables every motion control, so nothing moves by accident.
 - If a message says **Stop not confirmed**, press **Stop** or switch the camera off.
 
+![Room Cameras tab](screenshots/04-room-cameras.png)
+
 Press **Start preview** on a camera card to see its picture.
 
 ---
 
 ## 8. Advanced tab (optional)
+
+![Advanced tab](screenshots/06-advanced-tab.png)
 
 Enable it in Settings with **Show Advanced tab (maintenance)**. It lists every discovered device with its role, chips, link mode and temperature. Press **Refresh status** to update.
 
