@@ -161,3 +161,40 @@ Everything in §4 that decides (ledger, gate, ladder, health check) goes in the 
 - **Wording:** "Take" is now **Save & Apply** ("SAVE & APPLY 2 CHANGES", "Applying to <display>...", "Could not apply: ..."). All spec messages say "apply", never "take". The words "Take" in §4.5 and §6 mean the Save & Apply action.
 - Files this branch changes that the spec's logic also touches: `MultiViewComposerViewModel.cs` (27 lines), `MultiViewOrchestrator.cs` (3 lines), `DraftValidator.cs`, `MultiViewPresets.cs`, `SdvoeClient.cs` (2 lines; this branch adds 6, different region). Dry run clean today; re-run before merging because QA fixes keep landing.
 - Because QA is ongoing, keep the UI-facing part to bindings only (§10.1), add the guard in Off state first, and do not edit `MultiViewComposerView.xaml` until QA signs off; the logic can merge earlier.
+
+## 11. Review of the merged composer (checked 2026-11-08)
+
+Read-only review of `claude/merge-ui-rtsp-multiview-eb5f44` (trial merge of `claude/ui-round3-6710d5` at 3906e84, the RTSP branch and this branch; tip 4937fd4). Code was read, not run against the lab, and the new UI was not seen running. Line numbers refer to that branch.
+
+### 11.1 What already agrees with this spec
+| Rule | Where it lives | Result |
+|---|---|---|
+| Canvas comes from the display EDID (preferred progressive timing), 1080p60 fallback with the reason shown | `MultiViewCanvasPolicy.Choose` | Matches BAVM's "EDID (Recommended)" |
+| An unreadable EDID never redraws the layout for the fallback | `MultiViewOrchestrator.SendAsync` (~line 818) | Safer than the spec assumed; keep |
+| Display changed since the layout was drawn: layout redrawn for the new canvas and the operator told | `SendAsync` (~line 829) | Keep |
+| One surface and one subscription per distinct encoder, so "Source stream is duplicated" cannot occur from the composer | `SurfacePlanner.Plan` | Matches study rule (open question 9) |
+| An encoder keeps one scaler size across displays; a PiP inset is exempt | `DraftValidator.OtherDisplayConflict` | Matches §10.3 item 1; scaler readback still unconfirmed |
+| One oversized surface (above 2048x1080), eleven standard ones | `SurfacePlanner` | Matches API Reference §5.3 |
+| Warn-only budget check runs once per Save & Apply and cannot block | `SendAsync` line 861, `WarnIfOverBudgetAsync` | Present after the merge |
+
+### 11.2 Not built (all still in the spec)
+1. No canvas step-down: a 4K display always gets a 4K canvas (§4.4a).
+2. No cross-display ledger: `UsesExcept` feeds only the size-conflict rule; nothing sums TX egress or RX ingress across displays (§4.1).
+3. No apply gate, health check, Revert, Details panel or `MultiView.BandwidthGuard` (§4.5, §4.8, §4.9, §6).
+
+### 11.3 Differences between the composer's math and the model (changes for rollout step 1)
+`MultiViewCanvasPolicy.EstimateGbps` / `NeedsFrameDivider` decide today whether stream 1 is halved. They disagree with the validated model (`docs/studies/multiview_bandwidth_model.py`) in four ways:
+
+| # | Today | Model / live evidence | Change for step 1 |
+|---|---|---|---|
+| 1 | `pixels x fps x 24 / 1e9`: no wire efficiency | `/ 0.93` (about +7.5 %), validated within about 2 % | Divide by `MultiViewBandwidthBudget.Efficiency`; a layout at 8.4 to 9.0 Gbps is halved today only by luck |
+| 2 | `fps` is the display canvas rate | A scaled stream runs at the **source** frame rate (`MultiViewBandwidthBudget.Stream1`) | Use each source's frame rate, read with `ReadSourceVideoAsync`; fall back to the canvas rate only when unreadable |
+| 3 | Counts stream 1 only, per window | Stream 0 counts toward the same 9 Gbps (Boom case: 9.30 Gbps, stream 1 only 0.78) | Decide halving from `MultiViewBandwidthBudget.TxEgress` per TX, not from window pixels |
+| 4 | Divider is set on the TX and silently halves that source for every display using it | Stream 1 is one stream per TX | Show it in the ledger ("Halved for all displays using <source>") and count it in other displays' load |
+
+Do not just swap the formula: `tests/AvasRoutingTool.Tests/MultiViewCanvasPolicyTests.cs` pins the current behaviour (`EstimateGbps_FourFullHdWindowsAtSixtyIsAboutTwelve`, `NeedsFrameDivider_*`). Update those tests first, test-first, with the new expected values worked out from the model script.
+
+### 11.4 Order of work after QA signs off
+1. Fix 11.3 items 1 to 3 behind the guard (still Off): same behaviour for layouts that fit, correct halving near the limit.
+2. Add the ledger (§4.1) reading real TX scaler size, stream 0 and divider state; it replaces `UsesExcept` as the single source for the validator.
+3. Add the canvas ladder (§4.4a), then the gate and health check (§4.5, §4.8), then Block.
