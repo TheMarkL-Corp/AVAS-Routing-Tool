@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using AvasRoutingTool.Configuration;
+using AvasRoutingTool.Rtsp;
 using AvasRoutingTool.Services.Visca;
 
 namespace AvasRoutingTool.ViewModels
@@ -25,14 +26,20 @@ namespace AvasRoutingTool.ViewModels
         private readonly Func<DateTime> _now;
         private RoomCameraViewModel? _selected;
         private readonly System.Collections.Generic.Dictionary<RoomCameraViewModel, CancellationTokenSource> _connects = new();
+        private readonly Func<IRtspStreamPlayer>? _rtspPlayerFactory;
+        private readonly Func<TimeSpan, CancellationToken, Task>? _rtspDelay;
         private bool _disposed;
 
         public RoomCamerasViewModel(
             IConfigService configService,
             IPtzCameraFactory factory,
             ObservableCollection<SourceCardViewModel> sources,
-            Func<DateTime> now)
+            Func<DateTime> now,
+            Func<IRtspStreamPlayer>? rtspPlayerFactory = null,
+            Func<TimeSpan, CancellationToken, Task>? rtspDelay = null)
         {
+            _rtspPlayerFactory = rtspPlayerFactory;
+            _rtspDelay = rtspDelay;
             _configService = configService ?? throw new ArgumentNullException(nameof(configService));
             _factory = factory ?? throw new ArgumentNullException(nameof(factory));
             _sources = sources ?? throw new ArgumentNullException(nameof(sources));
@@ -217,7 +224,7 @@ namespace AvasRoutingTool.ViewModels
         private RoomCameraViewModel CreateCameraViewModel(RoomCameraConfig config)
         {
             var camera = _factory.Create(config);
-            var vm = new RoomCameraViewModel(config, camera, _now);
+            var vm = new RoomCameraViewModel(config, camera, _now, _rtspPlayerFactory, _rtspDelay);
             vm.ResolveSource(FindCard(config.BoundTxMac));
             StartConnect(vm);
             return vm;
@@ -247,6 +254,7 @@ namespace AvasRoutingTool.ViewModels
         private void ReplaceCamera(int index, RoomCameraConfig config)
         {
             var old = Cameras[index];
+            old.StopPreview();   // the old preview (TX stream this tab started, or the RTSP source) goes first
             bool wasSelected = ReferenceEquals(_selected, old);
             var fresh = CreateCameraViewModel(config);
             Cameras[index] = fresh;

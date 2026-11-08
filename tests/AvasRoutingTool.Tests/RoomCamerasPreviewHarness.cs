@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Threading.Tasks;
+using AvasRoutingTool.Rtsp;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -121,6 +124,36 @@ namespace AvasRoutingTool.Tests
                 new() { Id = "c", Name = "Camera C (closed port)", Host = "127.0.0.1", Port = closedPort, Transport = ViscaTransportKind.Tcp },
             };
 
+            // Camera D previews an RTSP stream. AVAS_RTSP_URL (if set) is read here, used in memory only and never shown, logged or stored.
+            var realUrl = Environment.GetEnvironmentVariable("AVAS_RTSP_URL");
+            var useReal = !string.IsNullOrWhiteSpace(realUrl);
+            FakeRtspServer? rtsp = null;
+            RoomCamerasViewModel? roomVm = null;
+
+            RoomCameraConfig CameraD(string url) => new()
+            {
+                Id = "d", Name = "Camera D (RTSP)", Host = "127.0.0.1", Port = tcp.Port, Transport = ViscaTransportKind.Tcp,
+                PreviewMode = RoomCameraPreviewMode.Rtsp, RtspUrl = url,
+            };
+
+            // A new fake server has a new port, so Camera D is rebuilt through UpdateCamera with the new address (replaces the
+            // camera view model, which stops the old preview). In real-address mode the buttons do nothing.
+            void ServeRtsp(FakeRtspMode mode, bool drop = false)
+            {
+                if (useReal || roomVm == null) return;
+                if (drop) { rtsp?.Drop(); return; }
+                rtsp?.Dispose();
+                rtsp = new FakeRtspServer(mode);
+                roomVm.UpdateCamera(CameraD(FakeUrl(rtsp)));
+            }
+
+            if (useReal) config.Stored.RoomCameras.Add(CameraD(realUrl!));
+            else
+            {
+                rtsp = new FakeRtspServer(FakeRtspMode.Normal);
+                config.Stored.RoomCameras.Add(CameraD(FakeUrl(rtsp)));
+            }
+
             var live = Card("TX1_live", MacLive, active: true);
             var standby = Card("TX2_standby", MacStandby, active: true);
             var offline = Card("TX3_offline", "aa:bb:cc:00:00:03", active: false);
@@ -135,6 +168,7 @@ namespace AvasRoutingTool.Tests
             pattern.Start();
 
             var vm = new RoomCamerasViewModel(config, new PtzCameraFactory(), sources, () => DateTime.UtcNow);
+            roomVm = vm;
             var view = new RoomCamerasView { DataContext = vm };
 
             logText = new TextBlock { FontFamily = new FontFamily("Consolas"), FontSize = 12, Text = "(no VISCA commands received yet - press a pad arrow)" };
@@ -143,6 +177,18 @@ namespace AvasRoutingTool.Tests
             var header = new TextBlock { Text = "Fake camera servers received (newest first, inquiries hidden):", FontSize = 11, Opacity = 0.7 };
             header.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorPrimaryBrush");
             strip.Children.Add(header);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 6) };
+            Button Btn(string text, Action click)
+            {
+                var b = new Button { Content = text, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 4, 12, 4) };
+                b.Click += (_, _) => click();
+                return b;
+            }
+            buttons.Children.Add(Btn("RTSP: Normal", () => ServeRtsp(FakeRtspMode.Normal)));
+            buttons.Children.Add(Btn("RTSP: 401", () => ServeRtsp(FakeRtspMode.Require401)));
+            buttons.Children.Add(Btn("RTSP: Drop", () => ServeRtsp(FakeRtspMode.Normal, drop: true)));
+            buttons.Children.Add(Btn("RTSP: Refuse", () => ServeRtsp(FakeRtspMode.RefuseConnection)));
+            strip.Children.Add(buttons);
             strip.Children.Add(logText);
 
             var root = new Grid();
@@ -171,9 +217,15 @@ namespace AvasRoutingTool.Tests
                     closer.Stop();
                     var states = string.Join(", ", vm.Cameras.Select(c => $"{c.Name}={c.Camera.LinkState}"));
                     Console.WriteLine("RC preview smoke: link states: " + states + "; commands seen: " + total);
+                    var rtspCam = vm.Cameras.FirstOrDefault(c => c.IsRtsp);
+                    if (rtspCam != null) Console.WriteLine("RC preview smoke: RTSP camera preview state: " + rtspCam.Preview);   // the state word only, never an address
                     window!.Close();
                 };
                 closer.Start();
+                // Smoke runs press "Start preview" on the RTSP camera by themselves, one second after the window opens.
+                var starter = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                starter.Tick += (_, _) => { starter.Stop(); vm.Cameras.FirstOrDefault(c => c.IsRtsp)?.StartPreview(); };
+                starter.Start();
             }
 
             try
@@ -186,8 +238,172 @@ namespace AvasRoutingTool.Tests
                 pattern.Stop();
                 try { vm.Dispose(); } catch (Exception) { }
                 foreach (var server in servers) server.Dispose();
+                rtsp?.Dispose();
                 if (light) themes.SetTheme(ThemeMode.Dark);
             }
+        }
+
+        [Fact]
+        public void RoomCamerasRtspPreview_Screenshots()
+        {
+            if (Environment.GetEnvironmentVariable("AVAS_RTSP_SHOTS") != "1" || Environment.GetEnvironmentVariable("AVAS_RTSP_REAL") != "1") return;
+
+            Exception? failure = null;
+            var t = new Thread(() =>
+            {
+                try { InputModality.IsKeyboard = false; TestResources.Ensure(); RunShots(); }
+                catch (Exception ex) { failure = ex; }
+            });
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
+            t.Join();
+            if (failure != null) throw new Xunit.Sdk.XunitException("Room cameras RTSP shots failure: " + failure);
+        }
+
+        private static string FakeUrl(FakeRtspServer s) => "rtsp://127.0.0.1:" + s.Port + "/stream";
+
+        private static void Pump(TimeSpan span) => PumpUntil(() => false, span);
+
+        private static bool PumpUntil(Func<bool> cond, TimeSpan timeout)
+        {
+            var end = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < end)
+            {
+                if (cond()) return true;
+                var frame = new DispatcherFrame();
+                Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
+                Dispatcher.PushFrame(frame);
+                Thread.Sleep(15);
+            }
+            return cond();
+        }
+
+        private static string ShotsFolder()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "docs")))
+                dir = dir.Parent;
+            var folder = Path.Combine(dir?.FullName ?? Directory.GetCurrentDirectory(), "ui_screenshots", "UI-v2-rtsp-room-cameras");
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+
+        private static void Flush(FrameworkElement view)
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Render);
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+                view.UpdateLayout();
+            }
+        }
+
+        private static void SavePng(FrameworkElement element, string path)
+        {
+            element.UpdateLayout();
+            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(element);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var stream = File.Create(path);
+            encoder.Save(stream);
+        }
+
+        private static void RunShots()
+        {
+            var folder = ShotsFolder();   // AVAS_RTSP_URL is deliberately not read here
+            var themes = new ThemeService();
+            using var visca = new FakeViscaServer(ViscaTransportKind.Tcp);
+            try
+            {
+                foreach (var light in new[] { false, true })
+                foreach (var (w, h) in new[] { (1920.0, 1080.0), (1024.0, 720.0) })
+                {
+                    var prefix = (light ? "light" : "dark") + "-" + (int)w + "x" + (int)h + "-";
+                    foreach (var state in new[] { "Standby", "Live", "Reconnecting", "Failed" })
+                    {
+                        themes.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark);
+                        var name = prefix + state + ".png";
+                        using var server = new FakeRtspServer(state == "Failed" ? FakeRtspMode.Require401 : FakeRtspMode.Normal);
+                        var config = new PreviewMemoryConfig();
+                        config.Stored.RoomCameras = new List<RoomCameraConfig>
+                        {
+                            new() { Id = "d", Name = "Camera D (RTSP)", Host = "127.0.0.1", Port = visca.Port, Transport = ViscaTransportKind.Tcp,
+                                    PreviewMode = RoomCameraPreviewMode.Rtsp, RtspUrl = FakeUrl(server) },
+                        };
+                        var sources = new ObservableCollection<SourceCardViewModel> { Card("TX1_live", MacLive, active: true) };
+                        // Reconnecting must stay Reconnecting while the picture is taken: the retry delay never completes.
+                        Func<TimeSpan, CancellationToken, Task>? delay = state == "Reconnecting" ? (_, ct) => Task.Delay(-1, ct) : null;
+                        var vm = new RoomCamerasViewModel(config, new PtzCameraFactory(), sources, () => DateTime.UtcNow,
+                            () => new LibVlcStreamPlayer(), delay);
+                        var view = new RoomCamerasView { DataContext = vm };
+                        var window = new Window { Content = view, Width = w, Height = h, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000 };
+                        window.SetResourceReference(Window.BackgroundProperty, "Brush.Background.Dark");
+                        window.Show();
+                        try
+                        {
+                            themes.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark);
+                            vm.Selected = vm.Cameras[0];
+                            Pump(TimeSpan.FromMilliseconds(300));
+                            var cam = vm.Cameras[0];
+                            if (state != "Standby")
+                            {
+                                // The page stops its preview when another window takes focus (the existing StopAll rule), which can happen
+                                // while shots are taken on a busy desktop: start again, up to three times, before giving up.
+                                var want = state == "Failed" ? CameraPreviewState.Failed : CameraPreviewState.Live;
+                                var done = false;
+                                for (var attempt = 1; attempt <= 3 && !done; attempt++)
+                                {
+                                    if (cam.Preview == CameraPreviewState.Standby) cam.StartPreview();
+                                    if (!PumpUntil(() => cam.Preview == want, TimeSpan.FromSeconds(20))) continue;
+                                    if (want == CameraPreviewState.Live) Pump(TimeSpan.FromSeconds(1));   // a few frames
+                                    if (state == "Reconnecting")
+                                    {
+                                        server.Drop();
+                                        if (!PumpUntil(() => cam.Preview == CameraPreviewState.Reconnecting, TimeSpan.FromSeconds(15))) continue;
+                                    }
+                                    done = true;
+                                }
+                                Assert.True(done, name + ": never reached the wanted state, is " + cam.Preview);
+                            }
+                            Pump(TimeSpan.FromMilliseconds(300));
+                            view.UpdateLayout();
+                            Flush(view);
+                            SavePng((FrameworkElement)VisualTreeHelper.GetChild(window, 0), Path.Combine(folder, name));
+                        }
+                        finally
+                        {
+                            try { vm.Dispose(); } catch (Exception) { }
+                            window.Close();
+                        }
+                    }
+
+                    // The editor dialog in RTSP mode with a fake address typed.
+                    {
+                        themes.SetTheme(light ? ThemeMode.Light : ThemeMode.Dark);
+                        var config = new PreviewMemoryConfig();
+                        var sources = new ObservableCollection<SourceCardViewModel> { Card("TX1_live", MacLive, active: true) };
+                        var vm = new RoomCamerasViewModel(config, new PtzCameraFactory(), sources, () => DateTime.UtcNow);
+                        var editor = vm.CreateEditor(null);
+                        editor.Name = "Camera D (RTSP)";
+                        editor.Host = "127.0.0.1";
+                        editor.PreviewMode = RoomCameraPreviewMode.Rtsp;
+                        editor.RtspUrl = "rtsp://127.0.0.1:8554/stream";
+                        var dialog = new CameraEditorDialog(editor) { ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = 0 };
+                        dialog.SetResourceReference(Window.BackgroundProperty, "Brush.Background.Dark");
+                        dialog.Show();
+                        try
+                        {
+                            Pump(TimeSpan.FromMilliseconds(400));
+                            var content = (FrameworkElement)VisualTreeHelper.GetChild(dialog, 0);
+                            Flush(content);
+                            SavePng(content, Path.Combine(folder, prefix + "editor-rtsp.png"));
+                        }
+                        finally { dialog.Close(); try { vm.Dispose(); } catch (Exception) { } }
+                    }
+                }
+            }
+            finally { themes.SetTheme(ThemeMode.Dark); }
         }
 
         private static SourceCardViewModel Card(string name, string mac, bool active) =>

@@ -234,6 +234,33 @@
                             <TextBlock Text="{Binding PreviewMessage, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" HorizontalAlignment="Center" Margin="0,10,0,0" />
                         </StackPanel>
 
+                        <!-- Reconnecting (RTSP): dot plus word, the message says when the next try is -->
+                        <StackPanel x:Name="StateReconnecting" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Preview, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Reconnecting}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Ellipse Style="{StaticResource Style.StatusDot}" Margin="0,0,8,0" />
+                                <TextBlock Text="Reconnecting" Style="{StaticResource Style.Text.Body}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding PreviewMessage, Mode=OneWay}" Style="{StaticResource Style.Text.Caption}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" />
+                        </StackPanel>
+
+                        <!-- Failed (RTSP): the failure sentence and Retry; the red is the dot only -->
+                        <StackPanel x:Name="StateFailed" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Preview, Mode=OneWay, Converter={StaticResource Converter.ValueEquals}, ConverterParameter=Failed}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Ellipse Style="{StaticResource Style.StatusDot}" Fill="{DynamicResource Brush.Text.Danger}" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding PreviewMessage, Mode=OneWay}" Style="{StaticResource Style.Text.Body}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button x:Name="RetryPreviewButton"
+                                    Content="Retry"
+                                    Style="{StaticResource Style.Button.Primary}"
+                                    MinHeight="{StaticResource Size.Touch.Min}"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,14,0,0"
+                                    Command="{Binding RetryPreviewCommand}"
+                                    AutomationProperties.Name="Retry preview" />
+                        </StackPanel>
+
                         <!-- Moving: the picture frame takes the selected-chip blue -->
                         <Border x:Name="MovingFrame"
                                 IsHitTestVisible="False"

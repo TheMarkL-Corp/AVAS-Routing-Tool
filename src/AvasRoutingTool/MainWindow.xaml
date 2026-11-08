@@ -117,12 +117,12 @@
                             CornerRadius="6"
                             Padding="8,0"
                             MinHeight="{StaticResource Size.Touch.Min}"
-                            Margin="0,0,6,0"
+                            Margin="0,0,4,0"
                             ToolTip="{Binding ConnectionStatus}"
                             AutomationProperties.Name="{Binding ConnectionStatus, StringFormat='Connection status: {0}'}"
                             AutomationProperties.LiveSetting="Polite">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Ellipse Style="{StaticResource Style.StatusDot.Connection}" Tag="{Binding ConnectionHealth}" Margin="0,0,6,0" />
+                            <Ellipse Style="{StaticResource Style.StatusDot.Connection}" Tag="{Binding ConnectionHealth}" Margin="0,0,4,0" />
                             <TextBlock x:Name="ConnectionText" Text="{Binding ConnectionStatus}"
                                        Style="{StaticResource Style.Text.Body}"
                                        FontWeight="Medium"
@@ -217,7 +217,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Log File:" Style="{StaticResource Style.Text.Body}" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                       Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,4,0" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="{Binding LogFilePath}" Style="{StaticResource Style.Text.Caption}"
                                        Foreground="{DynamicResource Brush.Text.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                        ToolTip="{Binding LogFilePath}" />
