@@ -61,6 +61,28 @@ The last command lists the files both branches changed. If `MultiViewOrchestrato
 
 Alternative if the team prefers the UI branch to merge to `main` first: this branch rebases cleanly in practice because overlap is additive; re-run the dry run, then merge or cherry-pick `a6249a3`, `fcf793c`, `5d33311`, `b01c3e8`, `c0a1938` plus the handover commit.
 
+### 4.1 Trial merge branch: `claude/merge-ui-rtsp-multiview-eb5f44` (checked 2026-11-08)
+
+Worktree: `.claude/worktrees/merge-ui-rtsp-multiview-eb5f44`, tip `4937fd4` ("Merge ... into trial/merge-check"). It merges, in order: `claude/ui-round3-6710d5` (3906e84), `claude/rtsp-source-352452`, then this branch.
+
+| Check | Result |
+|---|---|
+| Commits `a6249a3`, `fcf793c`, `5d33311`, `b01c3e8`, `c0a1938`, `01e13c5` are ancestors of the tip | Yes (`git merge-base --is-ancestor`) |
+| `claude/ui-round3-6710d5` and the RTSP branch are ancestors of the tip | Yes |
+| Worktree clean, no conflict markers in `MultiViewOrchestrator.cs`, `SdvoeClient.cs` | Yes |
+| Warn-only check present (`WarnIfOverBudgetAsync`, called at line 861) | Yes |
+| Safe tests in that worktree (2026-11-08) | Full run: 2098 passed, **10 failed**, 2108 total, none in multiview or bandwidth code: `RoomCameraViewModelTests` x5, `RoomCamerasTabTests` x2, `ViscaTcpTransportTests` / `ViscaUdpTransportTests` handle-growth x2, `ViewSmokeTests.Overview_NothingMoves_WhenTheDropChoiceOpens`. Run in isolation, the same 10 tests give 4 failures (`RoomCameraViewModelTests` LinkDrop_DuringMove_SendsStop, LinkStateChange_RaisesPropertyChanged_ForLinkTextAndIsGood, Poll_RunsOnceEvery5s_AndNeverOverlaps, and the Overview smoke test) **with and without this branch** (checked against `ce54688`, the merge before this branch), so those 4 come from the ui-round3 / RTSP side. The other 6 passed in isolation and failed only in the full run; whether they also fail in a full run without this branch was **not** checked. An earlier full run in this worktree hung for over an hour with no output; a rerun with `--blame-hang-timeout 180s` finished in 5.5 minutes |
+| Composer logic against this spec | Reviewed: spec §11. Layout, EDID and duplicate-stream rules agree; the ledger, ladder, gate and health check are absent; the frame-divider math differs from the model (§11.3) |
+
+Documents added by this handover (`01e13c5` and later) are on this branch's history, so a merge of this branch carries them. If the trial branch was made before a later docs commit, merge this branch again; it only adds files under `docs/studies/` and `Handover/`.
+
+### 4.2 Hand-off checklist for whoever completes the merge
+1. Re-run the dry run and the safe tests (section 6) on the final integration branch after QA sign-off.
+2. Confirm in the app, not just in code: apply a layout on a 4K display and on a 1080p display and check the log line `'<display>' output: ...` shows the EDID canvas.
+3. Apply a layout that puts one source on two displays at different sizes and confirm the size-conflict refusal text uses "Block N" and the display name.
+4. Do not start spec step 1 until QA signs off. Start with spec §11.3 (math fixes, test-first), guard Off.
+5. Keep `docs/studies/` and this file updated as tests close the open items in section 7.
+
 ## 5. Where each spec piece lands in the new window
 
 Hooks exist on `claude/ui-round3-6710d5` (verified by reading code; **not seen running**):
@@ -103,3 +125,11 @@ Wording: the action is **Save & Apply**, blocks are "Block N", never "window" or
 - Lab MACs used in the live tests are in the study; the scripts that drove them were scratch files and are **not** in the repo. Use the model script and the netstat calls in section 3 to reproduce readings.
 - Test layouts created on the lab were deleted afterwards (HTTP `DELETE /api/multiview/layout/{name}`), and scaled streams were stopped with `{"op":"stop","stream_type":"HDMI","stream_index":1,"free":true}`. The rollback record is in the study.
 - Release defaults (BAVM `http://localhost:80`, port 8080, maximized, logs hidden) are unchanged by this work.
+
+## 9. Known test failures to fix before the final merge (not caused by this branch)
+
+Owner: the ui-round3 / RTSP side. Verified 2026-11-08 on the trial merge (see section 4.1).
+- `RoomCameraViewModelTests`: `LinkDrop_DuringMove_SendsStop`, `LinkStateChange_RaisesPropertyChanged_ForLinkTextAndIsGood`, `Poll_RunsOnceEvery5s_AndNeverOverlaps` (fail with and without this branch).
+- `ViewSmokeTests.Overview_NothingMoves_WhenTheDropChoiceOpens`: card 2 moves from y=412.62 to y=332.91 at 1008x615 (fails with and without this branch).
+- Full-run only, not yet attributed: `RoomCameraViewModelTests` LinkIsUnreachable_TracksLinkState and MotionChanged_RaisesPropertyChanged_ForMotionTextAndState, `RoomCamerasTabTests` x2, `ViscaTcpTransportTests` / `ViscaUdpTransportTests` handle growth. Re-run the full suite on the integration branch without this branch's commits to see whether they are load flakes.
+- Test command that hangs vs finishes: use `--blame-hang-timeout 180s`; plain `dotnet test` once hung with no output.
