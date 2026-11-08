@@ -10,7 +10,7 @@ using Xunit;
 
 namespace AvasRoutingTool.Tests
 {
-    /// <summary>The app version (1.0.0) must be the same in the .exe details, the app bar and the Settings window.</summary>
+    /// <summary>The app version (1.1.0) must be the same in the .exe details, the app bar and the Settings window.</summary>
     [Collection("WpfSta")]
     public class AppVersionTests
     {
@@ -39,16 +39,16 @@ namespace AvasRoutingTool.Tests
         }
 
         [Fact]
-        public void AppInfo_Version_IsOneZeroZero() => Assert.Equal("1.0.0", AppInfo.Version);
+        public void AppInfo_Version_IsOneOneZero() => Assert.Equal("1.1.0", AppInfo.Version);
 
         [Fact]
         public void ExeFileDetails_ShowTheSameVersion()
         {
             var asm = typeof(AppInfo).Assembly;
             var info = FileVersionInfo.GetVersionInfo(asm.Location);
-            Assert.Equal("1.0.0.0", info.FileVersion);
-            Assert.StartsWith("1.0.0", info.ProductVersion);
-            Assert.Equal("1.0.0.0", asm.GetName().Version?.ToString());
+            Assert.Equal("1.1.0.0", info.FileVersion);
+            Assert.StartsWith("1.1.0", info.ProductVersion);
+            Assert.Equal("1.1.0.0", asm.GetName().Version?.ToString());
         }
 
         [Fact]
@@ -60,7 +60,7 @@ namespace AvasRoutingTool.Tests
             try
             {
                 var label = (TextBlock)window.FindName("AppVersionText");
-                Assert.Equal("v1.0.0", label.Text);
+                Assert.Equal("v1.1.0", label.Text);
             }
             finally { window.Close(); }
         });
@@ -70,7 +70,7 @@ namespace AvasRoutingTool.Tests
         {
             var dialog = new SettingsDialog(new StubConfig());
             var label = (TextBlock)dialog.FindName("VersionText");
-            Assert.Contains("1.0.0", label.Text);
+            Assert.Contains("1.1.0", label.Text);
         });
     }
 }
