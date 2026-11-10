@@ -49,3 +49,7 @@ ui_screenshots/
 
 # Beta release builds
 publish-beta/
+
+# Installer inputs/outputs (no binaries in git)
+installer/vendor/WebView2Runtime/
+installer/Output/
