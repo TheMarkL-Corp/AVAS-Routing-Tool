@@ -17,7 +17,8 @@ You need:
 | Computer | Windows 10 or 11, 64-bit. A touch screen is supported. |
 | Network | The computer must be on the same network as your AVAS devices and the BlueRiver Control Server. |
 | BlueRiver Control Server | Running and reachable. By default the app expects it on the same computer (`localhost`). |
-| Installed software | None. The portable package includes everything it needs. |
+| Installed software | None. The package includes the .NET runtime, the video libraries and the Microsoft Edge WebView2 runtime used by the BAVM Console tab. |
+| Disk space | About 1 GB once unzipped (the download is about 400 MB). |
 
 ---
 
@@ -28,6 +29,8 @@ The app is portable. There is no installer.
 1. Copy the `AvasRoutingTool-v1.1` folder (or unzip `AvasRoutingTool-v1.1-portable-win-x64.zip`) to any location, for example `C:\AVAS\`.
 2. Open the folder and double-click **`AvasRoutingTool.exe`**.
 3. The app opens full screen and starts looking for devices.
+
+Keep the folder together. The app needs the files next to `AvasRoutingTool.exe`, including the `libvlc` and `WebView2Runtime` folders.
 
 To uninstall, close the app and delete the folder.
 
