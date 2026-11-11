@@ -72,7 +72,7 @@ The customer package is a single-file Windows installer, `AvasRoutingTool-Setup-
 
 Before the first build on a PC:
 
-1. Install [Inno Setup 6](https://jrsoftware.org/isdl.php) (winget may not exist on every PC).
+1. Install [Inno Setup 6.3 or newer](https://jrsoftware.org/isdl.php) (winget may not exist on every PC).
 2. Place the WebView2 Fixed Version runtime as described in [`installer/vendor/README.md`](./installer/vendor/README.md).
 
 Then build and test:

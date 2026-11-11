@@ -40,8 +40,6 @@ The installer also adds an entry to the Start Menu. Later, open the app from the
 
 **Uninstall:** open Windows **Settings**, then **Apps** (Apps & Features), choose **AVAS Routing Tool** and **Uninstall**. The uninstaller asks whether to also delete your saved settings. Choose **No** to keep them for a later reinstall.
 
-A portable zip also exists for IT use: unzip it and run `AvasRoutingTool.exe`. Keep the folder together, because the app needs the files next to `AvasRoutingTool.exe`, including the `libvlc` and `WebView2Runtime` folders.
-
 ---
 
 ## 3. First-time setup (about 2 minutes)
