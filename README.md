@@ -66,6 +66,29 @@ To publish a self-contained portable executable:
 dotnet publish src/AvasRoutingTool/AvasRoutingTool.csproj -c Release -o publish/AvasRoutingTool
 ```
 
+#### Single-file installer
+
+The customer package is a single-file Windows installer, `AvasRoutingTool-Setup-<version>.exe` (about 290 MB). It installs per user without administrator rights.
+
+Before the first build on a PC:
+
+1. Install [Inno Setup 6](https://jrsoftware.org/isdl.php) (winget may not exist on every PC).
+2. Place the WebView2 Fixed Version runtime as described in [`installer/vendor/README.md`](./installer/vendor/README.md).
+
+Then build and test:
+
+```powershell
+# Publishes the app, stages it and builds installer/Output/AvasRoutingTool-Setup-<version>.exe
+powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
+
+# Installs, upgrades and uninstalls the built installer to check it
+powershell -ExecutionPolicy Bypass -File scripts/test-installer.ps1
+```
+
+`-ExecutionPolicy Bypass` is needed on PCs that block unsigned scripts. The test takes several minutes and places and removes a temporary shortcut on the real Desktop.
+
+The installer is not signed, so Windows SmartScreen may warn on first run; see the [Quick Start Guide](./docs/QUICKSTART.md).
+
 ---
 
 ## Documentation

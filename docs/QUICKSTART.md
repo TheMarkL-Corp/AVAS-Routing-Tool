@@ -18,23 +18,29 @@ You need:
 | Network | The computer must be on the same network as your AVAS devices and the BlueRiver Control Server. |
 | BlueRiver Control Server | Running and reachable. By default the app expects it on the same computer (`localhost`). |
 | Installed software | None. The package includes the .NET runtime, the video libraries and the Microsoft Edge WebView2 runtime used by the BAVM Console tab. |
-| Disk space | About 1 GB once unzipped (the download is about 400 MB). |
+| Disk space | About 1 GB once installed (the installer file is about 290 MB). |
 
 ---
 
 ## 2. Install and launch
 
-The app is portable. There is no installer.
+1. Get **`AvasRoutingTool-Setup-1.1.0.exe`** from the location your Advantech contact gave you, and double-click it. You do not need administrator rights. The app installs for your Windows user only, by default under `%LOCALAPPDATA%\Programs\AVAS Routing Tool`.
+2. Follow the wizard. Leave **Create a desktop shortcut** ticked, then choose **Install**.
+3. On the last page, leave **Launch** ticked and choose **Finish**. The app opens full screen and starts looking for devices.
 
-1. Copy the `AvasRoutingTool-v1.1` folder (or unzip `AvasRoutingTool-v1.1-portable-win-x64.zip`) to any location, for example `C:\AVAS\`.
-2. Open the folder and double-click **`AvasRoutingTool.exe`**.
-3. The app opens full screen and starts looking for devices.
+The installer also adds an entry to the Start Menu. Later, open the app from the desktop shortcut or the Start Menu.
 
-Keep the folder together. The app needs the files next to `AvasRoutingTool.exe`, including the `libvlc` and `WebView2Runtime` folders.
+> If Windows says it protected your PC (SmartScreen), choose **More info**, then **Run anyway**. The installer is not digitally signed, so Windows shows this message.
 
-To uninstall, close the app and delete the folder.
+> If your firewall asks for permission the first time, allow the app. It needs network access to find devices and to show live previews.
 
-> If Windows SmartScreen or your firewall asks for permission the first time, allow the app. It needs network access to find devices and to show live previews.
+**Update to a newer version:** run the new installer over the old one. Your saved settings are kept.
+
+**Where settings are kept:** in the `appsettings.json` file in the install folder.
+
+**Uninstall:** open Windows **Settings**, then **Apps** (Apps & Features), choose **AVAS Routing Tool** and **Uninstall**. The uninstaller asks whether to also delete your saved settings. Choose **No** to keep them for a later reinstall.
+
+A portable zip also exists for IT use: unzip it and run `AvasRoutingTool.exe`. Keep the folder together, because the app needs the files next to `AvasRoutingTool.exe`, including the `libvlc` and `WebView2Runtime` folders.
 
 ---
 
