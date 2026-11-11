@@ -36,7 +36,13 @@ function Find-Iscc {
 try {
     if (-not $Staging) { $Staging = Join-Path $RepoRoot 'publish\installer-staging' }
     elseif (-not [System.IO.Path]::IsPathRooted($Staging)) { $Staging = Join-Path (Get-Location).Path $Staging }
-    $Staging = [System.IO.Path]::GetFullPath($Staging)
+    $Staging = [System.IO.Path]::GetFullPath($Staging).TrimEnd('\', '/')
+
+    # Safety: staging is deleted recursively, so it must be a child folder strictly inside <repo>\publish
+    $publishRoot = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot 'publish')).TrimEnd('\', '/')
+    if (-not $Staging.StartsWith($publishRoot + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing unsafe staging path '$Staging': it must be a folder inside $publishRoot"
+    }
 
     # 1. Version
     $version = Get-AppVersion
