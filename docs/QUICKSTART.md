@@ -181,7 +181,7 @@ The **Danger zone** has **Reboot chip**, **Reboot MCU**, **Factory reset MCU** a
 | The BAVM Console tab is blank | Open the URL from Settings in a normal browser to check the Control Server is reachable. |
 | A room camera shows "Cannot reach..." | Check the address, port and transport (UDP or TCP) in the camera's settings. Press **Detect** or **Test connection**. |
 
-**Logs for support:** turn on **Show Logs tab (diagnostics)** in Settings to see events live. The app also writes an `app.log` file, next to `AvasRoutingTool.exe` (or in `%LOCALAPPDATA%AvasRoutingToologs` if that folder is read-only). send it with your report.
+**Logs for support:** turn on **Show Logs tab (diagnostics)** in Settings to see events live. The app also writes an `app.log` file, next to `AvasRoutingTool.exe` (or in `%LOCALAPPDATA%\AvasRoutingTool\Logs` if that folder is read-only). send it with your report.
 
 ---
 
