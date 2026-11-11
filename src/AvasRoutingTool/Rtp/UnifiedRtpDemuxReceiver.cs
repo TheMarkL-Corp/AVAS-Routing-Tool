@@ -536,6 +536,7 @@ namespace AvasRoutingTool.Rtp
             private readonly Queue<long> _frameTimestamps = new();
             private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
             private readonly object _fpsLock = new();
+            private readonly RtpStreamDiagnostics _diagnostics = new();
 
             private WriteableBitmap? _bitmap;
             private int _bitmapWidth;
@@ -606,6 +607,13 @@ namespace AvasRoutingTool.Rtp
 
                 if (RtpHeader.TryParse(datagram, out var rtpHeader))
                 {
+                    string? diag = _diagnostics.Observe(rtpHeader.SequenceNumber, rtpHeader.Timestamp, rtpHeader.Marker,
+                        rtpHeader.LineNo, rtpHeader.Length, datagram.Length, _stopwatch.ElapsedMilliseconds, _reassembler.FramesCompleted);
+                    if (diag != null)
+                    {
+                        AppLogger.Info("RTPDIAG", $"{UnicastIp}: {diag}");
+                    }
+
                     var frame = _reassembler.ProcessPacket(in rtpHeader);
                     if (frame != null)
                     {
