@@ -106,9 +106,9 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit $LASTEXITCODE)" }
 
         $outDir = Join-Path $RepoRoot 'installer\Output'
-        $setup = Get-ChildItem -LiteralPath $outDir -Filter '*.exe' -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if (-not $setup) { throw "ISCC reported success but no installer was found in $outDir" }
+        $setupName = "AvasRoutingTool-Setup-$version.exe"
+        $setup = Get-Item -LiteralPath (Join-Path $outDir $setupName) -ErrorAction SilentlyContinue
+        if (-not $setup) { throw "ISCC reported success but $setupName was not found in $outDir" }
 
         if ($env:AVAS_SIGN_CMD) {
             $signCmd = [string]::Format($env:AVAS_SIGN_CMD, $setup.FullName)
